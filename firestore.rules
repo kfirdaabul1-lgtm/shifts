@@ -1,0 +1,134 @@
+rules_version = '2';
+
+// כללי האבטחה של מסד הנתונים.
+// מדביקים את כל הקובץ ב-Firebase Console ← Firestore Database ← Rules ← Publish.
+// המייל בפונקציה ownerEmail חייב להיות זהה ל-ownerEmail בקובץ config.js.
+//
+// מי רואה מה:
+//  - בעל המערכת: הכל.
+//  - מנהל: רק המלונות שבעל המערכת שייך לו (בלי שיוך = כל המלונות). שכר, זמינות והגדרות של מלון אחר חסומים.
+//  - עובד: הפרטים שלו, הזמינות שלו, הצוות והמשמרות של המלון שלו. אף פעם לא שכר.
+//  - מי שלא מחובר: כלום.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function ownerEmail() { return 'kfirdaabul1@gmail.com'; }
+
+    function signedIn() { return request.auth != null; }
+    function isOwner() {
+      return signedIn()
+        && request.auth.token.email != null
+        && request.auth.token.email_verified == true
+        && request.auth.token.email.lower() == ownerEmail();
+    }
+
+    // מנהלים
+    function hasRole() {
+      return signedIn() && exists(/databases/$(database)/documents/roles/$(request.auth.uid));
+    }
+    function roleHotels() {
+      return get(/databases/$(database)/documents/roles/$(request.auth.uid)).data.get('hotels', []);
+    }
+    function isManager() { return isOwner() || hasRole(); }
+    function allHotels() { return isOwner() || (hasRole() && roleHotels().size() == 0); }
+    function manages(h) { return allHotels() || (hasRole() && h in roleHotels()); }
+
+    // עובדים
+    function isEmployee() {
+      return signedIn() && exists(/databases/$(database)/documents/employees/$(request.auth.uid));
+    }
+    function myHotel() {
+      return get(/databases/$(database)/documents/employees/$(request.auth.uid)).data.get('hotel', 'main');
+    }
+    function isMember() { return isManager() || isEmployee(); }
+
+    function hotelOf(d) { return d.get('hotel', 'main'); }
+    // מזהה סידור: "2026-10-18" למלון הראשי, "2026-10-18_hxxxx" למלון אחר
+    function schedHotel(id) { return id.split('_').size() > 1 ? id.split('_')[1] : 'main'; }
+
+    // מי מנהל: רק בעל המערכת ממנה מנהלים
+    match /roles/{uid} {
+      allow get: if isOwner() || (signedIn() && request.auth.uid == uid);
+      allow list, write: if isOwner();
+    }
+
+    // קודי הצטרפות: עובד יכול לבדוק קוד שהוא יודע, רק מנהל המלון יוצר ומחליף
+    match /joinCodes/{code} {
+      allow get: if signedIn();
+      allow list: if allHotels();
+      allow create: if manages(request.resource.data.hotel);
+      allow update: if manages(resource.data.hotel) && manages(request.resource.data.hotel);
+      allow delete: if manages(resource.data.hotel);
+    }
+
+    // עובדים
+    match /employees/{uid} {
+      allow get: if signedIn() && (request.auth.uid == uid || isManager()
+        || (isEmployee() && hotelOf(resource.data) == myHotel()));
+      allow list: if isManager() || (isEmployee() && resource.data.hotel == myHotel());
+      // הרשמה עצמית רק עם קוד הצטרפות תקף, למלון של הקוד
+      allow create: if manages(hotelOf(request.resource.data)) || (
+        signedIn() && request.auth.uid == uid
+        && request.resource.data.joinCode is string
+        && exists(/databases/$(database)/documents/joinCodes/$(request.resource.data.joinCode))
+        && get(/databases/$(database)/documents/joinCodes/$(request.resource.data.joinCode)).data.hotel == request.resource.data.hotel
+      );
+      // עובד מעדכן רק שם, טלפון, תפקיד, משמרות רצויות ומחלקות. לא מלון ולא שום דבר אחר.
+      allow update: if (manages(hotelOf(resource.data)) && manages(hotelOf(request.resource.data)))
+        || (signedIn() && request.auth.uid == uid
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'phone', 'title', 'want', 'depts']));
+      allow delete: if manages(hotelOf(resource.data));
+    }
+
+    // זמינות: כל עובד רק את שלו ורק במלון שלו, מנהלים רק במלונות שלהם
+    match /avail/{uid} {
+      allow get: if signedIn() && (request.auth.uid == uid || manages(hotelOf(resource.data)));
+      allow list: if allHotels() || (hasRole() && resource.data.hotel in roleHotels());
+      allow create: if (signedIn() && request.auth.uid == uid && isEmployee() && request.resource.data.hotel == myHotel())
+        || manages(hotelOf(request.resource.data));
+      allow update: if (signedIn() && request.auth.uid == uid && isEmployee() && request.resource.data.hotel == myHotel())
+        || (manages(hotelOf(resource.data)) && manages(hotelOf(request.resource.data)));
+      allow delete: if (signedIn() && request.auth.uid == uid) || manages(hotelOf(resource.data));
+    }
+
+    // שכר: רק מנהלים, ורק של המלונות שלהם
+    match /mgr/{uid} {
+      allow get: if manages(hotelOf(resource.data));
+      allow list: if allHotels() || (hasRole() && resource.data.hotel in roleHotels());
+      allow create: if manages(hotelOf(request.resource.data));
+      allow update: if manages(hotelOf(resource.data)) && manages(hotelOf(request.resource.data));
+      allow delete: if manages(hotelOf(resource.data));
+    }
+
+    // הגדרות מלון (כולל קוד ההצטרפות): מנהלי המלון, והעובדים של אותו מלון לקריאה
+    match /settings/{h} {
+      allow read: if manages(h) || (isEmployee() && h == myHotel());
+      allow write: if manages(h);
+    }
+
+    // שמות המלונות
+    match /hotels/{h} {
+      allow read: if isMember();
+      allow create, update: if manages(h);
+      allow delete: if isOwner();
+    }
+
+    // משמרות וסידור: כל הצוות קורא (בלי שכר), רק מנהלי המלון כותבים
+    match /shifts/{id} {
+      allow read: if isMember();
+      allow create: if manages(hotelOf(request.resource.data));
+      allow update: if manages(hotelOf(resource.data)) && manages(hotelOf(request.resource.data));
+      allow delete: if manages(hotelOf(resource.data));
+    }
+    match /schedule/{id} {
+      allow read: if isMember();
+      allow write: if manages(schedHotel(id));
+    }
+
+    // כל השאר חסום
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

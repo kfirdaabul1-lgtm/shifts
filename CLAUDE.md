@@ -40,8 +40,8 @@ Chain staff: employees with `hotel:'chain'` (management/office; join code made i
 ## Sign-in
 Google uses `signInWithPopup` only — never add a redirect fallback: redirect breaks on iPhone/Safari because the site (github.io) and authDomain (firebaseapp.com) differ. Email-link sign-in (`sendSignInLinkToEmail`) is the fallback; it needs Email/Password + Email link enabled in Firebase Authentication.
 
-## Language (Hebrew / English / Russian)
-`i18n.js` is loaded by both pages. Hebrew is the source language; in English mode the script translates the rendered DOM with the dictionaries inside it (`DICTS.en`, `DICTS.ru`) and flips the layout to LTR. A floating language picker switches language (saved in localStorage `appLang`; default follows the phone's language). Client-facing quote paper (`.doc`) and user data are not translated. **When you add or change Hebrew UI text, add the English and Russian to `DICTS` in `i18n.js`.** Options without a `value` keep their Hebrew text as the value.
+## Language (Hebrew / English / Russian / Arabic / Hindi / Sinhala)
+`i18n.js` is loaded by both pages. Hebrew is the source language; in other languages the script translates the rendered DOM with the dictionaries inside it (`DICTS.en`, `ru`, `ar`, `hi`, `si`) and flips the layout to LTR, except Arabic, which stays RTL (`RTL` map). A floating language picker switches language (saved in localStorage `appLang`; default follows the phone's language). Client-facing quote paper (`.doc`) and user data are not translated. **When you add or change Hebrew UI text, add the English, Russian, Arabic, Hindi and Sinhala to `DICTS` in `i18n.js`** (a missing entry falls back to Hebrew on screen). Options without a `value` keep their Hebrew text as the value.
 
 ## Before pushing
 Run `node --check` on the extracted script and keep `esc()` around any user-entered text inserted into HTML.

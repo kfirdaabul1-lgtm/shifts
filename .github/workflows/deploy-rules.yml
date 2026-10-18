@@ -1,0 +1,17 @@
+name: Publish security rules
+on:
+  push:
+    branches: [main]
+    paths: ['firestore.rules']
+  workflow_dispatch:
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Publish firestore.rules to Firebase
+        env:
+          KEY: ${{ secrets.FIREBASE_RULES_KEY }}
+        run: |
+          pip install --quiet google-auth requests
+          python3 .github/deploy_rules.py

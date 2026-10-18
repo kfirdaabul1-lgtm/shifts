@@ -13,6 +13,8 @@ rules_version = '2';
 //      perms  = ניהול הרשאות: נותן לאחרים רק אפליקציות ומלונות שיש לו בעצמו
 //      ceo    = מבט מנכ״ל: הכנסות ועלויות עובדים, קריאה בלבד
 //      dept   = מנהל מחלקה: מסדר רק את המחלקות שלו (depts), בלי שכר
+//      mkt    = שיווק: קמפיינים
+//      exp    = הוצאות: ספקים, חשבוניות ומחירים (מבט מנכ״ל קורא את החשבוניות)
 //  - עובד בלי הרשאות: הפרטים, הזמינות והמשמרות שלו והצוות של המלון שלו. אף פעם לא שכר.
 //  - עובד רשת (hotel = 'chain'): נרשם עם קוד הרשת, מופיע ומשובץ בכל המלונות. את השכר שלו רואים רק מי שמנהל את כל המלונות.
 //  - מי שלא מחובר: כלום.
@@ -45,6 +47,8 @@ service cloud.firestore {
     function canEvents() { return isOwner() || (hasRole() && roleApp('events')); }
     function canPerms()  { return isOwner() || (hasRole() && roleApp('perms')); }
     function canCeo()    { return isOwner() || (hasRole() && roleApp('ceo')); }
+    function canMkt()    { return isOwner() || (hasRole() && roleApp('mkt')); }
+    function canExp()    { return isOwner() || (hasRole() && roleApp('exp')); }
     function isManager() { return isOwner() || hasRole(); }
 
     // היקף המלונות של מי שמחזיק הרשאות (ריק = כל המלונות)
@@ -84,11 +88,13 @@ service cloud.firestore {
         && (!a.get('events', false) || roleApp('events'))
         && (!a.get('perms', false) || roleApp('perms'))
         && (!a.get('ceo', false) || roleApp('ceo'))
-        && (!a.get('dept', false) || roleApp('dept') || roleApp('shifts'));
+        && (!a.get('dept', false) || roleApp('dept') || roleApp('shifts'))
+        && (!a.get('mkt', false) || roleApp('mkt'))
+        && (!a.get('exp', false) || roleApp('exp'));
     }
     function grantOk(n) {
       return n.apps is map
-        && n.apps.keys().hasOnly(['shifts', 'events', 'perms', 'ceo', 'dept'])
+        && n.apps.keys().hasOnly(['shifts', 'events', 'perms', 'ceo', 'dept', 'mkt', 'exp'])
         && n.get('hotels', []) is list
         && n.get('depts', []) is list
         && (isOwner() || roleApp('shifts') || n.get('depts', []).hasOnly(roleDepts()))
@@ -209,6 +215,15 @@ service cloud.firestore {
       allow write: if canEvents();
       match /versions/{v} { allow read, write: if canEvents(); }
     }
+
+    // ---------- שיווק ----------
+    match /campaigns/{id} { allow read, write: if canMkt(); }
+
+    // ---------- הוצאות ----------
+    match /suppliers/{id}   { allow read, write: if canExp(); }
+    match /invoices/{id}    { allow read: if canExp() || canCeo(); allow write: if canExp(); }
+    match /invoiceImgs/{id} { allow read, write: if canExp(); }
+    match /expcfg/{id}      { allow read, write: if canExp(); }
 
     // כל השאר חסום
     match /{document=**} {

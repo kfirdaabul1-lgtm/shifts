@@ -29,6 +29,14 @@ Chain staff: employees with `hotel:'chain'` (management/office; join code made i
 - `dept` (department manager): `S.deptOnly`; sees only Schedule + Open shifts tabs for `role.depts` (`deptOk`, `myDEPTS`), never pay/costs, cannot publish. Rules: `deptManages`/`hotelStaff`; needs at least one hotel. Mutually exclusive with `shifts`.
 - Employees see every shift of their departments in availability (not only open ones). After publishing, the Schedule tab has "PDF להדפסה" / "תמונה" (`printSchedule`, one landscape A4 page).
 
+## Added Oct 2026
+- Requests also have `type:'extend'` ({shift, hours, newEnd}); approved ones overlay via `endFor(id,u)`/`withEnd`, and `bakeApproved` writes them to the schedule doc's `ext` map ({shiftId:{uid:end}}). Costs (computeCost, ceoCompute) use the per-person end.
+- Schedule doc also holds `daily` ({date:{ci,co,bf,dn,rf}}) = "10days" numbers per hotel; managers edit in the Schedule tab, employees see the `daily` tab. `saveSched` must keep writing `ext` and `daily`.
+- Manual assign of someone who submitted availability but didn't mark the shift warns (`S.sheet.warn`) and offers "send for approval" (an `add` request, also before publishing).
+- Per-shift hours can be changed in the cell sheet (`sh-times`). Reminder sheet (`remind`) opens WhatsApp chats one by one; `printSchedule('share')` shares the schedule image.
+- Marketing (`mkt` app, tab `#mkt`, collection `campaigns`). Expenses (`exp` app, tab `#exp`): `suppliers`, `invoices` (items, net/total, hasImg, sentAt), `invoiceImgs/{id}` {data: compressed JPEG data URL}, `expcfg/main` {acct:{hotel:email}}. CEO view adds supplier expenses (invoice net) per month.
+- Events board colours are solid: green closed, blue hotel group, grey tentative, red clash.
+
 ## Sign-in
 Google uses `signInWithPopup` only — never add a redirect fallback: redirect breaks on iPhone/Safari because the site (github.io) and authDomain (firebaseapp.com) differ. Email-link sign-in (`sendSignInLinkToEmail`) is the fallback; it needs Email/Password + Email link enabled in Firebase Authentication.
 

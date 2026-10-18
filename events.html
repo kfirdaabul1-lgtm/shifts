@@ -33,6 +33,8 @@
   <a class="item" href="./"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>סידור עבודה</a>
   <a class="item" href="events.html" id="abEvents" aria-current="page"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 13h7M9 17h5"/></svg>אירועים</a>
   <a class="item" href="./#ceo" id="abCeo" hidden><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>מבט מנכ״ל</a>
+  <a class="item" href="./#mkt" id="abMkt" hidden><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11v2a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg>שיווק</a>
+  <a class="item" href="./#exp" id="abExp" hidden><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6M9 16h3"/></svg>הוצאות</a>
   <a class="item" href="./#perms" id="abPerms" hidden><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M12 3l7 3v5c0 5-3 8-7 10-4-2-7-5-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg>הרשאות</a>
   <span class="sp"></span><button class="item" id="abOut"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10"/></svg>יציאה</button>
 </nav></div>
@@ -262,6 +264,13 @@ table.board{border-collapse:collapse;width:100%;min-width:640px;font-size:13px;t
 .grpform{border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:12px;background:var(--surface);display:flex;flex-direction:column;gap:10px}
 .grpform .areas{display:flex;gap:6px;flex-wrap:wrap}
 .ev.clashing{border-color:var(--bad);box-shadow:0 0 0 1px var(--bad) inset}
+/* board colours, solid fill: green = closed, blue = hotel group, grey = tentative, red = clash */
+.ev.st-ok,.ev.st-tent,.ev.grp,.ev.clashing{border:1px solid transparent;border-inline-start-width:1px;color:#fff;background:#2e7d4f}
+.ev.st-tent{background:#80868f}
+.ev.grp{background:#2a6fbf}
+.ev.clashing{background:#c0392b;box-shadow:none}
+.ev.st-ok small,.ev.st-tent small,.ev.grp small,.ev.clashing small{color:rgba(255,255,255,.88)}
+.blegend .ev.st-ok,.blegend .ev.st-tent,.blegend .ev.grp,.blegend .ev.clashing{color:#fff}
 .ev b{font-weight:700}
 .ev small{display:block;color:var(--muted);font-size:11px}
 .cchart{position:relative;min-height:280px}
@@ -985,6 +994,7 @@ const D = &lt;?!= dJson ?&gt;, S = &lt;?!= sJson ?&gt;;
       const ceoMode=location.hash==='#ceo',canEv=ctx.isOwner||!!apps.events,canCeo=ctx.isOwner||!!apps.ceo;
       ctx.allowed=ceoMode?canCeo:canEv;
       document.getElementById('abPerms').hidden=!(ctx.isOwner||apps.perms);
+      document.getElementById('abMkt').hidden=!(ctx.isOwner||apps.mkt);document.getElementById('abExp').hidden=!(ctx.isOwner||apps.exp);
       document.getElementById('abCeo').hidden=!canCeo;document.getElementById('abEvents').hidden=!canEv;
       if(ceoMode){document.getElementById('abEvents').removeAttribute('aria-current');document.getElementById('abCeo').setAttribute('aria-current','page')}
       document.getElementById('abUser').textContent=(u.displayName?u.displayName+' · ':'')+(u.email||'');

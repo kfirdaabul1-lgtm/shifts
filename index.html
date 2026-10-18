@@ -123,6 +123,10 @@ table.grid th.kind small{font-size:.72rem}
 td.off{text-align:center;color:var(--line);font-size:1.1rem}
 .cell{width:100%;min-height:66px;display:flex;flex-wrap:wrap;gap:3px;align-content:flex-start;padding:6px 6px 22px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink);text-align:start;position:relative;font:inherit;cursor:pointer}
 div.cell{cursor:default}
+.cell .add{font-size:.78rem;font-weight:600;color:var(--ink-2,var(--muted));padding:2px 4px}
+button.cell:hover{outline:2px solid var(--h,var(--brass));outline-offset:-2px}
+.addcell{width:100%;min-height:66px;border:1px dashed var(--line);border-radius:8px;background:transparent;color:var(--muted);font:inherit;font-size:1.2rem;cursor:pointer;opacity:.55}
+.addcell:hover{opacity:1;border-color:var(--brass);color:var(--ink)}
 .cell.empty{background:var(--bad-bg);border-color:transparent}
 .cell.part{background:var(--warn-bg);border-color:transparent}
 .cell.full{background:var(--ok-bg);border-color:transparent}
@@ -413,9 +417,9 @@ function cellHTML(dept,date,kind,mode,hi){
   const id=sid(date,dept,kind),s=S.shifts[id];
   if(mode==='need'){const n=+(s&&s.need)||0;
     return `<td><div class="step ${n?'on':''}"><button data-act="need" data-id="${id}" data-dept="${dept}" data-date="${date}" data-kind="${kind}" data-n="-1" aria-label="פחות">−</button><b>${n||'·'}</b><button data-act="need" data-id="${id}" data-dept="${dept}" data-date="${date}" data-kind="${kind}" data-n="1" aria-label="יותר">+</button></div></td>`}
-  if(!s||!(+s.need))return '<td class="off">·</td>';
+  if(!s||!(+s.need))return mode==='sched'?`<td class="off"><button class="addcell" data-act="cell-new" data-id="${id}" data-dept="${dept}" data-date="${date}" data-kind="${kind}" aria-label="הוספת משמרת ושיבוץ">+</button></td>`:'<td class="off">·</td>';
   const as=asg(id),need=+s.need,cls=as.length>=need?'full':as.length?'part':'empty';
-  const inner=as.map(u=>{const ext=hotelOf(u)!==hotelOfShift(s);return `<span class="nm ${u===hi?'me':''} ${ext?'ext':''}" ${ext?`title="${esc(hotelName(hotelOf(u)))}"`:''}>${esc(shortName(u))}</span>`}).join('')+`<span class="cnt mono">${as.length}/${need}</span>`;
+  const inner=as.map(u=>{const ext=hotelOf(u)!==hotelOfShift(s);return `<span class="nm ${u===hi?'me':''} ${ext?'ext':''}" ${ext?`title="${esc(hotelName(hotelOf(u)))}"`:''}>${esc(shortName(u))}</span>`}).join('')+(mode!=='view'&&as.length<need?`<span class="add">+ שיבוץ</span>`:'')+`<span class="cnt mono">${as.length}/${need}</span>`;
   return mode==='view'?`<td><div class="cell ${cls}">${inner}</div></td>`:`<td><button class="cell ${cls}" data-act="cell" data-id="${id}" aria-label="${DMAP[dept].n} ${KMAP[kind].n} ${DAYS[dow(date)]}">${inner}</button></td>`;
 }
 
@@ -480,7 +484,7 @@ function vSched(){
       <button class="btn brass" data-act="send">שליחה לעובדים</button>
       ${isOpen||S.deptOnly?'':'<button class="btn" data-act="openweek">פתיחת השבוע להגשה</button>'}
       <button class="btn ghost" data-act="clear" ${S.deptOnly?'hidden':''}>${S.confirm==='clear'?'לחיצה נוספת תנקה את השיבוץ':'ניקוי שיבוץ'}</button>
-    </div>${S.sched.published?'<p class="muted" style="font-size:.85rem">הסידור פורסם. כדי לשנות משמרת, לוחצים על המשבצת ושולחים בקשה לעובד. השינוי נכנס לסידור רק אחרי שהעובד מאשר.</p>':''}${reqCardHTML()}</section>`;
+    </div>${S.sched.published?'':'<p class="muted" style="font-size:.85rem">שיבוץ ידני: לוחצים על משבצת ובוחרים עובד. משבצת עם + ריקה מוסיפה משמרת. אפשר גם להתחיל בשיבוץ אוטומטי ולתקן ידנית.</p>'}${S.sched.published?'<p class="muted" style="font-size:.85rem">הסידור פורסם. כדי לשנות משמרת, לוחצים על המשבצת ושולחים בקשה לעובד. השינוי נכנס לסידור רק אחרי שהעובד מאשר.</p>':''}${reqCardHTML()}</section>`;
   if(!sh.length)return wrap(head+emptyBox('עוד לא הוגדרו משמרות פתוחות לשבוע הזה','קובעים כמה עובדים צריך בכל משמרת בכל מחלקה. אחר כך העובדים מסמנים מתי הם יכולים, והמערכת משבצת.','<button class="btn pri" data-act="tab" data-t="shifts">הגדרת משמרות פתוחות</button>'));
   const depts=myDEPTS().filter(d=>(S.dept==='all'||S.dept===d.k)&&sh.some(([,s])=>s.dept===d.k));
   const secs=depts.map(d=>{let n=0,f=0;sh.forEach(([id,s])=>{if(s.dept===d.k){n+=+s.need;f+=Math.min(asg(id).length,+s.need)}});
@@ -1035,6 +1039,7 @@ const ACT={
   copy:async()=>{const m=dv('send','msg',composeMsg());persistSend();
     try{await navigator.clipboard.writeText(m);toast('ההודעה הועתקה')}catch(_){const ta=$('#s_msg');if(ta){ta.focus();ta.select()}toast('סמנו את ההודעה והעתיקו ידנית')}},
   need:D=>setNeed(D),
+  'cell-new':D=>{setNeed({...D,n:1});S.sheet={type:'cell',id:D.id,all:false};render()},
   copyprev:()=>copyPrev(),
   savesettings:()=>saveAllSettings(),
   savecost:()=>{const c=cfg(),d=S.drafts.cost||{};saveSettings({overhead:+(d.overhead??c.overhead)||0,shabbatPct:+(d.shabbatPct??c.shabbatPct)||0,preferGlobal:!!(d.preferGlobal??c.preferGlobal)});S.drafts.cost=null;render();toast('החישוב עודכן')},

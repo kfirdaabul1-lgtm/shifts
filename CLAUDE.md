@@ -39,6 +39,7 @@ Chain staff: employees with `hotel:'chain'` (management/office; join code made i
 - Management staff: employee field `mgmt` ('gm'|'ceo', set from the employee card or automatically when granting gm/ceo). `inRoster(u)` excludes them (and inactive/other-hotel people) from submission counts, reminders and auto-assign; their own view has only Profile.
 - Stock (`#stock`, `vStock`): `inventory/{id}` {hotel, dept, name, unit, qty, min} and `purchaseReqs/{id}` {hotel, dept, itemId, itemName, unit, qty, note, status pending|approved|ordered|received|declined|canceled, by}. Visible to owner, shifts managers, hotel managers (all depts) and department managers (their depts). "received" adds qty to the item. Rules `stockIn(h,d)`.
 - `brief` app (daily brief, scoped by `role.hotels`; gm also gets it): tab `#brief` (`vBrief`, `briefLoad`) shows one hotel/day: 10days numbers, that day's events (all venues, incl. hotel groups) and who's on shift; WhatsApp share. Rules `briefRole` (quotes read).
+- `front` app (hotel reception user, scoped by `role.hotels`): tab `#front` (`vFront`): week's 10days entry (writes only `daily` on the schedule doc via `frontSaveDaily`; rules `frontIn`), the hotel's events and the read-only schedule. Events are matched to a hotel by `settings.venues` (set in the Settings tab; empty = all venues; `evForHotel`), also used by brief and gm.
 - Department `ops` = "תפעול / מנהל תורן".
 - Events board colours are solid: green closed, blue hotel group, grey tentative, red clash.
 

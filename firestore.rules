@@ -15,6 +15,7 @@ rules_version = '2';
 //      dept   = מנהל מחלקה: מסדר רק את המחלקות שלו (depts), בלי שכר
 //      gm     = מנהל מלון: כל נתוני המלונות שלו (hotels), אישור דרישות רכש
 //      brief  = בריף יומי: 10days, האירועים ומי במשמרת
+//      front  = קבלת המלון: סידור העבודה והאירועים של המלון, הזנת 10days
 //      mkt    = שיווק: קמפיינים
 //      exp    = הוצאות: ספקים, חשבוניות ומחירים, לפי המלונות ב-expHotels (ריק = כולם). מבט מנכ״ל קורא את החשבוניות
 //  - עובד בלי הרשאות: הפרטים, הזמינות והמשמרות שלו והצוות של המלון שלו. אף פעם לא שכר.
@@ -78,6 +79,8 @@ service cloud.firestore {
     function gmRole() { return hasRole() && roleApp('gm'); }
     // בריף יומי: רואה את האירועים (קריאה בלבד)
     function briefRole() { return hasRole() && roleApp('brief'); }
+    // קבלת המלון: רואה סידור ואירועים של המלונות שלו ומזין 10days
+    function frontIn(h) { return hasRole() && roleApp('front') && (roleHotels().size() == 0 || h in roleHotels()); }
     function gmIn(h) { return isOwner() || (gmRole() && (roleHotels().size() == 0 || h in roleHotels())); }
     // מלאי: מנהל סידור או מנהל מלון של המלון, או מנהל המחלקה
     function stockIn(h, d) { return manages(h) || gmIn(h) || (deptMgr(h) && d in roleDepts()); }
@@ -110,11 +113,12 @@ service cloud.firestore {
         && (!a.get('mkt', false) || roleApp('mkt'))
         && (!a.get('exp', false) || roleApp('exp'))
         && (!a.get('gm', false) || roleApp('gm'))
-        && (!a.get('brief', false) || roleApp('brief') || roleApp('gm'));
+        && (!a.get('brief', false) || roleApp('brief') || roleApp('gm'))
+        && (!a.get('front', false) || roleApp('front'));
     }
     function grantOk(n) {
       return n.apps is map
-        && n.apps.keys().hasOnly(['shifts', 'events', 'perms', 'ceo', 'dept', 'mkt', 'exp', 'gm', 'brief'])
+        && n.apps.keys().hasOnly(['shifts', 'events', 'perms', 'ceo', 'dept', 'mkt', 'exp', 'gm', 'brief', 'front'])
         && n.get('hotels', []) is list
         && n.get('depts', []) is list
         && (isOwner() || roleApp('shifts') || n.get('depts', []).hasOnly(roleDepts()))
@@ -189,7 +193,7 @@ service cloud.firestore {
     }
 
     match /settings/{h} {
-      allow read: if hotelStaff(h) || canCeo() || gmIn(h) || (isEmployee() && (h == myHotel() || myHotel() == 'chain'));
+      allow read: if hotelStaff(h) || canCeo() || gmIn(h) || frontIn(h) || (isEmployee() && (h == myHotel() || myHotel() == 'chain'));
       allow write: if manages(h);
     }
 
@@ -210,7 +214,11 @@ service cloud.firestore {
       allow read: if isMember();
       // מנהל מחלקה משבץ, אבל לא מפרסם ולא מבטל פרסום
       allow write: if manages(schedHotel(id)) || (deptMgr(schedHotel(id))
-        && request.resource.data.get('published', false) == (resource == null ? false : resource.data.get('published', false)));
+        && request.resource.data.get('published', false) == (resource == null ? false : resource.data.get('published', false)))
+        // קבלה: רק נתוני 10days
+        || (frontIn(schedHotel(id)) && (resource == null
+              ? request.resource.data.get('assign', {}).size() == 0 && request.resource.data.get('published', false) == false
+              : request.resource.data.diff(resource.data).affectedKeys().hasOnly(['daily', 'updatedAt'])));
     }
 
     // בקשות שינוי אחרי פרסום: המנהל שולח, העובד מאשר או דוחה. בקשה מאושרת נכנסת לסידור.
@@ -234,7 +242,7 @@ service cloud.firestore {
     match /menus/{id}     { allow read, write: if canEvents(); }
     match /contracts/{id} { allow read, write: if canEvents(); }
     match /quotes/{id} {
-      allow read: if canEvents() || canCeo() || gmRole() || briefRole();
+      allow read: if canEvents() || canCeo() || gmRole() || briefRole() || (hasRole() && roleApp('front'));
       allow write: if canEvents();
       match /versions/{v} { allow read, write: if canEvents(); }
     }

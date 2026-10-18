@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#132033">
-<script src="i18n.js?v=202610182040"></script>
+<script src="i18n.js?v=202610182339"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -988,7 +988,7 @@ function vGm(){const hs=scopeHs();if(!hs.length)return wrap(emptyBox('אין מ�
   const DAILY=dailyRows(h);const sched10=`<div class="card"><h3>היום · ${dm(today)} (10days)</h3>${DAILY.some(([k])=>daily[k]!=null)?`<div class="kpis">${DAILY.map(([k,n])=>kpi(n,daily[k]!=null?String(daily[k]):'—')).join('')}</div>`:'<p class="muted">עוד לא הוזנו נתונים להיום.</p>'}</div>`;
   const events=`<div class="card"><h3>אירועים השבוע</h3>${G.quotes===null?'<p class="muted">אין לך גישה לאירועים.</p>':evs.length?`<div class="plist">${evs.map(q=>`<div class="prow"><span class="who"><b>${dm(q.event.date)} ${esc(q.event.start||'')} · ${esc(q.client?.name||'')}</b><small>${esc(q.event.type||'')} · ${+q.event.guests||0} אורחים${q.kind==='group'?' · קבוצת מלון':q.status==='approved'?' · סגור':' · טנטטיב'}</small></span></div>`).join('')}</div>`:'<p class="muted">אין אירועים השבוע.</p>'}</div>`;
   const stock=G.stock?`<div class="card"><h3>מלאי מתחת למינימום · ${low.length}</h3>${low.length?`<div class="plist">${low.slice(0,12).map(([,x])=>`<div class="prow"><span class="who"><b>${esc(x.name)}</b><small>${esc(DMAP[x.dept]?.n||'')} · ${+x.qty||0} מתוך מינימום ${+x.min}${x.unit?' '+esc(x.unit):''}</small></span></div>`).join('')}</div>`:'<p class="muted">אין פריטים מתחת למינימום.</p>'}<div><button class="btn sm" data-act="app-stock">לעמוד המלאי</button></div></div>`:'';
-  return wrap(head+reqCard+`<div class="setgrid">${sched10}${events}${stock}</div>`);
+  return wrap(head+reqCard+`<div class="setgrid">${sched10}${events}${stock}</div>`+srListHTML(h,true));
 }
 /* ---------- in-app alerts: badge on the menu, page title count, and a phone/browser notification while the site is open ---------- */
 // an item reached its minimum: quantity at or below the minimum set for it
@@ -1125,8 +1125,36 @@ function vFront(){const hs=scopeHs();if(!hs.length)return wrap(emptyBox('אין 
   const sh=weekShifts(),depts=DEPTS.filter(d=>sh.some(([,s])=>s.dept===d.k));
   const sched=`<h2 style="margin-top:8px">סידור העבודה</h2>${S.sched.published?'':'<p class="muted" style="font-size:.85rem">הסידור לשבוע הזה עוד לא פורסם, מוצג השיבוץ הנוכחי.</p>'}`+
     (depts.length?depts.map(d=>`<section class="dept" style="--h:${d.h}"><div class="dept-h"><span class="sw"></span><h2>${d.n}</h2></div>${deptTable(d.k,'view')}</section>`).join(''):emptyBox('אין משמרות לשבוע הזה',''));
-  return wrap(head+daily+evCard+sched);
+  return wrap(head+daily+srFormHTML(h)+srListHTML(h,false)+evCard+sched);
 }
+/* ---------- reception shift report: shiftReports/{id} {hotel, month, date, shift, name, float, cash, credit, unusual, details, by, createdAt} ---------- */
+const SR_SHIFTS=[['morning','בוקר'],['noon','צהריים'],['evening','ערב']];const SR_N=Object.fromEntries(SR_SHIFTS);
+const srBoss=h=>S.isOwner||(S.can.shifts&&scopeHs().includes(h))||(S.can.gm&&scopeHs().includes(h));
+function srSub(h,m){const k='sr:'+h+'|'+m;S.sreps=S.sreps||{};if(S.live[k])return S.sreps[h+'|'+m];S.live[k]=true;
+  S.db.collection('shiftReports').where('hotel','==',h).where('month','==',m).onSnapshot(q=>{S.sreps[h+'|'+m]=docsMap(q);render()},e=>{S.sreps[h+'|'+m]={__err:errMsg(mapErr(e))};render()});return null}
+function srDefShift(){const hr=new Date().getHours();return hr<12?'morning':hr<17?'noon':'evening'}
+function srFormHTML(h){const g=(k,d)=>dv('sr',k,d),un=g('unusual','');
+  return `<div class="card"><h3>דוח סיכום משמרת</h3><p class="muted" style="font-size:.85rem">ממלאים בסוף כל משמרת. הדוח נשמר אצל מנהל המלון.</p>
+  <div class="row"><label class="f">שם מלא<input type="text" id="sr_name" data-f="sr.name" value="${esc(g('name',''))}" autocomplete="off"></label>
+  <label class="f">תאריך<input type="date" id="sr_date" data-f="sr.date" value="${esc(g('date',todayISO()))}"></label>
+  <label class="f">משמרת<select id="sr_shift" data-f="sr.shift">${SR_SHIFTS.map(([k,n])=>`<option value="${k}" ${g('shift',srDefShift())===k?'selected':''}>${n}</option>`).join('')}</select></label></div>
+  <div class="row"><label class="f">קרן קופה בסוף המשמרת (₪)<input type="number" min="0" step="any" inputmode="decimal" id="sr_float" data-f="sr.float" value="${esc(g('float',''))}"></label>
+  <label class="f">מזומן להפקדה (₪)<input type="number" min="0" step="any" inputmode="decimal" id="sr_cash" data-f="sr.cash" value="${esc(g('cash',''))}"></label>
+  <label class="f">סליקה באשראי (₪)<input type="number" min="0" step="any" inputmode="decimal" id="sr_credit" data-f="sr.credit" value="${esc(g('credit',''))}"></label></div>
+  <div class="f"><span>היו אירועים חריגים במשמרת?</span><div class="chips" style="gap:6px"><button type="button" class="hchip" data-act="sr-un" data-v="no" aria-pressed="${un==='no'}">לא</button><button type="button" class="hchip" data-act="sr-un" data-v="yes" aria-pressed="${un==='yes'}">כן</button></div></div>
+  ${un==='yes'?`<label class="f">פירוט האירועים החריגים<textarea id="sr_det" data-f="sr.details" rows="4" placeholder="מה קרה, באיזו שעה, מי היה מעורב ומה נעשה">${esc(g('details',''))}</textarea></label>`:''}
+  <div><button class="btn pri" data-act="sr-save" data-h="${h}">שליחת הדוח</button></div></div>`}
+function srListHTML(h,gm){const m=S.srMonth||todayISO().slice(0,7);srSub(h,m);const d=(S.sreps||{})[h+'|'+m];
+  const nav=`<div class="actions" style="align-items:center"><button class="btn sm" data-act="sr-month" data-d="-1" aria-label="חודש קודם">›</button><b>${HE_MON[+m.slice(5)-1]} ${m.slice(0,4)}</b><button class="btn sm" data-act="sr-month" data-d="1" aria-label="חודש הבא">‹</button></div>`;
+  if(!d)return `<div class="card"><h3>דוחות סיכום משמרת</h3>${nav}<p class="muted">טוען…</p></div>`;
+  if(d.__err)return `<div class="card"><h3>דוחות סיכום משמרת</h3><p class="muted">אין גישה לדוחות.</p></div>`;
+  const ord={morning:0,noon:1,evening:2},rows=Object.entries(d).sort(([,a],[,b])=>String(b.date).localeCompare(String(a.date))||ord[b.shift]-ord[a.shift]);
+  const sum=k=>rows.reduce((t,[,r])=>t+(+r[k]||0),0),unN=rows.filter(([,r])=>r.unusual).length,boss=srBoss(h);
+  return `<div class="card"><div class="actions" style="justify-content:space-between;align-items:center"><h3 style="margin:0">דוחות סיכום משמרת</h3>${nav}</div>
+  <div class="kpis">${kpi('דוחות',String(rows.length))}${kpi('מזומן להפקדה',ils(sum('cash')))}${kpi('סליקה באשראי',ils(sum('credit')))}${kpi('אירועים חריגים',String(unN),'',unN?'bad':'ok')}</div>
+  ${rows.length?`<div class="plist">${rows.map(([id,r])=>`<div class="prow" style="flex-wrap:wrap${r.unusual?';border-color:var(--bad)':''}"><span class="who"><b>יום ${DAYS[dow(r.date)]} ${dm(r.date)} · ${SR_N[r.shift]||''} · ${esc(r.name||'')}</b>
+    <small>קרן קופה ${ils(+r.float||0)} · מזומן להפקדה ${ils(+r.cash||0)} · אשראי ${ils(+r.credit||0)}</small>${r.unusual?`<small style="color:var(--bad);white-space:pre-wrap">⚠ ${esc(r.details||'אירוע חריג')}</small>`:''}</span>
+    <span class="actions">${r.unusual?'<span class="pill bad">חריג</span>':'<span class="pill ok">תקין</span>'}${boss?`<button class="btn sm ghost" data-act="sr-del" data-id="${id}" data-h="${h}">${S.confirm==='sr:'+id?'לחיצה נוספת תמחק':'מחיקה'}</button>`:''}</span></div>`).join('')}</div>`:'<p class="muted">אין דוחות בחודש הזה.</p>'}</div>`}
 function vCosts(){
   const c=cfg(),w=S.week,cost=computeCost(w),max=Math.max(1,...Object.values(cost.dept));
   const noPay=Object.keys(S.emps).filter(u=>hotelOf(u)===S.hotel&&isActive(u)&&!payLabel(u));
@@ -1586,6 +1614,15 @@ const ACT={
     try{await navigator.clipboard.writeText(orderText(h,{name:sp?.name||''},lines));toast('ההזמנה הועתקה')}catch(_){toast('ההעתקה נכשלה')}},
   'order-done':D=>{const h=D.h,items=(S.stockAll||{})[h]||{},lines=Object.entries((S.preqAll||{})[h]||{}).filter(([,r])=>r.status==='approved'&&(r.supplier||items[r.itemId]?.supplier||'')===D.s);
     for(const [rid,r] of lines){const doc={...r,status:'ordered',orderedAt:Date.now(),handledBy:S.uid};S.preqAll[h]={...S.preqAll[h],[rid]:doc};save('purchaseReqs/'+rid,doc)}render();toast(`סומן שהוזמן · ${lines.length} פריטים`)},
+  'sr-un':D=>{(S.drafts.sr||(S.drafts.sr={})).unusual=D.v;render()},
+  'sr-month':D=>{const m=S.srMonth||todayISO().slice(0,7);let y=+m.slice(0,4),mo=+m.slice(5)+ +D.d;if(mo<1){mo=12;y--}if(mo>12){mo=1;y++}S.srMonth=y+'-'+String(mo).padStart(2,'0');render()},
+  'sr-save':D=>{const h=D.h,g=(k,d)=>dv('sr',k,d),name=String(g('name','')).trim(),date=String(g('date',todayISO())),un=g('unusual',''),det=String(g('details','')).trim();
+    if(!name){toast('צריך למלא שם מלא');return}if(!/^\d{4}-\d{2}-\d{2}$/.test(date)){toast('צריך לבחור תאריך');return}
+    if(['float','cash','credit'].some(k=>String(g(k,'')).trim()==='')){toast('צריך למלא קרן קופה, מזומן להפקדה וסליקה באשראי (אפשר 0)');return}
+    if(!un){toast('צריך לסמן אם היו אירועים חריגים');return}if(un==='yes'&&!det){toast('צריך לפרט את האירועים החריגים');return}
+    const id='r'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),doc={hotel:h,month:date.slice(0,7),date,shift:g('shift',srDefShift()),name,float:+g('float',0)||0,cash:+g('cash',0)||0,credit:+g('credit',0)||0,unusual:un==='yes',details:un==='yes'?det:'',by:S.uid,createdAt:Date.now()};
+    const k=h+'|'+doc.month;S.sreps=S.sreps||{};if(S.sreps[k]&&!S.sreps[k].__err)S.sreps[k]={...S.sreps[k],[id]:doc};save('shiftReports/'+id,doc);S.drafts.sr=null;S.srMonth=doc.month;render();toast('הדוח נשלח. תודה!')},
+  'sr-del':D=>{if(S.confirm!=='sr:'+D.id){S.confirm='sr:'+D.id;render();return}S.confirm=null;for(const k in (S.sreps||{}))if(S.sreps[k][D.id]){const c={...S.sreps[k]};delete c[D.id];S.sreps[k]=c}save('shiftReports/'+D.id,null);render();toast('הדוח נמחק')},
   'preq-open':D=>{S.drafts.pq=null;S.sheet={type:'preq',id:D.id};render()},
   'preq-send':()=>{const h=S.hotel,id=S.sheet.id,x=((S.stockAll||{})[h]||{})[id];if(!x)return;const q=+dv('pq','qty',Math.max(1,Math.ceil((+x.min||0)*2-(+x.qty||0))));if(!(q>0)){toast('צריך כמות');return}
     const rid='p'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),doc={hotel:h,dept:x.dept,itemId:id,itemName:x.name,unit:x.unit||'',supplier:x.supplier||'',supplierName:x.supplierName||'',qty:q,note:String(dv('pq','note','')).trim(),status:'pending',by:S.uid,createdAt:Date.now()};

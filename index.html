@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#132033">
-<script src="i18n.js?v=202610190110"></script>
+<script src="i18n.js?v=202610190111"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1161,7 +1161,8 @@ function vFront(){const hs=scopeHs();if(!hs.length)return wrap(emptyBox('אין 
   const sh=weekShifts(),depts=DEPTS.filter(d=>sh.some(([,s])=>s.dept===d.k));
   const sched=`<h2 style="margin-top:8px">סידור העבודה</h2>${S.sched.published?'':'<p class="muted" style="font-size:.85rem">הסידור לשבוע הזה עוד לא פורסם, מוצג השיבוץ הנוכחי.</p>'}`+
     (depts.length?depts.map(d=>`<section class="dept" style="--h:${d.h}"><div class="dept-h"><span class="sw"></span><h2>${d.n}</h2></div>${deptTable(d.k,'view')}</section>`).join(''):emptyBox('אין משמרות לשבוע הזה',''));
-  return wrap(head+daily+srFormHTML(h)+srListHTML(h,false)+evCard+sched);
+  // the reception fills the report but never sees past reports (cash amounts are for managers only)
+  return wrap(head+daily+srFormHTML(h)+(srBoss(h)?srListHTML(h,false):'')+evCard+sched);
 }
 /* ---------- reception shift report: shiftReports/{id} {hotel, month, date, shift, name, float, cash, credit, unusual, details, by, createdAt} ---------- */
 const SR_SHIFTS=[['morning','בוקר'],['evening','ערב'],['night','לילה']];const SR_N={...Object.fromEntries(SR_SHIFTS),noon:'צהריים'};
@@ -1177,7 +1178,7 @@ function srDefShift(){const hr=new Date().getHours();return hr>=5&&hr<11?'night'
 // rows of rooms (out of order / open faults): [{room, note}]
 function srRowsHTML(l,title,ph){const a=dv('sr',l,[]);return `<div class="f"><span>${title}</span>${a.map((r,i)=>`<div class="row" style="align-items:flex-end;flex-wrap:nowrap"><label class="f" style="max-width:90px">מספר חדר<input type="text" inputmode="numeric" data-srrow="${l}|${i}|room" value="${esc(r.room||'')}"></label><label class="f" style="flex:3">פירוט<input type="text" data-srrow="${l}|${i}|note" value="${esc(r.note||'')}" placeholder="${ph}"></label><button type="button" class="btn sm ghost" data-act="sr-rm" data-l="${l}" data-i="${i}" aria-label="הסרה">×</button></div>`).join('')}<div><button type="button" class="btn sm" data-act="sr-add" data-l="${l}">+ הוספת חדר</button></div></div>`}
 function srFormHTML(h){const g=(k,d)=>dv('sr',k,d),un=g('unusual','');
-  return `<div class="card"><h3>דוח סיכום משמרת</h3><p class="muted" style="font-size:.85rem">ממלאים בסוף כל משמרת. הדוח נשמר אצל מנהל המלון.</p>
+  return `<div class="card"><h3>דוח סיכום משמרת</h3><p class="muted" style="font-size:.85rem">ממלאים בסוף כל משמרת. אחרי השליחה הדוח עובר למנהל המלון בלבד, והסכומים לא מוצגים כאן.</p>
   <div class="row"><label class="f">שם מלא<input type="text" id="sr_name" data-f="sr.name" value="${esc(g('name',''))}" autocomplete="off"></label>
   <label class="f">תאריך<input type="date" id="sr_date" data-f="sr.date" value="${esc(g('date',todayISO()))}"></label>
   <label class="f">משמרת<select id="sr_shift" data-f="sr.shift">${SR_SHIFTS.map(([k,n])=>`<option value="${k}" ${g('shift',srDefShift())===k?'selected':''}>${n}</option>`).join('')}</select></label></div>

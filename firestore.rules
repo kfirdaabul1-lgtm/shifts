@@ -7,11 +7,12 @@ rules_version = '2';
 //
 // מי רואה מה:
 //  - בעל המערכת: הכל.
-//  - לכל אדם אחר יש מסמך הרשאות (roles) עם רשימת מלונות ושלוש אפליקציות:
+//  - לכל אדם אחר יש מסמך הרשאות (roles) עם רשימת מלונות ואפליקציות:
 //      shifts = ניהול סידור עבודה במלונות שלו (בלי מלונות = כולם)
 //      events = הצעות מחיר לאירועים
 //      perms  = ניהול הרשאות: נותן לאחרים רק אפליקציות ומלונות שיש לו בעצמו
-//      ceo    = מבט מנכ״ל (הכנסות מאירועים, קריאה בלבד)
+//      ceo    = מבט מנכ״ל: הכנסות ועלויות עובדים, קריאה בלבד
+//      dept   = מנהל מחלקה: מסדר רק את המחלקות שלו (depts), בלי שכר
 //  - עובד בלי הרשאות: הפרטים, הזמינות והמשמרות שלו והצוות של המלון שלו. אף פעם לא שכר.
 //  - מי שלא מחובר: כלום.
 
@@ -50,6 +51,11 @@ service cloud.firestore {
     // ניהול סידור במלון מסוים
     function manages(h) { return isOwner() || (canShifts() && (roleHotels().size() == 0 || h in roleHotels())); }
     function shiftsAllHotels() { return isOwner() || (canShifts() && roleHotels().size() == 0); }
+    // מנהל מחלקה: מסדר רק את המחלקות שלו במלונות שלו, בלי שכר
+    function roleDepts() { return roleData().get('depts', []); }
+    function deptMgr(h) { return hasRole() && roleApp('dept') && h in roleHotels(); }
+    function deptManages(h, d) { return manages(h) || (deptMgr(h) && d in roleDepts()); }
+    function hotelStaff(h) { return manages(h) || deptMgr(h); }
 
     // ---------- עובדים ----------
     function isEmployee() {
@@ -74,12 +80,15 @@ service cloud.firestore {
       return (!a.get('shifts', false) || roleApp('shifts'))
         && (!a.get('events', false) || roleApp('events'))
         && (!a.get('perms', false) || roleApp('perms'))
-        && (!a.get('ceo', false) || roleApp('ceo'));
+        && (!a.get('ceo', false) || roleApp('ceo'))
+        && (!a.get('dept', false) || roleApp('dept') || roleApp('shifts'));
     }
     function grantOk(n) {
       return n.apps is map
-        && n.apps.keys().hasOnly(['shifts', 'events', 'perms', 'ceo'])
+        && n.apps.keys().hasOnly(['shifts', 'events', 'perms', 'ceo', 'dept'])
         && n.get('hotels', []) is list
+        && n.get('depts', []) is list
+        && (isOwner() || roleApp('shifts') || n.get('depts', []).hasOnly(roleDepts()))
         && appsWithin(n.apps)
         && hotelsInScope(n);
     }
@@ -128,8 +137,8 @@ service cloud.firestore {
     }
 
     match /avail/{uid} {
-      allow get: if signedIn() && (request.auth.uid == uid || manages(hotelOf(resource.data)));
-      allow list: if shiftsAllHotels() || (canShifts() && resource.data.hotel in roleHotels());
+      allow get: if signedIn() && (request.auth.uid == uid || hotelStaff(hotelOf(resource.data)));
+      allow list: if shiftsAllHotels() || ((canShifts() || (hasRole() && roleApp('dept'))) && resource.data.hotel in roleHotels());
       allow create: if (signedIn() && request.auth.uid == uid && isEmployee() && request.resource.data.hotel == myHotel())
         || manages(hotelOf(request.resource.data));
       allow update: if (signedIn() && request.auth.uid == uid && isEmployee() && request.resource.data.hotel == myHotel())
@@ -137,17 +146,17 @@ service cloud.firestore {
       allow delete: if (signedIn() && request.auth.uid == uid) || manages(hotelOf(resource.data));
     }
 
-    // שכר: רק מנהלי סידור, ורק של המלונות שלהם
+    // שכר: רק מנהלי סידור (של המלונות שלהם) ומבט מנכ״ל (קריאה בלבד). מנהל מחלקה לא רואה שכר.
     match /mgr/{uid} {
-      allow get: if manages(hotelOf(resource.data));
-      allow list: if shiftsAllHotels() || (canShifts() && resource.data.hotel in roleHotels());
+      allow get: if manages(hotelOf(resource.data)) || canCeo();
+      allow list: if shiftsAllHotels() || canCeo() || (canShifts() && resource.data.hotel in roleHotels());
       allow create: if manages(hotelOf(request.resource.data));
       allow update: if manages(hotelOf(resource.data)) && manages(hotelOf(request.resource.data));
       allow delete: if manages(hotelOf(resource.data));
     }
 
     match /settings/{h} {
-      allow read: if manages(h) || (isEmployee() && h == myHotel());
+      allow read: if hotelStaff(h) || canCeo() || (isEmployee() && h == myHotel());
       allow write: if manages(h);
     }
 
@@ -159,24 +168,27 @@ service cloud.firestore {
 
     match /shifts/{id} {
       allow read: if isMember();
-      allow create: if manages(hotelOf(request.resource.data));
-      allow update: if manages(hotelOf(resource.data)) && manages(hotelOf(request.resource.data));
-      allow delete: if manages(hotelOf(resource.data));
+      allow create: if deptManages(hotelOf(request.resource.data), request.resource.data.dept);
+      allow update: if deptManages(hotelOf(resource.data), resource.data.dept)
+        && deptManages(hotelOf(request.resource.data), request.resource.data.dept);
+      allow delete: if deptManages(hotelOf(resource.data), resource.data.dept);
     }
     match /schedule/{id} {
       allow read: if isMember();
-      allow write: if manages(schedHotel(id));
+      // מנהל מחלקה משבץ, אבל לא מפרסם ולא מבטל פרסום
+      allow write: if manages(schedHotel(id)) || (deptMgr(schedHotel(id))
+        && request.resource.data.get('published', false) == (resource == null ? false : resource.data.get('published', false)));
     }
 
     // בקשות שינוי אחרי פרסום: המנהל שולח, העובד מאשר או דוחה. בקשה מאושרת נכנסת לסידור.
     match /requests/{id} {
-      allow get: if signedIn() && (resource.data.uid == request.auth.uid || manages(resource.data.hotel)
+      allow get: if signedIn() && (resource.data.uid == request.auth.uid || hotelStaff(resource.data.hotel)
         || (isEmployee() && resource.data.hotel == myHotel() && resource.data.status == 'approved'));
       allow list: if signedIn() && (resource.data.uid == request.auth.uid || shiftsAllHotels()
-        || (canShifts() && resource.data.hotel in roleHotels())
+        || ((canShifts() || (hasRole() && roleApp('dept'))) && resource.data.hotel in roleHotels())
         || (isEmployee() && resource.data.hotel == myHotel() && resource.data.status == 'approved'));
-      allow create: if manages(request.resource.data.hotel) && request.resource.data.status == 'pending';
-      allow update: if (manages(resource.data.hotel) && manages(request.resource.data.hotel))
+      allow create: if hotelStaff(request.resource.data.hotel) && request.resource.data.status == 'pending';
+      allow update: if (hotelStaff(resource.data.hotel) && hotelStaff(request.resource.data.hotel))
         || (signedIn() && resource.data.uid == request.auth.uid && resource.data.status == 'pending'
             && request.resource.data.status in ['approved', 'declined']
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'respondedAt', 'reply']));

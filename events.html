@@ -32,7 +32,7 @@
   <div class="drawer-who" id="abUser"></div>
   <a class="item" href="./"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>סידור עבודה</a>
   <a class="item" href="events.html" id="abEvents" aria-current="page"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 13h7M9 17h5"/></svg>הצעות מחיר</a>
-  <a class="item" href="events.html#ceo" id="abCeo" hidden><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>מבט מנכ״ל</a>
+  <a class="item" href="./#ceo" id="abCeo" hidden><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>מבט מנכ״ל</a>
   <a class="item" href="./#perms" id="abPerms" hidden><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M12 3l7 3v5c0 5-3 8-7 10-4-2-7-5-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg>הרשאות</a>
   <span class="sp"></span><button class="item" id="abOut"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10"/></svg>יציאה</button>
 </nav></div>
@@ -411,6 +411,20 @@ table.ctable{border-collapse:collapse;width:100%;min-width:620px;font-size:14px;
         <label class="check"><input type="checkbox" id="vatIncl"> המחירים שהזנתי כוללים מע״מ</label>
         <label class="f">הערות ללקוח<textarea id="notes" placeholder="לדוגמה: התפריט כולל מנה צמחונית לפי בקשה"></textarea></label>
         <div class="totals" id="totals"></div>
+      </div>
+
+      <div class="sec"><div class="sec-t">תשלומים מהמזמין</div>
+        <div id="payList"></div>
+        <div class="row">
+          <label class="f">סכום ששולם (₪)<input id="payAmt" type="number" min="0" step="1" inputmode="decimal" placeholder="לדוגמה: 5000"></label>
+          <label class="f">תאריך<input id="payDate" type="date"></label>
+        </div>
+        <div class="row">
+          <label class="f">סוג<select id="payKind"><option value="deposit">מקדמה</option><option value="payment">תשלום</option></select></label>
+          <label class="f">אמצעי<select id="payMethod"><option value="transfer">העברה בנקאית</option><option value="card">אשראי</option><option value="cash">מזומן</option><option value="check">צ׳ק</option><option value="bit">ביט</option></select></label>
+        </div>
+        <label class="f">הערה<input id="payNote" placeholder="לא חובה"></label>
+        <div><button class="btn" id="payAdd">הוספת תשלום</button></div>
       </div>
 
       <div class="sec"><div class="sec-t">שמירה ושליחה</div>
@@ -1005,7 +1019,7 @@ function blankQuote(){
   return {id:null,num:null,status:'draft',createdAt:today(),updatedAt:null,
     client:{name:'',company:'',phone:'',email:''},
     event:{type:'אירוע חברה',date:'',start:'19:00',end:'23:00',guests:80,venue:'sola',area:''},
-    items:[],discount:0,vatIncluded:false,notes:'',foodMenu:null,drinkMenu:null,contract:null,contractOff:false,validDays:settings.validDays||14};
+    items:[],payments:[],discount:0,vatIncluded:false,notes:'',foodMenu:null,drinkMenu:null,contract:null,contractOff:false,validDays:settings.validDays||14};
 }
 function calc(q){
   const g=Number(q.event.guests)||0;
@@ -1017,6 +1031,22 @@ function calc(q){
   if(q.vatIncluded){total=after;net=after/(1+r);vat=total-net}else{net=after;vat=after*r;total=after+vat}
   return {lines,sub,disc,net,vat,total,perGuest:g?total/g:0};
 }
+
+const PAY_KIND={deposit:'מקדמה',payment:'תשלום'},PAY_METHOD={transfer:'העברה בנקאית',card:'אשראי',cash:'מזומן',check:'צ׳ק',bit:'ביט'};
+function paid(q){return (q.payments||[]).reduce((a,p)=>a+(Number(p.amount)||0),0)}
+function balance(q){return calc(q).total-paid(q)}
+function renderPayments(){
+  const ps=cur.payments||[],c=calc(cur),pd=paid(cur);
+  $('#payList').innerHTML=ps.length?`<div class="totals" style="margin-bottom:10px">${ps.map((p,i)=>`<div><span>${PAY_KIND[p.kind]||'תשלום'} · ${p.date?fmtDate(p.date):''} · ${PAY_METHOD[p.method]||''}${p.note?' · '+esc(p.note):''} <button class="btn sm ghost x" data-paydel="${i}" aria-label="מחיקת תשלום">מחק</button></span><span>${money(p.amount)}</span></div>`).join('')}
+    <div><span>סה״כ שולם</span><span>${money(pd)}</span></div>
+    <div class="grand"><span>${pd>c.total+0.5?'שולם ביותר':'נשאר לתשלום'}</span><span>${money(Math.abs(c.total-pd))}</span></div></div>`
+    :`<p class="meta" style="font-size:13px;color:var(--muted);margin:0 0 8px">עוד לא נרשמו תשלומים. כשהמזמין משלם מקדמה, רשום אותה כאן ותראה כמה נשאר לו לשלם.</p>`;
+  if(!$('#payDate').value)$('#payDate').value=today();
+}
+$('#payAdd').addEventListener('click',()=>{const a=Number($('#payAmt').value);if(!(a>0)){toast('צריך לרשום סכום');return}
+  cur.payments=[...(cur.payments||[]),{amount:a,date:$('#payDate').value||today(),kind:$('#payKind').value,method:$('#payMethod').value,note:$('#payNote').value.trim(),at:Date.now()}];
+  $('#payAmt').value='';$('#payNote').value='';$('#payKind').value='payment';refresh();toast(cur.id?'התשלום נרשם. לחץ "שמור הצעה" כדי לשמור':'התשלום נרשם. שמור את ההצעה כדי לשמור אותו')});
+$('#payList').addEventListener('click',e=>{const d=e.target.closest('[data-paydel]');if(!d)return;cur.payments=(cur.payments||[]).filter((_,i)=>i!==Number(d.dataset.paydel));refresh()});
 
 /* ---------- form binding ---------- */
 const F={cName:['client','name'],cCompany:['client','company'],cPhone:['client','phone'],cEmail:['client','email'],
@@ -1136,6 +1166,7 @@ function renderDoc(){
     <div><span>סה״כ לפני מע״מ</span><span>${money(c.net)}</span></div>
     <div><span>מע״מ ${settings.vatRate}%</span><span>${money(c.vat)}</span></div>
     <div class="g"><span>סה״כ לתשלום</span><span>${money(c.total)}</span></div>
+    ${(q.payments||[]).length?(q.payments.map(p=>`<div><span>שולם: ${PAY_KIND[p.kind]||'תשלום'}${p.date?' · '+fmtDate(p.date):''}</span><span>-${money(p.amount)}</span></div>`).join('')+`<div class="g"><span>יתרה לתשלום</span><span>${money(Math.max(0,balance(q)))}</span></div>`):''}
   </div>
   ${q.notes?`<div class="notes"><div class="lbl">הערות</div>${esc(q.notes)}</div>`:''}
   ${b.terms?`<div class="notes"><div class="lbl">תנאים</div>${esc(b.terms)}</div>`:''}
@@ -1156,7 +1187,7 @@ function updateLinks(){
   $('#btnGmail').href=`https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(cur.client.email||'')}&su=${encodeURIComponent(su)}&body=${encodeURIComponent(t)}`;
 }
 let draftT;
-function refresh(skipItems){renderBizLine();renderClash();renderContractDoc();renderContractPick();renderAuthor();watchHistory();renderTotals();renderDoc();renderMenuDoc();renderMenuPick();updateLinks();scheduleSignLink();renderSignUI();clearTimeout(draftT);draftT=setTimeout(()=>lsSet('quoteDraft',cur),400)}
+function refresh(skipItems){renderBizLine();renderClash();renderContractDoc();renderContractPick();renderAuthor();watchHistory();renderTotals();renderPayments();renderDoc();renderMenuDoc();renderMenuPick();updateLinks();scheduleSignLink();renderSignUI();clearTimeout(draftT);draftT=setTimeout(()=>lsSet('quoteDraft',cur),400)}
 
 /* ---------- toast ---------- */
 let toastT;function toast(m){const t=$('#toast');t.textContent=m;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,2600)}
@@ -1320,7 +1351,7 @@ function renderList(){
   $('#qlist').innerHTML=rows.map(q=>{const v=venueOf(q.event.venue),c=calc(q);return `<div class="q" style="--tone:var(${v.tone})">
     <div style="min-width:0"><h4>${esc(q.client.name)||'ללא שם'} <span style="color:var(--muted);font-weight:500;font-size:13px">#${q.num}</span></h4>
     <div class="meta">${v.name}${areaLabel(q)?' · '+esc(areaLabel(q)):''} · ${esc(q.event.type)} · ${q.event.date?fmtDate(q.event.date):'ללא תאריך'} · ${q.event.guests||0} אורחים</div>${q.createdBy?`<div class="by">הוציא/ה: <b>${esc(who(q.createdBy))}</b>${q.updatedBy&&q.updatedAt?` · עודכן ${fmtStamp(q.updatedAt)} ע״י ${esc(who(q.updatedBy))}`:''}</div>`:''}</div>
-    <div><div class="amt">${money(c.total)}</div><div style="text-align:left;margin-top:4px"><span class="chip st-${q.status}">${STATUS[q.status]||''}${q.signature?' · חתומה':''}</span></div></div>
+    <div><div class="amt">${money(c.total)}</div>${(q.payments||[]).length?`<div style="text-align:left;font-size:12px;color:var(--muted)">שולם ${money(paid(q))} · ${balance(q)>0.5?`נשאר <b style="color:var(--fg)">${money(balance(q))}</b>`:'שולם במלואו'}</div>`:''}<div style="text-align:left;margin-top:4px"><span class="chip st-${q.status}">${STATUS[q.status]||''}${q.signature?' · חתומה':''}</span></div></div>
     <div class="acts">
       <button class="btn sm" data-open="${q.id}">פתח</button>
       <select class="btn sm" data-status="${q.id}" aria-label="שנה סטטוס" style="width:auto">${Object.entries(STATUS).map(([k,l])=>`<option value="${k}" ${k===q.status?'selected':''}>${l}</option>`).join('')}</select>
@@ -1334,7 +1365,7 @@ $('#fSearch').addEventListener('input',renderList);$('#fUser').addEventListener(
 $('#qlist').addEventListener('click',async e=>{
   const t=e.target.closest('button');if(!t)return;
   if(t.dataset.open){cur=structuredClone(quotes.find(q=>q.id===t.dataset.open));viewingVer=null;qkOpen=false;fillForm();showTab('new');window.scrollTo(0,0)}
-  if(t.dataset.dup){const s=quotes.find(q=>q.id===t.dataset.dup);cur={...structuredClone(s),id:null,num:null,status:'draft',createdAt:today(),createdBy:null,updatedBy:null,lastHash:null};delete cur.signature;viewingVer=null;fillForm();showTab('new');toast('נוצר עותק. שמור כדי לקבל מספר חדש')}
+  if(t.dataset.dup){const s=quotes.find(q=>q.id===t.dataset.dup);cur={...structuredClone(s),payments:[],id:null,num:null,status:'draft',createdAt:today(),createdBy:null,updatedBy:null,lastHash:null};delete cur.signature;viewingVer=null;fillForm();showTab('new');toast('נוצר עותק. שמור כדי לקבל מספר חדש')}
   if(t.dataset.delq){confirmId=t.dataset.delq;renderList()}
   if(t.dataset.delno){confirmId=null;renderList()}
   if(t.dataset.delyes){const id=t.dataset.delyes;confirmId=null;try{await deleteQuote(id);if(cur.id===id){cur.id=null;cur.num=null}toast('ההצעה נמחקה')}catch(err){toast('המחיקה נכשלה')}}

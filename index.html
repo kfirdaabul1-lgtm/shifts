@@ -289,7 +289,7 @@ const schedPath=(w,h)=>'schedule/'+(h==='main'?w:w+'_'+h);
 /* state */
 const S={db:null,uid:null,admin:false,meName:'',ready:false,noDb:false,
   settingsAll:{},hotels:{},scheds:{},hotel:'main',subKey:'',emps:{},mgr:{},avail:{},shifts:{},
-  auth:'pending',roles:{},can:{shifts:false,events:false,perms:false,ceo:false},registering:false,isOwner:false,role:null,email:'',phone:'',week:null,tab:null,dept:'all',drafts:{},sheet:null,pending:false,unsub:[],empsLoaded:false,confirm:null};
+  auth:'pending',roles:{},can:{shifts:false,events:false,perms:false,ceo:false,dept:false},deptOnly:false,myDepts:[],registering:false,isOwner:false,role:null,email:'',phone:'',week:null,tab:null,dept:'all',drafts:{},sheet:null,pending:false,unsub:[],empsLoaded:false,confirm:null};
 Object.defineProperty(S,'sched',{get(){return S.scheds[S.hotel]||{assign:{},published:false}},set(v){S.scheds[S.hotel]=v}});
 Object.defineProperty(S,'settings',{get(){return S.settingsAll[S.hotel]||{}},set(v){S.settingsAll[S.hotel]=v}});
 function cfg(){const s=S.settings||{};return {overhead:25,shabbatPct:50,restHours:8,availOpen:true,preferGlobal:false,hotelName:'',shareLink:'',deadline:'',...s,times:{...DEF_TIMES,...(s.times||{})}}}
@@ -297,6 +297,9 @@ function timesFor(dept,kind){const c=cfg(),t=(c.deptTimes||{})[dept]?.[kind];ret
 function kindsFor(dept){const k=(cfg().deptKinds||{})[dept];return Array.isArray(k)&&k.length?k:['m','e','n']}
 const hrsOf=(a,b)=>{a=toMin(a);b=toMin(b);if(b<=a)b+=1440;return (b-a)/60};
 const openWeek=()=>cfg().openWeek||addDays(weekOf(todayISO()),7);
+const APPTABS=['perms','ceo'];
+const deptOk=k=>!S.deptOnly||S.myDepts.includes(k);
+const myDEPTS=()=>DEPTS.filter(d=>deptOk(d.k));
 const isActive=u=>S.mgr[u]?.active!==false;
 const hotelOf=u=>S.emps[u]?.hotel||'main';
 const hotelOfShift=s=>(s&&s.hotel)||'main';
@@ -346,6 +349,7 @@ let toastT;function toast(m){const t=$('#toast');t.textContent=m;t.hidden=false;
 const dv=(f,k,fb)=>{const d=S.drafts[f];return d&&k in d?d[k]:fb};
 function onField(e){const f=e.target.dataset&&e.target.dataset.f;if(!f)return;const [form,key]=f.split('.');(S.drafts[form]||(S.drafts[form]={}))[key]=e.target.type==='checkbox'?e.target.checked:e.target.value;
   if(form==='set'){if(e.target.type==='checkbox'){if(e.type==='change')render()}else S.pending=true}}
+document.addEventListener('change',e=>{if(e.target.matches('[data-ceo-year]')){S.ceo.year=e.target.value;S.ceo.data=null;ceoLoad(S.ceo.year)}});
 document.addEventListener('change',e=>{if(e.target.id==='pm_hotel'&&S.drafts.perm){S.drafts.perm.hotel=e.target.value;e.target.blur();render()}});
 document.addEventListener('input',onField);document.addEventListener('change',onField);
 const isTyping=()=>{const a=document.activeElement;return a&&['INPUT','TEXTAREA','SELECT'].includes(a.tagName)&&!['checkbox','radio'].includes(a.type)};
@@ -356,25 +360,25 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'&&S.menu){S.menu=fals
 function render(){if(isTyping()){S.pending=true;return}S.pending=false;renderTop();renderDrawer();$('#main').innerHTML=viewHTML();renderSheet()}
 function renderTop(){
   const c=cfg();
-  const tabs=S.admin?[['sched','סידור'],['shifts','משמרות פתוחות'],['staff','עובדים'],['costs','עלויות'],['settings','הגדרות']]:[['avail','הזמינות שלי'],['mine','המשמרות שלי'+(myPending().length?` (${myPending().length})`:'')],['profile','הפרופיל שלי']];
-  const nav=S.ready&&!S.registering&&S.auth==='in'&&S.week&&S.tab!=='settings'&&S.tab!=='perms'&&!(!S.admin&&(S.tab==='avail'||S.tab==='profile'));
+  const tabs=S.admin?(S.deptOnly?[['sched','סידור'],['shifts','משמרות פתוחות']]:[['sched','סידור'],['shifts','משמרות פתוחות'],['staff','עובדים'],['costs','עלויות'],['settings','הגדרות']]):[['avail','הזמינות שלי'],['mine','המשמרות שלי'+(myPending().length?` (${myPending().length})`:'')],['profile','הפרופיל שלי']];
+  const nav=S.ready&&!S.registering&&S.auth==='in'&&S.week&&S.tab!=='settings'&&!APPTABS.includes(S.tab)&&!(!S.admin&&(S.tab==='avail'||S.tab==='profile'));
   $('#top').innerHTML=`${appBarHTML()}<div class="wrap top-in">
     <div class="brand"><span class="mark">${BELL}</span><div><div class="b1">Seven Collection</div><div class="b2">${S.auth==='in'&&!S.registering?`${esc(hotelName(S.hotel))} · ${S.admin?'ממשק מנהל':'ממשק עובד'}`:''}</div></div></div>
     ${nav?`<div class="weeknav"><button data-act="week" data-d="-7" aria-label="שבוע קודם">›</button><div class="wk"><span class="wk-l">שבוע</span><b class="mono">${weekLabel(S.week)}</b></div><button data-act="week" data-d="7" aria-label="שבוע הבא">‹</button></div>`:''}
     ${S.auth==='in'?`<button class="burger" data-act="menu" aria-label="תפריט" aria-expanded="${!!S.menu}"><svg width="26" height="26" viewBox="0 0 26 26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h18"/><path d="M4 13h14"/><path d="M4 19h10"/></svg></button>`:''}
   </div>
-  ${S.ready&&S.admin&&S.tab!=='perms'&&visibleHotels().length>1?`<div class="wrap hotels" role="group" aria-label="בחירת מלון">${visibleHotels().map(h=>`<button class="hchip" data-act="hotel" data-h="${h}" aria-pressed="${h===S.hotel}">${esc(hotelName(h))}</button>`).join('')}</div>`:''}
-  ${S.ready&&!S.registering&&S.auth==='in'&&S.tab!=='perms'?`<nav class="wrap tabs" aria-label="ניווט">${tabs.map(([k,n])=>`<button data-act="tab" data-t="${k}" ${S.tab===k?'aria-current="page"':''}>${n}</button>`).join('')}</nav>`:''}`;
+  ${S.ready&&S.admin&&!APPTABS.includes(S.tab)&&visibleHotels().length>1?`<div class="wrap hotels" role="group" aria-label="בחירת מלון">${visibleHotels().map(h=>`<button class="hchip" data-act="hotel" data-h="${h}" aria-pressed="${h===S.hotel}">${esc(hotelName(h))}</button>`).join('')}</div>`:''}
+  ${S.ready&&!S.registering&&S.auth==='in'&&!APPTABS.includes(S.tab)?`<nav class="wrap tabs" aria-label="ניווט">${tabs.map(([k,n])=>`<button data-act="tab" data-t="${k}" ${S.tab===k?'aria-current="page"':''}>${n}</button>`).join('')}</nav>`:''}`;
 }
 function renderDrawer(){const el=$('#drawer');if(!S.menu||S.auth!=='in'){el.innerHTML='';return}
-  const items=S.registering?[]:[['shifts','סידור עבודה','data-act="app-shifts"',S.tab!=='perms'],S.can.events&&['events','הצעות מחיר','href="events.html"',false],S.can.ceo&&['ceo','מבט מנכ״ל','href="events.html#ceo"',false],S.can.perms&&['perms','הרשאות','data-act="app-perms"',S.tab==='perms']].filter(Boolean);
+  const items=S.registering?[]:[['shifts','סידור עבודה','data-act="app-shifts"',!APPTABS.includes(S.tab)],S.can.events&&['events','הצעות מחיר','href="events.html"',false],S.can.ceo&&['ceo','מבט מנכ״ל','data-act="app-ceo"',S.tab==='ceo'],S.can.perms&&['perms','הרשאות','data-act="app-perms"',S.tab==='perms']].filter(Boolean);
   el.innerHTML=`<div class="drawer-bg" data-act="menu-close"></div><nav class="drawer" aria-label="אפליקציות">
     <div class="drawer-h"><b>Seven Collection</b><button class="x" data-act="menu-close" aria-label="סגירה">×</button></div>
     <div class="drawer-who">${esc(S.meName||'')}${S.meName&&(S.email||S.phone)?'<br>':''}<bdi>${esc(S.email||S.phone||'')}</bdi></div>
     ${items.map(([k,n,attr,cur])=>attr.startsWith('href')?`<a class="item" ${attr}>${ICO[k]}${n}</a>`:`<button class="item" ${attr} ${cur?'aria-current="page"':''}>${ICO[k]}${n}</button>`).join('')}
     <span class="sp"></span><button class="item" data-act="logout">${ICO.out}יציאה</button></nav>`}
 function appBarHTML(){return '';
-  return `<div class="appbar"><div class="wrap appbar-in" role="navigation" aria-label="אפליקציות"><button data-act="app-shifts" ${S.tab!=='perms'?'aria-current="page"':''}>סידור עבודה</button>${S.can.events?'<a href="events.html">הצעות מחיר</a>':''}${S.can.perms?`<button data-act="app-perms" ${S.tab==='perms'?'aria-current="page"':''}>הרשאות</button>`:''}</div></div>`}
+  return `<div class="appbar"><div class="wrap appbar-in" role="navigation" aria-label="אפליקציות"><button data-act="app-shifts" ${!APPTABS.includes(S.tab)?'aria-current="page"':''}>סידור עבודה</button>${S.can.events?'<a href="events.html">הצעות מחיר</a>':''}${S.can.perms?`<button data-act="app-perms" ${S.tab==='perms'?'aria-current="page"':''}>הרשאות</button>`:''}</div></div>`}
 const wrap=h=>`<div class="wrap stack">${h}</div>`;
 const msg=(t,p)=>wrap(`<div class="empty-state"><h2>${t}</h2><p class="muted">${p}</p></div>`);
 const emptyBox=(t,p,a='')=>`<div class="empty-state"><h2>${t}</h2><p class="muted">${p}</p>${a}</div>`;
@@ -387,13 +391,13 @@ function viewHTML(){
   if(!S.admin&&S.tab!=='mine'&&myPending().length){const b=`<div class="wrap" style="padding-top:12px"><div class="notice" style="display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap"><span>יש לך ${myPending().length} בקשות מהמנהל לשינוי משמרות</span><button class="btn sm pri" data-act="tab" data-t="mine">לצפייה ואישור</button></div></div>`;const v=viewInner();return b+v}
   return viewInner()}
 function viewInner(){
-  switch(S.tab){case 'sched':return vSched();case 'shifts':return vShifts();case 'staff':return vStaff();case 'costs':return vCosts();case 'settings':return vSettings();case 'perms':return S.can.perms?vPerms():'';
+  switch(S.tab){case 'sched':return vSched();case 'shifts':return vShifts();case 'staff':return vStaff();case 'costs':return vCosts();case 'settings':return vSettings();case 'perms':return S.can.perms?vPerms():'';case 'ceo':return S.can.ceo?vCeo():'';
     case 'avail':return vAvail();case 'mine':return vMine();case 'profile':return vProfile()}
   return '';
 }
 function deptFilter(){return `<div class="dfilter" role="group" aria-label="סינון מחלקה">
   <button class="dchip all ${S.dept==='all'?'':'off'}" data-act="dept" data-k="all">כל המחלקות</button>
-  ${DEPTS.map(d=>`<button class="dchip ${S.dept===d.k?'':'off'}" style="--h:${d.h}" data-act="dept" data-k="${d.k}">${d.n}</button>`).join('')}</div>`}
+  ${myDEPTS().map(d=>`<button class="dchip ${S.dept===d.k?'':'off'}" style="--h:${d.h}" data-act="dept" data-k="${d.k}">${d.n}</button>`).join('')}</div>`}
 const kpi=(k,v,s='',cls='')=>`<div class="kpi"><span class="k">${k}</span><span class="v">${v}</span>${s?`<span class="s ${cls}">${s}</span>`:''}</div>`;
 
 /* grid of one department: rows = shift kinds, columns = days */
@@ -421,6 +425,39 @@ function reqCardHTML(){const rs=Object.entries(S.reqs).filter(([,r])=>r.hotel===
   return `<div class="card"><h3>בקשות לעובדים</h3><div class="plist">${rs.map(([rid,r])=>{const ph=normPhone(S.emps[r.uid]?.phone||'').replace('+','');
     const wa=ph?`https://wa.me/${ph}?text=${encodeURIComponent(`שלום ${empName(r.uid)}, יש לך בקשה לשינוי משמרת בסידור העבודה. נא להיכנס ולאשר או לדחות: ${appLink()}`)}`:'';
     return `<div class="prow"><span class="who"><b>${esc(empName(r.uid))} ${pill[r.status]}</b><small>${esc(reqText(r))}${r.note?` · "${esc(r.note)}"`:''}</small></span><span class="actions">${r.status==='pending'?`${wa?`<a class="btn sm" href="${wa}" target="_blank" rel="noopener">וואטסאפ</a>`:''}<button class="btn sm ghost" data-act="rq-cancel" data-r="${rid}">ביטול בקשה</button>`:r.status==='declined'?`<button class="btn sm ghost" data-act="rq-cancel" data-r="${rid}">הסרה</button>`:''}</span></div>`}).join('')}</div></div>`}
+/* printable schedule: one landscape A4 page (PDF) or an image, built from the published week */
+function loadScript(src){return new Promise((ok,bad)=>{if([...document.scripts].some(x=>x.src===src))return ok();const el=document.createElement('script');el.src=src;el.onload=ok;el.onerror=bad;document.head.appendChild(el)})}
+function printSheetEl(){const w=S.week,dates=weekDates(w),sh=weekShifts();
+  const depts=myDEPTS().filter(d=>sh.some(([,x])=>x.dept===d.k));
+  const head=`<tr><th class="pk"></th>${dates.map(d=>`<th>${DAYS[dow(d)]}<br><span>${dm(d)}</span></th>`).join('')}</tr>`;
+  const body=depts.map(d=>{const kinds=KINDS.filter(k=>dates.some(x=>{const z=S.shifts[sid(x,d.k,k.k)];return z&&+z.need>0}));
+    return `<tr class="pd"><td colspan="8" style="--h:${d.h}">${d.n}</td></tr>`+kinds.map(k=>`<tr><th class="pk">${k.n}<br><span>${timesFor(d.k,k.k).s}–${timesFor(d.k,k.k).e}</span></th>${dates.map(x=>{const id=sid(x,d.k,k.k),z=S.shifts[id];
+      if(!z||!(+z.need))return '<td class="px">—</td>';const as=asg(id);return `<td>${as.map(u=>esc(empName(u))).join('<br>')||'<span class="pe">לא שובץ</span>'}</td>`}).join('')}</tr>`).join('')}).join('');
+  const el=document.createElement('div');el.className='printsheet';el.setAttribute('dir','rtl');
+  el.innerHTML=`<style>.printsheet{position:fixed;left:-20000px;top:0;width:1500px;background:#fff;color:#111;font-family:'IBM Plex Sans Hebrew',Arial,sans-serif;padding:24px;direction:rtl}
+    .printsheet h1{font-size:26px;margin:0 0 4px}.printsheet .ps{color:#555;font-size:14px;margin-bottom:14px}
+    .printsheet table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:14px}
+    .printsheet th,.printsheet td{border:1px solid #bbb;padding:5px 6px;vertical-align:top;text-align:center;line-height:1.35}
+    .printsheet thead th{background:#132033;color:#fff;font-size:15px}.printsheet thead th span{font-weight:400;font-size:12px;opacity:.85}
+    .printsheet th.pk{width:110px;background:#f1f3f6;font-size:13px}.printsheet th.pk span{font-weight:400;font-size:11px;color:#555}
+    .printsheet tr.pd td{background:hsl(var(--h) 55% 90%);font-weight:700;text-align:right;font-size:15px}
+    .printsheet td.px{color:#bbb}.printsheet .pe{color:#b42318;font-size:12px}</style>
+    <h1>סידור עבודה · ${esc(hotelName(S.hotel))}</h1><div class="ps">שבוע ${weekLabel(w)} · הודפס ${new Date().toLocaleDateString('he-IL')}</div>
+    <table><thead>${head}</thead><tbody>${body}</tbody></table>`;
+  return el}
+async function printSchedule(kind){toast(kind==='png'?'מכין תמונה…':'מכין PDF…');
+  try{await loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');if(kind!=='png')await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js')}
+  catch(_){toast('לא הצלחתי לטעון את רכיב ההדפסה. בדקו חיבור לאינטרנט ונסו שוב.');return}
+  const el=printSheetEl();document.body.appendChild(el);
+  try{await (document.fonts?document.fonts.ready:Promise.resolve());
+    const canvas=await window.html2canvas(el,{scale:2,backgroundColor:'#ffffff',useCORS:true});
+    const name=`סידור עבודה ${hotelName(S.hotel)} ${weekLabel(S.week)}`.replace(/[\\/:*?"<>|]/g,'-');
+    if(kind==='png'){const a=document.createElement('a');a.href=canvas.toDataURL('image/png');a.download=name+'.png';document.body.appendChild(a);a.click();a.remove()}
+    else{const {jsPDF}=window.jspdf;const pdf=new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
+      const pw=297,ph=210,m=6,ratio=Math.min((pw-2*m)/canvas.width,(ph-2*m)/canvas.height),iw=canvas.width*ratio,ih=canvas.height*ratio;
+      pdf.addImage(canvas.toDataURL('image/jpeg',0.92),'JPEG',(pw-iw)/2,m,iw,ih);pdf.save(name+'.pdf')}
+    toast(kind==='png'?'התמונה ירדה':'ה-PDF ירד. אפשר להדפיס אותו על דף A4 לרוחב.')}
+  catch(e){toast('יצירת הקובץ נכשלה')}finally{el.remove()}}
 function vSched(){
   const w=S.week,c=cfg(),sh=weekShifts(),act=Object.keys(S.emps).filter(u=>isActive(u)&&isHome(u));
   const submitted=act.filter(u=>S.avail[u]?.sub?.[w]).length;
@@ -433,20 +470,21 @@ function vSched(){
     <div class="kpis">
       ${kpi('משבצות מאוישות',`${fill}/${need}`,need-fill?`חסרים ${need-fill} עובדים`:(need?'הכל מאויש':''),need-fill?'bad':'ok')}
       ${kpi('הגישו זמינות',`${submitted}/${act.length}`,isOpen?'לשבוע הפתוח':'השבוע הזה לא פתוח להגשה')}
-      ${kpi('עלות שבועית משוערת',ils(cost.total),`כולל ${c.overhead}% עלות מעסיק`)}
+      ${S.deptOnly?'':kpi('עלות שבועית משוערת',ils(cost.total),`כולל ${c.overhead}% עלות מעסיק`)}
     </div>
     ${(()=>{const bm=belowMin();return bm.length?`<div class="notice">מתחת למינימום משמרות: ${bm.map(u=>`${esc(empName(u))} (${loadOf(u)}/${minFor(u)})`).join(', ')}</div>`:''})()}
     <div class="actions">
       <button class="btn pri" data-act="auto" ${S.sched.published?'disabled':''}>שיבוץ אוטומטי</button>
-      <button class="btn" data-act="publish">${S.sched.published?'ביטול פרסום':'פרסום לעובדים'}</button>
+      ${S.deptOnly?(S.sched.published?'':'<span class="muted" style="align-self:center">מנהל המלון מפרסם את הסידור</span>'):`<button class="btn" data-act="publish">${S.sched.published?'ביטול פרסום':'פרסום לעובדים'}</button>`}
+      ${S.sched.published&&sh.length?'<button class="btn" data-act="print">PDF להדפסה</button><button class="btn ghost" data-act="print-png">תמונה</button>':''}
       <button class="btn brass" data-act="send">שליחה לעובדים</button>
-      ${isOpen?'':'<button class="btn" data-act="openweek">פתיחת השבוע להגשה</button>'}
-      <button class="btn ghost" data-act="clear">${S.confirm==='clear'?'לחיצה נוספת תנקה את השיבוץ':'ניקוי שיבוץ'}</button>
+      ${isOpen||S.deptOnly?'':'<button class="btn" data-act="openweek">פתיחת השבוע להגשה</button>'}
+      <button class="btn ghost" data-act="clear" ${S.deptOnly?'hidden':''}>${S.confirm==='clear'?'לחיצה נוספת תנקה את השיבוץ':'ניקוי שיבוץ'}</button>
     </div>${S.sched.published?'<p class="muted" style="font-size:.85rem">הסידור פורסם. כדי לשנות משמרת, לוחצים על המשבצת ושולחים בקשה לעובד. השינוי נכנס לסידור רק אחרי שהעובד מאשר.</p>':''}${reqCardHTML()}</section>`;
   if(!sh.length)return wrap(head+emptyBox('עוד לא הוגדרו משמרות פתוחות לשבוע הזה','קובעים כמה עובדים צריך בכל משמרת בכל מחלקה. אחר כך העובדים מסמנים מתי הם יכולים, והמערכת משבצת.','<button class="btn pri" data-act="tab" data-t="shifts">הגדרת משמרות פתוחות</button>'));
-  const depts=DEPTS.filter(d=>(S.dept==='all'||S.dept===d.k)&&sh.some(([,s])=>s.dept===d.k));
+  const depts=myDEPTS().filter(d=>(S.dept==='all'||S.dept===d.k)&&sh.some(([,s])=>s.dept===d.k));
   const secs=depts.map(d=>{let n=0,f=0;sh.forEach(([id,s])=>{if(s.dept===d.k){n+=+s.need;f+=Math.min(asg(id).length,+s.need)}});
-    return `<section class="dept" style="--h:${d.h}"><div class="dept-h"><span class="sw"></span><h2>${d.n}</h2><span class="muted mono">${f}/${n}</span><span class="muted">· ${ils(cost.dept[d.k])}</span></div>${deptTable(d.k,'sched')}</section>`}).join('');
+    return `<section class="dept" style="--h:${d.h}"><div class="dept-h"><span class="sw"></span><h2>${d.n}</h2><span class="muted mono">${f}/${n}</span>${S.deptOnly?'':`<span class="muted">· ${ils(cost.dept[d.k])}</span>`}</div>${deptTable(d.k,'sched')}</section>`}).join('');
   return wrap(head+deptFilter()+(secs||emptyBox('אין משמרות במחלקה הזו השבוע','אפשר להוסיף בלשונית משמרות פתוחות.')));
 }
 
@@ -458,7 +496,7 @@ const minFor=u=>+S.mgr[u]?.minShifts||0;
 function belowMin(){return Object.keys(S.emps).filter(u=>isActive(u)&&isHome(u)&&minFor(u)>0&&loadOf(u)<Math.min(minFor(u),capFor(u)))}
 function autoAssign(){
   const c=cfg(),w=S.week,end=addDays(w,6),rest=(+c.restHours||0)*60;
-  const shifts=weekShifts().map(([id,s])=>({id,...s,sp:span(s)}));
+  const shifts=weekShifts().filter(([,s])=>deptOk(s.dept)).map(([id,s])=>({id,...s,sp:span(s)}));
   const smap=Object.fromEntries(shifts.map(s=>[s.id,s]));
   const assign={},byUser={};
   for(const s of shifts)assign[s.id]=asg(s.id).filter(isActive);
@@ -513,11 +551,11 @@ function vShifts(){
     <p class="lede">בכל משבצת קובעים כמה עובדים צריך. העובדים יראו רק את המשמרות הפתוחות במחלקות שלהם ויסמנו מתי הם יכולים.</p>
     <div class="actions">
       <button class="btn" data-act="copyprev">העתקה מהשבוע הקודם</button>
-      ${isOpen?`<button class="btn ${c.availOpen?'':'brass'}" data-act="lock">${c.availOpen?'נעילת ההגשה':'פתיחת ההגשה מחדש'}</button>`:'<button class="btn brass" data-act="openweek">פתיחת השבוע להגשת זמינות</button>'}
+      ${S.deptOnly?'':isOpen?`<button class="btn ${c.availOpen?'':'brass'}" data-act="lock">${c.availOpen?'נעילת ההגשה':'פתיחת ההגשה מחדש'}</button>`:'<button class="btn brass" data-act="openweek">פתיחת השבוע להגשת זמינות</button>'}
       <button class="btn brass" data-act="send">שליחה לעובדים</button>
     </div></section>`;
 
-  const depts=DEPTS.filter(d=>S.dept==='all'||S.dept===d.k);
+  const depts=myDEPTS().filter(d=>S.dept==='all'||S.dept===d.k);
   const secs=depts.map(d=>{const n=weekShifts().filter(([,s])=>s.dept===d.k).reduce((a,[,s])=>a+ +s.need,0);
     return `<section class="dept" style="--h:${d.h}"><div class="dept-h"><span class="sw"></span><h2>${d.n}</h2><span class="muted">${n?n+' משבצות':'אין משמרות'}</span></div>${deptTable(d.k,'need')}</section>`}).join('');
   return wrap(head+deptFilter()+secs);
@@ -531,7 +569,7 @@ function setNeed(D){
 async function copyPrev(){
   const pw=addDays(S.week,-7);let q;
   try{q=await S.db.collection('shifts').where('date','>=',pw).where('date','<=',addDays(pw,6)).get()}catch(e){toast(errMsg(e));return}
-  let n=0;for(const d of q.docs){const s=d.data();if(hotelOfShift(s)!==S.hotel)continue;const date=addDays(s.date,7),id=sid(date,s.dept,s.kind);
+  let n=0;for(const d of q.docs){const s=d.data();if(hotelOfShift(s)!==S.hotel||!deptOk(s.dept))continue;const date=addDays(s.date,7),id=sid(date,s.dept,s.kind);
     if(S.shifts[id])continue;const t=timesFor(s.dept,s.kind);const doc={...s,hotel:S.hotel,date,start:t.s,end:t.e};S.shifts[id]=doc;save('shifts/'+id,doc);n++}
   render();toast(n?`הועתקו ${n} משמרות מהשבוע ${weekLabel(pw)}`:'לא נמצאו משמרות חדשות להעתקה מהשבוע הקודם');
 }
@@ -627,6 +665,70 @@ function computeCost(w){
     if(+m.housing>0){const x=(+m.housing)*12/52;const p=P(u);p.housing+=x;p.cost-=x;housingT+=x}}
   return {per,dept,hourlyT,globalT,cashT,volT,volFree,housingT,total:hourlyT+globalT+cashT+volT-housingT,hours};
 }
+/* ---------- CEO view: labor cost per month (all hotels) next to event revenue ---------- */
+const HE_MON=['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
+async function ceoLoad(Y){
+  const db=S.db,C=S.ceo;C.loading=true;C.err='';render();
+  try{
+    const from=addDays(weekOf(Y+'-01-01'),-7),to=Y+'-12-31';
+    const [sh,sc,mg,st,qs,cf]=await Promise.all([
+      db.collection('shifts').where('date','>=',from).where('date','<=',to).get(),
+      db.collection('schedule').get(),db.collection('mgr').get(),db.collection('settings').get(),
+      db.collection('quotes').get().catch(()=>null),db.doc('config/main').get().catch(()=>null)]);
+    C.data={shifts:docsMap(sh),scheds:docsMap(sc),mgr:docsMap(mg),settings:docsMap(st),quotes:qs?qs.docs.map(d=>d.data()):[],cfg:cf&&cf.exists?cf.data():{}};C.year=Y;
+  }catch(e){C.err=errMsg(mapErr(e))}
+  C.loading=false;render();
+}
+function quoteNet(q,vatRate){const ev=q.event||{},g=+ev.guests||0;let sub=0;
+  for(const it of (q.items||[])){const qty=it.unit==='guest'?g:(+it.qty||0),dp=Math.min(100,Math.max(0,+it.disc||0));sub+=qty*(+it.price||0)*(1-dp/100)}
+  const after=sub*(1-(+q.discount||0)/100),r=(+vatRate||0)/100;return q.vatIncluded?after/(1+r):after}
+function ceoCompute(){
+  const D=S.ceo.data,Y=S.ceo.year,hs=[...new Set([...hotelIds(),...Object.keys(D.settings)])];
+  const cf=h=>{const x=D.settings[h]||{};return {oh:1+(+(x.overhead??25)||0)/100,sp:1+(+(x.shabbatPct??50)||0)/100}};
+  const brk=(h,dept)=>{const b=((D.settings[h]||{}).deptBreaks||{})[dept];return b===undefined?dept!=='reception':!!b};
+  const rows=HE_MON.map((n,m)=>({m,key:Y+'-'+String(m+1).padStart(2,'0'),h:Object.fromEntries(hs.map(h=>[h,0])),hours:0,rev:0,events:0}));
+  const empH=u=>(D.mgr[u]?.hotel)||hotelOf(u);
+  // per-shift pay, by the date of the shift
+  const list=Object.entries(D.shifts).map(([id,s])=>{const h=hotelOfShift(s);return {id,s,h,a:(D.scheds[schedPath(weekOf(s.date),h).slice(9)]?.assign?.[id])||[]}}).filter(x=>+x.s.need&&x.a.length);
+  const volIdx={};// volunteer: first N shifts of each week are free
+  list.slice().sort((a,b)=>span(a.s).s-span(b.s).s).forEach(x=>{for(const u of x.a){if(D.mgr[u]?.payType!=='volunteer')continue;const k=u+'|'+weekOf(x.s.date);volIdx[k]=(volIdx[k]||0)+1;volIdx[u+'|'+x.id]=volIdx[k]}});
+  for(const x of list){if(x.s.date.slice(0,4)!==Y)continue;const r=rows[+x.s.date.slice(5,7)-1],c=cf(x.h);
+    const hr=hrs(x.s),ph=brk(x.h,x.s.dept)?netH(hr):hr,sh=isShabbat(x.s);
+    for(const u of x.a){const m=D.mgr[u]||{};let v=0;r.hours+=ph;
+      if(m.payType==='hourly'&&+m.rate)v=ph*(+m.rate)*(sh?c.sp:1)*c.oh;
+      else if(m.payType==='cash'&&+m.rate)v=ph*(+m.rate);
+      else if(m.payType==='volunteer'&&volIdx[u+'|'+x.id]>(+m.freeShifts||0))v=m.volUnit==='hour'?ph*(+m.rate||0):(+m.rate||0);
+      r.h[x.h]=(r.h[x.h]||0)+v}}
+  // monthly salaries (with employer overhead) minus housing, up to the current month
+  // ...from the first month the hotel has shifts in the system, up to the current month
+  const cur=todayISO().slice(0,7),first={};for(const x of list){const k=x.s.date.slice(0,7);if(!first[x.h]||k<first[x.h])first[x.h]=k}
+  for(const [u,m] of Object.entries(D.mgr)){if(m.active===false)continue;const h=empH(u),c=cf(h);
+    for(const r of rows){if(r.key>cur||!first[h]||r.key<first[h])continue;
+      if(m.payType==='global'&&+m.monthly)r.h[h]=(r.h[h]||0)+(+m.monthly)*c.oh;
+      if(+m.housing>0)r.h[h]=(r.h[h]||0)-(+m.housing)}}
+  const vat=D.cfg.vatRate??18;
+  for(const q of D.quotes){if(q.status!=='approved')continue;const d=(q.event&&q.event.date)||q.createdAt||'';if(String(d).slice(0,4)!==Y)continue;
+    const r=rows[+String(d).slice(5,7)-1];if(!r)continue;r.rev+=quoteNet(q,vat);r.events++}
+  rows.forEach(r=>r.labor=hs.reduce((a,h)=>a+(r.h[h]||0),0));
+  return {rows,hs:hs.filter(h=>rows.some(r=>r.h[h])||S.hotels[h]||h==='main')};
+}
+function vCeo(){
+  const C=S.ceo||(S.ceo={year:String(new Date().getFullYear()),data:null,loading:false,err:''});
+  if(!C.data&&!C.loading&&!C.err){setTimeout(()=>ceoLoad(C.year),0)}
+  const years=[0,1,2].map(i=>String(new Date().getFullYear()-i));
+  const head=`<section class="head"><div class="head-t"><h1>מבט מנכ״ל · ${C.year}</h1>
+    <select data-ceo-year aria-label="שנה">${years.map(y=>`<option ${y===C.year?'selected':''}>${y}</option>`).join('')}</select></div>`;
+  if(C.err)return wrap(head+`<div class="notice">לא הצלחתי לטעון את הנתונים: ${esc(C.err)}</div></section>`);
+  if(!C.data||C.loading)return wrap(head+'<p class="muted">טוען נתונים…</p></section>');
+  const {rows,hs}=ceoCompute(),T=k=>rows.reduce((a,r)=>a+r[k],0),L=T('labor'),R=T('rev'),N=T('events');
+  const cur=todayISO().slice(0,7),done=rows.filter(r=>r.key<=cur&&r.labor);
+  return wrap(head+`<div class="kpis">${kpi('עלות עובדים בשנה',ils(L),`${fmtH(T('hours'))} שעות לתשלום`)}${kpi('ממוצע לחודש',ils(done.length?done.reduce((a,r)=>a+r.labor,0)/done.length:0),'חודשים שכבר התחילו')}${kpi('הכנסות מאירועים',ils(R),`${N} אירועים שאושרו · לפני מע״מ`)}${kpi('הכנסות פחות עלות עובדים',ils(R-L),R?`עלות העובדים היא ${Math.round(L/R*100)}% מההכנסות`:'',R-L<0?'bad':'')}</div></section>
+  <div class="card"><h3>לפי חודש</h3><div class="scroll-x"><table class="plain"><thead><tr><th>חודש</th>${hs.map(h=>`<th class="num">${esc(hotelName(h))}</th>`).join('')}<th class="num">סה״כ עובדים</th><th class="num">הכנסות מאירועים</th><th class="num">הפרש</th></tr></thead><tbody>
+  ${rows.map(r=>`<tr${r.key===cur?' style="font-weight:600"':''}><td>${HE_MON[r.m]}</td>${hs.map(h=>`<td class="num">${r.h[h]?ils(r.h[h]):'—'}</td>`).join('')}<td class="num">${r.labor?ils(r.labor):'—'}</td><td class="num">${r.rev?ils(r.rev):'—'}</td><td class="num">${r.labor||r.rev?ils(r.rev-r.labor):'—'}</td></tr>`).join('')}
+  <tr style="font-weight:700"><td>סה״כ</td>${hs.map(h=>`<td class="num">${ils(rows.reduce((a,r)=>a+(r.h[h]||0),0))}</td>`).join('')}<td class="num">${ils(L)}</td><td class="num">${ils(R)}</td><td class="num">${ils(R-L)}</td></tr></tbody></table></div>
+  <p class="muted" style="font-size:.85rem">עלות העובדים מחושבת מהסידורים של כל המלונות: שעתיים לפי שעות לתשלום (אחרי הפסקה) עם תוספת שבת ועלות מעסיק, מזומן ומתנדבים בלי תוספות, עובדים גלובליים לפי השכר החודשי עם עלות מעסיק, פחות הורדות מגורים. שכר גלובלי נספר מהחודש הראשון שיש למלון סידור במערכת ועד החודש הנוכחי. הכנסות הן הצעות מחיר שאושרו, לפי תאריך האירוע.</p>
+  <div style="display:flex;gap:8px;flex-wrap:wrap"><a class="btn" href="events.html#ceo">פירוט הכנסות לפי מקום</a><button class="btn ghost" data-act="ceo-reload">רענון</button></div></div>`);
+}
 function vCosts(){
   const c=cfg(),w=S.week,cost=computeCost(w),max=Math.max(1,...Object.values(cost.dept));
   const noPay=Object.keys(S.emps).filter(u=>isHome(u)&&isActive(u)&&!payLabel(u));
@@ -647,11 +749,15 @@ function vCosts(){
 }
 
 /* ---------- employee: availability ---------- */
-function myShiftsFor(u,w){const e=S.emps[u];if(!e)return [];const depts=e.depts||[],end=addDays(w,6);
-  return Object.entries(S.shifts).filter(([,s])=>s.date>=w&&s.date<=end&&+s.need>0&&depts.includes(s.dept)&&hotelOfShift(s)===hotelOf(u)).sort(([,a],[,b])=>a.date.localeCompare(b.date)||KORD[a.kind]-KORD[b.kind])}
+// availability: every shift the employee could work (their departments × the shift kinds set for each department),
+// whether or not the manager has opened it — employees don't see which shifts are open
+function myShiftsFor(u,w){const e=S.emps[u];if(!e)return [];const h=hotelOf(u),out=[];
+  for(const d of weekDates(w))for(const dept of (e.depts||[]))if(DMAP[dept])for(const k of KINDS)if(kindsFor(dept).includes(k.k)){
+    const id=sid(d,dept,k.k,h),t=timesFor(dept,k.k);out.push([id,{date:d,dept,kind:k.k,start:t.s,end:t.e,hotel:h}])}
+  return out.sort(([,a],[,b])=>a.date.localeCompare(b.date)||KORD[a.kind]-KORD[b.kind]||String(a.dept).localeCompare(b.dept))}
 function slotsHTML(u,w,locked,act){
   const sh=myShiftsFor(u,w),slots=S.avail[u]?.slots||{};
-  if(!sh.length)return emptyBox('אין עדיין משמרות פתוחות במחלקות שלך לשבוע הזה','כשהמנהל יפתח משמרות, הן יופיעו כאן.');
+  if(!sh.length)return emptyBox('עוד לא נבחרו מחלקות','בוחרים מחלקות בלשונית הפרופיל, ואז אפשר לסמן זמינות.');
   return `<div class="days">${weekDates(w).map(d=>{const list=sh.filter(([,s])=>s.date===d);if(!list.length)return '';
     const full=list.every(([id])=>slots[id]);
     return `<div class="day"><div class="day-h"><span><b>יום ${DAYS[dow(d)]}</b> <span class="muted mono">${dm(d)}</span></span><button class="dayall" data-act="day-all" data-u="${u}" data-d="${d}" aria-pressed="${full}" ${locked?'disabled':''}>${full?'✓ ':''}כל היום</button></div>
@@ -831,13 +937,14 @@ function roleHTML(u,e,isNew){if(!S.can.perms||isNew||e.manual||u===S.uid)return 
   return `<div class="sep"></div><h3>הרשאות</h3><p class="muted" style="font-size:.85rem">${r?esc(permSummary(r)):'עובד רגיל, בלי הרשאות ניהול.'}</p><div><button class="btn" data-act="perm-open" data-u="${u}">עריכת הרשאות</button></div>`}
 
 /* ---------- permissions page ---------- */
-const APPS=[['shifts','ניהול סידור עבודה','סידור, משמרות, עובדים, שכר ועלויות במלונות שנבחרו'],['events','הצעות מחיר לאירועים','כל ההצעות, התפריטים והחוזים'],['perms','ניהול הרשאות','יכול לתת לאחרים רק הרשאות שיש לו בעצמו'],['ceo','מבט מנכ״ל','הכנסות מאירועים לפי חודש וסיכום שנתי']];
+const APPS=[['shifts','ניהול סידור עבודה','סידור, משמרות, עובדים, שכר ועלויות במלונות שנבחרו'],['events','הצעות מחיר לאירועים','כל ההצעות, התפריטים והחוזים'],['perms','ניהול הרשאות','יכול לתת לאחרים רק הרשאות שיש לו בעצמו'],['ceo','מבט מנכ״ל','עלויות עובדים והכנסות מאירועים לפי חודש'],['dept','מנהל מחלקה','מסדר רק את המחלקות שנבחרו, בלי שכר ועלויות']];
 const roleApps=r=>r?(r.apps||{shifts:true}):{};
-function myApps(){return S.isOwner?{shifts:true,events:true,perms:true,ceo:true}:roleApps(S.role)}
+function myApps(){if(S.isOwner)return {shifts:true,events:true,perms:true,ceo:true,dept:true};const a={...roleApps(S.role)};if(a.shifts)a.dept=true;return a}
+const grantDepts=()=>S.isOwner||roleApps(S.role).shifts?DEPTS:DEPTS.filter(d=>((S.role&&S.role.depts)||[]).includes(d.k));
 const allHotelsP=()=>S.isOwner||!(S.role&&Array.isArray(S.role.hotels)&&S.role.hotels.length);
 function grantableHotels(){return allHotelsP()?hotelIds():hotelIds().filter(h=>S.role.hotels.includes(h))}
-function permSummary(r){const a=roleApps(r),parts=APPS.filter(([k])=>a[k]).map(([,n])=>n);if(!parts.length)return 'בלי הרשאות';
-  const hs=(r.hotels||[]);return parts.join(' · ')+(a.shifts?` · ${hs.length?hs.map(hotelName).join(', '):'כל המלונות'}`:'')}
+function permSummary(r){const a=roleApps(r),parts=APPS.filter(([k])=>a[k]).map(([k,n])=>k==='dept'?`${n}: ${(r.depts||[]).map(x=>DMAP[x]?.n||x).join(', ')}`:n);if(!parts.length)return 'בלי הרשאות';
+  const hs=(r.hotels||[]);return parts.join(' · ')+(a.shifts||a.dept?` · ${hs.length?hs.map(hotelName).join(', '):'כל המלונות'}`:'')}
 // hotels card (permissions page): names, join codes, add hotel — for shift managers, per hotel they manage
 function hotelsCardHTML(){if(!S.admin)return '';const hs=visibleHotels();
   return `<div class="card"><h3>מלונות וקודי הצטרפות</h3>
@@ -860,7 +967,7 @@ function vPerms(){
   let last=null;const rows=people.map(([u,e])=>{const h=e.hotel||'main',r=S.roles[u],a=roleApps(r);
     const sep=h!==last?`<div class="lh">${esc(hotelName(h))}</div>`:'';last=h;
     const chips=APPS.filter(([k])=>a[k]).map(([k,n])=>`<span class="pill ${k==='perms'?'brass':'ok'}">${n}</span>`).join('');
-    const hsTxt=a.shifts?`<span class="sub">${(r.hotels||[]).length?r.hotels.map(x=>esc(hotelName(x))).join(', '):'כל המלונות'}</span>`:'';
+    const hsTxt=a.shifts||a.dept?`<span class="sub">${a.dept?esc((r.depts||[]).map(x=>DMAP[x]?.n||x).join(', '))+' · ':''}${(r.hotels||[]).length?r.hotels.map(x=>esc(hotelName(x))).join(', '):'כל המלונות'}</span>`:'';
     return sep+`<button class="li prow2" data-act="perm-open" data-u="${u}" ${u===S.uid?'disabled':''}>
       <div class="c1"><div class="n">${esc(e.name||'ללא שם')}${u===S.uid?' <span class="pill">זה אתה</span>':''}</div><div class="sub">${esc(e.title||'')}</div></div>
       <div class="c2 meta">${chips||'<span class="pill">עובד</span>'}</div><div class="c3">${hsTxt}</div><div></div></button>`}).join('');
@@ -868,7 +975,7 @@ function vPerms(){
 }
 function sheetPerm(){
   const u=S.sheet.id,e=S.emps[u];if(!e)return '';const r=S.roles[u],mine=myApps(),hs=grantableHotels();
-  const d=S.drafts.perm||(S.drafts.perm={apps:{...roleApps(r)},hotels:[...((r&&r.hotels)||(allHotelsP()?[]:[e.hotel||'main']))]});
+  const d=S.drafts.perm||(S.drafts.perm={apps:{...roleApps(r)},hotels:[...((r&&r.hotels)||(allHotelsP()?[]:[e.hotel||'main']))],depts:[...((r&&r.depts)||[])]});
   const outside=r&&!allHotelsP()&&!(r.hotels||[]).length;
   // moving someone between hotels needs shift-manager rights over both hotels
   const canMove=S.can.shifts&&hs.includes(e.hotel||'main')&&hs.length>1,curH=d.hotel||e.hotel||'main';
@@ -876,7 +983,8 @@ function sheetPerm(){
   (canMove?`<label class="f">מלון<select id="pm_hotel">${hs.map(h=>`<option value="${h}" ${h===curH?'selected':''}>${esc(hotelName(h))}</option>`).join('')}</select></label>${curH!==(e.hotel||'main')?`<div class="notice">${esc(e.name||'העובד')} יעבור מ${esc(hotelName(e.hotel||'main'))} ל${esc(hotelName(curH))}. הוא יראה את המשמרות והצוות של המלון החדש, והשכר שלו יירשם שם. שיבוצים שכבר נקבעו במלון הקודם נשארים.</div>`:''}`:'')+
   (outside?'<div class="notice">לאדם הזה יש הרשאה לכל המלונות, ורק מי שמנהל את כל המלונות יכול לשנות אותה.</div>':'')+
   `<div class="plist">${APPS.map(([k,n,desc])=>`<label class="prow" style="cursor:${mine[k]?'pointer':'default'}"><span class="who"><b>${n}</b><small>${mine[k]?desc:'אין לך את ההרשאה הזו, ולכן אי אפשר לתת אותה'}</small></span><input type="checkbox" id="pa_${k}" data-act="perm-app" data-k="${k}" ${d.apps[k]?'checked':''} ${mine[k]&&!outside?'':'disabled'}></label>`).join('')}</div>
-  ${d.apps.shifts?`<div class="f"><span>מנהל סידור במלונות: <span class="muted">${allHotelsP()?'(בלי בחירה = כל המלונות)':'(לפחות מלון אחד)'}</span></span><div class="chips" style="gap:6px">${hs.map(h=>`<button class="hchip" data-act="perm-hotel" data-h="${h}" aria-pressed="${d.hotels.includes(h)}" ${outside?'disabled':''}>${esc(hotelName(h))}</button>`).join('')}</div></div>`:''}
+  ${d.apps.dept?`<div class="f"><span>מנהל מחלקה של:</span><div class="chips" style="gap:6px">${grantDepts().map(x=>`<button class="dchip ${d.depts.includes(x.k)?'':'off'}" style="--h:${x.h};cursor:pointer" data-act="perm-dept" data-k="${x.k}" aria-pressed="${d.depts.includes(x.k)}">${x.n}</button>`).join('')}</div></div>`:''}
+  ${d.apps.shifts||d.apps.dept?`<div class="f"><span>${d.apps.shifts?'מנהל סידור במלונות:':'במלון:'} <span class="muted">${allHotelsP()&&!d.apps.dept?'(בלי בחירה = כל המלונות)':'(לפחות מלון אחד)'}</span></span><div class="chips" style="gap:6px">${hs.map(h=>`<button class="hchip" data-act="perm-hotel" data-h="${h}" aria-pressed="${d.hotels.includes(h)}" ${outside?'disabled':''}>${esc(hotelName(h))}</button>`).join('')}</div></div>`:''}
   <p class="muted" style="font-size:.82rem">השינוי נכנס לתוקף כשהאדם מרענן את האתר.</p>
   <div class="actions"><button class="btn pri" data-act="perm-save" ${outside?'disabled':''}>שמירה</button><button class="btn ghost" data-act="close">ביטול</button></div>`;
 }
@@ -907,6 +1015,8 @@ const ACT={
     S.drafts.nh=null;subWeek();setHotel(id);toast(`${name} נוסף. עכשיו אתה עובד על המלון החדש.`)},
   'as-add':D=>{if(S.sched.published)return;setAssign(D.id,[...asg(D.id),D.u])},
   'as-rm':D=>{if(S.sched.published)return;setAssign(D.id,asg(D.id).filter(u=>u!==D.u))},
+  print:()=>printSchedule('pdf'),
+  'print-png':()=>printSchedule('png'),
   auto:()=>{if(S.sched.published){toast('הסידור פורסם. שינויים נשלחים כבקשה לעובד מתוך המשבצת, או מבטלים את הפרסום.');return}autoAssign()},
   'rq-add':D=>makeReq('add',D.u,null,D.id),
   'rq-rm':D=>makeReq('remove',D.u,D.id,null),
@@ -962,11 +1072,15 @@ const ACT={
   close:()=>{S.sheet=null;S.drafts.emp=null;S.drafts.perm=null;S.confirm=null;render()},
   'app-shifts':()=>{S.menu=false;setTab(S.admin?'sched':'avail')},
   'app-perms':()=>{S.menu=false;setTab('perms')},
+  'app-ceo':()=>{S.menu=false;setTab('ceo')},
+  'ceo-reload':()=>{if(S.ceo){S.ceo.data=null;ceoLoad(S.ceo.year)}},
   menu:()=>{S.menu=!S.menu;render()},
   'menu-close':()=>{S.menu=false;render()},
   'perm-open':D=>{S.drafts.perm=null;S.sheet={type:'perm',id:D.u};render()},
   'perm-app':(D,t)=>{const d=S.drafts.perm;if(!d)return;d.apps[D.k]=t.checked;
-    if(D.k==='shifts'&&t.checked&&!d.hotels.length&&!allHotelsP()){const e=S.emps[S.sheet.id];const h=e?.hotel||'main';d.hotels=grantableHotels().includes(h)?[h]:grantableHotels().slice(0,1)}render()},
+    if(D.k==='shifts'&&t.checked)d.apps.dept=false;if(D.k==='dept'&&t.checked)d.apps.shifts=false;
+    if((D.k==='shifts'&&t.checked&&!allHotelsP()||D.k==='dept'&&t.checked)&&!d.hotels.length){const e=S.emps[S.sheet.id];const h=e?.hotel||'main';d.hotels=grantableHotels().includes(h)?[h]:grantableHotels().slice(0,1)}render()},
+  'perm-dept':D=>{const d=S.drafts.perm;if(!d)return;d.depts=d.depts.includes(D.k)?d.depts.filter(x=>x!==D.k):[...d.depts,D.k];render()},
   'perm-hotel':D=>{const d=S.drafts.perm;if(!d)return;d.hotels=d.hotels.includes(D.h)?d.hotels.filter(h=>h!==D.h):[...d.hotels,D.h];render()},
   'perm-save':()=>{const u=S.sheet.id,d=S.drafts.perm,e=S.emps[u];if(!d||!e)return;const mine=myApps();
     const apps={};for(const [k] of APPS)if(d.apps[k]&&mine[k])apps[k]=true;
@@ -977,8 +1091,9 @@ const ACT={
       if(S.mgr[u]){S.mgr[u]={...S.mgr[u],hotel:to};save('mgr/'+u,S.mgr[u])}
       if(S.avail[u]){S.avail[u]={...S.avail[u],hotel:to};save('avail/'+u,S.avail[u])}}
     if(!Object.keys(apps).length){if(S.roles[u]){delete S.roles[u];save('roles/'+u,null)}}
-    else{if(!allHotelsP()&&!hotels.length){toast('צריך לבחור לפחות מלון אחד');return}
-      const doc={apps,hotels:allHotelsP()?hotels:hotels,name:e.name||'',updatedBy:S.uid,updatedAt:Date.now()};S.roles[u]=doc;save('roles/'+u,doc)}
+    else{if((!allHotelsP()||apps.dept)&&!hotels.length){toast('צריך לבחור לפחות מלון אחד');return}
+      if(apps.dept&&!d.depts.filter(x=>grantDepts().some(g=>g.k===x)).length){toast('צריך לבחור לפחות מחלקה אחת');return}
+      const doc={apps,hotels,depts:apps.dept?d.depts.filter(x=>grantDepts().some(g=>g.k===x)):[],name:e.name||'',updatedBy:S.uid,updatedAt:Date.now()};S.roles[u]=doc;save('roles/'+u,doc)}
     S.sheet=null;S.drafts.perm=null;render();toast(moved?`${e.name||'העובד'} הועבר ל${hotelName(moved)}`:`ההרשאות של ${e.name||'העובד'} נשמרו`)},
   'bg-close':(D,t,e)=>{if(e.target===t)ACT.close()},
 };
@@ -1067,8 +1182,10 @@ async function start(u){
   try{const r=await db.doc('roles/'+u.uid).get();if(r.exists)S.role=r.data()}catch(_){ }
   // what this person may use: managing shifts, the quotes app, managing permissions (set in the permissions page)
   const apps=S.role?(S.role.apps||{shifts:true}):{};
-  S.can={shifts:S.isOwner||!!apps.shifts,events:S.isOwner||!!apps.events,perms:S.isOwner||!!apps.perms,ceo:S.isOwner||!!apps.ceo};
-  S.admin=S.can.shifts;S.auth='in';
+  S.can={shifts:S.isOwner||!!apps.shifts,events:S.isOwner||!!apps.events,perms:S.isOwner||!!apps.perms,ceo:S.isOwner||!!apps.ceo,dept:!S.isOwner&&!apps.shifts&&!!apps.dept};
+  // department manager: schedules only their departments, never sees pay
+  S.deptOnly=S.can.dept;S.myDepts=S.deptOnly?((S.role&&S.role.depts)||[]):[];
+  S.admin=S.can.shifts||S.deptOnly;S.auth='in';
   // a manager limited to some hotels can only read those hotels' salaries, availability and settings (enforced in firestore.rules)
   S.scoped=!S.isOwner&&!!S.role&&Array.isArray(S.role.hotels)&&S.role.hotels.length>0;
   if(!S.admin){let me=null;try{const m=await db.doc('employees/'+u.uid).get();if(m.exists)me=m.data()}catch(_){ }
@@ -1083,8 +1200,9 @@ async function start(u){
   catch(e){onErr(e)}
   S.week=openWeek();
   let t=null;try{t=localStorage.getItem('hs_tab')}catch(_){ }
-  const allowed=(S.admin?['sched','shifts','staff','costs','settings']:['avail','mine','profile']).concat(S.can.perms?['perms']:[]);S.tab=allowed.includes(t)?t:allowed[0];
+  const allowed=(S.admin?(S.deptOnly?['sched','shifts']:['sched','shifts','staff','costs','settings']):['avail','mine','profile']).concat(S.can.perms?['perms']:[]).concat(S.can.ceo?['ceo']:[]);S.tab=allowed.includes(t)?t:allowed[0];
   if(location.hash==='#perms'&&S.can.perms)S.tab='perms';
+  if(location.hash==='#ceo'&&S.can.ceo)S.tab='ceo';
   db.collection('hotels').onSnapshot(q=>{S.hotels=docsMap(q);if(S.ready&&hotelIds().join(',')!==S.subKey)subWeek();render()},onErr);
   const afterSettings=()=>{if(!S.admin&&S.tab==='avail'&&S.week!==openWeek())setWeek(openWeek());else render()};
   if(setIds()===null)db.collection('settings').onSnapshot(q=>{S.settingsAll=docsMap(q);afterSettings()},onErr);
@@ -1093,7 +1211,7 @@ async function start(u){
     if(!S.admin&&S.emps[S.uid]){const h=hotelOf(S.uid);if(h!==S.hotel){S.hotel=h;if(S.tab==='avail'&&S.week!==openWeek()){setWeek(openWeek());return}}}
     render()},onErr);
   const scopedQ=c=>S.scoped?db.collection(c).where('hotel','in',S.role.hotels):db.collection(c);
-  if(S.admin){scopedQ('mgr').onSnapshot(q=>{S.mgr=docsMap(q);render()},onErr);scopedQ('avail').onSnapshot(q=>{S.avail=docsMap(q);render()},onErr)}
+  if(S.admin){if(!S.deptOnly)scopedQ('mgr').onSnapshot(q=>{S.mgr=docsMap(q);render()},onErr);scopedQ('avail').onSnapshot(q=>{S.avail=docsMap(q);render()},onErr)}
   else{db.doc('avail/'+S.uid).onSnapshot(s=>{if(s.exists)S.avail[S.uid]=s.data();render()},onErr)}
   if(S.can.perms)db.collection('roles').onSnapshot(q=>{S.roles=docsMap(q);render()},onErr);
   if(S.isOwner)migrateHotelFields();

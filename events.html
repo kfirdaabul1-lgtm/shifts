@@ -31,14 +31,14 @@
   <div class="drawer-h"><b>Seven Collection</b><button class="dx" data-close aria-label="סגירה">×</button></div>
   <div class="drawer-who" id="abUser"></div>
   <a class="item" href="./"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>סידור עבודה</a>
-  <a class="item" href="events.html" id="abEvents" aria-current="page"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 13h7M9 17h5"/></svg>הצעות מחיר</a>
+  <a class="item" href="events.html" id="abEvents" aria-current="page"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 13h7M9 17h5"/></svg>אירועים</a>
   <a class="item" href="./#ceo" id="abCeo" hidden><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>מבט מנכ״ל</a>
   <a class="item" href="./#perms" id="abPerms" hidden><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M12 3l7 3v5c0 5-3 8-7 10-4-2-7-5-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg>הרשאות</a>
   <span class="sp"></span><button class="item" id="abOut"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10"/></svg>יציאה</button>
 </nav></div>
 <div class="evgate" id="evGate"><div class="card"><p>טוען…</p></div></div>
 <div id="recaptcha"></div>
-<title>הצעות מחיר · Seven Collection</title>
+<title>אירועים · Seven Collection</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&family=Assistant:wght@400;500;600;700&display=swap">
 <style>
@@ -305,7 +305,7 @@ table.ctable{border-collapse:collapse;width:100%;min-width:620px;font-size:14px;
 
 <div class="wrap">
   <header class="bar">
-    <h1 class="brand" id="brandName">הצעות מחיר לאירועים<small><bdi>מלון 7EVEN</bdi> · <bdi>Gutman</bdi> · <bdi>7seas</bdi></small></h1>
+    <h1 class="brand" id="brandName">אירועים<small><bdi>מלון 7EVEN</bdi> · <bdi>Gutman</bdi> · <bdi>7seas</bdi></small></h1>
     <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px"><span id="meLine" style="font-size:13px;font-weight:600"></span><span id="syncState" class="meta" style="font-size:12px;color:var(--muted)"></span></div>
   </header>
   <nav class="tabs" role="tablist">
@@ -950,7 +950,7 @@ const D = &lt;?!= dJson ?&gt;, S = &lt;?!= sJson ?&gt;;
     let started=false,sawOut=false;
     auth.onAuthStateChanged(async u=>{
       if(!u){if(started){location.reload();return}sawOut=true;
-        showGate('<h1>'+esc(CFG.appName||'Seven Collection')+'</h1><p>הצעות מחיר לאירועים. נכנסים עם אותו חשבון של סידור העבודה.</p><p id="gMsg" hidden style="color:var(--warn)"></p><button class="btn pri" id="gLogin" style="padding:12px">כניסה עם Google</button>'
+        showGate('<h1>'+esc(CFG.appName||'Seven Collection')+'</h1><p>אירועים: הצעות מחיר, הזמנות ותפריטים. נכנסים עם אותו חשבון של סידור העבודה.</p><p id="gMsg" hidden style="color:var(--warn)"></p><button class="btn pri" id="gLogin" style="padding:12px">כניסה עם Google</button>'
           +'<div id="gEmailBox">'+(needEmail?'<label class="f">כדי לסיים את הכניסה, הקלידו שוב את המייל<input type="email" id="gEmail2" dir="ltr"></label><button class="btn pri" id="gFinish">סיום הכניסה</button>'
           :'<label class="f">או כניסה עם קישור למייל, בלי סיסמה<input type="email" id="gEmail" dir="ltr" placeholder="name@gmail.com"></label><button class="btn" id="gSend">שליחת קישור כניסה</button>')+'</div>');
         document.getElementById('gLogin').addEventListener('click',login);wireEmail();resolveReady();return}

@@ -375,14 +375,14 @@ function renderTop(){
   ${S.ready&&!S.registering&&S.auth==='in'&&!APPTABS.includes(S.tab)?`<nav class="wrap tabs" aria-label="ניווט">${tabs.map(([k,n])=>`<button data-act="tab" data-t="${k}" ${S.tab===k?'aria-current="page"':''}>${n}</button>`).join('')}</nav>`:''}`;
 }
 function renderDrawer(){const el=$('#drawer');if(!S.menu||S.auth!=='in'){el.innerHTML='';return}
-  const items=S.registering?[]:[['shifts','סידור עבודה','data-act="app-shifts"',!APPTABS.includes(S.tab)],S.can.events&&['events','הצעות מחיר','href="events.html"',false],S.can.ceo&&['ceo','מבט מנכ״ל','data-act="app-ceo"',S.tab==='ceo'],S.can.perms&&['perms','הרשאות','data-act="app-perms"',S.tab==='perms']].filter(Boolean);
+  const items=S.registering?[]:[['shifts','סידור עבודה','data-act="app-shifts"',!APPTABS.includes(S.tab)],S.can.events&&['events','אירועים','href="events.html"',false],S.can.ceo&&['ceo','מבט מנכ״ל','data-act="app-ceo"',S.tab==='ceo'],S.can.perms&&['perms','הרשאות','data-act="app-perms"',S.tab==='perms']].filter(Boolean);
   el.innerHTML=`<div class="drawer-bg" data-act="menu-close"></div><nav class="drawer" aria-label="אפליקציות">
     <div class="drawer-h"><b>Seven Collection</b><button class="x" data-act="menu-close" aria-label="סגירה">×</button></div>
     <div class="drawer-who">${esc(S.meName||'')}${S.meName&&(S.email||S.phone)?'<br>':''}<bdi>${esc(S.email||S.phone||'')}</bdi></div>
     ${items.map(([k,n,attr,cur])=>attr.startsWith('href')?`<a class="item" ${attr}>${ICO[k]}${n}</a>`:`<button class="item" ${attr} ${cur?'aria-current="page"':''}>${ICO[k]}${n}</button>`).join('')}
     <span class="sp"></span><button class="item" data-act="logout">${ICO.out}יציאה</button></nav>`}
 function appBarHTML(){return '';
-  return `<div class="appbar"><div class="wrap appbar-in" role="navigation" aria-label="אפליקציות"><button data-act="app-shifts" ${!APPTABS.includes(S.tab)?'aria-current="page"':''}>סידור עבודה</button>${S.can.events?'<a href="events.html">הצעות מחיר</a>':''}${S.can.perms?`<button data-act="app-perms" ${S.tab==='perms'?'aria-current="page"':''}>הרשאות</button>`:''}</div></div>`}
+  return `<div class="appbar"><div class="wrap appbar-in" role="navigation" aria-label="אפליקציות"><button data-act="app-shifts" ${!APPTABS.includes(S.tab)?'aria-current="page"':''}>סידור עבודה</button>${S.can.events?'<a href="events.html">אירועים</a>':''}${S.can.perms?`<button data-act="app-perms" ${S.tab==='perms'?'aria-current="page"':''}>הרשאות</button>`:''}</div></div>`}
 const wrap=h=>`<div class="wrap stack">${h}</div>`;
 const msg=(t,p)=>wrap(`<div class="empty-state"><h2>${t}</h2><p class="muted">${p}</p></div>`);
 const emptyBox=(t,p,a='')=>`<div class="empty-state"><h2>${t}</h2><p class="muted">${p}</p>${a}</div>`;
@@ -941,7 +941,7 @@ function roleHTML(u,e,isNew){if(!S.can.perms||isNew||e.manual||u===S.uid)return 
   return `<div class="sep"></div><h3>הרשאות</h3><p class="muted" style="font-size:.85rem">${r?esc(permSummary(r)):'עובד רגיל, בלי הרשאות ניהול.'}</p><div><button class="btn" data-act="perm-open" data-u="${u}">עריכת הרשאות</button></div>`}
 
 /* ---------- permissions page ---------- */
-const APPS=[['shifts','ניהול סידור עבודה','סידור, משמרות, עובדים, שכר ועלויות במלונות שנבחרו'],['events','הצעות מחיר לאירועים','כל ההצעות, התפריטים והחוזים'],['perms','ניהול הרשאות','יכול לתת לאחרים רק הרשאות שיש לו בעצמו'],['ceo','מבט מנכ״ל','עלויות עובדים והכנסות מאירועים לפי חודש'],['dept','מנהל מחלקה','מסדר רק את המחלקות שנבחרו, בלי שכר ועלויות']];
+const APPS=[['shifts','ניהול סידור עבודה','סידור, משמרות, עובדים, שכר ועלויות במלונות שנבחרו'],['events','אירועים','כל ההצעות, התפריטים והחוזים'],['perms','ניהול הרשאות','יכול לתת לאחרים רק הרשאות שיש לו בעצמו'],['ceo','מבט מנכ״ל','עלויות עובדים והכנסות מאירועים לפי חודש'],['dept','מנהל מחלקה','מסדר רק את המחלקות שנבחרו, בלי שכר ועלויות']];
 const roleApps=r=>r?(r.apps||{shifts:true}):{};
 function myApps(){if(S.isOwner)return {shifts:true,events:true,perms:true,ceo:true,dept:true};const a={...roleApps(S.role)};if(a.shifts)a.dept=true;return a}
 const grantDepts=()=>S.isOwner||roleApps(S.role).shifts?DEPTS:DEPTS.filter(d=>((S.role&&S.role.depts)||[]).includes(d.k));

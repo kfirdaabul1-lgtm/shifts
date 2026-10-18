@@ -27,8 +27,8 @@ Hotel `main` has no suffix in shift/schedule ids. Every record must carry `hotel
 ## Sign-in
 Google uses `signInWithPopup` only — never add a redirect fallback: redirect breaks on iPhone/Safari because the site (github.io) and authDomain (firebaseapp.com) differ. Email-link sign-in (`sendSignInLinkToEmail`) is the fallback; it needs Email/Password + Email link enabled in Firebase Authentication.
 
-## Language (Hebrew / English)
-`i18n.js` is loaded by both pages. Hebrew is the source language; in English mode the script translates the rendered DOM with the dictionary inside it and flips the layout to LTR. A floating button switches language (saved in localStorage `appLang`; default follows the phone's language). Client-facing quote paper (`.doc`) and user data are not translated. **When you add or change Hebrew UI text, add the English to the dictionary in `i18n.js`.** Options without a `value` keep their Hebrew text as the value.
+## Language (Hebrew / English / Russian)
+`i18n.js` is loaded by both pages. Hebrew is the source language; in English mode the script translates the rendered DOM with the dictionaries inside it (`DICTS.en`, `DICTS.ru`) and flips the layout to LTR. A floating language picker switches language (saved in localStorage `appLang`; default follows the phone's language). Client-facing quote paper (`.doc`) and user data are not translated. **When you add or change Hebrew UI text, add the English and Russian to `DICTS` in `i18n.js`.** Options without a `value` keep their Hebrew text as the value.
 
 ## Before pushing
 Run `node --check` on the extracted script and keep `esc()` around any user-entered text inserted into HTML.

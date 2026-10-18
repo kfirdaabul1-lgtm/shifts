@@ -1,21 +1,40 @@
 <!doctype html><html lang="he" dir="rtl"><head><meta name="theme-color" content="#1f5f6b"><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
 <style>
-.appbar{background:var(--surface);border-bottom:1px solid var(--line);position:relative;z-index:20}
-.appbar-in{max-width:1240px;margin:0 auto;display:flex;align-items:center;gap:4px;padding-block:6px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));overflow-x:auto;scrollbar-width:none}
-.appbar a,.appbar button{font:600 14px var(--f-body);color:var(--muted);text-decoration:none;padding:7px 12px;border-radius:8px;white-space:nowrap;border:0;background:none;cursor:pointer}
-.appbar a[aria-current="page"]{background:var(--accent-soft);color:var(--fg)}
-.appbar a:hover,.appbar button:hover{color:var(--fg)}
-.appbar .sp{flex:1}
-.appbar .who{font-size:12px;color:var(--muted);white-space:nowrap}
+.evtop{background:var(--surface);border-bottom:1px solid var(--line)}
+.evtop-in{max-width:1240px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:10px;padding-block:6px;padding-left:max(10px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.evbrand{font-family:var(--f-display);font-size:17px}
+.drawer .dx{border:0;background:var(--bg);color:var(--fg);width:32px;height:32px;border-radius:8px;font-size:18px;cursor:pointer}
+
+.burger{width:42px;height:42px;border:0;background:none;color:var(--fg);display:grid;place-items:center;border-radius:10px;cursor:pointer;flex:none}
+.burger:hover{background:var(--bg)}
+.drawer-bg{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:70}
+.drawer{position:fixed;top:0;bottom:0;left:0;width:min(300px,86vw);background:var(--surface);z-index:71;display:flex;flex-direction:column;gap:4px;padding:calc(14px + env(safe-area-inset-top,0px)) 14px calc(18px + env(safe-area-inset-bottom,0px)) max(14px,env(safe-area-inset-left,0px));box-shadow:0 0 40px rgb(0 0 0 / .18)}
+@media (prefers-reduced-motion:no-preference){.drawer{animation:drawerIn .22s ease-out}.drawer-bg{animation:fadeIn .2s}}
+@keyframes drawerIn{from{transform:translateX(-100%)}to{transform:none}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.drawer-h{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:4px 4px 12px;border-bottom:1px solid var(--line);margin-bottom:8px}
+.drawer-h b{font-family:var(--f-display);font-weight:400;font-size:1.2rem}
+.drawer-who{font-size:.82rem;color:var(--muted);padding:0 6px 8px;word-break:break-all}
+.drawer .item{display:flex;align-items:center;gap:12px;width:100%;padding:12px;border-radius:10px;border:0;background:none;font:inherit;font-size:1rem;color:var(--fg);text-decoration:none;cursor:pointer;text-align:start}
+.drawer .item:hover{background:var(--bg)}
+.drawer .item[aria-current="page"]{background:var(--bg);font-weight:600}
+.drawer .item svg{color:var(--muted);flex:none}
+.drawer .sp{flex:1}
+
 .evgate{position:fixed;inset:0;z-index:100;background:var(--bg);display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:calc(48px + env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) 32px max(16px,env(safe-area-inset-left,0px))}
 .evgate .card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:24px;max-width:440px;width:100%;display:flex;flex-direction:column;gap:14px}
 .evgate h1{font-family:var(--f-display);font-size:24px;margin:0}
 .evgate p{margin:0;color:var(--muted)}
 </style>
-<nav class="appbar" aria-label="אפליקציות"><div class="appbar-in">
-  <b style="font-family:var(--f-display);font-size:15px;padding-inline-end:10px;white-space:nowrap">Seven Collection</b><a href="./">סידור עבודה</a><a href="events.html" aria-current="page">הצעות מחיר</a><a href="./#perms" id="abPerms" hidden>הרשאות</a>
-  <span class="sp"></span><span class="who" id="abUser"></span><button id="abOut" hidden>יציאה</button>
-</div></nav>
+<header class="evtop"><div class="evtop-in"><b class="evbrand">Seven Collection</b><button class="burger" id="abMenu" aria-label="תפריט" aria-expanded="false" hidden><svg width="26" height="26" viewBox="0 0 26 26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h18"/><path d="M4 13h14"/><path d="M4 19h10"/></svg></button></div></header>
+<div id="evDrawer" hidden><div class="drawer-bg" data-close></div><nav class="drawer" aria-label="אפליקציות">
+  <div class="drawer-h"><b>Seven Collection</b><button class="dx" data-close aria-label="סגירה">×</button></div>
+  <div class="drawer-who" id="abUser"></div>
+  <a class="item" href="./"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>סידור עבודה</a>
+  <a class="item" href="events.html" aria-current="page"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 13h7M9 17h5"/></svg>הצעות מחיר</a>
+  <a class="item" href="./#perms" id="abPerms" hidden><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M12 3l7 3v5c0 5-3 8-7 10-4-2-7-5-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg>הרשאות</a>
+  <span class="sp"></span><button class="item" id="abOut"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10"/></svg>יציאה</button>
+</nav></div>
 <div class="evgate" id="evGate"><div class="card"><p>טוען…</p></div></div>
 <div id="recaptcha"></div>
 <title>הצעות מחיר · Seven Collection</title>
@@ -908,6 +927,11 @@ const D = &lt;?!= dJson ?&gt;, S = &lt;?!= sJson ?&gt;;
       const fin=document.getElementById('gFinish');if(fin)fin.addEventListener('click',()=>{const em=document.getElementById('gEmail2').value.trim();if(em)finishLink(em)});
     }
     document.getElementById('abOut').addEventListener('click',async()=>{try{await auth.signOut()}catch(_){ }location.reload()});
+    const dr=document.getElementById('evDrawer'),mb=document.getElementById('abMenu');
+    const setMenu=o=>{dr.hidden=!o;mb.setAttribute('aria-expanded',String(o))};
+    mb.addEventListener('click',()=>setMenu(dr.hidden));
+    dr.addEventListener('click',e=>{if(e.target.closest('[data-close]'))setMenu(false)});
+    document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!dr.hidden)setMenu(false)});
     let started=false,sawOut=false;
     auth.onAuthStateChanged(async u=>{
       if(!u){if(started){location.reload();return}sawOut=true;
@@ -923,8 +947,8 @@ const D = &lt;?!= dJson ?&gt;, S = &lt;?!= sJson ?&gt;;
       const apps=role?(role.apps||{shifts:true}):{};
       ctx.allowed=ctx.isOwner||!!apps.events;
       document.getElementById('abPerms').hidden=!(ctx.isOwner||apps.perms);
-      document.getElementById('abUser').textContent=u.displayName||u.email||'';
-      document.getElementById('abOut').hidden=false;
+      document.getElementById('abUser').textContent=(u.displayName?u.displayName+' · ':'')+(u.email||'');
+      document.getElementById('abMenu').hidden=false;
       if(!ctx.allowed)showGate('<h1>אין לך גישה להצעות המחיר</h1><p>מנהל עם הרשאה לנהל הרשאות יכול לפתוח לך גישה בעמוד ההרשאות.</p><p>מחובר/ת בתור <bdi>'+esc(u.email||'')+'</bdi></p><a class="btn" href="./">לסידור העבודה</a>');
       else gate.hidden=true;
       resolveReady();

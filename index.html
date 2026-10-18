@@ -211,6 +211,21 @@ table.plain th.num{text-align:end}
 .lh{padding:10px 14px 4px;font-size:.8rem;font-weight:600;color:var(--muted);background:var(--sunk);border-top:1px solid var(--line)}
 .lh:first-child{border-top:0}
 .li[disabled]{cursor:default;opacity:.7}
+.burger{width:42px;height:42px;border:0;background:none;color:var(--ink);display:grid;place-items:center;border-radius:10px;cursor:pointer;flex:none}
+.burger:hover{background:var(--sunk)}
+.drawer-bg{position:fixed;inset:0;background:var(--scrim);z-index:70}
+.drawer{position:fixed;top:0;bottom:0;left:0;width:min(300px,86vw);background:var(--surface);z-index:71;display:flex;flex-direction:column;gap:4px;padding:calc(14px + env(safe-area-inset-top,0px)) 14px calc(18px + env(safe-area-inset-bottom,0px)) max(14px,env(safe-area-inset-left,0px));box-shadow:0 0 40px rgb(0 0 0 / .18)}
+@media (prefers-reduced-motion:no-preference){.drawer{animation:drawerIn .22s ease-out}.drawer-bg{animation:fadeIn .2s}}
+@keyframes drawerIn{from{transform:translateX(-100%)}to{transform:none}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.drawer-h{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:4px 4px 12px;border-bottom:1px solid var(--line);margin-bottom:8px}
+.drawer-h b{font-family:var(--f-display);font-weight:400;font-size:1.2rem}
+.drawer-who{font-size:.82rem;color:var(--muted);padding:0 6px 8px;word-break:break-all}
+.drawer .item{display:flex;align-items:center;gap:12px;width:100%;padding:12px;border-radius:10px;border:0;background:none;font:inherit;font-size:1rem;color:var(--ink);text-decoration:none;cursor:pointer;text-align:start}
+.drawer .item:hover{background:var(--sunk)}
+.drawer .item[aria-current="page"]{background:var(--sunk);font-weight:600}
+.drawer .item svg{color:var(--muted);flex:none}
+.drawer .sp{flex:1}
 .notice{background:var(--brass-bg);color:var(--brass);border-radius:10px;padding:10px 14px;font-size:.9rem}
 @media (prefers-reduced-motion:no-preference){.cell,.slot,.btn{transition:background-color .15s,border-color .15s}}
 </style>
@@ -218,6 +233,7 @@ table.plain th.num{text-align:end}
 <body>
 <div dir="rtl" lang="he">
   <header class="top" id="top"></header>
+  <div id="drawer"></div>
   <main id="main"></main>
   <div id="sheet" class="sheet" hidden data-act="bg-close"></div>
   <div id="toast" class="toast" hidden role="status"></div>
@@ -243,6 +259,7 @@ const KORD={m:0,d:1,e:2,n:3};
 const DEF_TIMES={m:{s:'07:00',e:'15:00'},d:{s:'10:00',e:'18:00'},e:{s:'15:00',e:'23:00'},n:{s:'23:00',e:'07:00'}};
 const DAYS=['ראשון','שני','שלישי','רביעי','חמישי','שישי','שבת'];
 const DAYS_S=['א׳','ב׳','ג׳','ד׳','ה׳','ו׳','ש׳'];
+const ICO={"shifts": `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>`, "events": `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 13h7M9 17h5"/></svg>`, "perms": `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M12 3l7 3v5c0 5-3 8-7 10-4-2-7-5-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg>`, "out": `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10"/></svg>`};
 const BELL='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 17h16"/><path d="M6 17a6 6 0 0 1 12 0"/><path d="M12 8V6"/><path d="M10 6h4"/><path d="M3 20h18"/></svg>';
 
 /* dates */
@@ -313,22 +330,30 @@ function onField(e){const f=e.target.dataset&&e.target.dataset.f;if(!f)return;co
 document.addEventListener('input',onField);document.addEventListener('change',onField);
 const isTyping=()=>{const a=document.activeElement;return a&&['INPUT','TEXTAREA','SELECT'].includes(a.tagName)&&!['checkbox','radio'].includes(a.type)};
 document.addEventListener('focusout',()=>setTimeout(()=>{if(S.pending&&!isTyping())render()},0));
-document.addEventListener('keydown',e=>{if(e.key==='Escape'&&S.sheet){S.sheet=null;S.drafts.emp=null;render()}});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&S.menu){S.menu=false;render();return}if(e.key==='Escape'&&S.sheet){S.sheet=null;S.drafts.emp=null;render()}});
 
 /* ---------- render ---------- */
-function render(){if(isTyping()){S.pending=true;return}S.pending=false;renderTop();$('#main').innerHTML=viewHTML();renderSheet()}
+function render(){if(isTyping()){S.pending=true;return}S.pending=false;renderTop();renderDrawer();$('#main').innerHTML=viewHTML();renderSheet()}
 function renderTop(){
   const c=cfg();
   const tabs=S.admin?[['sched','סידור'],['shifts','משמרות פתוחות'],['staff','עובדים'],['costs','עלויות'],['settings','הגדרות']]:[['avail','הזמינות שלי'],['mine','המשמרות שלי'],['profile','הפרופיל שלי']];
   const nav=S.ready&&!S.registering&&S.auth==='in'&&S.week&&S.tab!=='settings'&&S.tab!=='perms'&&!(!S.admin&&(S.tab==='avail'||S.tab==='profile'));
   $('#top').innerHTML=`${appBarHTML()}<div class="wrap top-in">
-    <div class="brand"><span class="mark">${BELL}</span><div><div class="b1">Seven Collection</div><div class="b2">${S.auth==='in'&&!S.registering?`${esc(hotelName(S.hotel))} · ${S.admin?'ממשק מנהל':'ממשק עובד'} · `:''}${S.auth==='in'?'<button class="linkbtn" data-act="logout">יציאה</button>':''}</div></div></div>
+    <div class="brand"><span class="mark">${BELL}</span><div><div class="b1">Seven Collection</div><div class="b2">${S.auth==='in'&&!S.registering?`${esc(hotelName(S.hotel))} · ${S.admin?'ממשק מנהל':'ממשק עובד'}`:''}</div></div></div>
     ${nav?`<div class="weeknav"><button data-act="week" data-d="-7" aria-label="שבוע קודם">›</button><div class="wk"><span class="wk-l">שבוע</span><b class="mono">${weekLabel(S.week)}</b></div><button data-act="week" data-d="7" aria-label="שבוע הבא">‹</button></div>`:''}
+    ${S.auth==='in'?`<button class="burger" data-act="menu" aria-label="תפריט" aria-expanded="${!!S.menu}"><svg width="26" height="26" viewBox="0 0 26 26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h18"/><path d="M4 13h14"/><path d="M4 19h10"/></svg></button>`:''}
   </div>
   ${S.ready&&S.admin&&S.tab!=='perms'&&visibleHotels().length>1?`<div class="wrap hotels" role="group" aria-label="בחירת מלון">${visibleHotels().map(h=>`<button class="hchip" data-act="hotel" data-h="${h}" aria-pressed="${h===S.hotel}">${esc(hotelName(h))}</button>`).join('')}</div>`:''}
   ${S.ready&&!S.registering&&S.auth==='in'&&S.tab!=='perms'?`<nav class="wrap tabs" aria-label="ניווט">${tabs.map(([k,n])=>`<button data-act="tab" data-t="${k}" ${S.tab===k?'aria-current="page"':''}>${n}</button>`).join('')}</nav>`:''}`;
 }
-function appBarHTML(){if(S.auth!=='in'||S.registering||!S.ready||(!S.can.events&&!S.can.perms))return '';
+function renderDrawer(){const el=$('#drawer');if(!S.menu||S.auth!=='in'){el.innerHTML='';return}
+  const items=S.registering?[]:[['shifts','סידור עבודה','data-act="app-shifts"',S.tab!=='perms'],S.can.events&&['events','הצעות מחיר','href="events.html"',false],S.can.perms&&['perms','הרשאות','data-act="app-perms"',S.tab==='perms']].filter(Boolean);
+  el.innerHTML=`<div class="drawer-bg" data-act="menu-close"></div><nav class="drawer" aria-label="אפליקציות">
+    <div class="drawer-h"><b>Seven Collection</b><button class="x" data-act="menu-close" aria-label="סגירה">×</button></div>
+    <div class="drawer-who">${esc(S.meName||'')}${S.meName&&(S.email||S.phone)?'<br>':''}<bdi>${esc(S.email||S.phone||'')}</bdi></div>
+    ${items.map(([k,n,attr,cur])=>attr.startsWith('href')?`<a class="item" ${attr}>${ICO[k]}${n}</a>`:`<button class="item" ${attr} ${cur?'aria-current="page"':''}>${ICO[k]}${n}</button>`).join('')}
+    <span class="sp"></span><button class="item" data-act="logout">${ICO.out}יציאה</button></nav>`}
+function appBarHTML(){return '';
   return `<div class="appbar"><div class="wrap appbar-in" role="navigation" aria-label="אפליקציות"><button data-act="app-shifts" ${S.tab!=='perms'?'aria-current="page"':''}>סידור עבודה</button>${S.can.events?'<a href="events.html">הצעות מחיר</a>':''}${S.can.perms?`<button data-act="app-perms" ${S.tab==='perms'?'aria-current="page"':''}>הרשאות</button>`:''}</div></div>`}
 const wrap=h=>`<div class="wrap stack">${h}</div>`;
 const msg=(t,p)=>wrap(`<div class="empty-state"><h2>${t}</h2><p class="muted">${p}</p></div>`);
@@ -837,8 +862,10 @@ const ACT={
     const doc={...e,name,phone:String(d.phone??e.phone??'').trim(),title:String(d.title??e.title??'').trim(),want:d.want??e.want??'',depts,hotel:d.hotel??e.hotel??S.hotel,manual:false,createdAt:e.createdAt||Date.now()};
     S.emps[S.uid]=doc;S.hotel=doc.hotel;save('employees/'+S.uid,doc);S.drafts.pf=null;toast(isNew?'נרשמת! עכשיו אפשר לסמן זמינות.':'הפרופיל נשמר');if(isNew)setTab('avail');else render()},
   close:()=>{S.sheet=null;S.drafts.emp=null;S.drafts.perm=null;S.confirm=null;render()},
-  'app-shifts':()=>setTab(S.admin?'sched':'avail'),
-  'app-perms':()=>setTab('perms'),
+  'app-shifts':()=>{S.menu=false;setTab(S.admin?'sched':'avail')},
+  'app-perms':()=>{S.menu=false;setTab('perms')},
+  menu:()=>{S.menu=!S.menu;render()},
+  'menu-close':()=>{S.menu=false;render()},
   'perm-open':D=>{S.drafts.perm=null;S.sheet={type:'perm',id:D.u};render()},
   'perm-app':(D,t)=>{const d=S.drafts.perm;if(!d)return;d.apps[D.k]=t.checked;
     if(D.k==='shifts'&&t.checked&&!d.hotels.length&&!allHotelsP()){const e=S.emps[S.sheet.id];const h=e?.hotel||'main';d.hotels=grantableHotels().includes(h)?[h]:grantableHotels().slice(0,1)}render()},

@@ -89,9 +89,9 @@ service cloud.firestore {
       return isOwner() || (hasRole() && (roleHotels().size() == 0 || h in roleHotels())
         && (roleApp('shifts') || roleApp('dept') || roleApp('gm') || roleApp('brief') || roleApp('front') || roleApp('perms')));
     }
-    // אירועים לפי המקומות של המלון (settings.venues, ריק = כל המקומות), עד 4 מלונות בהרשאה
+    // אירועים לפי המקומות של המלון (settings.venues; מלון בלי מקומות לא רואה אירועים), עד 4 מלונות בהרשאה
     function venuesOf(h) { return get(/databases/$(database)/documents/settings/$(h)).data.get('venues', []); }
-    function venueIn(h, v) { return venuesOf(h).size() == 0 || v in venuesOf(h); }
+    function venueIn(h, v) { return v in venuesOf(h); }
     function hotelVenueOk(v) {
       let hs = roleHotels();
       return hs.size() == 0 || venueIn(hs[0], v)

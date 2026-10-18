@@ -16,7 +16,7 @@ Owner: kfirdaabul1@gmail.com. The user writes in Hebrew and is not a developer: 
 Change requests after publishing: `requests/{id}` ({type:add|remove|change, uid, from, to, fromDesc, toDesc, hotel, week, status:pending|approved|declined|applied, note}). `asg()` applies approved requests on top of the published schedule; a manager's next `saveSched` bakes them in and marks them `applied`. While a week is published, managers can't edit assignments directly and employees can't change availability.
 Events: `config/main`, `quotes/{id}` (+ `versions/{v}`), `menus/{id}`, `contracts/{id}`.
 Permissions: owner = everything. `perms` holders may only grant apps/hotels they hold themselves (enforced in rules via `grantOk`/`existingOk`/`targetInScope`). Everyone must self-register with a hotel join code before they can be given permissions.
-Hotel `main` has no suffix in shift/schedule ids. Every record must carry `hotel` — the rules scope managers per hotel by it.
+Chain-wide staff: employees with `hotel:'chain'` (join code made in the Permissions hotels card; `CHAIN`, `isChain`). `hotelIds()` excludes `chain`; `isHome()` is true for chain staff in every hotel, so they can be scheduled anywhere; they pick the hotel in their own view. Their salaries are visible only to owner/all-hotels managers. Hotel `main` has no suffix in shift/schedule ids. Every record must carry `hotel` — the rules scope managers per hotel by it.
 
 ## Key code areas in index.html
 - `DEPTS`, `KINDS`, `DEF_TIMES` constants near the top of the script.

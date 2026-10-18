@@ -38,6 +38,7 @@ Chain staff: employees with `hotel:'chain'` (management/office; join code made i
 - `gm` app (hotel manager, scoped by `role.hotels`): tab `#gm` (`vGm`, `gmLoad`) = one-page dashboard of a hotel (coverage, availability, labor cost, 10days today, missing shifts, week's events, expenses/debt, low stock, pending purchase requests). Rules `gmRole`/`gmIn`.
 - Management staff: employee field `mgmt` ('gm'|'ceo', set from the employee card or automatically when granting gm/ceo). `inRoster(u)` excludes them (and inactive/other-hotel people) from submission counts, reminders and auto-assign; their own view has only Profile.
 - Stock (`#stock`, `vStock`): `inventory/{id}` {hotel, dept, name, unit, qty, min} and `purchaseReqs/{id}` {hotel, dept, itemId, itemName, unit, qty, note, status pending|approved|ordered|received|declined|canceled, by}. Visible to owner, shifts managers, hotel managers (all depts) and department managers (their depts). "received" adds qty to the item. Rules `stockIn(h,d)`.
+- `brief` app (daily brief, scoped by `role.hotels`; gm also gets it): tab `#brief` (`vBrief`, `briefLoad`) shows one hotel/day: 10days numbers, that day's events (all venues, incl. hotel groups) and who's on shift; WhatsApp share. Rules `briefRole` (quotes read).
 - Department `ops` = "תפעול / מנהל תורן".
 - Events board colours are solid: green closed, blue hotel group, grey tentative, red clash.
 

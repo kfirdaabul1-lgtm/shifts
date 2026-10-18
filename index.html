@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#132033">
-<script src="i18n.js?v=202610182008"></script>
+<script src="i18n.js?v=202610182025"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -613,8 +613,7 @@ function vSettings(){
     <div class="actions"><button class="btn pri" data-act="savesettings">שמירת ההגדרות</button></div></section>`;
   const gen=`<div class="card"><h3>כללי</h3>
     <div class="row"><label class="f">שעות מנוחה מינימום בין משמרות<input type="number" id="set_rest" min="0" max="24" data-f="set.restHours" value="${esc(dv('set','restHours',c.restHours))}"></label></div>
-    <div class="f"><span>אירועים ששייכים למלון הזה <span class="muted">(מופיעים בקבלה ובבריף היומי; בלי בחירה = כל המקומות)</span></span><div class="chips" style="gap:6px">${Object.entries(EV_VENUE).map(([k,n])=>`<button type="button" class="dchip ${hotelVenues(S.hotel).includes(k)?'':'off'}" style="--h:var(--brass);cursor:pointer" data-act="hotel-venue" data-v="${k}">${esc(n)}</button>`).join('')}</div></div>
-    <p class="muted" style="font-size:.82rem">שמות המלונות, קודי ההצטרפות והוספת מלון נמצאים בעמוד <button class="linkbtn" data-act="app-perms">הרשאות</button>.</p></div>`+(S.isOwner?importHTML():'');
+    <p class="muted" style="font-size:.82rem">שמות המלונות, קודי ההצטרפות, חללי האירועים של כל מלון והוספת מלון נמצאים בעמוד <button class="linkbtn" data-act="app-perms">הרשאות</button>.</p></div>`+(S.isOwner?importHTML():'');
   const cards=DEPTS.map(dp=>{const br=dv('set',dp.k+'_br',breakDept(S.hotel,dp.k));return `<section class="card" style="--h:${dp.h}"><div class="dept-h" style="justify-content:space-between"><span style="display:flex;align-items:center;gap:10px"><span class="sw"></span><h2>${dp.n}</h2></span><label class="check" style="font-size:.85rem"><input type="checkbox" id="set_${dp.k}_br" data-f="set.${dp.k}_br" ${br?'checked':''}> יורדת הפסקה</label></div>
     <div class="trows"><div class="trow th"><span>משמרת</span><span>התחלה</span><span>סיום</span><span class="hrs">משך</span></div>
     ${KINDS.map(k=>{const t=timesFor(dp.k,k.k),key=`${dp.k}_${k.k}`,on=dv('set',key+'_on',kindsFor(dp.k).includes(k.k)),a=dv('set',key+'_s',t.s),b=dv('set',key+'_e',t.e);
@@ -1056,7 +1055,7 @@ function briefLoad(h,d){const B=S.briefData||(S.briefData={}),k=h+'|'+d;if(B[k])
 const EV_VENUE={sola:'מלון 7EVEN',boheme:'Gutman',sevenseas:'7seas'};
 function briefText(h,d,daily,evs,crew){const DAILY=dailyRows(h);return `בריף יומי · ${hotelName(h)} · יום ${DAYS[dow(d)]} ${dm(d)}\n`+
   DAILY.filter(([k])=>daily[k]!=null).map(([k,n])=>`${n}: ${daily[k]}`).join('\n')+
-  (evs.length?`\n\nאירועים:\n`+evs.map(q=>`• ${q.event.start||''}${q.event.end?'–'+q.event.end:''} ${q.client?.name||''} (${EV_VENUE[q.event.venue]||''}${q.event.area?' · '+q.event.area:''}) ${+q.event.guests||0} אורחים${q.kind==='group'?' · קבוצת מלון':q.status==='approved'?'':' · טנטטיב'}`).join('\n'):'\n\nאין אירועים היום.')+
+  (evs.length?`\n\nאירועים:\n`+evs.map(q=>`• ${q.event.start||''}${q.event.end?'–'+q.event.end:''} ${q.client?.name||''} (${EV_VENUE[q.event.venue]||''}${' · '+spaceLabel(q)}) ${+q.event.guests||0} אורחים${q.kind==='group'?' · קבוצת מלון':q.status==='approved'?'':' · טנטטיב'}`).join('\n'):'\n\nאין אירועים היום.')+
   (crew.length?`\n\nבמשמרת:\n`+crew.map(([dept,list])=>`${DMAP[dept]?.n||dept}: ${list.map(x=>`${x.name} (${x.t})`).join(', ')}`).join('\n'):'')}
 function vBrief(){const hs=scopeHs();if(!hs.length)return wrap(emptyBox('אין מלונות בהרשאה','בעל המערכת יכול להוסיף לך מלון בעמוד ההרשאות.'));
   if(!hs.includes(S.hotel))S.hotel=hs[0];const h=S.hotel,d=S.briefDate||(S.briefDate=todayISO()),B=briefLoad(h,d);
@@ -1069,15 +1068,24 @@ function vBrief(){const hs=scopeHs();if(!hs.length)return wrap(emptyBox('אין 
   const head=`<section class="head"><div class="head-t"><h1>בריף יומי · ${esc(hotelName(h))}</h1>${nav}</div>${chips}</section>`;
   if(!ready)return wrap(head+'<p class="muted">טוען…</p>');
   const DAILY=dailyRows(h);const nums=`<div class="card"><h3>10days</h3>${DAILY.some(([k])=>daily[k]!=null)?`<div class="kpis">${DAILY.map(([k,n])=>kpi(n,daily[k]!=null?String(daily[k]):'—')).join('')}</div>`:'<p class="muted">עוד לא הוזנו נתונים ליום הזה.</p>'}</div>`;
-  const evCard=`<div class="card"><h3>אירועים היום · ${evs.length}</h3>${S.bQuotes===null?'<p class="muted">אין לך גישה לאירועים.</p>':evs.length?`<div class="plist">${evs.map(q=>`<div class="prow"><span class="who"><b class="mono" style="font-family:inherit">${esc(q.event.start||'')}${q.event.end?'–'+esc(q.event.end):''} · ${esc(q.client?.name||'ללא שם')}</b><small>${esc(EV_VENUE[q.event.venue]||'')}${q.event.area?' · '+esc(q.event.area):''} · ${esc(q.event.type||'')} · ${+q.event.guests||0} אורחים</small></span>${q.kind==='group'?'<span class="pill" style="background:#2a6fbf;color:#fff">קבוצת מלון</span>':q.status==='approved'?'<span class="pill ok">סגור</span>':'<span class="pill">טנטטיב</span>'}</div>`).join('')}</div>`:'<p class="muted">אין אירועים היום.</p>'}</div>`;
+  const evCard=`<div class="card"><h3>אירועים היום · ${evs.length}</h3>${S.bQuotes===null?'<p class="muted">אין לך גישה לאירועים.</p>':evs.length?`<div class="plist">${evs.map(q=>`<div class="prow"><span class="who"><b class="mono" style="font-family:inherit">${esc(q.event.start||'')}${q.event.end?'–'+esc(q.event.end):''} · ${esc(q.client?.name||'ללא שם')}</b><small>${esc(EV_VENUE[q.event.venue]||'')}${' · '+esc(spaceLabel(q))} · ${esc(q.event.type||'')} · ${+q.event.guests||0} אורחים</small></span>${q.kind==='group'?'<span class="pill" style="background:#2a6fbf;color:#fff">קבוצת מלון</span>':q.status==='approved'?'<span class="pill ok">סגור</span>':'<span class="pill">טנטטיב</span>'}</div>`).join('')}</div>`:'<p class="muted">אין אירועים היום.</p>'}</div>`;
   const crewCard=`<div class="card"><h3>במשמרת היום</h3>${!sched.published?'<p class="muted" style="font-size:.85rem">הסידור לשבוע הזה עוד לא פורסם, מוצג השיבוץ הנוכחי.</p>':''}${crew.length?crew.map(([k,l])=>`<div style="margin-bottom:8px"><b style="color:hsl(${DMAP[k].h} 45% 38%)">${DMAP[k].n}</b><div class="muted" style="font-size:.9rem">${l.map(x=>`${esc(x.name)} <span class="mono">(${esc(x.t)})</span>`).join(' · ')}</div></div>`).join(''):'<p class="muted">אין שיבוצים ליום הזה.</p>'}</div>`;
   const wa=`https://wa.me/?text=${encodeURIComponent(briefText(h,d,daily,evs,crew))}`;
   return wrap(head+`<div class="setgrid">${nums}${evCard}${crewCard}</div><div class="actions"><a class="btn brass" href="${wa}" target="_blank" rel="noopener">שליחת הבריף בוואטסאפ</a></div>`);
 }
 /* ---------- front desk (reception user): hotel schedule (read-only), the hotel's events, 10days entry ---------- */
 // which event venues belong to a hotel: settings.venues (empty = all venues)
+// event spaces per venue (same as VENUES in events.html); a hotel owns spaces: settings.spaces ['venue|space'],
+// and settings.venues (derived) keeps the security rules per venue
+const EV_SPACES={sola:['סולה','Co-Work','מסעדה','בויילר','וולנס'],boheme:['לה בוהם','לה בוהם גארדן'],sevenseas:['גג']};
+const EV_LEGACY={'גג@sola':['סולה'],'מסעדת לה בוהם':['לה בוהם'],'לה בוהם גארדן – בר היין':['לה בוהם גארדן'],'המסעדה + הגארדן':['לה בוהם','לה בוהם גארדן']};
 const hotelVenues=h=>((S.settingsAll[h]||{}).venues)||[];
-const evForHotel=(q,h)=>{const v=hotelVenues(h);return !v.length||v.includes(q.event?.venue)};
+function hotelSpaces(h){const st=S.settingsAll[h]||{};if(Array.isArray(st.spaces))return st.spaces;return (st.venues||[]).flatMap(v=>(EV_SPACES[v]||[]).map(a=>v+'|'+a))}
+function quoteSpaces(q){const e=q.event||{},v=EV_SPACES[e.venue]?e.venue:'sola',all=EV_SPACES[v];
+  let a=Array.isArray(e.areas)?e.areas.map(x=>v==='sola'&&x==='גג'?'סולה':x):(EV_LEGACY[e.area+'@'+v]||EV_LEGACY[e.area]||(e.area?[e.area]:[]));a=a.filter(x=>all.includes(x));
+  return (a.length?a:(Array.isArray(e.areas)||v==='sola'?[all[0]]:all.slice())).map(x=>v+'|'+x)}
+const evForHotel=(q,h)=>{const sp=hotelSpaces(h);return !sp.length||quoteSpaces(q).some(x=>sp.includes(x))};
+const spaceLabel=q=>quoteSpaces(q).map(x=>x.split('|')[1]).join(' + ');
 function frontSaveDaily(h,daily){const cur=S.scheds[h]||{assign:{},published:false},doc={...cur,daily,updatedAt:Date.now()};delete doc.id;S.scheds[h]=doc;save(schedPath(S.week,h),doc)}
 function vFront(){const hs=scopeHs();if(!hs.length)return wrap(emptyBox('אין מלונות בהרשאה','בעל המערכת יכול להוסיף לך מלון בעמוד ההרשאות.'));
   if(!hs.includes(S.hotel))S.hotel=hs[0];const h=S.hotel,w=S.week;
@@ -1089,7 +1097,7 @@ function vFront(){const hs=scopeHs();if(!hs.length)return wrap(emptyBox('אין 
   const head=`<section class="head"><div class="head-t"><h1>קבלה · ${esc(hotelName(h))}</h1>${nav}</div>${chips}</section>`;
   const daily=`<div class="card"><h3>10days</h3><p class="muted" style="font-size:.85rem">מקלידים לכל יום כמה צ׳ק אין, צ׳ק אאוט, ארוחות בוקר, ארוחות ערב ורפרש. כל שינוי נשמר מיד.</p>${dailyTable(true)}</div>`;
   const evs=(S.bQuotes||[]).filter(q=>q.status!=='declined'&&q.event&&q.event.date>=w&&q.event.date<=addDays(w,6)&&evForHotel(q,h)).sort((a,b)=>String(a.event.date+(a.event.start||'')).localeCompare(String(b.event.date+(b.event.start||''))));
-  const evCard=`<div class="card"><h3>אירועים השבוע · ${evs.length}</h3>${S.bQuotes===null?'<p class="muted">אין לך גישה לאירועים.</p>':evs.length?`<div class="plist">${evs.map(q=>`<div class="prow"><span class="who"><b>יום ${DAYS[dow(q.event.date)]} ${dm(q.event.date)} · ${esc(q.event.start||'')}${q.event.end?'–'+esc(q.event.end):''} · ${esc(q.client?.name||'ללא שם')}</b><small>${esc(EV_VENUE[q.event.venue]||'')}${q.event.area?' · '+esc(q.event.area):''} · ${esc(q.event.type||'')} · ${+q.event.guests||0} אורחים</small></span>${q.kind==='group'?'<span class="pill" style="background:#2a6fbf;color:#fff">קבוצת מלון</span>':q.status==='approved'?'<span class="pill ok">סגור</span>':'<span class="pill">טנטטיב</span>'}</div>`).join('')}</div>`:'<p class="muted">אין אירועים השבוע.</p>'}</div>`;
+  const evCard=`<div class="card"><h3>אירועים השבוע · ${evs.length}</h3>${S.bQuotes===null?'<p class="muted">אין לך גישה לאירועים.</p>':evs.length?`<div class="plist">${evs.map(q=>`<div class="prow"><span class="who"><b>יום ${DAYS[dow(q.event.date)]} ${dm(q.event.date)} · ${esc(q.event.start||'')}${q.event.end?'–'+esc(q.event.end):''} · ${esc(q.client?.name||'ללא שם')}</b><small>${esc(EV_VENUE[q.event.venue]||'')}${' · '+esc(spaceLabel(q))} · ${esc(q.event.type||'')} · ${+q.event.guests||0} אורחים</small></span>${q.kind==='group'?'<span class="pill" style="background:#2a6fbf;color:#fff">קבוצת מלון</span>':q.status==='approved'?'<span class="pill ok">סגור</span>':'<span class="pill">טנטטיב</span>'}</div>`).join('')}</div>`:'<p class="muted">אין אירועים השבוע.</p>'}</div>`;
   const sh=weekShifts(),depts=DEPTS.filter(d=>sh.some(([,s])=>s.dept===d.k));
   const sched=`<h2 style="margin-top:8px">סידור העבודה</h2>${S.sched.published?'':'<p class="muted" style="font-size:.85rem">הסידור לשבוע הזה עוד לא פורסם, מוצג השיבוץ הנוכחי.</p>'}`+
     (depts.length?depts.map(d=>`<section class="dept" style="--h:${d.h}"><div class="dept-h"><span class="sw"></span><h2>${d.n}</h2></div>${deptTable(d.k,'view')}</section>`).join(''):emptyBox('אין משמרות לשבוע הזה',''));
@@ -1355,7 +1363,9 @@ function hotelsCardHTML(){if(!S.admin)return '';const hs=visibleHotels();
   return `<div class="card"><h3>מלונות וקודי הצטרפות</h3>
   <p class="muted" style="font-size:.85rem">עובד חדש נכנס לאתר, מתחבר ומקליד את קוד ההצטרפות של המלון שלו, וכך הוא משויך למלון הנכון. עובד רשת (הנהלה, משרד) מקבל את קוד הרשת: הוא לא נספר בנוכחות ולא משתבץ במשמרות, ואפשר לתת לו הרשאות בעמוד הזה. החלפת קוד מבטלת את הקוד הישן.</p>
   <div class="hlist">${hs.concat(allHotelsP()?[CHAIN]:[]).map(h=>{const code=validCode(h);return `<div class="hrow"><label class="f">${h===CHAIN?'עובדי רשת (לא שייכים למלון אחד)':'שם המלון'}<input type="text" id="hn_${h}" data-f="hn.${h}" value="${esc(dv('hn',h,hotelName(h)))}"></label>
-    <div class="hcode">${code?`<b class="code">${esc(code)}</b>`:'<span class="muted">עוד אין קוד</span>'}<button class="btn sm" data-act="join-new" data-h="${h}">${code?'החלפת קוד':'יצירת קוד'}</button></div></div>`}).join('')}</div>
+    <div class="hcode">${code?`<b class="code">${esc(code)}</b>`:'<span class="muted">עוד אין קוד</span>'}<button class="btn sm" data-act="join-new" data-h="${h}">${code?'החלפת קוד':'יצירת קוד'}</button></div>
+    ${h===CHAIN?'':`<div class="f" style="grid-column:1/-1"><span>חללי אירועים של המלון <span class="muted">(בלי בחירה = כל החללים)</span></span>${Object.entries(EV_SPACES).map(([v,arr])=>`<div class="chips" style="gap:6px;align-items:center"><small class="muted" style="min-width:74px">${esc(EV_VENUE[v])}:</small>${arr.map(a=>{const k=v+'|'+a,on=hotelSpaces(h).includes(k);return `<button type="button" class="hchip" data-act="hotel-space" data-h="${h}" data-v="${esc(k)}" aria-pressed="${on}">${esc(a)}</button>`}).join('')}</div>`).join('')}</div>`}</div>`}).join('')}</div>
+  <p class="muted" style="font-size:.82rem">החללים קובעים אילו אירועים וקבוצות רואים בקבלה, בבריף היומי ובעמוד מנהל המלון של כל מלון.</p>
   <div><button class="btn" data-act="hotels-save">שמירת שמות</button></div>
   ${S.isOwner?`<div class="sep"></div><h3>הוספת מלון</h3>
   <div class="actions" style="align-items:flex-end"><label class="f" style="flex:1;min-width:180px">שם המלון החדש<input type="text" id="new_hotel" data-f="nh.name" value="${esc(dv('nh','name',''))}" placeholder="למשל: מלון הגליל"></label><button class="btn" data-act="hotel-add">הוספת מלון</button></div>
@@ -1533,7 +1543,8 @@ const ACT={
   'app-brief':()=>{S.menu=false;setTab('brief')},
   'app-front':()=>{S.menu=false;setTab('front')},
   'notif-on':()=>{try{Notification.requestPermission().then(p=>{toast(p==='granted'?'ההתראות הופעלו. תקבל התראה כשתגיע בקשה חדשה, כל עוד האתר פתוח.':'ההתראות לא הופעלו');render()})}catch(_){toast('הדפדפן הזה לא תומך בהתראות')}},
-  'hotel-venue':D=>{const cur=hotelVenues(S.hotel);saveSettings({venues:cur.includes(D.v)?cur.filter(x=>x!==D.v):[...cur,D.v]})},
+  'hotel-space':D=>{const h=D.h,cur=hotelSpaces(h),k=D.v,sp=cur.includes(k)?cur.filter(x=>x!==k):[...cur,k];
+    S.settingsAll[h]={...(S.settingsAll[h]||{}),spaces:sp,venues:[...new Set(sp.map(x=>x.split('|')[0]))]};save('settings/'+h,S.settingsAll[h]);render()},
   'brief-day':D=>{S.briefDate=+D.d?addDays(S.briefDate||todayISO(),+D.d):todayISO();render()},
   'app-stock':()=>{S.menu=false;setTab('stock')},
   'gm-hotel':D=>setHotel(D.h),

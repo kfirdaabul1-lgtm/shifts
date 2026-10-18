@@ -48,4 +48,5 @@ Google uses `signInWithPopup` only — never add a redirect fallback: redirect b
 `i18n.js` is loaded by both pages. Hebrew is the source language; in other languages the script translates the rendered DOM with the dictionaries inside it (`DICTS.en`, `ru`, `ar`, `hi`, `si`) and flips the layout to LTR, except Arabic, which stays RTL (`RTL` map). A floating language picker switches language (saved in localStorage `appLang`; default follows the phone's language). Client-facing quote paper (`.doc`) and user data are not translated. **When you add or change Hebrew UI text, add the English, Russian, Arabic, Hindi and Sinhala to `DICTS` in `i18n.js`** (a missing entry falls back to Hebrew on screen). Options without a `value` keep their Hebrew text as the value.
 
 ## Before pushing
+When `i18n.js` changes, bump the `?v=` on its `<script>` tag in both index.html and events.html, or phones keep the old cached copy.
 Run `node --check` on the extracted script and keep `esc()` around any user-entered text inserted into HTML.

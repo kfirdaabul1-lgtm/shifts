@@ -1,6 +1,7 @@
 rules_version = '2';
 
 // כללי האבטחה של מסד הנתונים (סידור עבודה + הצעות מחיר + הרשאות).
+// מתפרסם אוטומטית מ-GitHub (Actions ← Publish security rules).
 // מדביקים את כל הקובץ ב-Firebase Console ← Firestore Database ← Rules ← Publish.
 // המייל בפונקציה ownerEmail חייב להיות זהה ל-ownerEmail בקובץ config.js.
 //

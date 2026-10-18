@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#132033">
-<script src="i18n.js?v=202610182037"></script>
+<script src="i18n.js?v=202610182040"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1014,6 +1014,10 @@ const STOCK_DEPTS=['housekeeping','kitchen','reception','maintenance'];
 const PREQST={pending:'ממתינה לאישור',approved:'אושרה',ordered:'הוזמנה',received:'התקבלה',declined:'נדחתה',canceled:'בוטלה'};
 const stockDepts=()=>{const base=[...STOCK_DEPTS,...DEPTS.map(d=>d.k).filter(k=>!STOCK_DEPTS.includes(k))].filter(k=>DMAP[k]);return S.deptOnly?base.filter(k=>S.myDepts.includes(k)):base};
 const stockBoss=h=>S.isOwner||S.can.shifts&&scopeHs().includes(h)||S.can.gm&&scopeHs().includes(h);
+// suppliers for stock: readable by expenses, hotel managers, shift managers and the owner
+const canSupList=()=>S.isOwner||S.can.exp||S.can.gm||S.can.shifts;
+const supOfItem=x=>x&&x.supplier?{id:x.supplier,name:(S.sups||{})[x.supplier]?.name||x.supplierName||'ספק'}:null;
+function orderText(h,sup,lines){return `שלום${sup&&sup.name?' '+sup.name:''},\nהזמנה מ${hotelName(h)}:\n`+lines.map(([,r])=>`• ${r.itemName} – ${+r.qty} ${r.unit||''}`.trim()).join('\n')+'\nתודה!'}
 function stockSub(h){const k='stock:'+h;if(S.live[k])return;S.live[k]=true;S.stockAll=S.stockAll||{};S.preqAll=S.preqAll||{};
   let q1=S.db.collection('inventory').where('hotel','==',h),q2=S.db.collection('purchaseReqs').where('hotel','==',h);
   if(S.deptOnly&&!S.can.gm){const ds=S.myDepts.slice(0,10);q1=q1.where('dept','in',ds.length?ds:['-']);q2=q2.where('dept','in',ds.length?ds:['-'])}
@@ -1031,7 +1035,7 @@ function vStock(){const hs=S.deptOnly&&!S.can.gm?scopeHs():scopeHs();if(!hs.leng
     <div class="kpis">${kpi('פריטים',String(all.length))}${kpi('מתחת למינימום',String(low.length),low.length?'כדאי להזמין':'הכל מעל המינימום',low.length?'bad':'ok')}${kpi('דרישות רכש ממתינות',String(pend.length),stockBoss(h)?'מאשרים למטה':'ממתינות לאישור המנהל')}</div></section>`;
   if(S.stockErr&&!(S.stockAll||{})[h])return wrap(head+`<div class="notice">לא הצלחתי לטעון: ${esc(S.stockErr)}</div>`);
   const table=rows.length?`<div class="card"><div class="scroll-x"><table class="plain"><thead><tr><th>פריט</th><th>מחלקה</th><th class="num">במלאי</th><th class="num">מינימום</th><th></th></tr></thead><tbody>
-    ${rows.map(([id,x])=>{const lo=isLow(x),pr=pend.some(([,r])=>r.itemId===id);return `<tr${lo?' style="background:var(--bad-bg)"':''}><td><b>${esc(x.name)}</b>${x.unit?` <span class="muted">(${esc(x.unit)})</span>`:''}</td><td>${esc(DMAP[x.dept]?.n||'')}</td>
+    ${rows.map(([id,x])=>{const lo=isLow(x),pr=pend.some(([,r])=>r.itemId===id);return `<tr${lo?' style="background:var(--bad-bg)"':''}><td><b>${esc(x.name)}</b>${x.unit?` <span class="muted">(${esc(x.unit)})</span>`:''}${x.supplierName?`<br><small class="muted">${esc(x.supplierName)}</small>`:''}</td><td>${esc(DMAP[x.dept]?.n||'')}</td>
       <td class="num" style="white-space:nowrap"><button class="btn sm ghost" data-act="stock-qty" data-id="${id}" data-n="-1" aria-label="פחות">−</button> <b class="mono">${+x.qty||0}</b> <button class="btn sm ghost" data-act="stock-qty" data-id="${id}" data-n="1" aria-label="יותר">+</button></td>
       <td class="num">${+x.min||'—'}</td><td style="white-space:nowrap">${pr?'<span class="pill warn">יש דרישה</span>':`<button class="btn sm ${lo?'pri':''}" data-act="preq-open" data-id="${id}">דרישת רכש</button>`} <button class="btn sm ghost" data-act="stock-open" data-id="${id}">עריכה</button></td></tr>`}).join('')}</tbody></table></div></div>`
     :emptyBox(all.length?'אין פריטים בסינון הזה':'עוד אין פריטים במלאי','לוחצים "פריט חדש", בוחרים מחלקה ומגדירים כמה יש ומה המינימום. כשפריט יורד מתחת למינימום הוא מסומן באדום, ומנהל המחלקה שולח דרישת רכש.');
@@ -1041,11 +1045,23 @@ function vStock(){const hs=S.deptOnly&&!S.can.gm?scopeHs():scopeHs();if(!hs.leng
     ${stockBoss(h)&&r.status==='approved'?`<button class="btn sm" data-act="preq-st" data-r="${rid}" data-h="${h}" data-st="ordered">סימון שהוזמן</button>`:''}
     ${(r.status==='approved'||r.status==='ordered')?`<button class="btn sm" data-act="preq-st" data-r="${rid}" data-h="${h}" data-st="received">התקבל (מוסיף למלאי)</button>`:''}
     ${r.status==='pending'&&r.by===S.uid?`<button class="btn sm ghost" data-act="preq-st" data-r="${rid}" data-h="${h}" data-st="canceled">ביטול</button>`:''}</span></div>`).join('')}</div></div>`:'';
-  return wrap(head+table+reqs);
+  // approved requests become orders to suppliers, grouped by the item's supplier
+  let orders='';if(stockBoss(h)){if(canSupList())liveColl('sups','suppliers');const items=(S.stockAll||{})[h]||{},grp={};
+    for(const [rid,r] of preqs.filter(([,r])=>r.status==='approved'||r.status==='ordered')){const sid=r.supplier||items[r.itemId]?.supplier||'',g=grp[sid]||(grp[sid]={approved:[],ordered:[]});g[r.status].push([rid,r])}
+    const keys=Object.keys(grp).sort((a,b)=>(a?0:1)-(b?0:1));
+    orders=`<div class="card"><h3>הזמנות לספקים</h3><p class="muted" style="font-size:.85rem">כל דרישת רכש שאושרה נכנסת לכאן, לפי הספק של הפריט. שולחים לספק בוואטסאפ, מסמנים שהוזמן, וכשהסחורה מגיעה לוחצים "התקבל" והכמות נוספת למלאי.</p>
+    ${keys.length?keys.map(sid=>{const g=grp[sid],sp=sid?(S.sups||{})[sid]:null,name=sid?(sp?.name||g.approved.concat(g.ordered)[0][1].supplierName||items[g.approved.concat(g.ordered)[0][1].itemId]?.supplierName||'ספק'):'בלי ספק',ph=normPhone(sp?.phone||'').replace('+',''),txt=orderText(h,{name:sid?name:''},g.approved);
+      return `<div class="sep"></div><div class="actions" style="justify-content:space-between;align-items:center"><b>${esc(name)}${sp?.phone?` <span class="muted" style="font-weight:400"><bdi dir="ltr">${esc(sp.phone)}</bdi></span>`:''}</b>
+      ${g.approved.length?`<span class="actions">${ph?`<a class="btn sm pri" target="_blank" rel="noopener" href="https://wa.me/${ph}?text=${encodeURIComponent(txt)}">שליחה לספק בוואטסאפ</a>`:''}<button class="btn sm" data-act="order-copy" data-h="${h}" data-s="${esc(sid)}">העתקת ההזמנה</button><button class="btn sm" data-act="order-done" data-h="${h}" data-s="${esc(sid)}">סימון שהוזמן</button></span>`:''}</div>
+      ${!sid?'<p class="muted" style="font-size:.82rem">לפריטים האלה עוד לא שויך ספק. משייכים ספק בעריכת הפריט.</p>':''}
+      <div class="plist">${g.approved.concat(g.ordered).map(([rid,r])=>`<div class="prow"><span class="who"><b>${esc(r.itemName)} · ${+r.qty} ${esc(r.unit||'')}</b><small>${esc(DMAP[r.dept]?.n||'')}${r.note?' · '+esc(r.note):''}</small></span><span class="actions"><span class="pill ${r.status==='ordered'?'ok':'warn'}">${r.status==='ordered'?'הוזמן, ממתין לקבלה':'להזמין'}</span><button class="btn sm" data-act="preq-st" data-r="${rid}" data-h="${h}" data-st="received">התקבל</button></span></div>`).join('')}</div>`}).join('')
+    :'<p class="muted">אין הזמנות פתוחות. דרישת רכש שתאושר תופיע כאן.</p>'}</div>`}
+  return wrap(head+orders+table+reqs);
 }
 function sheetStock(){const id=S.sheet.id,h=S.hotel,x=((S.stockAll||{})[h]||{})[id]||{},g=k=>dv('stk',k,x[k]??''),isNew=!((S.stockAll||{})[h]||{})[id],ds=stockDepts();
   return sheetHead(isNew?'פריט חדש במלאי':esc(x.name),esc(hotelName(h)))+`<label class="f">שם הפריט<input type="text" id="st_n" data-f="stk.name" value="${esc(g('name'))}" placeholder="למשל: מגבות גוף, נייר טואלט, שמן"></label>
   <div class="row"><label class="f">מחלקה<select id="st_d" data-f="stk.dept">${ds.map(k=>`<option value="${k}" ${String(g('dept')||(S.stockF?.d!=='all'?S.stockF?.d:ds[0]))===k?'selected':''}>${DMAP[k].n}</option>`).join('')}</select></label><label class="f">יחידה<input type="text" id="st_u" data-f="stk.unit" value="${esc(g('unit'))}" placeholder="יח׳ / ק״ג / ארגז"></label></div>
+  ${canSupList()?(liveColl('sups','suppliers'),`<label class="f">ספק<select id="st_s" data-f="stk.supplier"><option value="">בלי ספק</option>${Object.entries(S.sups||{}).filter(([sid,v])=>v.active!==false||sid===g('supplier')).sort(([,a],[,b])=>String(a.name).localeCompare(String(b.name),'he')).map(([sid,v])=>`<option value="${sid}" ${g('supplier')===sid?'selected':''}>${esc(v.name)}</option>`).join('')}</select></label>${Object.keys(S.sups||{}).length?'':'<p class="muted" style="font-size:.82rem">עוד אין ספקים. פותחים ספק בעמוד ההוצאות, לשונית ספקים.</p>'}`):(x.supplierName?`<p class="muted">ספק: ${esc(x.supplierName)}</p>`:'')}
   <div class="row"><label class="f">כמה יש עכשיו<input type="number" min="0" step="any" id="st_q" data-f="stk.qty" value="${esc(g('qty'))}" inputmode="decimal"></label><label class="f">רף מינימום<input type="number" min="0" step="any" id="st_m" data-f="stk.min" value="${esc(g('min'))}" inputmode="decimal"></label></div>
   <div class="actions"><button class="btn pri" data-act="stock-save">שמירה</button>${isNew?'':(S.confirm==='stk-del'?'<button class="btn danger" data-act="stock-del">לחיצה נוספת תמחק</button>':'<button class="btn ghost" data-act="stock-del">מחיקה</button>')}</div>`}
 function sheetPreq(){const h=S.hotel,id=S.sheet.id,x=((S.stockAll||{})[h]||{})[id]||{},sug=Math.max(1,Math.ceil((+x.min||0)*2-(+x.qty||0)));
@@ -1562,15 +1578,20 @@ const ACT={
   'stock-open':D=>{S.drafts.stk=null;S.confirm=null;S.sheet={type:'stock',id:D.id};render()},
   'stock-save':()=>{const h=S.hotel,id=S.sheet.id,x=((S.stockAll||{})[h]||{})[id]||{},g=k=>dv('stk',k,x[k]??''),name=String(g('name')).trim(),ds=stockDepts();
     if(!name){toast('צריך לרשום שם פריט');return}const dept=String(g('dept')||(S.stockF?.d!=='all'?S.stockF.d:ds[0]));if(!ds.includes(dept)){toast('אין לך הרשאה למחלקה הזו');return}
-    const doc={...x,hotel:h,dept,name,unit:String(g('unit')).trim(),qty:Math.max(0,+g('qty')||0),min:Math.max(0,+g('min')||0),updatedAt:Date.now(),updatedBy:S.uid,createdAt:x.createdAt||Date.now()};
+    const sup=canSupList()?String(g('supplier')||''):(x.supplier||''),doc={...x,hotel:h,dept,name,supplier:sup,supplierName:sup?((S.sups||{})[sup]?.name||x.supplierName||''):'',unit:String(g('unit')).trim(),qty:Math.max(0,+g('qty')||0),min:Math.max(0,+g('min')||0),updatedAt:Date.now(),updatedBy:S.uid,createdAt:x.createdAt||Date.now()};
     S.stockAll[h]={...(S.stockAll[h]||{}),[id]:doc};save('inventory/'+id,doc);S.sheet=null;S.drafts.stk=null;render();toast(isLow(doc)&&!isLow(x)?'הפריט נשמר. הוא ברף המינימום, והמנהל יקבל התראה.':'הפריט נשמר')},
   'stock-del':()=>{if(S.confirm!=='stk-del'){S.confirm='stk-del';render();return}const h=S.hotel,id=S.sheet.id;S.confirm=null;const c={...(S.stockAll[h]||{})};delete c[id];S.stockAll[h]=c;save('inventory/'+id,null);S.sheet=null;render();toast('הפריט נמחק')},
   'stock-qty':D=>{const h=S.hotel,x=((S.stockAll||{})[h]||{})[D.id];if(!x)return;const doc={...x,qty:Math.max(0,(+x.qty||0)+ +D.n),updatedAt:Date.now(),updatedBy:S.uid};S.stockAll[h]={...S.stockAll[h],[D.id]:doc};save('inventory/'+D.id,doc);render();if(isLow(doc)&&!isLow(x))toast('הפריט הגיע לרף המינימום. המנהל יקבל התראה.')},
+  'order-copy':async D=>{const h=D.h,items=(S.stockAll||{})[h]||{},lines=Object.entries((S.preqAll||{})[h]||{}).filter(([,r])=>r.status==='approved'&&(r.supplier||items[r.itemId]?.supplier||'')===D.s),sp=D.s?(S.sups||{})[D.s]:null;
+    try{await navigator.clipboard.writeText(orderText(h,{name:sp?.name||''},lines));toast('ההזמנה הועתקה')}catch(_){toast('ההעתקה נכשלה')}},
+  'order-done':D=>{const h=D.h,items=(S.stockAll||{})[h]||{},lines=Object.entries((S.preqAll||{})[h]||{}).filter(([,r])=>r.status==='approved'&&(r.supplier||items[r.itemId]?.supplier||'')===D.s);
+    for(const [rid,r] of lines){const doc={...r,status:'ordered',orderedAt:Date.now(),handledBy:S.uid};S.preqAll[h]={...S.preqAll[h],[rid]:doc};save('purchaseReqs/'+rid,doc)}render();toast(`סומן שהוזמן · ${lines.length} פריטים`)},
   'preq-open':D=>{S.drafts.pq=null;S.sheet={type:'preq',id:D.id};render()},
   'preq-send':()=>{const h=S.hotel,id=S.sheet.id,x=((S.stockAll||{})[h]||{})[id];if(!x)return;const q=+dv('pq','qty',Math.max(1,Math.ceil((+x.min||0)*2-(+x.qty||0))));if(!(q>0)){toast('צריך כמות');return}
-    const rid='p'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),doc={hotel:h,dept:x.dept,itemId:id,itemName:x.name,unit:x.unit||'',qty:q,note:String(dv('pq','note','')).trim(),status:'pending',by:S.uid,createdAt:Date.now()};
+    const rid='p'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),doc={hotel:h,dept:x.dept,itemId:id,itemName:x.name,unit:x.unit||'',supplier:x.supplier||'',supplierName:x.supplierName||'',qty:q,note:String(dv('pq','note','')).trim(),status:'pending',by:S.uid,createdAt:Date.now()};
     S.preqAll[h]={...(S.preqAll[h]||{}),[rid]:doc};save('purchaseReqs/'+rid,doc);S.sheet=null;S.drafts.pq=null;render();toast('דרישת הרכש נשלחה למנהל')},
-  'preq-st':D=>{const h=D.h||S.hotel,src=(S.preqAll||{})[h]||(S.gmData?.[h]?.preqs)||{},r=src[D.r];if(!r)return;const doc={...r,status:D.st,handledBy:S.uid,handledAt:Date.now()};
+  'preq-st':D=>{const h=D.h||S.hotel,src=(S.preqAll||{})[h]||(S.gmData?.[h]?.preqs)||{},r=src[D.r];if(!r)return;const it0=((S.stockAll||{})[h]||{})[r.itemId]||(S.gmData?.[h]?.stock||{})[r.itemId],doc={...r,status:D.st,handledBy:S.uid,handledAt:Date.now()};
+    if(D.st==='approved'&&it0&&it0.supplier){doc.supplier=it0.supplier;doc.supplierName=it0.supplierName||''}
     if(S.preqAll&&S.preqAll[h])S.preqAll[h]={...S.preqAll[h],[D.r]:doc};save('purchaseReqs/'+D.r,doc);
     if(D.st==='received'){const it=((S.stockAll||{})[h]||{})[r.itemId]||(S.gmData?.[h]?.stock||{})[r.itemId];if(it){const nd={...it,qty:(+it.qty||0)+(+r.qty||0),updatedAt:Date.now(),updatedBy:S.uid};if(S.stockAll&&S.stockAll[h])S.stockAll[h]={...S.stockAll[h],[r.itemId]:nd};save('inventory/'+r.itemId,nd)}}
     render();toast({approved:'הדרישה אושרה',declined:'הדרישה נדחתה',ordered:'סומן שהוזמן',received:'התקבל ונוסף למלאי',canceled:'הדרישה בוטלה'}[D.st]||'עודכן')},

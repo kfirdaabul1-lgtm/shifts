@@ -1219,6 +1219,20 @@ async function deleteQuote(id){
   if(db)await db.collection('quotes').doc(id).delete();
   else{quotes=quotes.filter(q=>q.id!==id);lsSet('quotes',quotes);renderList()}
 }
+/* menus added on request: created once in the shared database, then editable/deletable like any other menu */
+const SEED_MENUS=[{id:'seven-bbq',title:'מלון 7EVEN',subtitle:'תפריט ערב ברביקיו',kind:'food',venue:'sola',sections:[
+  {title:'בשרים',note:'ארבעה סוגי בשרים מתמלאים לאורך האירוע',items:[{n:'קבב',d:''},{n:'פרגית',d:''},{n:'שיפודי אנטריקוט',d:''},{n:'פיקניה / כבד עוף / לבבות',d:''}]},
+  {title:'ירקות על האש',note:'',items:[{n:'עגבנייה, חריף ובצל',d:''}]},
+  {title:'סלטי הבית',note:'',items:[{n:'סלט כרוב',d:''},{n:'חצילים',d:''},{n:'ירקות',d:''},{n:'חומוס',d:''},{n:'טחינה',d:''},{n:'מטבוחה',d:''}]},
+  {title:'תוספות',note:'',items:[{n:'צ׳יפס',d:''},{n:'פיתות ולחמי הבית',d:''}]}]}];
+let seedState={cfg:false,menus:false,busy:false};
+async function seedMenus(){
+  if(!db||seedState.busy||!seedState.cfg||!seedState.menus||document.documentElement.classList.contains('ceo-mode'))return;
+  const done=settings.seeds||[],todo=SEED_MENUS.filter(m=>!done.includes(m.id));if(!todo.length)return;
+  seedState.busy=true;
+  try{for(const m of todo)if(!menus.some(x=>x.id===m.id))await saveMenu(normMenu(structuredClone(m)));
+    settings.seeds=[...done,...todo.map(m=>m.id)];await saveSettingsData()}catch(e){}
+}
 async function saveSettingsData(){
   const body=JSON.parse(JSON.stringify(settings));
   if(db)await db.doc('config/main').set(body);else lsSet('settings',body);
@@ -2052,6 +2066,7 @@ $('#syncState').textContent='';
   db.doc('config/main').onSnapshot(s=>{
     if(s.exists){settings=Object.assign(structuredClone(DEF_SETTINGS),structuredClone(s.data()));settings.business=Object.assign({},DEF_SETTINGS.business,settings.business||{})}
     applySettings();if(!$('#tab-settings').hidden)renderSettings();
+    seedState.cfg=true;seedMenus();
   },()=>{});
   db.collection('quotes').onSnapshot(s=>{
     quotes=s.docs.map(d=>structuredClone(d.data()));
@@ -2061,6 +2076,7 @@ $('#syncState').textContent='';
   db.collection('menus').onSnapshot(s=>{
     menus=s.docs.map(d=>structuredClone(d.data()));refresh();
     if(!$('#tab-menus').hidden)renderMenus();
+    seedState.menus=true;seedMenus();
   },()=>{$('#syncState').textContent='הסנכרון נותק – רענן את הדף'});
   db.collection('contracts').onSnapshot(s=>{
     contracts=s.docs.map(d=>structuredClone(d.data()));

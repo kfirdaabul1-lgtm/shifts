@@ -19,7 +19,7 @@ rules_version = '2';
 //               station = true: משתמש עמדת קבלה משותף (שם משתמש וסיסמה), לא אדם
 //      mkt    = שיווק: קמפיינים
 //      exp    = הוצאות: ספקים, חשבוניות ומחירים, לפי המלונות ב-expHotels (ריק = כולם). מבט מנכ״ל קורא את החשבוניות
-//  - עובד בלי הרשאות: הפרטים, הזמינות והמשמרות שלו והצוות של המלון שלו. אף פעם לא שכר.
+//  - עובד בלי הרשאות: הפרטים, הזמינות והמשמרות שלו והצוות של המלון שלו בלבד. אף פעם לא שכר ולא מלון אחר.
 //  - עובד רשת (hotel = 'chain'): הנהלה ומשרד. נרשם עם קוד הרשת, לא נספר בנוכחות ולא משתבץ במשמרות.
 //  - מי שלא מחובר: כלום.
 
@@ -83,6 +83,20 @@ service cloud.firestore {
     // קבלת המלון: רואה סידור ואירועים של המלונות שלו ומזין 10days
     function frontIn(h) { return hasRole() && roleApp('front') && (roleHotels().size() == 0 || h in roleHotels()); }
     function gmIn(h) { return isOwner() || (gmRole() && (roleHotels().size() == 0 || h in roleHotels())); }
+    // מי שרואה את נתוני המלון (עובדים, סידור, הגדרות): בעל המערכת, או הרשאה שקשורה למלון,
+    // רק במלונות שבהרשאה (בלי מלונות = כל המלונות)
+    function seesHotel(h) {
+      return isOwner() || (hasRole() && (roleHotels().size() == 0 || h in roleHotels())
+        && (roleApp('shifts') || roleApp('dept') || roleApp('gm') || roleApp('brief') || roleApp('front') || roleApp('perms')));
+    }
+    // אירועים לפי המקומות של המלון (settings.venues, ריק = כל המקומות), עד 4 מלונות בהרשאה
+    function venuesOf(h) { return get(/databases/$(database)/documents/settings/$(h)).data.get('venues', []); }
+    function venueIn(h, v) { return venuesOf(h).size() == 0 || v in venuesOf(h); }
+    function hotelVenueOk(v) {
+      let hs = roleHotels();
+      return hs.size() == 0 || venueIn(hs[0], v)
+        || (hs.size() > 1 && venueIn(hs[1], v)) || (hs.size() > 2 && venueIn(hs[2], v)) || (hs.size() > 3 && venueIn(hs[3], v));
+    }
     // מלאי: מנהל סידור או מנהל מלון של המלון, או מנהל המחלקה
     function stockIn(h, d) { return manages(h) || gmIn(h) || (deptMgr(h) && d in roleDepts()); }
 
@@ -160,9 +174,10 @@ service cloud.firestore {
     }
 
     match /employees/{uid} {
-      allow get: if signedIn() && (request.auth.uid == uid || isManager()
+      // עובד רואה רק את הצוות של המלון שלו; מי שיש לו הרשאה רואה רק את המלונות שבהרשאה
+      allow get: if signedIn() && (request.auth.uid == uid || seesHotel(hotelOf(resource.data))
         || (isEmployee() && hotelOf(resource.data) == myHotel()));
-      allow list: if isManager() || (isEmployee() && resource.data.hotel == myHotel());
+      allow list: if seesHotel(resource.data.hotel) || (isEmployee() && resource.data.hotel == myHotel());
       // הרשמה עצמית רק עם קוד הצטרפות תקף, למלון של הקוד
       allow create: if manages(hotelOf(request.resource.data)) || (
         signedIn() && request.auth.uid == uid
@@ -200,7 +215,7 @@ service cloud.firestore {
     }
 
     match /settings/{h} {
-      allow read: if hotelStaff(h) || canCeo() || gmIn(h) || frontIn(h) || (isEmployee() && (h == myHotel() || myHotel() == 'chain'));
+      allow read: if seesHotel(h) || canCeo() || (isEmployee() && h == myHotel());
       allow write: if manages(h);
     }
 
@@ -218,7 +233,7 @@ service cloud.firestore {
       allow delete: if deptManages(hotelOf(resource.data), resource.data.dept);
     }
     match /schedule/{id} {
-      allow read: if isMember();
+      allow read: if seesHotel(schedHotel(id)) || canCeo() || (isEmployee() && myHotel() == schedHotel(id));
       // מנהל מחלקה משבץ, אבל לא מפרסם ולא מבטל פרסום
       allow write: if manages(schedHotel(id)) || (deptMgr(schedHotel(id))
         && request.resource.data.get('published', false) == (resource == null ? false : resource.data.get('published', false)))
@@ -232,12 +247,12 @@ service cloud.firestore {
     match /requests/{id} {
       allow get: if signedIn() && (resource.data.uid == request.auth.uid || hotelStaff(resource.data.hotel) || gmIn(resource.data.hotel)
         || (frontIn(resource.data.hotel) && resource.data.status == 'approved')
-        || (isEmployee() && (resource.data.hotel == myHotel() || myHotel() == 'chain') && resource.data.status == 'approved'));
+        || (isEmployee() && resource.data.hotel == myHotel() && resource.data.status == 'approved'));
       allow list: if signedIn() && (resource.data.uid == request.auth.uid || shiftsAllHotels()
         || ((canShifts() || (hasRole() && roleApp('dept'))) && resource.data.hotel in roleHotels())
         || (gmRole() && (roleHotels().size() == 0 || resource.data.hotel in roleHotels()))
         || (frontIn(resource.data.hotel) && resource.data.status == 'approved')
-        || (isEmployee() && (resource.data.hotel == myHotel() || myHotel() == 'chain') && resource.data.status == 'approved'));
+        || (isEmployee() && resource.data.hotel == myHotel() && resource.data.status == 'approved'));
       allow create: if hotelStaff(request.resource.data.hotel) && request.resource.data.status == 'pending';
       allow update: if (hotelStaff(resource.data.hotel) && hotelStaff(request.resource.data.hotel))
         || (signedIn() && resource.data.uid == request.auth.uid && resource.data.status == 'pending'
@@ -252,7 +267,9 @@ service cloud.firestore {
     match /menus/{id}     { allow read, write: if canEvents(); }
     match /contracts/{id} { allow read, write: if canEvents(); }
     match /quotes/{id} {
-      allow read: if canEvents() || canCeo() || gmRole() || briefRole() || (hasRole() && roleApp('front'));
+      // מנהל מלון, בריף וקבלה: רק אירועים במקומות של המלונות שלהם
+      allow read: if canEvents() || canCeo()
+        || ((gmRole() || briefRole() || (hasRole() && roleApp('front'))) && (roleHotels().size() == 0 || hotelVenueOk(resource.data.event.venue)));
       allow write: if canEvents();
       match /versions/{v} { allow read, write: if canEvents(); }
     }

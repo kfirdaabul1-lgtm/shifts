@@ -951,7 +951,7 @@ function gmLoad(h){const G=S.gmData||(S.gmData={});if(G[h])return;G[h]={ready:fa
   db.collection('invoices').where('hotel','==',h).onSnapshot(q=>mine({invs:docsMap(q)}),()=>mine({invs:null}));
   db.collection('inventory').where('hotel','==',h).onSnapshot(q=>mine({stock:docsMap(q)}),()=>mine({stock:null}));
   db.collection('purchaseReqs').where('hotel','==',h).onSnapshot(q=>mine({preqs:docsMap(q)}),()=>mine({preqs:null}));
-  db.collection('quotes').get().then(q=>mine({quotes:q.docs.map(d=>d.data())})).catch(()=>mine({quotes:null}));
+  quotesQ().then(q=>q.get()).then(q=>mine({quotes:q.docs.map(d=>d.data())})).catch(()=>mine({quotes:null}));
   db.collection('requests').where('hotel','==',h).where('status','==','pending').onSnapshot(q=>mine({reqs:docsMap(q)}),()=>mine({reqs:{}}));
   if(S.can.exp&&!S.live.sups)liveColl('sups','suppliers');
   if(!S.settingsAll[h])db.doc('settings/'+h).get().then(d=>{if(d.exists){S.settingsAll[h]=d.data();render()}}).catch(()=>{})}
@@ -1051,7 +1051,7 @@ function briefLoad(h,d){const B=S.briefData||(S.briefData={}),k=h+'|'+d;if(B[k])
   db.collection('shifts').where('date','==',d).get().then(q=>set({shifts:Object.fromEntries(q.docs.map(x=>[x.id,x.data()]).filter(([,s])=>hotelOfShift(s)===h))})).catch(()=>set({shifts:{}}));
   db.doc(schedPath(weekOf(d),h)).get().then(x=>set({sched:x.exists?x.data():{}})).catch(()=>set({sched:{}}));
   if(!S.live['bemps:'+h]){S.live['bemps:'+h]=true;db.collection('employees').where('hotel','==',h).onSnapshot(q=>{S.emps={...S.emps,...docsMap(q)};render()},()=>{})}
-  if(!S.live.bquotes){S.live.bquotes=true;db.collection('quotes').onSnapshot(q=>{S.bQuotes=q.docs.map(x=>x.data());render()},()=>{S.bQuotes=null;render()})}
+  subQuotes();
   return B[k]}
 const EV_VENUE={sola:'מלון 7EVEN',boheme:'Gutman',sevenseas:'7seas'};
 function briefText(h,d,daily,evs,crew){const DAILY=dailyRows(h);return `בריף יומי · ${hotelName(h)} · יום ${DAYS[dow(d)]} ${dm(d)}\n`+
@@ -1082,7 +1082,7 @@ function frontSaveDaily(h,daily){const cur=S.scheds[h]||{assign:{},published:fal
 function vFront(){const hs=scopeHs();if(!hs.length)return wrap(emptyBox('אין מלונות בהרשאה','בעל המערכת יכול להוסיף לך מלון בעמוד ההרשאות.'));
   if(!hs.includes(S.hotel))S.hotel=hs[0];const h=S.hotel,w=S.week;
   if(!S.live['bemps:'+h]){S.live['bemps:'+h]=true;S.db.collection('employees').where('hotel','==',h).onSnapshot(q=>{S.emps={...S.emps,...docsMap(q)};render()},()=>{})}
-  if(!S.live.bquotes){S.live.bquotes=true;S.db.collection('quotes').onSnapshot(q=>{S.bQuotes=q.docs.map(x=>x.data());render()},()=>{S.bQuotes=null;render()})}
+  subQuotes();
   if(!S.settingsAll[h]&&!S.live['bset:'+h]){S.live['bset:'+h]=true;S.db.doc('settings/'+h).get().then(d=>{if(d.exists){S.settingsAll[h]=d.data();render()}}).catch(()=>{})}
   const chips=hs.length>1?`<div class="chips" style="gap:6px">${hs.map(x=>`<button class="dchip ${x===h?'':'off'}" style="--h:var(--brass)" data-act="gm-hotel" data-h="${x}">${esc(hotelName(x))}</button>`).join('')}</div>`:'';
   const nav=`<div class="actions" style="align-items:center"><button class="btn sm" data-act="week" data-d="-7" aria-label="שבוע קודם">›</button><b class="mono">${weekLabel(w)}</b><button class="btn sm" data-act="week" data-d="7" aria-label="שבוע הבא">‹</button></div>`;
@@ -1416,8 +1416,19 @@ function setTab(t){S.tab=t;S.confirm=null;S.sheet=null;try{localStorage.setItem(
 function setWeek(w){if(w===S.week){render();return}S.week=w;S.shifts={};S.scheds={};S.confirm=null;subWeek();render()}
 function subWeek(){S.unsub.forEach(f=>f());S.unsub=[];const w=S.week;
   S.unsub.push(S.db.collection('shifts').where('date','>=',w).where('date','<=',addDays(w,6)).onSnapshot(q=>{S.shifts=Object.fromEntries(q.docs.map(d=>[d.id,d.data()]));render()},onErr));
-  for(const h of hotelIds())S.unsub.push(S.db.doc(schedPath(w,h)).onSnapshot(s=>{S.scheds[h]=s.exists?{assign:{},...s.data()}:{assign:{},published:false};render()},onErr));
+  for(const h of subHotels())S.unsub.push(S.db.doc(schedPath(w,h)).onSnapshot(s=>{S.scheds[h]=s.exists?{assign:{},...s.data()}:{assign:{},published:false};render()},onErr));
   S.subKey=hotelIds().join(',')}
+// hotels whose schedules this person may read: managers by their hotels, hotel-scoped apps by role.hotels, an employee only their own hotel
+function subHotels(){if(S.isOwner)return hotelIds();const s=new Set();if(S.admin)visibleHotels().forEach(h=>s.add(h));
+  if(S.can.gm||S.can.brief||S.can.front)scopeHs().forEach(h=>s.add(h));
+  if(!S.admin&&S.myHotel&&S.myHotel!==CHAIN)s.add(S.myHotel);return hotelIds().filter(h=>s.has(h))}
+// events of the hotels this person sees: by settings.venues (a hotel without venues = all venues)
+async function quotesQ(){const db=S.db,all=db.collection('quotes');if(S.isOwner||S.can.events||S.can.ceo)return all;
+  const hs=(S.role&&S.role.hotels)||[];if(!hs.length)return all;const vs=new Set();
+  for(const h of hs){let st=S.settingsAll[h];if(!st){try{const d=await db.doc('settings/'+h).get();st=d.exists?d.data():{};if(d.exists)S.settingsAll[h]=st}catch(_){st={}}}
+    const v=st.venues||[];if(!v.length)return all;v.forEach(x=>vs.add(x))}
+  return all.where('event.venue','in',[...vs].slice(0,30))}
+function subQuotes(){if(S.live.bquotes)return;S.live.bquotes=true;quotesQ().then(q=>q.onSnapshot(x=>{S.bQuotes=x.docs.map(d=>d.data());render()},()=>{S.bQuotes=null;render()}))}
 function setHotel(h){S.hotel=h;setTimeout(checkJoinCodes,0);try{localStorage.setItem('hs_hotel',h)}catch(_){ }S.dept='all';S.sheet=null;S.confirm=null;['set','cost','send','times'].forEach(k=>S.drafts[k]=null);render();window.scrollTo(0,0)}
 function setAssign(id,list){S.sched={...S.sched,assign:{...(S.sched.assign||{}),[id]:list}};saveSched();render()}
 function persistSend(){const c=cfg(),d=S.drafts.send||{};const p={};if('link' in d&&d.link!==c.shareLink)p.shareLink=d.link.trim();if('deadline' in d&&d.deadline!==c.deadline)p.deadline=d.deadline.trim();if(Object.keys(p).length)saveSettings(p)}
@@ -1754,7 +1765,7 @@ async function start(u){
   const afterSettings=()=>{if(!S.admin&&S.tab==='avail'&&S.week!==openWeek())setWeek(openWeek());else render()};
   if(setIds()===null)db.collection('settings').onSnapshot(q=>{S.settingsAll=docsMap(q);afterSettings()},onErr);
   else for(const h of setIds())db.doc('settings/'+h).onSnapshot(d=>{if(d.exists)S.settingsAll[h]=d.data();afterSettings()},onErr);
-  ((S.admin||S.can.perms)?db.collection('employees'):db.collection('employees').where('hotel','==',S.myHotel||S.hotel)).onSnapshot(q=>{S.emps=docsMap(q);S.empsLoaded=true;
+  ((S.admin||S.can.perms)?(S.scoped?db.collection('employees').where('hotel','in',S.role.hotels.slice(0,30)):db.collection('employees')):db.collection('employees').where('hotel','==',S.myHotel||S.hotel)).onSnapshot(q=>{S.emps=docsMap(q);S.empsLoaded=true;
     if(!S.admin&&S.emps[S.uid]&&!isChain(S.uid)){const h=hotelOf(S.uid);if(h!==S.hotel){S.hotel=h;if(S.tab==='avail'&&S.week!==openWeek()){setWeek(openWeek());return}}}
     render()},onErr);
   const scopedQ=c=>S.scoped?db.collection(c).where('hotel','in',S.role.hotels):db.collection(c);

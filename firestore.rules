@@ -15,6 +15,7 @@ rules_version = '2';
 //      dept   = מנהל מחלקה: מסדר רק את המחלקות שלו (depts), בלי שכר
 //      gm     = מנהל מלון: כל נתוני המלונות שלו (hotels), אישור דרישות רכש
 //      brief  = בריף יומי: 10days, האירועים ומי במשמרת
+//      maint  = אחזקה: תקלות של המלונות שלו
 //      front  = קבלת המלון: סידור העבודה והאירועים של המלון, הזנת 10days.
 //               station = true: משתמש עמדת קבלה משותף (שם משתמש וסיסמה), לא אדם
 //      mkt    = שיווק: קמפיינים
@@ -97,6 +98,11 @@ service cloud.firestore {
       return hs.size() == 0 || venueIn(hs[0], v)
         || (hs.size() > 1 && venueIn(hs[1], v)) || (hs.size() > 2 && venueIn(hs[2], v)) || (hs.size() > 3 && venueIn(hs[3], v));
     }
+    // אחזקה: מנהל סידור, מנהל מלון, מנהל מחלקת אחזקה, או הרשאת אחזקה למלונות שלו
+    function maintIn(h) {
+      return manages(h) || gmIn(h) || (deptMgr(h) && 'maintenance' in roleDepts())
+        || (hasRole() && roleApp('maint') && (roleHotels().size() == 0 || h in roleHotels()));
+    }
     // מלאי: מנהל סידור או מנהל מלון של המלון, או מנהל המחלקה
     function stockIn(h, d) { return manages(h) || gmIn(h) || (deptMgr(h) && d in roleDepts()); }
 
@@ -129,11 +135,12 @@ service cloud.firestore {
         && (!a.get('exp', false) || roleApp('exp'))
         && (!a.get('gm', false) || roleApp('gm'))
         && (!a.get('brief', false) || roleApp('brief') || roleApp('gm'))
-        && (!a.get('front', false) || roleApp('front'));
+        && (!a.get('front', false) || roleApp('front'))
+        && (!a.get('maint', false) || roleApp('maint') || roleApp('gm') || roleApp('shifts'));
     }
     function grantOk(n) {
       return n.apps is map
-        && n.apps.keys().hasOnly(['shifts', 'events', 'perms', 'ceo', 'dept', 'mkt', 'exp', 'gm', 'brief', 'front'])
+        && n.apps.keys().hasOnly(['shifts', 'events', 'perms', 'ceo', 'dept', 'mkt', 'exp', 'gm', 'brief', 'front', 'maint'])
         && n.get('hotels', []) is list
         && n.get('depts', []) is list
         && (isOwner() || roleApp('shifts') || n.get('depts', []).hasOnly(roleDepts()))
@@ -318,6 +325,16 @@ service cloud.firestore {
       allow create: if (frontIn(request.resource.data.hotel) || manages(request.resource.data.hotel) || gmIn(request.resource.data.hotel))
         && request.resource.data.by == request.auth.uid;
       allow update, delete: if manages(resource.data.hotel) || gmIn(resource.data.hotel);
+    }
+
+    // ---------- אחזקה: תקלות ----------
+    // אחזקה ומנהלים רואים ומעדכנים; הקבלה פותחת תקלות (מדוח משמרת) ורואה אותן; מחיקה רק למנהלים
+    match /faults/{id} {
+      allow read: if maintIn(resource.data.hotel) || frontIn(resource.data.hotel);
+      allow create: if (maintIn(request.resource.data.hotel) || frontIn(request.resource.data.hotel))
+        && request.resource.data.status == 'open' && request.resource.data.openedBy == request.auth.uid;
+      allow update: if maintIn(resource.data.hotel) && maintIn(request.resource.data.hotel);
+      allow delete: if manages(resource.data.hotel) || gmIn(resource.data.hotel);
     }
 
     // כל השאר חסום

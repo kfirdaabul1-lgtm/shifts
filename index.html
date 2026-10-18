@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#132033">
-<script src="i18n.js?v=202610190016"></script>
+<script src="i18n.js?v=202610190053"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -268,7 +268,7 @@ const KORD={m:0,d:1,s1:2,s2:3,e:4,n:5};
 const DEF_TIMES={m:{s:'07:00',e:'15:00'},d:{s:'10:00',e:'18:00'},e:{s:'15:00',e:'23:00'},n:{s:'23:00',e:'07:00'},s1:{s:'07:00',e:'11:00'},s2:{s:'17:00',e:'21:00'}};
 const DAYS=['ראשון','שני','שלישי','רביעי','חמישי','שישי','שבת'];
 const DAYS_S=['א׳','ב׳','ג׳','ד׳','ה׳','ו׳','ש׳'];
-const ICO={"front":`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 18h16M6 18a6 6 0 0 1 12 0M12 9V7M10 7h4"/></svg>`,"brief":`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>`,"gm":`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21h18M5 21V7l7-4 7 4v14"/><path d="M9 21v-5h6v5M9 10h.01M15 10h.01"/></svg>`,"stock":`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 8l-9-5-9 5v8l9 5 9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/></svg>`,"mkt":`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11v2a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg>`,"exp":`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6M9 16h3"/></svg>`,"ceo":`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>`,"shifts": `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>`, "events": `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 13h7M9 17h5"/></svg>`, "perms": `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M12 3l7 3v5c0 5-3 8-7 10-4-2-7-5-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg>`, "out": `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10"/></svg>`};
+const ICO={"maint":`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z"/></svg>`,"front":`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 18h16M6 18a6 6 0 0 1 12 0M12 9V7M10 7h4"/></svg>`,"brief":`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>`,"gm":`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21h18M5 21V7l7-4 7 4v14"/><path d="M9 21v-5h6v5M9 10h.01M15 10h.01"/></svg>`,"stock":`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 8l-9-5-9 5v8l9 5 9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/></svg>`,"mkt":`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11v2a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg>`,"exp":`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6M9 16h3"/></svg>`,"ceo":`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>`,"shifts": `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>`, "events": `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 13h7M9 17h5"/></svg>`, "perms": `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M12 3l7 3v5c0 5-3 8-7 10-4-2-7-5-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg>`, "out": `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10"/></svg>`};
 const BELL='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 17h16"/><path d="M6 17a6 6 0 0 1 12 0"/><path d="M12 8V6"/><path d="M10 6h4"/><path d="M3 20h18"/></svg>';
 
 /* dates */
@@ -293,7 +293,7 @@ const schedPath=(w,h)=>'schedule/'+(h==='main'?w:w+'_'+h);
 /* state */
 const S={db:null,uid:null,admin:false,meName:'',ready:false,noDb:false,
   settingsAll:{},hotels:{},live:{},scheds:{},hotel:'main',subKey:'',emps:{},mgr:{},avail:{},shifts:{},
-  auth:'pending',roles:{},can:{shifts:false,events:false,perms:false,ceo:false,mkt:false,exp:false,gm:false,stock:false,brief:false,front:false,dept:false},deptOnly:false,myDepts:[],registering:false,isOwner:false,role:null,email:'',phone:'',week:null,tab:null,dept:'all',drafts:{},sheet:null,pending:false,unsub:[],empsLoaded:false,confirm:null};
+  auth:'pending',roles:{},can:{shifts:false,events:false,perms:false,ceo:false,mkt:false,exp:false,gm:false,stock:false,brief:false,front:false,maint:false,dept:false},deptOnly:false,myDepts:[],registering:false,isOwner:false,role:null,email:'',phone:'',week:null,tab:null,dept:'all',drafts:{},sheet:null,pending:false,unsub:[],empsLoaded:false,confirm:null};
 Object.defineProperty(S,'sched',{get(){return S.scheds[S.hotel]||{assign:{},published:false}},set(v){S.scheds[S.hotel]=v}});
 Object.defineProperty(S,'settings',{get(){return S.settingsAll[S.hotel]||{}},set(v){S.settingsAll[S.hotel]=v}});
 function cfg(){const s=S.settings||{};return {overhead:25,shabbatPct:50,restHours:8,availOpen:true,preferGlobal:false,hotelName:'',shareLink:'',deadline:'',...s,times:{...DEF_TIMES,...(s.times||{})}}}
@@ -301,7 +301,7 @@ function timesFor(dept,kind){const c=cfg(),t=(c.deptTimes||{})[dept]?.[kind];ret
 function kindsFor(dept){const k=(cfg().deptKinds||{})[dept];return Array.isArray(k)&&k.length?k:['m','e','n']}
 const hrsOf=(a,b)=>{a=toMin(a);b=toMin(b);if(b<=a)b+=1440;return (b-a)/60};
 const openWeek=()=>cfg().openWeek||addDays(weekOf(todayISO()),7);
-const APPTABS=['perms','ceo','mkt','exp','gm','stock','brief','front'];
+const APPTABS=['perms','ceo','mkt','exp','gm','stock','brief','front','maint'];
 const deptOk=k=>!S.deptOnly||S.myDepts.includes(k);
 const myDEPTS=()=>DEPTS.filter(d=>deptOk(d.k));
 const isActive=u=>S.mgr[u]?.active!==false;
@@ -395,7 +395,7 @@ function renderTop(){
   ${S.ready&&!S.registering&&S.auth==='in'&&!APPTABS.includes(S.tab)?`<nav class="wrap tabs" aria-label="ניווט">${tabs.map(([k,n])=>`<button data-act="tab" data-t="${k}" ${S.tab===k?'aria-current="page"':''}>${n}</button>`).join('')}</nav>`:''}`;
 }
 function renderDrawer(){const el=$('#drawer');if(!S.menu||S.auth!=='in'){el.innerHTML='';return}
-  const items=S.registering?[]:S.station?[['front','קבלה','data-act="app-front"',true]]:[['shifts','סידור עבודה','data-act="app-shifts"',!APPTABS.includes(S.tab)],S.can.events&&['events','אירועים','href="events.html"',false],S.can.front&&['front','קבלה','data-act="app-front"',S.tab==='front'],S.can.brief&&['brief','בריף יומי','data-act="app-brief"',S.tab==='brief'],S.can.gm&&['gm','מנהל מלון','data-act="app-gm"',S.tab==='gm'],S.can.ceo&&['ceo','מבט מנכ״ל','data-act="app-ceo"',S.tab==='ceo'],S.can.stock&&['stock','מלאי'+((S.can.gm||S.can.shifts||S.isOwner)&&lowItems().length?` (${lowItems().length} במינימום)`:''),'data-act="app-stock"',S.tab==='stock'],S.can.mkt&&['mkt','שיווק','data-act="app-mkt"',S.tab==='mkt'],S.can.exp&&['exp','הוצאות','data-act="app-exp"',S.tab==='exp'],S.can.perms&&['perms','הרשאות','data-act="app-perms"',S.tab==='perms']].filter(Boolean);
+  const items=S.registering?[]:S.station?[['front','קבלה','data-act="app-front"',true]]:[['shifts','סידור עבודה','data-act="app-shifts"',!APPTABS.includes(S.tab)],S.can.events&&['events','אירועים','href="events.html"',false],S.can.front&&['front','קבלה','data-act="app-front"',S.tab==='front'],S.can.brief&&['brief','בריף יומי','data-act="app-brief"',S.tab==='brief'],S.can.gm&&['gm','מנהל מלון','data-act="app-gm"',S.tab==='gm'],S.can.ceo&&['ceo','מבט מנכ״ל','data-act="app-ceo"',S.tab==='ceo'],S.can.maint&&['maint','אחזקה'+((S.can.gm||S.can.shifts||S.isOwner)&&openFaultsN()?` (${openFaultsN()} פתוחות)`:''),'data-act="app-maint"',S.tab==='maint'],S.can.stock&&['stock','מלאי'+((S.can.gm||S.can.shifts||S.isOwner)&&lowItems().length?` (${lowItems().length} במינימום)`:''),'data-act="app-stock"',S.tab==='stock'],S.can.mkt&&['mkt','שיווק','data-act="app-mkt"',S.tab==='mkt'],S.can.exp&&['exp','הוצאות','data-act="app-exp"',S.tab==='exp'],S.can.perms&&['perms','הרשאות','data-act="app-perms"',S.tab==='perms']].filter(Boolean);
   el.innerHTML=`<div class="drawer-bg" data-act="menu-close"></div><nav class="drawer" aria-label="אפליקציות">
     <div class="drawer-h"><b>Seven Collection</b><button class="x" data-act="menu-close" aria-label="סגירה">×</button></div>
     <div class="drawer-who">${esc(S.meName||'')}${S.meName&&(S.email||S.phone)?'<br>':''}<bdi>${esc(S.email||S.phone||'')}</bdi></div>
@@ -417,7 +417,7 @@ function viewHTML(){
   if(!S.admin&&S.tab!=='mine'&&myPending().length){const b=`<div class="wrap" style="padding-top:12px"><div class="notice" style="display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap"><span>יש לך ${myPending().length} בקשות מהמנהל לשינוי משמרות</span><button class="btn sm pri" data-act="tab" data-t="mine">לצפייה ואישור</button></div></div>`;const v=viewInner();return b+v}
   return viewInner()}
 function viewInner(){
-  switch(S.tab){case 'sched':return vSched();case 'shifts':return vShifts();case 'staff':return vStaff();case 'costs':return vCosts();case 'settings':return vSettings();case 'perms':return S.can.perms?vPerms():'';case 'ceo':return S.can.ceo?vCeo():'';case 'mkt':return S.can.mkt?vMkt():'';case 'exp':return S.can.exp?vExp():'';case 'gm':return S.can.gm?vGm():'';case 'brief':return S.can.brief?vBrief():'';case 'front':return S.can.front?vFront():'';case 'stock':return S.can.stock?vStock():'';
+  switch(S.tab){case 'sched':return vSched();case 'shifts':return vShifts();case 'staff':return vStaff();case 'costs':return vCosts();case 'settings':return vSettings();case 'perms':return S.can.perms?vPerms():'';case 'ceo':return S.can.ceo?vCeo():'';case 'mkt':return S.can.mkt?vMkt():'';case 'exp':return S.can.exp?vExp():'';case 'gm':return S.can.gm?vGm():'';case 'brief':return S.can.brief?vBrief():'';case 'front':return S.can.front?vFront():'';case 'maint':return S.can.maint?vMaint():'';case 'stock':return S.can.stock?vStock():'';
     case 'avail':return vAvail();case 'mine':return vMine();case 'daily':return vDailyEmp();case 'profile':return vProfile()}
   return '';
 }
@@ -1000,7 +1000,10 @@ function vGm(){const hs=scopeHs();if(!hs.length)return wrap(emptyBox('אין מ�
   const DAILY=dailyRows(h);const sched10=`<div class="card"><h3>היום · ${dm(today)} (10days)</h3>${DAILY.some(([k])=>daily[k]!=null)?`<div class="kpis">${DAILY.map(([k,n])=>kpi(n,daily[k]!=null?String(daily[k]):'—')).join('')}</div>`:'<p class="muted">עוד לא הוזנו נתונים להיום.</p>'}</div>`;
   const events=`<div class="card"><h3>אירועים השבוע</h3>${G.quotes===null?'<p class="muted">אין לך גישה לאירועים.</p>':evs.length?`<div class="plist">${evs.map(q=>`<div class="prow"><span class="who"><b>${dm(q.event.date)} ${esc(q.event.start||'')} · ${esc(q.client?.name||'')}</b><small>${esc(q.event.type||'')} · ${+q.event.guests||0} אורחים${q.kind==='group'?' · קבוצת מלון':q.status==='approved'?' · סגור':' · טנטטיב'}</small></span></div>`).join('')}</div>`:'<p class="muted">אין אירועים השבוע.</p>'}</div>`;
   const stock=G.stock?`<div class="card"><h3>מלאי מתחת למינימום · ${low.length}</h3>${low.length?`<div class="plist">${low.slice(0,12).map(([,x])=>`<div class="prow"><span class="who"><b>${esc(x.name)}</b><small>${esc(DMAP[x.dept]?.n||'')} · ${+x.qty||0} מתוך מינימום ${+x.min}${x.unit?' '+esc(x.unit):''}</small></span></div>`).join('')}</div>`:'<p class="muted">אין פריטים מתחת למינימום.</p>'}<div><button class="btn sm" data-act="app-stock">לעמוד המלאי</button></div></div>`:'';
-  return wrap(head+reqCard+`<div class="setgrid">${sched10}${events}${stock}</div>`+srListHTML(h,true));
+  faultsSub(h);const fo=faultsOf(h).filter(([,f])=>f.status!=='done').sort(([,a],[,b])=>(a.openedAt||0)-(b.openedAt||0)),fl=fo.filter(([,f])=>faultLate(f)).length;
+  const faultsCard=`<div class="card" style="${fl?'border-color:var(--bad)':''}"><div class="actions" style="justify-content:space-between;align-items:center"><h3 style="margin:0">תקלות פתוחות · ${fo.length}${fl?` <span class="pill bad">${fl} באיחור</span>`:''}</h3><button class="btn sm" data-act="app-maint">לעמוד האחזקה</button></div>
+    ${fo.length?`<div class="plist">${fo.slice(0,12).map(([id,f])=>faultRowHTML(id,f,h,false)).join('')}</div>`:'<p class="muted">אין תקלות פתוחות.</p>'}</div>`;
+  return wrap(head+reqCard+faultsCard+`<div class="setgrid">${sched10}${events}${stock}</div>`+srListHTML(h,true));
 }
 /* ---------- in-app alerts: badge on the menu, page title count, and a phone/browser notification while the site is open ---------- */
 // an item reached its minimum: quantity at or below the minimum set for it
@@ -1011,7 +1014,8 @@ function alertCount(){let n=myPending().length;
   return n}
 function alertsSub(){if(S.live.alerts)return;S.live.alerts=true;
   if(S.can.gm||S.can.shifts||S.isOwner){const hs=scopeHs().slice(0,10);if(hs.length){S.db.collection('purchaseReqs').where('hotel','in',hs).where('status','==','pending').onSnapshot(q=>{S.alertPreqs=docsMap(q);alertTick()},()=>{});
-    S.db.collection('inventory').where('hotel','in',hs).onSnapshot(q=>{S.alertInv=docsMap(q);alertTick()},()=>{})}}}
+    S.db.collection('inventory').where('hotel','in',hs).onSnapshot(q=>{S.alertInv=docsMap(q);alertTick()},()=>{});
+    S.db.collection('faults').where('hotel','in',hs).where('status','==','open').onSnapshot(q=>{S.alertFaults=docsMap(q);render()},()=>{})}}}
 function alertTick(){const n=alertCount(),prev=S.alertPrev??n;S.alertPrev=n;try{document.title=(n?`(${n}) `:'')+'Seven Collection'}catch(_){ }
   // items that just reached their minimum get their own notification (first load only records what is already low)
   const low=lowItems(),first=!S.lowSeen;S.lowSeen=S.lowSeen||new Set();const fresh=low.filter(([id])=>!S.lowSeen.has(id));S.lowSeen=new Set(low.map(([id])=>id));
@@ -1181,6 +1185,40 @@ function srListHTML(h,gm){const m=S.srMonth||todayISO().slice(0,7);srSub(h,m);co
     ${r.shift==='night'&&(r.ci!=null||r.co!=null||r.cid!=null)?`<small>${r.cid!=null?`צ׳ק אין דורמס ${+r.cid} · `:''}צ׳ק אין${r.cid!=null?' פרייבט':''} ${r.ci??'—'} · צ׳ק אאוט ${r.co??'—'}</small>`:''}${r.shift==='morning'&&r.coLeft!=null?`<small>צ׳ק אאוט שנשארו: ${+r.coLeft}</small>`:''}
     ${(r.ooo||[]).length?`<small>חדרים OOO: ${r.ooo.map(x=>`${esc(x.room)}${x.note?' ('+esc(x.note)+')':''}`).join(', ')}</small>`:''}${(r.faults||[]).length?`<small>תקלות פתוחות: ${r.faults.map(x=>`${esc(x.room)}${x.note?' ('+esc(x.note)+')':''}`).join(', ')}</small>`:''}${r.unusual?`<small style="color:var(--bad);white-space:pre-wrap">⚠ ${esc(r.details||'אירוע חריג')}</small>`:''}</span>
     <span class="actions">${r.unusual?'<span class="pill bad">חריג</span>':'<span class="pill ok">תקין</span>'}${boss?`<button class="btn sm ghost" data-act="sr-del" data-id="${id}" data-h="${h}">${S.confirm==='sr:'+id?'לחיצה נוספת תמחק':'מחיקה'}</button>`:''}</span></div>`).join('')}</div>`:'<p class="muted">אין דוחות בחודש הזה.</p>'}</div>`}
+/* ---------- maintenance: faults/{id} {hotel, room, desc, status open|done, openedAt, openedBy, openedByName, due 'YYYY-MM-DD', doneAt, doneBy, fixNote, source} ---------- */
+function faultsSub(h){const k='faults:'+h;S.faults=S.faults||{};if(!S.live[k]){S.live[k]=true;
+  S.db.collection('faults').where('hotel','==',h).onSnapshot(q=>{S.faults[h]=docsMap(q);render()},e=>{S.faults[h]={__err:errMsg(mapErr(e))};render()})}return S.faults[h]}
+const faultsOf=h=>{const f=(S.faults||{})[h];return f&&!f.__err?Object.entries(f):[]};
+const openFaultsN=()=>Object.values(S.alertFaults||{}).length;
+function ageText(ms){const m=Math.max(0,Math.floor((Date.now()-ms)/60000)),d=Math.floor(m/1440),hh=Math.floor((m%1440)/60);
+  return d?`${d} ${d===1?'יום':'ימים'}${hh?` ו-${hh} ${hh===1?'שעה':'שעות'}`:''}`:hh?`${hh} ${hh===1?'שעה':'שעות'}`:'פחות משעה'}
+const faultLate=f=>f.status!=='done'&&f.due&&f.due<todayISO();
+const maintBoss=h=>S.isOwner||(S.can.shifts&&scopeHs().includes(h))||(S.can.gm&&scopeHs().includes(h));
+function faultRowHTML(id,f,h,full){const late=faultLate(f),dueTxt=f.due?`${f.due===todayISO()?'היום':'עד '+dm(f.due)}`:'עוד לא נקבע';
+  return `<div class="prow" style="flex-wrap:wrap${late?';border-color:var(--bad)':''}"><span class="who"><b>${f.room?`חדר ${esc(f.room)} · `:''}${esc(f.desc||'')}</b>
+    <small>פתוחה ${ageText(f.openedAt||Date.now())} · נפתחה ${new Date(f.openedAt||0).toLocaleDateString('he-IL')}${f.openedByName?' · '+esc(f.openedByName):''}${f.source==='report'?' · מדוח משמרת':''}</small>
+    <small style="${late?'color:var(--bad);font-weight:600':''}">תיקון: ${dueTxt}${late?' · באיחור':''}</small></span>
+    ${full?`<span class="actions"><input type="date" data-fdue="${id}" data-h="${h}" value="${esc(f.due||'')}" style="width:auto" aria-label="תאריך תיקון" title="תאריך תיקון"><button class="btn sm pri" data-act="fault-done" data-id="${id}" data-h="${h}">${S.confirm==='fd:'+id?'לחיצה נוספת תסגור':'תוקן'}</button>${maintBoss(h)?`<button class="btn sm ghost" data-act="fault-del" data-id="${id}" data-h="${h}">${S.confirm==='fx:'+id?'לחיצה נוספת תמחק':'מחיקה'}</button>`:''}</span>`:`<span class="pill ${late?'bad':'warn'}">${late?'באיחור':'פתוחה'}</span>`}</div>`}
+function vMaint(){const hs=scopeHs();if(!hs.length)return wrap(emptyBox('אין מלונות בהרשאה',''));if(!hs.includes(S.hotel))S.hotel=hs[0];const h=S.hotel,F=faultsSub(h);
+  const chips=hs.length>1?`<div class="chips" style="gap:6px">${hs.map(x=>`<button class="dchip ${x===h?'':'off'}" style="--h:var(--brass)" data-act="gm-hotel" data-h="${x}">${esc(hotelName(x))}</button>`).join('')}</div>`:'';
+  const all=faultsOf(h),open=all.filter(([,f])=>f.status!=='done').sort(([,a],[,b])=>(a.openedAt||0)-(b.openedAt||0)),late=open.filter(([,f])=>faultLate(f));
+  const month=todayISO().slice(0,7),done=all.filter(([,f])=>f.status==='done').sort(([,a],[,b])=>(b.doneAt||0)-(a.doneAt||0)),doneM=done.filter(([,f])=>new Date(f.doneAt||0).toISOString().slice(0,7)===month);
+  const avg=doneM.length?doneM.reduce((t,[,f])=>t+((f.doneAt||0)-(f.openedAt||0)),0)/doneM.length:0;
+  const head=`<section class="head"><div class="head-t"><h1>אחזקה · ${esc(hotelName(h))}</h1></div>${chips}
+    <div class="kpis">${kpi('תקלות פתוחות',String(open.length),'',open.length?'bad':'ok')}${kpi('באיחור',String(late.length),'עבר תאריך התיקון',late.length?'bad':'ok')}${kpi('תוקנו החודש',String(doneM.length),doneM.length?'זמן תיקון ממוצע: '+ageText(Date.now()-avg):'')}</div></section>`;
+  if(F&&F.__err)return wrap(head+`<div class="notice">לא הצלחתי לטעון: ${esc(F.__err)}</div>`);
+  const g=(k,d)=>dv('flt',k,d);
+  const form=`<div class="card"><h3>תקלה חדשה</h3><div class="row"><label class="f" style="max-width:140px">חדר / מקום<input type="text" id="fl_room" data-f="flt.room" value="${esc(g('room',''))}" placeholder="למשל 204, לובי"></label>
+    <label class="f" style="flex:3">מה התקלה<input type="text" id="fl_desc" data-f="flt.desc" value="${esc(g('desc',''))}" placeholder="למשל מזגן לא מקרר"></label>
+    <label class="f" style="max-width:170px">מתי אמורה להיות מתוקנת<input type="date" id="fl_due" data-f="flt.due" value="${esc(g('due',addDays(todayISO(),1)))}"></label></div>
+    <div><button class="btn pri" data-act="fault-add" data-h="${h}">פתיחת תקלה</button></div></div>`;
+  const list=`<div class="card"><h3>תקלות פתוחות · ${open.length}</h3>${!F?'<p class="muted">טוען…</p>':open.length?`<div class="plist">${open.map(([id,f])=>faultRowHTML(id,f,h,true)).join('')}</div>`:'<p class="muted">אין תקלות פתוחות 🎉</p>'}</div>`;
+  const closed=done.length?`<div class="card"><h3>תוקנו לאחרונה</h3><div class="plist">${done.slice(0,20).map(([,f])=>`<div class="prow"><span class="who"><b>${f.room?`חדר ${esc(f.room)} · `:''}${esc(f.desc||'')}</b><small>תוקנה ${new Date(f.doneAt||0).toLocaleDateString('he-IL')} · אחרי ${ageText(Date.now()-((f.doneAt||0)-(f.openedAt||0)))}${f.fixNote?' · '+esc(f.fixNote):''}</small></span><span class="pill ok">תוקנה</span></div>`).join('')}</div></div>`:'';
+  return wrap(head+form+list+closed)}
+// shift-report faults open maintenance faults (once per hotel + room + description)
+async function faultsFromReport(h,rows,name){if(!rows.length)return;let open=[];try{open=(await S.db.collection('faults').where('hotel','==',h).where('status','==','open').get()).docs.map(d=>d.data())}catch(_){ }
+  for(const r of rows){if(open.some(f=>String(f.room||'')===r.room&&String(f.desc||'').trim()===r.note))continue;
+    const id='f'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);save('faults/'+id,{hotel:h,room:r.room,desc:r.note||'תקלה',status:'open',openedAt:Date.now(),openedBy:S.uid,openedByName:name||'',due:'',source:'report'})}}
 function vCosts(){
   const c=cfg(),w=S.week,cost=computeCost(w),max=Math.max(1,...Object.values(cost.dept));
   const noPay=Object.keys(S.emps).filter(u=>hotelOf(u)===S.hotel&&isActive(u)&&!payLabel(u));
@@ -1353,6 +1391,8 @@ function dailyTable(edit){const d=S.sched.daily||{},dates=weekDates(S.week),DAIL
 function dailyCardHTML(){return `<div class="card"><h3>10days · ${esc(hotelName(S.hotel))}</h3><p class="muted" style="font-size:.85rem">כמה צ׳ק אין, צ׳ק אאוט, ארוחות בוקר, ארוחות ערב ורפרש בכל יום. כל שינוי נשמר מיד, והעובדים רואים את זה בלשונית 10days.</p>${dailyTable(true)}</div>`}
 function vDailyEmp(){const d=S.sched.daily||{},has=Object.keys(d).length;
   return wrap(`<section class="head"><h1>10days · ${weekLabel(S.week)}</h1><p class="lede">${esc(hotelName(S.hotel))}: צ׳ק אין, צ׳ק אאוט, ארוחות ורפרש לכל יום בשבוע.</p></section>`+(has?dailyTable(false):emptyBox('עוד אין נתונים לשבוע הזה','המנהל מעדכן את המספרים. אפשר לעבור בין שבועות בחיצים למעלה.')))}
+document.addEventListener('change',e=>{const t=e.target;if(!t.matches||!t.matches('[data-fdue]'))return;const h=t.dataset.h,id=t.dataset.fdue,f=((S.faults||{})[h]||{})[id];if(!f)return;
+  const doc={...f,due:t.value||''};S.faults[h]={...S.faults[h],[id]:doc};save('faults/'+id,doc);t.blur();render();toast('תאריך התיקון עודכן')});
 document.addEventListener('change',e=>{const t=e.target;if(!t.matches||!t.matches('[data-daily]'))return;const [d,k]=t.dataset.daily.split('|'),v=t.value===''?null:Math.max(0,Math.round(+t.value));
   const daily={...(S.sched.daily||{})};daily[d]={...(daily[d]||{})};if(v===null)delete daily[d][k];else daily[d][k]=v;if(S.admin){S.sched={...S.sched,daily};saveSched()}else frontSaveDaily(S.hotel,daily)});
 function remindList(){const w=openWeek();return Object.keys(S.emps).filter(u=>inRoster(u)&&!S.avail[u]?.sub?.[w]).sort((a,b)=>empName(a).localeCompare(empName(b),'he'))}
@@ -1424,9 +1464,9 @@ function roleHTML(u,e,isNew){if(!S.can.perms||isNew||e.manual||u===S.uid)return 
   return `<div class="sep"></div><h3>הרשאות</h3><p class="muted" style="font-size:.85rem">${r?esc(permSummary(r)):'עובד רגיל, בלי הרשאות ניהול.'}</p><div><button class="btn" data-act="perm-open" data-u="${u}">עריכת הרשאות</button></div>`}
 
 /* ---------- permissions page ---------- */
-const APPS=[['shifts','ניהול סידור עבודה','סידור, משמרות, עובדים, שכר ועלויות במלונות שנבחרו'],['events','אירועים','כל ההצעות, התפריטים והחוזים'],['perms','ניהול הרשאות','יכול לתת לאחרים רק הרשאות שיש לו בעצמו'],['front','קבלת המלון','רואה את סידור העבודה והאירועים של המלון ומזין את נתוני 10days'],['brief','בריף יומי','נתוני 10days, האירועים ומי במשמרת, לכל יום במלונות שנבחרו'],['gm','מנהל מלון','עמוד מנהל מלון עם כל נתוני המלונות שנבחרו, אישור דרישות רכש. לא נספר בהגשת משמרות'],['ceo','מנכ״ל','מבט מנכ״ל: עלויות עובדים, הוצאות והכנסות לפי חודש. לא נספר בהגשת משמרות'],['dept','מנהל מחלקה','מסדר רק את המחלקות שנבחרו, בלי שכר ועלויות'],['mkt','שיווק','קמפיינים ברשתות: השקעה, לידים והכנסות'],['exp','הוצאות','ספקים, חשבוניות ומעקב אחרי מחירים']];
+const APPS=[['shifts','ניהול סידור עבודה','סידור, משמרות, עובדים, שכר ועלויות במלונות שנבחרו'],['events','אירועים','כל ההצעות, התפריטים והחוזים'],['perms','ניהול הרשאות','יכול לתת לאחרים רק הרשאות שיש לו בעצמו'],['front','קבלת המלון','רואה את סידור העבודה והאירועים של המלון ומזין את נתוני 10days'],['maint','אחזקה','עמוד התקלות של המלונות שנבחרו: פתיחה, תאריך תיקון וסגירה'],['brief','בריף יומי','נתוני 10days, האירועים ומי במשמרת, לכל יום במלונות שנבחרו'],['gm','מנהל מלון','עמוד מנהל מלון עם כל נתוני המלונות שנבחרו, אישור דרישות רכש. לא נספר בהגשת משמרות'],['ceo','מנכ״ל','מבט מנכ״ל: עלויות עובדים, הוצאות והכנסות לפי חודש. לא נספר בהגשת משמרות'],['dept','מנהל מחלקה','מסדר רק את המחלקות שנבחרו, בלי שכר ועלויות'],['mkt','שיווק','קמפיינים ברשתות: השקעה, לידים והכנסות'],['exp','הוצאות','ספקים, חשבוניות ומעקב אחרי מחירים']];
 const roleApps=r=>r?(r.apps||{shifts:true}):{};
-function myApps(){if(S.isOwner)return {shifts:true,events:true,perms:true,ceo:true,dept:true,mkt:true,exp:true,gm:true,brief:true,front:true};const a={...roleApps(S.role)};if(a.shifts)a.dept=true;return a}
+function myApps(){if(S.isOwner)return {shifts:true,events:true,perms:true,ceo:true,dept:true,mkt:true,exp:true,gm:true,brief:true,front:true,maint:true};const a={...roleApps(S.role)};if(a.shifts)a.dept=true;return a}
 const grantDepts=()=>S.isOwner||roleApps(S.role).shifts?DEPTS:DEPTS.filter(d=>((S.role&&S.role.depts)||[]).includes(d.k));
 const allHotelsP=()=>S.isOwner||!(S.role&&Array.isArray(S.role.hotels)&&S.role.hotels.length);
 function grantableHotels(){return allHotelsP()?hotelIds():hotelIds().filter(h=>S.role.hotels.includes(h))}
@@ -1435,7 +1475,7 @@ const grantExpHotels=()=>S.isOwner||(roleApps(S.role).exp&&!((S.role&&S.role.exp
 const expAllP=()=>S.isOwner||(roleApps(S.role).exp&&!((S.role&&S.role.expHotels)||[]).length);
 const peopleHotels=()=>grantableHotels().concat(allHotelsP()?[CHAIN]:[]);
 function permSummary(r){const a=roleApps(r),parts=APPS.filter(([k])=>a[k]).map(([k,n])=>k==='dept'?`${n}: ${(r.depts||[]).map(x=>DMAP[x]?.n||x).join(', ')}`:k==='exp'?`${n}: ${(r.expHotels||[]).length?r.expHotels.map(hotelName).join(', '):'כל המלונות'}`:n);if(!parts.length)return 'בלי הרשאות';
-  const hs=(r.hotels||[]);return parts.join(' · ')+(a.shifts||a.dept||a.gm||a.brief||a.front?` · ${hs.length?hs.map(hotelName).join(', '):'כל המלונות'}`:'')}
+  const hs=(r.hotels||[]);return parts.join(' · ')+(a.shifts||a.dept||a.gm||a.brief||a.front||a.maint?` · ${hs.length?hs.map(hotelName).join(', '):'כל המלונות'}`:'')}
 // hotels card (permissions page): names, join codes, add hotel — for shift managers, per hotel they manage
 function hotelsCardHTML(){if(!S.admin)return '';const hs=visibleHotels();
   return `<div class="card"><h3>מלונות וקודי הצטרפות</h3>
@@ -1475,7 +1515,7 @@ function vPerms(){
   let last=null;const rows=people.map(([u,e])=>{const h=e.hotel||'main',r=S.roles[u],a=roleApps(r);
     const sep=h!==last?`<div class="lh">${esc(hotelName(h))}</div>`:'';last=h;
     const chips=APPS.filter(([k])=>a[k]).map(([k,n])=>`<span class="pill ${k==='perms'?'brass':'ok'}">${n}</span>`).join('');
-    const hsTxt=a.shifts||a.dept||a.gm||a.brief||a.front?`<span class="sub">${a.dept?esc((r.depts||[]).map(x=>DMAP[x]?.n||x).join(', '))+' · ':''}${(r.hotels||[]).length?r.hotels.map(x=>esc(hotelName(x))).join(', '):'כל המלונות'}</span>`:'';
+    const hsTxt=a.shifts||a.dept||a.gm||a.brief||a.front||a.maint?`<span class="sub">${a.dept?esc((r.depts||[]).map(x=>DMAP[x]?.n||x).join(', '))+' · ':''}${(r.hotels||[]).length?r.hotels.map(x=>esc(hotelName(x))).join(', '):'כל המלונות'}</span>`:'';
     return sep+`<button class="li prow2" data-act="perm-open" data-u="${u}" ${u===S.uid?'disabled':''}>
       <div class="c1"><div class="n">${esc(e.name||'ללא שם')}${u===S.uid?' <span class="pill">זה אתה</span>':''}</div><div class="sub">${esc(e.title||'')}</div></div>
       <div class="c2 meta">${chips||'<span class="pill">עובד</span>'}</div><div class="c3">${hsTxt}</div><div></div></button>`}).join('');
@@ -1493,7 +1533,7 @@ function sheetPerm(){
   `<div class="plist">${APPS.map(([k,n,desc])=>`<label class="prow" style="cursor:${mine[k]?'pointer':'default'}"><span class="who"><b>${n}</b><small>${mine[k]?desc:'אין לך את ההרשאה הזו, ולכן אי אפשר לתת אותה'}</small></span><input type="checkbox" id="pa_${k}" data-act="perm-app" data-k="${k}" ${d.apps[k]?'checked':''} ${mine[k]&&!outside?'':'disabled'}></label>`).join('')}</div>
   ${d.apps.exp?`<div class="f"><span>הוצאות במלונות: <span class="muted">${expAllP()?'(בלי בחירה = כל המלונות)':'(לפחות מלון אחד)'}</span></span><div class="chips" style="gap:6px">${grantExpHotels().map(h=>`<button class="dchip ${d.expHotels.includes(h)?'':'off'}" style="--h:var(--brass);cursor:pointer" data-act="perm-exph" data-h="${h}" aria-pressed="${d.expHotels.includes(h)}">${esc(hotelName(h))}</button>`).join('')}</div></div>`:''}
   ${d.apps.dept?`<div class="f"><span>מנהל מחלקה של:</span><div class="chips" style="gap:6px">${grantDepts().map(x=>`<button class="dchip ${d.depts.includes(x.k)?'':'off'}" style="--h:${x.h};cursor:pointer" data-act="perm-dept" data-k="${x.k}" aria-pressed="${d.depts.includes(x.k)}">${x.n}</button>`).join('')}</div></div>`:''}
-  ${d.apps.shifts||d.apps.dept||d.apps.gm||d.apps.brief||d.apps.front?`<div class="f"><span>${d.apps.shifts?'מנהל סידור במלונות:':d.apps.gm?'מנהל המלונות:':(d.apps.brief||d.apps.front)&&!d.apps.dept?'במלונות:':'במלון:'} <span class="muted">${allHotelsP()&&!d.apps.dept?'(בלי בחירה = כל המלונות)':'(לפחות מלון אחד)'}</span></span><div class="chips" style="gap:6px">${hs.map(h=>`<button class="hchip" data-act="perm-hotel" data-h="${h}" aria-pressed="${d.hotels.includes(h)}" ${outside?'disabled':''}>${esc(hotelName(h))}</button>`).join('')}</div></div>`:''}
+  ${d.apps.shifts||d.apps.dept||d.apps.gm||d.apps.brief||d.apps.front||d.apps.maint?`<div class="f"><span>${d.apps.shifts?'מנהל סידור במלונות:':d.apps.gm?'מנהל המלונות:':(d.apps.brief||d.apps.front||d.apps.maint)&&!d.apps.dept?'במלונות:':'במלון:'} <span class="muted">${allHotelsP()&&!d.apps.dept?'(בלי בחירה = כל המלונות)':'(לפחות מלון אחד)'}</span></span><div class="chips" style="gap:6px">${hs.map(h=>`<button class="hchip" data-act="perm-hotel" data-h="${h}" aria-pressed="${d.hotels.includes(h)}" ${outside?'disabled':''}>${esc(hotelName(h))}</button>`).join('')}</div></div>`:''}
   <p class="muted" style="font-size:.82rem">השינוי נכנס לתוקף כשהאדם מרענן את האתר.</p>
   <div class="actions"><button class="btn pri" data-act="perm-save" ${outside?'disabled':''}>שמירה</button><button class="btn ghost" data-act="close">ביטול</button></div>`;
 }
@@ -1620,6 +1660,7 @@ const ACT={
   'app-gm':()=>{S.menu=false;setTab('gm')},
   'app-brief':()=>{S.menu=false;setTab('brief')},
   'app-front':()=>{S.menu=false;setTab('front')},
+  'app-maint':()=>{S.menu=false;setTab('maint')},
   'notif-on':()=>{try{Notification.requestPermission().then(p=>{toast(p==='granted'?'ההתראות הופעלו. תקבל התראה כשתגיע בקשה חדשה או כשפריט במלאי מגיע לרף המינימום, כל עוד האתר פתוח.':'ההתראות לא הופעלו');render()})}catch(_){toast('הדפדפן הזה לא תומך בהתראות')}},
   'hotel-space':D=>{const h=D.h,cur=hotelSpaces(h),k=D.v,sp=cur.includes(k)?cur.filter(x=>x!==k):[...cur,k];
     S.settingsAll[h]={...(S.settingsAll[h]||{}),spaces:sp,venues:[...new Set(sp.map(x=>x.split('|')[0]))]};save('settings/'+h,S.settingsAll[h]);render()},
@@ -1640,6 +1681,12 @@ const ACT={
     try{await navigator.clipboard.writeText(orderText(h,{name:sp?.name||''},lines));toast('ההזמנה הועתקה')}catch(_){toast('ההעתקה נכשלה')}},
   'order-done':D=>{const h=D.h,items=(S.stockAll||{})[h]||{},lines=Object.entries((S.preqAll||{})[h]||{}).filter(([,r])=>r.status==='approved'&&(r.supplier||items[r.itemId]?.supplier||'')===D.s);
     for(const [rid,r] of lines){const doc={...r,status:'ordered',orderedAt:Date.now(),handledBy:S.uid};S.preqAll[h]={...S.preqAll[h],[rid]:doc};save('purchaseReqs/'+rid,doc)}render();toast(`סומן שהוזמן · ${lines.length} פריטים`)},
+  'fault-add':D=>{const h=D.h,g=(k,d)=>dv('flt',k,d),room=String(g('room','')).trim(),desc=String(g('desc','')).trim(),due=String(g('due',addDays(todayISO(),1)));
+    if(!desc){toast('צריך לכתוב מה התקלה');return}const id='f'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),doc={hotel:h,room,desc,status:'open',openedAt:Date.now(),openedBy:S.uid,openedByName:S.meName||empName(S.uid)||'',due:/^\d{4}-\d{2}-\d{2}$/.test(due)?due:'',source:'manual'};
+    S.faults[h]={...(S.faults[h]||{}),[id]:doc};save('faults/'+id,doc);S.drafts.flt=null;render();toast('התקלה נפתחה')},
+  'fault-done':D=>{if(S.confirm!=='fd:'+D.id){S.confirm='fd:'+D.id;render();return}S.confirm=null;const f=((S.faults||{})[D.h]||{})[D.id];if(!f)return;
+    const doc={...f,status:'done',doneAt:Date.now(),doneBy:S.uid};S.faults[D.h]={...S.faults[D.h],[D.id]:doc};save('faults/'+D.id,doc);render();toast('סומן שתוקן')},
+  'fault-del':D=>{if(S.confirm!=='fx:'+D.id){S.confirm='fx:'+D.id;render();return}S.confirm=null;const c={...((S.faults||{})[D.h]||{})};delete c[D.id];S.faults[D.h]=c;save('faults/'+D.id,null);render();toast('התקלה נמחקה')},
   'sr-add':D=>{const d=S.drafts.sr||(S.drafts.sr={});d[D.l]=[...(d[D.l]||[]),{room:'',note:''}];render()},
   'sr-rm':D=>{const d=S.drafts.sr||{};d[D.l]=(d[D.l]||[]).filter((_,i)=>i!==+D.i);render()},
   'sr-un':D=>{(S.drafts.sr||(S.drafts.sr={})).unusual=D.v;render()},
@@ -1654,6 +1701,7 @@ const ACT={
     const extra={ooo:rows('ooo'),faults:rows('faults')};
     if(shift==='night'){extra.ci=num('ci');extra.co=num('co');if(hs)extra.cid=num('cid');if(extra.ci==null||extra.co==null||(hs&&extra.cid==null)){toast('במשמרת לילה צריך למלא כמה צ׳ק אין וכמה צ׳ק אאוט היום');return}}
     if(shift==='morning'){extra.coLeft=num('coLeft');if(extra.coLeft==null){toast('במשמרת בוקר צריך למלא כמה צ׳ק אאוט נשאר');return}}
+    faultsFromReport(h,extra.faults,name);
     if(shift==='night')srToDaily(h,date,hs?{cid:extra.cid,ci:extra.ci,co:extra.co}:{ci:extra.ci,co:extra.co});
     const id='r'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),doc={...extra,hotel:h,month:date.slice(0,7),date,shift,name,float:+g('float',0)||0,cash:+g('cash',0)||0,credit:+g('credit',0)||0,unusual:un==='yes',details:un==='yes'?det:'',by:S.uid,createdAt:Date.now()};
     const k=h+'|'+doc.month;S.sreps=S.sreps||{};if(S.sreps[k]&&!S.sreps[k].__err)S.sreps[k]={...S.sreps[k],[id]:doc};save('shiftReports/'+id,doc);S.drafts.sr=null;S.srMonth=doc.month;render();toast('הדוח נשלח. תודה!')},
@@ -1846,11 +1894,13 @@ async function start(u){
   // department manager: schedules only their departments, never sees pay
   S.deptOnly=S.can.dept;S.myDepts=S.deptOnly?((S.role&&S.role.depts)||[]):[];
   S.admin=S.can.shifts||S.deptOnly;S.can.stock=S.isOwner||S.can.shifts||S.deptOnly||S.can.gm;S.auth='in';
+  // maintenance page: owner, shift managers, hotel managers, the maintenance department manager and the "maint" app
+  S.can.maint=S.isOwner||S.can.shifts||S.can.gm||!!apps.maint||(S.deptOnly&&S.myDepts.includes('maintenance'));
   // a manager limited to some hotels can only read those hotels' salaries, availability and settings (enforced in firestore.rules)
   S.scoped=!S.isOwner&&!!S.role&&Array.isArray(S.role.hotels)&&S.role.hotels.length>0;
   // shared reception account (one login for the desk, people change through the day): front desk page only
   S.station=!S.isOwner&&!!(S.role&&S.role.station);
-  if(S.station){S.can={...S.can,front:true,brief:false,stock:false,events:false,perms:false};S.admin=false;S.deptOnly=false;S.myHotel=((S.role.hotels||[])[0])||'main';S.hotel=S.myHotel;S.meName=S.role.name||'קבלה';S.email=S.role.login||''}
+  if(S.station){S.can={...S.can,front:true,brief:false,stock:false,events:false,perms:false,maint:false};S.admin=false;S.deptOnly=false;S.myHotel=((S.role.hotels||[])[0])||'main';S.hotel=S.myHotel;S.meName=S.role.name||'קבלה';S.email=S.role.login||''}
   else if(!S.role&&S.email.endsWith('@'+STATION_DOMAIN)){S.stationOff=true;S.tab='front';S.ready=true;render();return}
   else if(!S.admin){let me=null;try{const m=await db.doc('employees/'+u.uid).get();if(m.exists)me=m.data()}catch(_){ }
     if(!me){S.registering=true;S.ready=true;render();return}
@@ -1864,7 +1914,7 @@ async function start(u){
   catch(e){onErr(e)}
   S.week=openWeek();
   let t=null;try{t=localStorage.getItem('hs_tab')}catch(_){ }
-  const allowed=S.station?['front']:((S.admin?(S.deptOnly?['sched','shifts']:['sched','shifts','staff','costs','settings']):S.myHotel===CHAIN||S.myMgmt?['profile']:['avail','mine','daily','profile']).concat(S.can.perms?['perms']:[]).concat(S.can.ceo?['ceo']:[]).concat(S.can.mkt?['mkt']:[]).concat(S.can.exp?['exp']:[]).concat(S.can.gm?['gm']:[]).concat(S.can.stock?['stock']:[]).concat(S.can.brief?['brief']:[]).concat(S.can.front?['front']:[]));S.tab=allowed.includes(t)?t:allowed[0];
+  const allowed=S.station?['front']:((S.admin?(S.deptOnly?['sched','shifts']:['sched','shifts','staff','costs','settings']):S.myHotel===CHAIN||S.myMgmt?['profile']:['avail','mine','daily','profile']).concat(S.can.perms?['perms']:[]).concat(S.can.ceo?['ceo']:[]).concat(S.can.mkt?['mkt']:[]).concat(S.can.exp?['exp']:[]).concat(S.can.gm?['gm']:[]).concat(S.can.stock?['stock']:[]).concat(S.can.brief?['brief']:[]).concat(S.can.front?['front']:[]).concat(S.can.maint?['maint']:[]));S.tab=allowed.includes(t)?t:allowed[0];
   if(location.hash==='#perms'&&S.can.perms)S.tab='perms';
   if(location.hash==='#ceo'&&S.can.ceo)S.tab='ceo';
   if(location.hash==='#mkt'&&S.can.mkt)S.tab='mkt';
@@ -1872,6 +1922,7 @@ async function start(u){
   if(location.hash==='#gm'&&S.can.gm)S.tab='gm';
   if(location.hash==='#brief'&&S.can.brief)S.tab='brief';
   if(location.hash==='#front'&&S.can.front)S.tab='front';
+  if(location.hash==='#maint'&&S.can.maint)S.tab='maint';
   if(location.hash==='#stock'&&S.can.stock)S.tab='stock';
   db.collection('hotels').onSnapshot(q=>{S.hotels=docsMap(q);if(S.ready&&hotelIds().join(',')!==S.subKey)subWeek();render()},onErr);
   const afterSettings=()=>{if(!S.admin&&S.tab==='avail'&&S.week!==openWeek())setWeek(openWeek());else render()};

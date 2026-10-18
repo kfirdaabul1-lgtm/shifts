@@ -14,7 +14,7 @@ rules_version = '2';
 //      ceo    = מבט מנכ״ל: הכנסות ועלויות עובדים, קריאה בלבד
 //      dept   = מנהל מחלקה: מסדר רק את המחלקות שלו (depts), בלי שכר
 //      mkt    = שיווק: קמפיינים
-//      exp    = הוצאות: ספקים, חשבוניות ומחירים (מבט מנכ״ל קורא את החשבוניות)
+//      exp    = הוצאות: ספקים, חשבוניות ומחירים, לפי המלונות ב-expHotels (ריק = כולם). מבט מנכ״ל קורא את החשבוניות
 //  - עובד בלי הרשאות: הפרטים, הזמינות והמשמרות שלו והצוות של המלון שלו. אף פעם לא שכר.
 //  - עובד רשת (hotel = 'chain'): הנהלה ומשרד. נרשם עם קוד הרשת, לא נספר בנוכחות ולא משתבץ במשמרות.
 //  - מי שלא מחובר: כלום.
@@ -49,6 +49,15 @@ service cloud.firestore {
     function canCeo()    { return isOwner() || (hasRole() && roleApp('ceo')); }
     function canMkt()    { return isOwner() || (hasRole() && roleApp('mkt')); }
     function canExp()    { return isOwner() || (hasRole() && roleApp('exp')); }
+    // הוצאות לפי מלון: expHotels במסמך ההרשאות (ריק = כל המלונות)
+    function expHotelsR() { return roleData().get('expHotels', []); }
+    function expAll() { return isOwner() || (canExp() && expHotelsR().size() == 0); }
+    function expIn(h) { return expAll() || (canExp() && h in expHotelsR()); }
+    // מי שנותן הוצאות נותן רק מלונות שיש לו בעצמו
+    function expGrantOk(n) {
+      return n.get('expHotels', []) is list && (!n.apps.get('exp', false) || isOwner() || expAll()
+        || (n.get('expHotels', []).size() > 0 && n.get('expHotels', []).hasOnly(expHotelsR())));
+    }
     function isManager() { return isOwner() || hasRole(); }
 
     // היקף המלונות של מי שמחזיק הרשאות (ריק = כל המלונות)
@@ -99,6 +108,7 @@ service cloud.firestore {
         && n.get('depts', []) is list
         && (isOwner() || roleApp('shifts') || n.get('depts', []).hasOnly(roleDepts()))
         && appsWithin(n.apps)
+        && expGrantOk(n)
         && hotelsInScope(n);
     }
     function existingOk(r) { return appsWithin(r.get('apps', {'shifts': true})) && hotelsInScope(r); }
@@ -221,9 +231,18 @@ service cloud.firestore {
 
     // ---------- הוצאות ----------
     match /suppliers/{id}   { allow read, write: if canExp(); }
-    match /invoices/{id}    { allow read: if canExp() || canCeo(); allow write: if canExp(); }
-    match /invoiceImgs/{id} { allow read, write: if canExp(); }
-    match /expcfg/{id}      { allow read, write: if canExp(); }
+    match /invoices/{id} {
+      allow read: if canCeo() || expAll() || (canExp() && resource.data.hotel in expHotelsR());
+      allow create: if expIn(hotelOf(request.resource.data));
+      allow update: if expIn(hotelOf(resource.data)) && expIn(hotelOf(request.resource.data));
+      allow delete: if expIn(hotelOf(resource.data));
+    }
+    match /invoiceImgs/{id} {
+      allow read, delete: if expIn(hotelOf(resource.data));
+      allow create, update: if expIn(hotelOf(request.resource.data));
+    }
+    // מייל הנהלת חשבונות לכל מלון: expcfg/{hotel} (main הישן: רק מי שרואה את כל המלונות)
+    match /expcfg/{h} { allow read: if canExp(); allow write: if expIn(h) && (h != 'main' || expAll()); }
 
     // כל השאר חסום
     match /{document=**} {

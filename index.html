@@ -806,32 +806,63 @@ function lastPrice(sup,name,date,exceptId){let best=null;const k=prodKey(name);i
     for(const i of v.items||[])if(prodKey(i.name)===k&&+i.price>0&&(!best||v.date>best.date))best={price:+i.price,date:v.date}}
   return best}
 const pct=(a,b)=>b?((a-b)/b*100):0;
+// expenses scope: role.expHotels (empty = all hotels). Owner sees all.
+const expAllMine=()=>S.isOwner||!((S.role&&S.role.expHotels)||[]).length;
+const expHs=()=>expAllMine()?hotelIds():hotelIds().filter(h=>(S.role.expHotels||[]).includes(h));
+const acctFor=h=>(S.expAcct||{})[h]||((S.expcfg||{}).acct||{})[h]||'';
+const TERMS=[['now','מיידי / מזומן'],['eom30','שוטף + 30'],['eom45','שוטף + 45'],['eom60','שוטף + 60'],['eom90','שוטף + 90'],['net30','30 יום מהחשבונית'],['net60','60 יום מהחשבונית']];
+const TMAP=Object.fromEntries(TERMS);
+function dueFrom(date,terms){if(!date)return '';const t=terms||'eom30';if(t==='now')return date;const n=+t.replace(/\D/g,'');
+  if(t.startsWith('net'))return addDays(date,n);const d=new Date(date+'T00:00:00Z');const eom=new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth()+1,0)).toISOString().slice(0,10);return addDays(eom,n)}
+const INVST=[['open','התקבלה'],['approved','אושרה לתשלום'],['paid','שולמה']];
+const INVSTMAP=Object.fromEntries(INVST);
+const PAYM=[['transfer','העברה בנקאית'],['check','צ׳ק'],['card','אשראי'],['cash','מזומן'],['standing','הוראת קבע']];
+const PAYMMAP=Object.fromEntries(PAYM);
+const invStatus=v=>v.status||'open';
+const dueOf=v=>v.dueDate||dueFrom(v.date,(S.sups||{})[v.supplier]?.terms);
+const isOverdue=v=>invStatus(v)!=='paid'&&!!dueOf(v)&&dueOf(v)<todayISO();
+function invPill(v){const st=invStatus(v);if(st==='paid')return '<span class="pill ok">שולמה</span>';const du=dueOf(v);if(isOverdue(v))return `<span class="pill bad">באיחור · ${dm(du)}</span>`;
+  return st==='approved'?`<span class="pill warn">אושרה לתשלום${du?' · '+dm(du):''}</span>`:`<span class="pill">לתשלום${du?' עד '+dm(du):''}</span>`}
+function supBalance(id){return Object.values(S.invs||{}).filter(v=>v.supplier===id&&invStatus(v)!=='paid').reduce((a,v)=>a+invTotals(v).total,0)}
 function priceFlag(sup,it,date,id){const lp=lastPrice(sup,it.name,date,id);if(!lp||!(+it.price))return '';const d=pct(+it.price,lp.price);
   if(Math.abs(d)<0.5)return `<span class="muted" style="font-size:.78rem">כמו בפעם הקודמת</span>`;
   return d>0?`<span style="color:var(--bad);font-size:.78rem;font-weight:600">▲ ${d.toFixed(1)}% (היה ${ils(lp.price)})</span>`:`<span style="color:var(--ok);font-size:.78rem">▼ ${Math.abs(d).toFixed(1)}% (היה ${ils(lp.price)})</span>`}
-function vExp(){liveColl('sups','suppliers');liveColl('invs','invoices');
-  if(!S.live.expcfg){S.live.expcfg=true;S.db.doc('expcfg/main').onSnapshot(d=>{S.expcfg=d.exists?d.data():{};render()},()=>{})}
+function vExp(){liveColl('sups','suppliers');
+  if(!S.live.invs){S.live.invs=true;S.invs={};const hs=expHs().slice(0,30),q=expAllMine()?S.db.collection('invoices'):S.db.collection('invoices').where('hotel','in',hs.length?hs:['-']);
+    q.onSnapshot(x=>{S.invs=docsMap(x);S.invsReady=true;render()},e=>{S.invsErr=errMsg(mapErr(e));render()})}
+  if(!S.live.expcfg){S.live.expcfg=true;S.expAcct={};if(expAllMine())S.db.doc('expcfg/main').onSnapshot(d=>{S.expcfg=d.exists?d.data():{};render()},()=>{});
+    for(const h of expHs())S.db.doc('expcfg/'+h).onSnapshot(d=>{S.expAcct={...S.expAcct,[h]:d.exists?(d.data().email||''):''};render()},()=>{})}
   const t=S.expTab||'inv';
-  const tabs=`<div class="chips" role="tablist" style="gap:6px;margin-top:8px">${[['inv','חשבוניות'],['prices','מעקב מחירים'],['sup','ספקים'],['acct','הנהלת חשבונות']].map(([k,n])=>`<button class="dchip ${t===k?'':'off'}" style="--h:var(--brass)" data-act="exp-tab" data-t="${k}">${n}</button>`).join('')}</div>`;
+  const tabs=`<div class="chips" role="tablist" style="gap:6px;margin-top:8px">${[['inv','חשבוניות'],['pay','לתשלום'],['sup','ספקים'],['prices','מעקב מחירים'],['acct','הנהלת חשבונות']].map(([k,n])=>`<button class="dchip ${t===k?'':'off'}" style="--h:var(--brass)" data-act="exp-tab" data-t="${k}">${n}</button>`).join('')}</div>`;
   const head=`<section class="head"><div class="head-t"><h1>הוצאות</h1><button class="btn pri" data-act="inv-new">+ חשבונית חדשה</button></div>${tabs}</section>`;
   if(S.invsErr||S.supsErr)return wrap(head+`<div class="notice">לא הצלחתי לטעון: ${esc(S.invsErr||S.supsErr)}</div>`);
   if(!S.invsReady||!S.supsReady)return wrap(head+'<p class="muted">טוען…</p>');
-  return wrap(head+(t==='prices'?expPrices():t==='sup'?expSups():t==='acct'?expAcct():expInvoices()));
+  if(!expHs().length)return wrap(head+'<div class="notice">אין לך הרשאה להוצאות של אף מלון.</div>');
+  return wrap(head+(t==='prices'?expPrices():t==='sup'?expSups():t==='acct'?expAcct():t==='pay'?expPay():expInvoices()));
 }
-function expInvoices(){const f=S.expF||(S.expF={h:'all',m:todayISO().slice(0,7)});
+function expInvoices(){const f=S.expF||(S.expF={h:'all',m:todayISO().slice(0,7),st:'all'});f.st=f.st||'all';
   const months=[...new Set([todayISO().slice(0,7),...Object.values(S.invs).map(v=>String(v.date||'').slice(0,7)).filter(Boolean)])].sort().reverse();
-  const rows=Object.entries(S.invs).filter(([,v])=>(f.h==='all'||v.hotel===f.h)&&(f.m==='all'||String(v.date||'').slice(0,7)===f.m)).sort(([,a],[,b])=>String(b.date).localeCompare(String(a.date))||(b.createdAt||0)-(a.createdAt||0));
+  const stOk=v=>f.st==='all'||(f.st==='unpaid'?invStatus(v)!=='paid':f.st==='overdue'?isOverdue(v):invStatus(v)===f.st);
+  const rows=Object.entries(S.invs).filter(([,v])=>(f.h==='all'||v.hotel===f.h)&&(f.m==='all'||String(v.date||'').slice(0,7)===f.m)&&stOk(v)).sort(([,a],[,b])=>String(b.date).localeCompare(String(a.date))||(b.createdAt||0)-(a.createdAt||0));
   const tot=rows.reduce((a,[,v])=>a+invTotals(v).net,0),unsent=rows.filter(([,v])=>!v.sentAt).length;
   const ups=rows.reduce((a,[id,v])=>a+(v.items||[]).filter(i=>{const lp=lastPrice(v.supplier,i.name,v.date,id);return lp&&+i.price>lp.price*1.005}).length,0);
   const bySup={};rows.forEach(([,v])=>{bySup[v.supplier]=(bySup[v.supplier]||0)+invTotals(v).net});
   const top=Object.entries(bySup).sort((a,b)=>b[1]-a[1]).slice(0,6);
-  return `<div class="actions"><select data-expf="h" style="width:auto"><option value="all">כל המלונות</option>${hotelIds().map(h=>`<option value="${h}" ${f.h===h?'selected':''}>${esc(hotelName(h))}</option>`).join('')}</select>
+  const unpaidAll=Object.values(S.invs).filter(v=>invStatus(v)!=='paid'&&(f.h==='all'||v.hotel===f.h)),owe=unpaidAll.reduce((a,v)=>a+invTotals(v).total,0),late=unpaidAll.filter(isOverdue);
+  return `<div class="actions"><select data-expf="st" style="width:auto">${[['all','כל הסטטוסים'],['unpaid','לא שולמו'],['overdue','באיחור'],...INVST].map(([k,n])=>`<option value="${k}" ${f.st===k?'selected':''}>${n}</option>`).join('')}</select><select data-expf="h" style="width:auto"><option value="all">כל המלונות</option>${expHs().map(h=>`<option value="${h}" ${f.h===h?'selected':''}>${esc(hotelName(h))}</option>`).join('')}</select>
     <select data-expf="m" style="width:auto"><option value="all" ${f.m==='all'?'selected':''}>כל החודשים</option>${months.map(m=>`<option value="${m}" ${f.m===m?'selected':''}>${HE_MON[+m.slice(5,7)-1]} ${m.slice(0,4)}</option>`).join('')}</select></div>
-  <div class="kpis">${kpi('סה״כ הוצאות',ils(tot),`${rows.length} חשבוניות · לפני מע״מ`)}${kpi('לא נשלחו להנהלת חשבונות',String(unsent),unsent?'לוחצים על חשבונית ושולחים':'הכל נשלח',unsent?'bad':'')}${kpi('מוצרים שהתייקרו',String(ups),'לעומת החשבונית הקודמת מאותו ספק',ups?'bad':'')}</div>
+  <div class="kpis">${kpi('סה״כ הוצאות',ils(tot),`${rows.length} חשבוניות · לפני מע״מ`)}${kpi('חוב פתוח לספקים',ils(owe),`${unpaidAll.length} חשבוניות שלא שולמו · כולל מע״מ`)}${kpi('באיחור',String(late.length),late.length?ils(late.reduce((a,v)=>a+invTotals(v).total,0)):'אין חשבוניות באיחור',late.length?'bad':'')}${kpi('לא נשלחו להנהלת חשבונות',String(unsent),unsent?'לוחצים על חשבונית ושולחים':'הכל נשלח',unsent?'bad':'')}${kpi('מוצרים שהתייקרו',String(ups),'לעומת החשבונית הקודמת מאותו ספק',ups?'bad':'')}</div>
   ${top.length?`<div class="card"><h3>לפי ספק</h3><div class="bars">${top.map(([sid,v])=>`<div class="bar" style="--h:var(--brass)"><span>${esc(supName(sid))}</span><div class="track"><div class="fill" style="width:${(v/top[0][1]*100).toFixed(1)}%"></div></div><span class="val">${ils(v)}</span></div>`).join('')}</div></div>`:''}
   ${rows.length?`<div class="card"><h3>חשבוניות</h3><div class="plist">${rows.map(([id,v])=>{const T=invTotals(v),up=(v.items||[]).filter(i=>{const lp=lastPrice(v.supplier,i.name,v.date,id);return lp&&+i.price>lp.price*1.005}).length;
-    return `<button class="prow" data-act="inv-open" data-id="${id}" style="text-align:start;width:100%;background:none;border:0;border-bottom:1px solid var(--line);cursor:pointer;font:inherit;color:inherit"><span class="who"><b>${esc(supName(v.supplier))}${v.number?` · #${esc(v.number)}`:''}</b><small>${v.date?dm(v.date):''} · ${esc(hotelName(v.hotel))} · ${(v.items||[]).length} מוצרים${up?` · <span style="color:var(--bad)">${up} התייקרו</span>`:''}${v.hasImg?' · 📎':''}</small></span><span style="text-align:end"><b class="mono">${ils(T.total)}</b><br>${v.sentAt?'<span class="pill ok">נשלח</span>':'<span class="pill warn">לא נשלח</span>'}</span></button>`}).join('')}</div></div>`
+    return `<button class="prow" data-act="inv-open" data-id="${id}" style="text-align:start;width:100%;background:none;border:0;border-bottom:1px solid var(--line);cursor:pointer;font:inherit;color:inherit"><span class="who"><b>${esc(supName(v.supplier))}${v.number?` · #${esc(v.number)}`:''}</b><small>${v.date?dm(v.date):''} · ${esc(hotelName(v.hotel))} · ${(v.items||[]).length} מוצרים${up?` · <span style="color:var(--bad)">${up} התייקרו</span>`:''}${v.hasImg?' · 📎':''}</small></span><span style="text-align:end"><b class="mono">${ils(T.total)}</b><br>${invPill(v)} ${v.sentAt?'':'<span class="pill">לא נשלח להנה״ח</span>'}</span></button>`}).join('')}</div></div>`
   :emptyBox('אין חשבוניות בחודש הזה','לוחצים "חשבונית חדשה", מצלמים את החשבונית ומזינים את המוצרים והמחירים. המערכת משווה כל מחיר לפעם הקודמת שקניתם מאותו ספק.')}`}
+function expPay(){const rows=Object.entries(S.invs).filter(([,v])=>invStatus(v)!=='paid').sort(([,a],[,b])=>String(dueOf(a)||'9').localeCompare(String(dueOf(b)||'9')));
+  if(!rows.length)return emptyBox('אין חשבוניות פתוחות','כל החשבוניות שהוזנו שולמו.');
+  const bySup={};rows.forEach(([id,v])=>{(bySup[v.supplier]||(bySup[v.supplier]=[])).push([id,v])});
+  const tot=rows.reduce((a,[,v])=>a+invTotals(v).total,0),late=rows.filter(([,v])=>isOverdue(v)),week=rows.filter(([,v])=>dueOf(v)&&!isOverdue(v)&&dueOf(v)<=addDays(todayISO(),7));
+  return `<div class="kpis">${kpi('סה״כ לתשלום',ils(tot),`${rows.length} חשבוניות · כולל מע״מ`)}${kpi('באיחור',ils(late.reduce((a,[,v])=>a+invTotals(v).total,0)),`${late.length} חשבוניות`,late.length?'bad':'')}${kpi('ב-7 הימים הקרובים',ils(week.reduce((a,[,v])=>a+invTotals(v).total,0)),`${week.length} חשבוניות`)}</div>
+  ${Object.entries(bySup).sort((a,b)=>supName(a[0]).localeCompare(supName(b[0]),'he')).map(([sid,l])=>{const x=(S.sups||{})[sid]||{};return `<div class="card"><div class="panel-h"><div><h3>${esc(supName(sid))} · ${ils(l.reduce((a,[,v])=>a+invTotals(v).total,0))}</h3><p class="muted" style="font-size:.82rem">${[x.terms?TMAP[x.terms]:'',x.bank?`בנק ${esc(x.bank)}${x.branch?' סניף '+esc(x.branch):''}${x.account?' חשבון '+esc(x.account):''}`:''].filter(Boolean).join(' · ')}</p></div></div>
+    <div class="plist">${l.map(([id,v])=>`<div class="prow" style="flex-wrap:wrap"><span class="who"><b>${v.number?'#'+esc(v.number)+' · ':''}${v.date?dm(v.date):''} · ${esc(hotelName(v.hotel))}</b><small>${invPill(v)}</small></span><span class="actions"><b class="mono">${ils(invTotals(v).total)}</b>${invStatus(v)==='open'?`<button class="btn sm" data-act="inv-status" data-id="${id}" data-st="approved">אישור לתשלום</button>`:''}<button class="btn sm pri" data-act="inv-paid" data-id="${id}">סימון כשולמה</button><button class="btn sm ghost" data-act="inv-open" data-id="${id}">פתיחה</button></span></div>`).join('')}</div></div>`}).join('')}`}
 function expPrices(){const S2={};
   for(const [id,v] of Object.entries(S.invs))for(const i of v.items||[]){const k=v.supplier+'|'+prodKey(i.name);if(!prodKey(i.name)||!(+i.price))continue;(S2[k]||(S2[k]={sup:v.supplier,name:prodKey(i.name),pts:[]})).pts.push({d:v.date,p:+i.price})}
   const list=Object.values(S2).map(x=>{x.pts.sort((a,b)=>String(a.d).localeCompare(String(b.d)));const L=x.pts[x.pts.length-1],P=x.pts.length>1?x.pts[x.pts.length-2]:null,F=x.pts[0];return {...x,last:L,prev:P,ch:P?pct(L.p,P.p):0,since:pct(L.p,F.p)}})
@@ -841,25 +872,38 @@ function expPrices(){const S2={};
   ${list.map(x=>`<tr${x.ch>0.5?' style="background:var(--bad-bg)"':''}><td>${esc(x.name)}</td><td>${esc(supName(x.sup))}</td><td class="num">${ils(x.last.p)}</td><td class="num">${x.prev?ils(x.prev.p):'—'}</td><td class="num" style="color:${x.ch>0.5?'var(--bad)':x.ch<-0.5?'var(--ok)':'inherit'}">${x.prev?(x.ch>0?'+':'')+x.ch.toFixed(1)+'%':'—'}</td><td class="num">${x.pts.length>1?(x.since>0?'+':'')+x.since.toFixed(1)+'%':'—'}</td><td class="mono">${x.last.d?dm(x.last.d):''}</td></tr>`).join('')}</tbody></table></div></div>`}
 function expSups(){const ids=Object.keys(S.sups).sort((a,b)=>supName(a).localeCompare(supName(b),'he'));
   return `<div class="actions"><button class="btn" data-act="sup-new">+ ספק חדש</button></div>`+(ids.length?`<div class="card"><div class="plist">${ids.map(id=>{const x=S.sups[id],n=Object.values(S.invs).filter(v=>v.supplier===id),sum=n.reduce((a,v)=>a+invTotals(v).net,0);
-    return `<div class="prow"><span class="who"><b>${esc(x.name)}</b><small>${[x.category,x.phone,x.email].filter(Boolean).map(esc).join(' · ')}${n.length?` · ${n.length} חשבוניות · ${ils(sum)}`:''}</small></span><button class="btn sm" data-act="sup-open" data-id="${id}">עריכה</button></div>`}).join('')}</div></div>`:emptyBox('עוד אין ספקים','מוסיפים ספק כאן, או ישירות מתוך חשבונית חדשה.'))}
-function expAcct(){const a=(S.expcfg||{}).acct||{};
+    const bal=supBalance(id);return `<div class="prow"><span class="who"><b>${esc(x.name)}${x.active===false?' <span class="pill">לא פעיל</span>':''}</b><small>${[x.category,x.contact,x.phone,x.terms?TMAP[x.terms]:''].filter(Boolean).map(esc).join(' · ')}${n.length?` · ${n.length} חשבוניות · ${ils(sum)}`:''}</small></span><span class="actions">${bal?`<span class="pill warn">חוב ${ils(bal)}</span>`:''}<button class="btn sm" data-act="sup-open" data-id="${id}">כרטיס ספק</button></span></div>`}).join('')}</div></div>`:emptyBox('עוד אין ספקים','מוסיפים ספק כאן, או ישירות מתוך חשבונית חדשה.'))}
+function expAcct(){const a={};for(const h of expHs())a[h]=acctFor(h);
   return `<div class="card"><h3>מייל של הנהלת החשבונות לכל מלון</h3><p class="muted" style="font-size:.85rem">לכתובת הזו נשלחות החשבוניות של אותו מלון.</p>
-  ${hotelIds().map(h=>`<label class="f">${esc(hotelName(h))}<input type="email" dir="ltr" id="ac_${h}" data-f="acct.${h}" value="${esc(dv('acct',h,a[h]||''))}" placeholder="accounting@example.com"></label>`).join('')}
+  ${expHs().map(h=>`<label class="f">${esc(hotelName(h))}<input type="email" dir="ltr" id="ac_${h}" data-f="acct.${h}" value="${esc(dv('acct',h,a[h]||''))}" placeholder="accounting@example.com"></label>`).join('')}
   <div><button class="btn pri" data-act="acct-save">שמירה</button></div></div>`}
-function sheetSup(){const id=S.sheet.id,x=(S.sups||{})[id]||{},g=k=>dv('sup',k,x[k]??'');
-  return sheetHead(S.sups?.[id]?'עריכת ספק':'ספק חדש','')+`<label class="f">שם הספק<input type="text" id="sp_n" data-f="sup.name" value="${esc(g('name'))}"></label>
-  <div class="row"><label class="f">קטגוריה<input type="text" id="sp_c" data-f="sup.category" value="${esc(g('category'))}" placeholder="למשל: ירקות, ניקיון, משקאות"></label><label class="f">טלפון<input type="tel" dir="ltr" id="sp_p" data-f="sup.phone" value="${esc(g('phone'))}"></label></div>
-  <label class="f">מייל<input type="email" dir="ltr" id="sp_e" data-f="sup.email" value="${esc(g('email'))}"></label>
-  <div class="actions"><button class="btn pri" data-act="sup-save">שמירה</button>${S.sups?.[id]&&!Object.values(S.invs||{}).some(v=>v.supplier===id)?(S.confirm==='sup-del'?'<button class="btn danger" data-act="sup-del">לחיצה נוספת תמחק</button>':'<button class="btn ghost" data-act="sup-del">מחיקה</button>'):''}</div>`}
+function sheetSup(){const id=S.sheet.id,x=(S.sups||{})[id]||{},g=k=>dv('sup',k,x[k]??''),isNew=!S.sups?.[id];
+  const hs=dv('sup','hotels',x.hotels||[]),inv=Object.entries(S.invs||{}).filter(([,v])=>v.supplier===id).sort(([,a],[,b])=>String(b.date).localeCompare(String(a.date)));
+  const bal=supBalance(id),sum=inv.reduce((a,[,v])=>a+invTotals(v).net,0);
+  return sheetHead(isNew?'פתיחת ספק':esc(x.name||'ספק'),isNew?'כרטיס ספק: פרטים, תנאי תשלום ופרטי בנק':(x.category?esc(x.category):''))+
+  (isNew?'':`<div class="kpis">${kpi('חוב פתוח',ils(bal),'חשבוניות שלא שולמו · כולל מע״מ',bal?'bad':'')}${kpi('סה״כ קניות',ils(sum),`${inv.length} חשבוניות · לפני מע״מ`)}</div>`)+`
+  <h3>פרטי הספק</h3>
+  <div class="row"><label class="f">שם הספק<input type="text" id="sp_n" data-f="sup.name" value="${esc(g('name'))}"></label><label class="f">ח.פ / עוסק מורשה<input type="text" dir="ltr" id="sp_id" data-f="sup.companyId" value="${esc(g('companyId'))}"></label></div>
+  <div class="row"><label class="f">קטגוריה<input type="text" id="sp_c" data-f="sup.category" value="${esc(g('category'))}" placeholder="למשל: ירקות, ניקיון, משקאות"></label><label class="f">איש קשר<input type="text" id="sp_ct" data-f="sup.contact" value="${esc(g('contact'))}"></label></div>
+  <div class="row"><label class="f">טלפון<input type="tel" dir="ltr" id="sp_p" data-f="sup.phone" value="${esc(g('phone'))}"></label><label class="f">מייל<input type="email" dir="ltr" id="sp_e" data-f="sup.email" value="${esc(g('email'))}"></label></div>
+  <label class="f">כתובת<input type="text" id="sp_a" data-f="sup.address" value="${esc(g('address'))}"></label>
+  <h3>תשלום</h3>
+  <div class="row"><label class="f">תנאי תשלום<select id="sp_t" data-f="sup.terms">${TERMS.map(([k,n])=>`<option value="${k}" ${String(g('terms')||'eom30')===k?'selected':''}>${n}</option>`).join('')}</select></label><label class="f">אמצעי תשלום מועדף<select id="sp_pm" data-f="sup.payMethod">${PAYM.map(([k,n])=>`<option value="${k}" ${String(g('payMethod')||'transfer')===k?'selected':''}>${n}</option>`).join('')}</select></label></div>
+  <div class="row"><label class="f">בנק<input type="text" id="sp_b" data-f="sup.bank" value="${esc(g('bank'))}"></label><label class="f">סניף<input type="text" dir="ltr" id="sp_br" data-f="sup.branch" value="${esc(g('branch'))}"></label><label class="f">מספר חשבון<input type="text" dir="ltr" id="sp_ac" data-f="sup.account" value="${esc(g('account'))}"></label></div>
+  <div class="f"><span>עובד עם המלונות <span class="muted">(בלי בחירה = כולם)</span></span><div class="chips" style="gap:6px">${hotelIds().map(h=>`<button type="button" class="dchip ${hs.includes(h)?'':'off'}" style="--h:var(--brass);cursor:pointer" data-act="sup-hotel" data-h="${h}">${esc(hotelName(h))}</button>`).join('')}</div></div>
+  <label class="f">הערות<input type="text" id="sp_nt" data-f="sup.notes" value="${esc(g('notes'))}"></label>
+  <label class="check"><input type="checkbox" id="sp_act" data-f="sup.active" ${dv('sup','active',x.active!==false)?'checked':''}> ספק פעיל</label>
+  <div class="actions"><button class="btn pri" data-act="sup-save">${isNew?'פתיחת הספק':'שמירה'}</button>${!isNew&&!inv.length?(S.confirm==='sup-del'?'<button class="btn danger" data-act="sup-del">לחיצה נוספת תמחק</button>':'<button class="btn ghost" data-act="sup-del">מחיקה</button>'):''}</div>
+  ${inv.length?`<h3>חשבוניות</h3><div class="plist">${inv.slice(0,30).map(([iid,v])=>`<div class="prow"><span class="who"><b>${v.date?dm(v.date):''}${v.number?' · #'+esc(v.number):''} · ${esc(hotelName(v.hotel))}</b><small>${invPill(v)}</small></span><span class="actions"><b class="mono">${ils(invTotals(v).total)}</b><button class="btn sm ghost" data-act="inv-open" data-id="${iid}">פתיחה</button></span></div>`).join('')}</div>`:''}`}
 function invDraft(){const id=S.sheet.id;if(!S.drafts.inv||S.drafts.inv.id!==id){const v=(S.invs||{})[id];
-  S.drafts.inv=v?{id,...structuredClone(v),items:structuredClone(v.items||[])}:{id,supplier:'',hotel:S.hotel,date:todayISO(),number:'',vatIncluded:false,vat:18,items:[{name:'',qty:1,unit:'',price:''}],notes:''}}
+  S.drafts.inv=v?{id,...structuredClone(v),items:structuredClone(v.items||[])}:{id,supplier:'',hotel:expHs().includes(S.hotel)?S.hotel:expHs()[0],status:'open',date:todayISO(),number:'',vatIncluded:false,vat:18,items:[{name:'',qty:1,unit:'',price:''}],notes:''}}
   return S.drafts.inv}
 function sheetInv(){const d=invDraft(),isNew=!(S.invs||{})[d.id],T=invTotals(d),sups=Object.keys(S.sups||{}).sort((a,b)=>supName(a).localeCompare(supName(b),'he'));
   const prods=[...new Set(Object.values(S.invs||{}).filter(v=>v.supplier===d.supplier).flatMap(v=>(v.items||[]).map(i=>prodKey(i.name))).filter(Boolean))];
   const img=S.invImg&&S.invImg.id===d.id?S.invImg.data:'';
   return sheetHead(isNew?'חשבונית חדשה':'חשבונית',isNew?'מצלמים את החשבונית ומזינים את המוצרים':esc(supName(d.supplier)))+`
   <div class="row"><label class="f">ספק<select data-inv="supplier"><option value="">בחירת ספק…</option>${sups.map(s=>`<option value="${s}" ${d.supplier===s?'selected':''}>${esc(supName(s))}</option>`).join('')}<option value="__new">+ ספק חדש</option></select></label>
-  <label class="f">מלון<select data-inv="hotel">${hotelIds().map(h=>`<option value="${h}" ${d.hotel===h?'selected':''}>${esc(hotelName(h))}</option>`).join('')}</select></label></div>
+  <label class="f">מלון<select data-inv="hotel">${expHs().map(h=>`<option value="${h}" ${d.hotel===h?'selected':''}>${esc(hotelName(h))}</option>`).join('')}</select></label></div>
   ${d.supplier==='__new'?`<label class="f">שם הספק החדש<input type="text" data-inv="newSup" value="${esc(d.newSup||'')}"></label>`:''}
   <div class="row"><label class="f">תאריך החשבונית<input type="date" data-inv="date" value="${esc(d.date)}"></label><label class="f">מספר חשבונית<input type="text" data-inv="number" value="${esc(d.number||'')}" dir="ltr"></label></div>
   <div class="f"><span>צילום החשבונית</span>${img?`<img src="${img}" alt="צילום החשבונית" style="max-height:260px;border-radius:8px;border:1px solid var(--line);object-fit:contain;background:#fff">`:d.hasImg?'<span class="muted">טוען את הצילום…</span>':''}
@@ -875,6 +919,10 @@ function sheetInv(){const d=invDraft(),isNew=!(S.invs||{})[d.id],T=invTotals(d),
   <div><button class="btn sm" data-act="inv-add">+ מוצר</button></div>
   <label class="check"><input type="checkbox" data-inv="vatIncluded" ${d.vatIncluded?'checked':''}> המחירים בחשבונית כוללים מע״מ</label>
   <div class="kpis">${kpi('לפני מע״מ',ils(T.net))}${kpi('כולל מע״מ',ils(T.total))}</div>
+  <h3 style="margin-top:6px">תשלום לספק</h3>
+  <div class="row"><label class="f">סטטוס<select data-inv="status">${INVST.map(([k,n])=>`<option value="${k}" ${(d.status||'open')===k?'selected':''}>${n}</option>`).join('')}</select></label>
+  <label class="f">לתשלום עד<input type="date" data-inv="dueDate" value="${esc(d.dueDate||dueFrom(d.date,(S.sups||{})[d.supplier]?.terms))}"></label></div>
+  ${(d.status||'open')==='paid'?`<div class="row"><label class="f">תאריך תשלום<input type="date" data-inv="paidAt" value="${esc(d.paidAt||todayISO())}"></label><label class="f">אמצעי תשלום<select data-inv="payMethod">${PAYM.map(([k,n])=>`<option value="${k}" ${(d.payMethod||(S.sups||{})[d.supplier]?.payMethod||'transfer')===k?'selected':''}>${n}</option>`).join('')}</select></label><label class="f">אסמכתא / מס׳ צ׳ק<input type="text" dir="ltr" data-inv="payRef" value="${esc(d.payRef||'')}"></label></div>`:''}
   <label class="f">הערה<input type="text" data-inv="notes" value="${esc(d.notes||'')}"></label>
   <div class="actions"><button class="btn pri" data-act="inv-save">שמירה</button>${isNew?'':`<button class="btn brass" data-act="inv-send">שליחה להנהלת חשבונות</button>${S.confirm==='inv-del'?'<button class="btn danger" data-act="inv-del">לחיצה נוספת תמחק</button>':'<button class="btn ghost" data-act="inv-del">מחיקה</button>'}`}</div>
   ${!isNew&&(S.invs[d.id]||{}).sentAt?`<p class="muted" style="font-size:.82rem">נשלח להנהלת חשבונות ב-${new Date(S.invs[d.id].sentAt).toLocaleDateString('he-IL')}</p>`:''}`}
@@ -1125,8 +1173,10 @@ const grantDepts=()=>S.isOwner||roleApps(S.role).shifts?DEPTS:DEPTS.filter(d=>((
 const allHotelsP=()=>S.isOwner||!(S.role&&Array.isArray(S.role.hotels)&&S.role.hotels.length);
 function grantableHotels(){return allHotelsP()?hotelIds():hotelIds().filter(h=>S.role.hotels.includes(h))}
 // hotels whose people I can see in the permissions page: chain staff only for those over all hotels
+const grantExpHotels=()=>S.isOwner||(roleApps(S.role).exp&&!((S.role&&S.role.expHotels)||[]).length)?hotelIds():hotelIds().filter(h=>((S.role&&S.role.expHotels)||[]).includes(h));
+const expAllP=()=>S.isOwner||(roleApps(S.role).exp&&!((S.role&&S.role.expHotels)||[]).length);
 const peopleHotels=()=>grantableHotels().concat(allHotelsP()?[CHAIN]:[]);
-function permSummary(r){const a=roleApps(r),parts=APPS.filter(([k])=>a[k]).map(([k,n])=>k==='dept'?`${n}: ${(r.depts||[]).map(x=>DMAP[x]?.n||x).join(', ')}`:n);if(!parts.length)return 'בלי הרשאות';
+function permSummary(r){const a=roleApps(r),parts=APPS.filter(([k])=>a[k]).map(([k,n])=>k==='dept'?`${n}: ${(r.depts||[]).map(x=>DMAP[x]?.n||x).join(', ')}`:k==='exp'?`${n}: ${(r.expHotels||[]).length?r.expHotels.map(hotelName).join(', '):'כל המלונות'}`:n);if(!parts.length)return 'בלי הרשאות';
   const hs=(r.hotels||[]);return parts.join(' · ')+(a.shifts||a.dept?` · ${hs.length?hs.map(hotelName).join(', '):'כל המלונות'}`:'')}
 // hotels card (permissions page): names, join codes, add hotel — for shift managers, per hotel they manage
 function hotelsCardHTML(){if(!S.admin)return '';const hs=visibleHotels();
@@ -1158,7 +1208,7 @@ function vPerms(){
 }
 function sheetPerm(){
   const u=S.sheet.id,e=S.emps[u];if(!e)return '';const r=S.roles[u],mine=myApps(),hs=grantableHotels(),moveHs=peopleHotels();
-  const d=S.drafts.perm||(S.drafts.perm={apps:{...roleApps(r)},hotels:[...((r&&r.hotels)||(allHotelsP()?[]:[e.hotel||'main']))],depts:[...((r&&r.depts)||[])]});
+  const d=S.drafts.perm||(S.drafts.perm={apps:{...roleApps(r)},hotels:[...((r&&r.hotels)||(allHotelsP()?[]:[e.hotel||'main']))],depts:[...((r&&r.depts)||[])],expHotels:[...((r&&r.expHotels)||[])]});
   const outside=r&&!allHotelsP()&&!(r.hotels||[]).length;
   // moving someone between hotels needs shift-manager rights over both hotels
   const canMove=S.can.shifts&&moveHs.includes(e.hotel||'main')&&moveHs.length>1,curH=d.hotel||e.hotel||'main';
@@ -1166,6 +1216,7 @@ function sheetPerm(){
   (canMove?`<label class="f">מלון<select id="pm_hotel">${moveHs.map(h=>`<option value="${h}" ${h===curH?'selected':''}>${esc(hotelName(h))}</option>`).join('')}</select></label>${curH!==(e.hotel||'main')?`<div class="notice">${esc(e.name||'העובד')} יעבור מ${esc(hotelName(e.hotel||'main'))} ל${esc(hotelName(curH))}. הוא יראה את המשמרות והצוות של המלון החדש, והשכר שלו יירשם שם. שיבוצים שכבר נקבעו במלון הקודם נשארים.</div>`:''}`:'')+
   (outside?'<div class="notice">לאדם הזה יש הרשאה לכל המלונות, ורק מי שמנהל את כל המלונות יכול לשנות אותה.</div>':'')+
   `<div class="plist">${APPS.map(([k,n,desc])=>`<label class="prow" style="cursor:${mine[k]?'pointer':'default'}"><span class="who"><b>${n}</b><small>${mine[k]?desc:'אין לך את ההרשאה הזו, ולכן אי אפשר לתת אותה'}</small></span><input type="checkbox" id="pa_${k}" data-act="perm-app" data-k="${k}" ${d.apps[k]?'checked':''} ${mine[k]&&!outside?'':'disabled'}></label>`).join('')}</div>
+  ${d.apps.exp?`<div class="f"><span>הוצאות במלונות: <span class="muted">${expAllP()?'(בלי בחירה = כל המלונות)':'(לפחות מלון אחד)'}</span></span><div class="chips" style="gap:6px">${grantExpHotels().map(h=>`<button class="dchip ${d.expHotels.includes(h)?'':'off'}" style="--h:var(--brass);cursor:pointer" data-act="perm-exph" data-h="${h}" aria-pressed="${d.expHotels.includes(h)}">${esc(hotelName(h))}</button>`).join('')}</div></div>`:''}
   ${d.apps.dept?`<div class="f"><span>מנהל מחלקה של:</span><div class="chips" style="gap:6px">${grantDepts().map(x=>`<button class="dchip ${d.depts.includes(x.k)?'':'off'}" style="--h:${x.h};cursor:pointer" data-act="perm-dept" data-k="${x.k}" aria-pressed="${d.depts.includes(x.k)}">${x.n}</button>`).join('')}</div></div>`:''}
   ${d.apps.shifts||d.apps.dept?`<div class="f"><span>${d.apps.shifts?'מנהל סידור במלונות:':'במלון:'} <span class="muted">${allHotelsP()&&!d.apps.dept?'(בלי בחירה = כל המלונות)':'(לפחות מלון אחד)'}</span></span><div class="chips" style="gap:6px">${hs.map(h=>`<button class="hchip" data-act="perm-hotel" data-h="${h}" aria-pressed="${d.hotels.includes(h)}" ${outside?'disabled':''}>${esc(hotelName(h))}</button>`).join('')}</div></div>`:''}
   <p class="muted" style="font-size:.82rem">השינוי נכנס לתוקף כשהאדם מרענן את האתר.</p>
@@ -1284,9 +1335,14 @@ const ACT={
   'sup-new':()=>{S.drafts.sup=null;S.confirm=null;S.sheet={type:'sup',id:'s'+Date.now().toString(36)+Math.random().toString(36).slice(2,6)};render()},
   'sup-open':D=>{S.drafts.sup=null;S.confirm=null;S.sheet={type:'sup',id:D.id};render()},
   'sup-save':()=>{const id=S.sheet.id,x=(S.sups||{})[id]||{},g=k=>String(dv('sup',k,x[k]??'')).trim();if(!g('name')){toast('צריך לרשום שם ספק');return}
-    const doc={name:g('name'),category:g('category'),phone:g('phone'),email:g('email'),createdAt:x.createdAt||Date.now(),updatedAt:Date.now(),updatedBy:S.uid};S.sups={...S.sups,[id]:doc};save('suppliers/'+id,doc);S.sheet=null;S.drafts.sup=null;render();toast('הספק נשמר')},
+    const doc={...x,name:g('name'),companyId:g('companyId'),category:g('category'),contact:g('contact'),phone:g('phone'),email:g('email'),address:g('address'),terms:g('terms')||'eom30',payMethod:g('payMethod')||'transfer',bank:g('bank'),branch:g('branch'),account:g('account'),notes:g('notes'),
+      hotels:dv('sup','hotels',x.hotels||[]),active:!!dv('sup','active',x.active!==false),createdAt:x.createdAt||Date.now(),updatedAt:Date.now(),updatedBy:S.uid};
+    const isNew=!S.sups?.[id];S.sups={...S.sups,[id]:doc};save('suppliers/'+id,doc);S.drafts.sup=null;if(isNew){render();toast('הספק נפתח')}else{S.sheet=null;render();toast('הספק נשמר')}},
   'sup-del':()=>{if(S.confirm!=='sup-del'){S.confirm='sup-del';render();return}const id=S.sheet.id;S.confirm=null;const c={...S.sups};delete c[id];S.sups=c;save('suppliers/'+id,null);S.sheet=null;render();toast('הספק נמחק')},
-  'acct-save':()=>{const a={...((S.expcfg||{}).acct||{})};for(const h of hotelIds()){const v=String(dv('acct',h,a[h]||'')).trim();if(v)a[h]=v;else delete a[h]}S.expcfg={...(S.expcfg||{}),acct:a};save('expcfg/main',S.expcfg);S.drafts.acct=null;render();toast('נשמר')},
+  'acct-save':()=>{for(const h of expHs()){const v=String(dv('acct',h,acctFor(h))).trim();if(v!==acctFor(h)){S.expAcct={...S.expAcct,[h]:v};save('expcfg/'+h,{email:v,updatedAt:Date.now(),updatedBy:S.uid})}}S.drafts.acct=null;render();toast('נשמר')},
+  'sup-hotel':D=>{const x=(S.sups||{})[S.sheet.id]||{},cur=dv('sup','hotels',x.hotels||[]);(S.drafts.sup||(S.drafts.sup={})).hotels=cur.includes(D.h)?cur.filter(h=>h!==D.h):[...cur,D.h];render()},
+  'inv-status':D=>{const v=S.invs[D.id];if(!v)return;const doc={...v,status:D.st,updatedAt:Date.now(),updatedBy:S.uid};S.invs={...S.invs,[D.id]:doc};save('invoices/'+D.id,doc);render();toast('הסטטוס עודכן')},
+  'inv-paid':D=>{const v=S.invs[D.id];if(!v)return;const doc={...v,status:'paid',paidAt:todayISO(),payMethod:v.payMethod||(S.sups||{})[v.supplier]?.payMethod||'transfer',updatedAt:Date.now(),updatedBy:S.uid};S.invs={...S.invs,[D.id]:doc};save('invoices/'+D.id,doc);if(S.drafts.inv&&S.drafts.inv.id===D.id)S.drafts.inv=null;render();toast(`סומנה כשולמה · ${supName(v.supplier)} · ${ils(invTotals(v).total)}`)},
   'inv-new':()=>{S.drafts.inv=null;S.confirm=null;S.invImg=null;S.sheet={type:'inv',id:'i'+Date.now().toString(36)+Math.random().toString(36).slice(2,6)};render()},
   'inv-open':D=>{S.drafts.inv=null;S.confirm=null;S.invImg=null;S.sheet={type:'inv',id:D.id};if(S.invs[D.id]?.hasImg)loadInvImg(D.id);render()},
   'inv-add':()=>{const d=invDraft();d.items.push({name:'',qty:1,unit:'',price:''});render()},
@@ -1297,11 +1353,13 @@ const ACT={
     const items=d.items.filter(i=>prodKey(i.name)||+i.price).map(i=>({name:prodKey(i.name),qty:+i.qty||0,unit:String(i.unit||'').trim(),price:+i.price||0}));
     if(!items.length){toast('צריך להזין לפחות מוצר אחד');return}
     const old=S.invs[d.id]||{},img=S.invImg&&S.invImg.id===d.id&&S.invImg.changed?S.invImg.data:null;
-    const doc={supplier:sup,hotel:d.hotel,date:d.date,number:String(d.number||'').trim(),vatIncluded:!!d.vatIncluded,vat:+d.vat||18,items,notes:String(d.notes||'').trim(),hasImg:!!(img||old.hasImg),sentAt:old.sentAt||null,createdBy:old.createdBy||S.uid,createdAt:old.createdAt||Date.now(),updatedBy:S.uid,updatedAt:Date.now()};
+    const st=d.status||'open',terms=(S.sups||{})[sup]?.terms;
+    const doc={status:st,dueDate:d.dueDate||dueFrom(d.date,terms),paidAt:st==='paid'?(d.paidAt||todayISO()):null,payMethod:st==='paid'?(d.payMethod||(S.sups||{})[sup]?.payMethod||'transfer'):null,payRef:st==='paid'?String(d.payRef||'').trim():'',supplier:sup,hotel:d.hotel,date:d.date,number:String(d.number||'').trim(),vatIncluded:!!d.vatIncluded,vat:+d.vat||18,items,notes:String(d.notes||'').trim(),hasImg:!!(img||old.hasImg),sentAt:old.sentAt||null,createdBy:old.createdBy||S.uid,createdAt:old.createdAt||Date.now(),updatedBy:S.uid,updatedAt:Date.now()};
     doc.net=r2(invTotals(doc).net);doc.total=r2(invTotals(doc).total);
-    if(img){try{await S.db.doc('invoiceImgs/'+d.id).set({data:img,at:Date.now()});S.invImg.changed=false}catch(e){toast('שמירת הצילום נכשלה: '+errMsg(mapErr(e)));return}}
+    if(!expHs().includes(d.hotel)){toast('אין לך הרשאה להוצאות של המלון הזה');return}
+    if(img){try{await S.db.doc('invoiceImgs/'+d.id).set({data:img,hotel:d.hotel,at:Date.now()});S.invImg.changed=false}catch(e){toast('שמירת הצילום נכשלה: '+errMsg(mapErr(e)));return}}
     S.invs={...S.invs,[d.id]:doc};save('invoices/'+d.id,doc);d.supplier=sup;render();toast('החשבונית נשמרה. אפשר לשלוח אותה להנהלת חשבונות.')},
-  'inv-send':async()=>{const d=invDraft(),v=S.invs[d.id];if(!v){toast('קודם שומרים את החשבונית');return}const to=((S.expcfg||{}).acct||{})[v.hotel]||'';
+  'inv-send':async()=>{const d=invDraft(),v=S.invs[d.id];if(!v){toast('קודם שומרים את החשבונית');return}const to=acctFor(v.hotel);
     const subj=`חשבונית ${supName(v.supplier)}${v.number?' '+v.number:''} · ${hotelName(v.hotel)}`,body=invMailText(v);
     let shared=false;if(v.hasImg){loadInvImg(d.id);const data=S.invImg?.data;if(data&&navigator.canShare){try{const blob=await (await fetch(data)).blob();const file=new File([blob],subj.replace(/[\\/:*?"<>|]/g,'-')+'.jpg',{type:'image/jpeg'});
       if(navigator.canShare({files:[file]})){await navigator.share({files:[file],title:subj,text:(to?`לשליחה ל: ${to}\n\n`:'')+body});shared=true}}catch(e){if(e&&e.name==='AbortError')return}}}
@@ -1316,6 +1374,7 @@ const ACT={
   'perm-app':(D,t)=>{const d=S.drafts.perm;if(!d)return;d.apps[D.k]=t.checked;
     if(D.k==='shifts'&&t.checked)d.apps.dept=false;if(D.k==='dept'&&t.checked)d.apps.shifts=false;
     if((D.k==='shifts'&&t.checked&&!allHotelsP()||D.k==='dept'&&t.checked)&&!d.hotels.length){const e=S.emps[S.sheet.id];const h=e?.hotel||'main';d.hotels=grantableHotels().includes(h)?[h]:grantableHotels().slice(0,1)}render()},
+  'perm-exph':D=>{const d=S.drafts.perm;if(!d)return;d.expHotels=d.expHotels.includes(D.h)?d.expHotels.filter(x=>x!==D.h):[...d.expHotels,D.h];render()},
   'perm-dept':D=>{const d=S.drafts.perm;if(!d)return;d.depts=d.depts.includes(D.k)?d.depts.filter(x=>x!==D.k):[...d.depts,D.k];render()},
   'perm-hotel':D=>{const d=S.drafts.perm;if(!d)return;d.hotels=d.hotels.includes(D.h)?d.hotels.filter(h=>h!==D.h):[...d.hotels,D.h];render()},
   'perm-save':()=>{const u=S.sheet.id,d=S.drafts.perm,e=S.emps[u];if(!d||!e)return;const mine=myApps();
@@ -1329,7 +1388,8 @@ const ACT={
     if(!Object.keys(apps).length){if(S.roles[u]){delete S.roles[u];save('roles/'+u,null)}}
     else{if((!allHotelsP()||apps.dept)&&!hotels.length){toast('צריך לבחור לפחות מלון אחד');return}
       if(apps.dept&&!d.depts.filter(x=>grantDepts().some(g=>g.k===x)).length){toast('צריך לבחור לפחות מחלקה אחת');return}
-      const doc={apps,hotels,depts:apps.dept?d.depts.filter(x=>grantDepts().some(g=>g.k===x)):[],name:e.name||'',updatedBy:S.uid,updatedAt:Date.now()};S.roles[u]=doc;save('roles/'+u,doc)}
+      const expHotels=apps.exp?d.expHotels.filter(h=>grantExpHotels().includes(h)):[];if(apps.exp&&!expAllP()&&!expHotels.length){toast('צריך לבחור לפחות מלון אחד להוצאות');return}
+      const doc={apps,hotels,depts:apps.dept?d.depts.filter(x=>grantDepts().some(g=>g.k===x)):[],expHotels,name:e.name||'',updatedBy:S.uid,updatedAt:Date.now()};S.roles[u]=doc;save('roles/'+u,doc)}
     S.sheet=null;S.drafts.perm=null;render();toast(moved?`${e.name||'העובד'} הועבר ל${hotelName(moved)}`:`ההרשאות של ${e.name||'העובד'} נשמרו`)},
   'bg-close':(D,t,e)=>{if(e.target===t)ACT.close()},
 };

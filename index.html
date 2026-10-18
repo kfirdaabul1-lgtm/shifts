@@ -711,7 +711,7 @@ function ceoCompute(){
       if(m.payType==='global'&&+m.monthly)r.h[h]=(r.h[h]||0)+(+m.monthly)*c.oh;
       if(+m.housing>0)r.h[h]=(r.h[h]||0)-(+m.housing)}}
   const vat=D.cfg.vatRate??18;
-  for(const q of D.quotes){if(q.status!=='approved')continue;const d=(q.event&&q.event.date)||q.createdAt||'';if(String(d).slice(0,4)!==Y)continue;
+  for(const q of D.quotes){if(q.status!=='approved'||q.kind==='group')continue;const d=(q.event&&q.event.date)||q.createdAt||'';if(String(d).slice(0,4)!==Y)continue;
     const r=rows[+String(d).slice(5,7)-1];if(!r)continue;r.rev+=quoteNet(q,vat);r.events++}
   rows.forEach(r=>r.labor=hs.reduce((a,h)=>a+(r.h[h]||0),0));
   return {rows,hs:hs.filter(h=>rows.some(r=>r.h[h])||S.hotels[h]||h==='main')};

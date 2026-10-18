@@ -258,6 +258,9 @@ table.board{border-collapse:collapse;width:100%;min-width:640px;font-size:13px;t
 .blegend .ev{display:inline-block;width:auto;margin:0;cursor:default;--tone:var(--muted)}
 .ev.st-ok{border-inline-start:4px solid var(--tone);background:var(--bg)}
 .ev.st-tent{border-style:dashed}
+.ev.grp{border-inline-start:4px solid var(--tone);border-style:solid;background:repeating-linear-gradient(135deg,var(--bg) 0 8px,var(--surface) 8px 16px)}
+.grpform{border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:12px;background:var(--surface);display:flex;flex-direction:column;gap:10px}
+.grpform .areas{display:flex;gap:6px;flex-wrap:wrap}
 .ev.clashing{border-color:var(--bad);box-shadow:0 0 0 1px var(--bad) inset}
 .ev b{font-weight:700}
 .ev small{display:block;color:var(--muted);font-size:11px}
@@ -474,8 +477,26 @@ table.ctable{border-collapse:collapse;width:100%;min-width:620px;font-size:14px;
   <!-- BOARD -->
   <section id="tab-board" hidden>
     <div class="bhead">
-      <div class="actions"><button class="btn sm" id="bPrev" aria-label="יום קודם">→</button><b id="bDay" class="bmonth"></b><button class="btn sm" id="bNext" aria-label="יום הבא">←</button><button class="btn sm ghost" id="bToday">היום</button><input type="date" id="bDate" style="width:auto" aria-label="קפוץ לתאריך"></div>
-      <div class="blegend"><span class="ev st-ok">סגור (אושר)</span><span class="ev st-tent">טנטטיב (טיוטה / נשלחה)</span><span class="ev clashing">התנגשות</span></div>
+      <div class="actions"><button class="btn sm" id="bPrev" aria-label="יום קודם">→</button><b id="bDay" class="bmonth"></b><button class="btn sm" id="bNext" aria-label="יום הבא">←</button><button class="btn sm ghost" id="bToday">היום</button><input type="date" id="bDate" style="width:auto" aria-label="קפוץ לתאריך"><button class="btn sm pri" id="bGroup">+ קבוצת מלון</button></div>
+      <div class="blegend"><span class="ev st-ok">סגור (אושר)</span><span class="ev st-tent">טנטטיב (טיוטה / נשלחה)</span><span class="ev grp">קבוצת מלון (ללא תשלום)</span><span class="ev clashing">התנגשות</span></div>
+    </div>
+    <div class="grpform" id="grpForm" hidden>
+      <b id="grpTitle">קבוצת מלון חדשה</b>
+      <div class="meta" style="font-size:13px;color:var(--muted);margin:0">קבוצה של המלון שמקבלת חלל, בלי הצעת מחיר ובלי תשלום. היא תופסת את החלל בלוח בשעות שנבחרו.</div>
+      <div class="row">
+        <label class="f">שם הקבוצה<input id="grpName" placeholder="לדוגמה: קבוצת תיירים מגרמניה"></label>
+        <label class="f">מקום<select id="grpVenue"></select></label>
+      </div>
+      <div class="f"><span>חללים</span><div class="areas" id="grpAreas"></div></div>
+      <div class="row">
+        <label class="f">תאריך<input id="grpDate" type="date"></label>
+        <label class="f">משעה<input id="grpStart" type="time"></label>
+        <label class="f">עד שעה<input id="grpEnd" type="time"></label>
+        <label class="f">מספר אנשים<input id="grpGuests" type="number" min="0" inputmode="numeric" placeholder="לא חובה"></label>
+      </div>
+      <label class="f">הערה<input id="grpNote" placeholder="לא חובה"></label>
+      <div class="meta" id="grpClash" style="font-size:13px;color:var(--warn)"></div>
+      <div class="actions"><button class="btn pri" id="grpSave">שמירה</button><button class="btn ghost" id="grpCancel">ביטול</button><button class="btn ghost x" id="grpDel" hidden>מחיקה</button></div>
     </div>
     <div class="wstrip" id="bWeek"></div>
     <div class="meta" style="font-size:13px;color:var(--muted);margin-block:8px">כל הצעה שלא נדחתה תופסת את החללים שלה בשעות האירוע. לחיצה על שעה פנויה פותחת הצעה חדשה לאותו חלל, תאריך ושעה.</div>
@@ -1357,7 +1378,7 @@ function renderList(){
   $('#fVenue').innerHTML=`<option value="">כל הלוקיישנים</option>`+VENUES.map(v=>`<option value="${v.id}">${v.name}</option>`).join('');
   $('#fVenue').value=fv;
   const s=$('#fSearch').value.trim(),st=$('#fStatus').value,fu=$('#fUser').value;
-  const all=[...quotes].sort((a,b)=>(b.num||0)-(a.num||0));
+  const all=quotes.filter(q=>!isGroup(q)).sort((a,b)=>(b.num||0)-(a.num||0));
   renderUserFilter(all);ensureNames(all.flatMap(q=>[q.createdBy,q.updatedBy]),renderList);
   const rows=all.filter(q=>(!fu||q.createdBy===fu)&&(!fv||q.event.venue===fv)&&(!st||q.status===st)&&(!s||String(q.num).includes(s)||(q.client.name||'').includes(s)||(q.client.company||'').includes(s)));
   const sum=k=>all.filter(q=>q.status===k);
@@ -1754,12 +1775,49 @@ function renderClash(){
   ensureNames(list.map(o=>o.createdBy),renderClash);
   if(list.length){
     el.hidden=false;
-    el.innerHTML=`<b class="t">⚠ החלל כבר תפוס בזמן הזה</b>`+list.map(o=>`<div class="ci"><span>${esc(venueOf(o.event.venue).name)}${areaLabel(o)?' · '+esc(areaLabel(o)):''} · <b>${hoursOf(o)}</b></span><span>${esc(o.client.name)||'ללא שם'} · הצעה #${o.num}</span><span class="chip ${o.status==='approved'?'st-approved':'st-sent'}">${o.status==='approved'?'סגור':'טנטטיב'}</span>${o.createdBy?`<span style="color:var(--muted);font-size:13px">הוציא/ה: ${esc(who(o.createdBy))}</span>`:''}</div>`).join('')
+    el.innerHTML=`<b class="t">⚠ החלל כבר תפוס בזמן הזה</b>`+list.map(o=>`<div class="ci"><span>${esc(venueOf(o.event.venue).name)}${areaLabel(o)?' · '+esc(areaLabel(o)):''} · <b>${hoursOf(o)}</b></span><span>${esc(o.client.name)||'ללא שם'} · ${isGroup(o)?'קבוצת מלון':'הצעה #'+o.num}</span><span class="chip ${o.status==='approved'?'st-approved':'st-sent'}">${isGroup(o)?'קבוצה':o.status==='approved'?'סגור':'טנטטיב'}</span>${o.createdBy?`<span style="color:var(--muted);font-size:13px">הוציא/ה: ${esc(who(o.createdBy))}</span>`:''}</div>`).join('')
       +`<span style="font-size:13px">בדוק מול ${list.length>1?'מי שהוציאו את ההצעות':'מי שהוציא את ההצעה'} לפני שליחה ללקוח, או בחר תאריך, שעה או חלל אחר.</span>`;
   }else el.hidden=true;
   const same=cur.event.date?quotes.filter(o=>o.id!==cur.id&&o.status!=='declined'&&o.event&&o.event.venue===cur.event.venue&&o.event.date===cur.event.date&&!list.includes(o)):[];
   $('#dayInfo').textContent=!cur.event.date?'':(same.length?`באותו יום ב${venueOf(cur.event.venue).name} יש עוד ${same.length===1?'אירוע':same.length+' אירועים'} בלי התנגשות (שעות או חלל אחר): ${same.map(o=>hoursOf(o)+(areaLabel(o)?' ('+areaLabel(o)+')':'')).join(', ')}`:(list.length?'':`${venueOf(cur.event.venue).name} פנוי בתאריך הזה.`));
 }
+
+/* ---------- hotel groups: a space booked for an in-house group, no quote and no payment ---------- */
+const isGroup=q=>!!q&&q.kind==='group';
+let grpEdit=null;
+function grpAreasHTML(){const v=venueOf(grpEdit.event.venue);return v.areas.length?v.areas.map(a=>`<button type="button" class="chip" data-grparea="${esc(a)}" aria-pressed="${grpEdit.event.areas.includes(a)}" style="cursor:pointer;${grpEdit.event.areas.includes(a)?'background:var(--fg);color:var(--bg)':''}">${esc(a)}</button>`).join(''):'<span style="color:var(--muted);font-size:13px">כל המקום</span>'}
+function grpRender(){
+  if(!grpEdit){$('#grpForm').hidden=true;return}
+  const g=grpEdit;$('#grpForm').hidden=false;$('#grpTitle').textContent=quotes.some(q=>q.id===g.id)?'עריכת קבוצת מלון':'קבוצת מלון חדשה';
+  $('#grpVenue').innerHTML=VENUES.map(v=>`<option value="${v.id}" ${v.id===g.event.venue?'selected':''}>${v.name}</option>`).join('');
+  $('#grpAreas').innerHTML=grpAreasHTML();$('#grpDel').hidden=!quotes.some(q=>q.id===g.id);grpClashMsg();
+}
+function grpRead(){const g=grpEdit;g.client.name=$('#grpName').value.trim();g.event.date=$('#grpDate').value;g.event.start=$('#grpStart').value;g.event.end=$('#grpEnd').value;g.event.guests=Number($('#grpGuests').value)||0;g.group.note=$('#grpNote').value.trim();g.event.area=g.event.areas[0]||''}
+function grpClashMsg(){if(!grpEdit)return;grpRead();const l=clashesFor(grpEdit,quotes.filter(q=>q.status!=='declined'));
+  $('#grpClash').textContent=l.length?`⚠ החלל כבר תפוס בזמן הזה: ${l.map(o=>`${o.client.name||'ללא שם'} (${hoursOf(o)})`).join(', ')}`:''}
+function openGroup(q,preset){
+  grpEdit=q?structuredClone(q):{id:null,kind:'group',status:'approved',client:{name:''},group:{note:''},items:[],
+    event:{type:'קבוצת מלון',venue:VENUES[0].id,areas:[],area:'',date:bDate,start:'09:00',end:'13:00',guests:0,...(preset||{})}};
+  grpEdit.event.areas=qAreas(grpEdit).slice();grpEdit.group=grpEdit.group||{note:''};
+  $('#grpName').value=grpEdit.client.name||'';$('#grpDate').value=grpEdit.event.date||bDate;$('#grpStart').value=grpEdit.event.start||'';$('#grpEnd').value=grpEdit.event.end||'';
+  $('#grpGuests').value=grpEdit.event.guests||'';$('#grpNote').value=grpEdit.group.note||'';grpRender();$('#grpForm').scrollIntoView({block:'nearest'});$('#grpName').focus();
+}
+$('#bGroup').addEventListener('click',()=>openGroup(null));
+$('#grpCancel').addEventListener('click',()=>{grpEdit=null;grpRender()});
+$('#grpVenue').addEventListener('change',e=>{grpEdit.event.venue=e.target.value;grpEdit.event.areas=[];grpRender()});
+$('#grpAreas').addEventListener('click',e=>{const b=e.target.closest('[data-grparea]');if(!b)return;const a=b.dataset.grparea,A=grpEdit.event.areas;grpEdit.event.areas=A.includes(a)?A.filter(x=>x!==a):[...A,a];grpRender()});
+['grpDate','grpStart','grpEnd'].forEach(id=>$('#'+id).addEventListener('change',grpClashMsg));
+$('#grpSave').addEventListener('click',async()=>{grpRead();const g=grpEdit;
+  if(!g.client.name){toast('צריך לרשום שם קבוצה');return}if(!g.event.date){toast('צריך לבחור תאריך');return}
+  if(venueOf(g.event.venue).areas.length&&!g.event.areas.length){toast('צריך לבחור לפחות חלל אחד');return}
+  const isNew=!g.id;if(!g.id)g.id=uid();g.updatedAt=new Date().toISOString();if(isNew)g.createdAt=today();
+  if(myId){if(!g.createdBy)g.createdBy=myId;g.updatedBy=myId}
+  const body=JSON.parse(JSON.stringify(g));
+  try{if(db)await db.collection('quotes').doc(g.id).set(body);else{const i=quotes.findIndex(x=>x.id===g.id);if(i>=0)quotes[i]=body;else quotes.push(body);lsSet('quotes',quotes)}}
+  catch(e){toast('השמירה נכשלה. נסה שוב');return}
+  bDate=g.event.date;grpEdit=null;grpRender();renderBoard();toast('הקבוצה נשמרה בלוח')});
+$('#grpDel').addEventListener('click',async()=>{if(!grpEdit||!grpEdit.id)return;if(!confirm('למחוק את הקבוצה מהלוח?'))return;
+  try{await deleteQuote(grpEdit.id)}catch(e){toast('המחיקה נכשלה');return}grpEdit=null;grpRender();renderBoard();toast('הקבוצה נמחקה')});
 
 /* ---------- board: one day, by hours, one column per space ---------- */
 let bDate=today();
@@ -1793,6 +1851,7 @@ function renderBoard(){
       let s0=toMin(q.event.start),e0=toMin(q.event.end);if(s0==null&&e0==null){s0=TL_FROM;e0=TL_TO}else{if(s0==null)s0=TL_FROM;if(e0==null)e0=TL_TO;if(e0<=s0)e0+=1440}
       const a=Math.max(s0,TL_FROM),b=Math.min(e0,TL_TO);if(b<=a)continue;
       const cl=clashesFor(q,live).length>0;
+      if(isGroup(q)){col+=`<button class="ev grp ${cl?'clashing':''}" style="--tone:var(${sp.v.tone});top:${(a-TL_FROM)/60*HH+1}px;height:${Math.max(22,(b-a)/60*HH-2)}px" data-opengrp="${q.id}" title="קבוצה: ${esc(q.client.name)} · ${hoursOf(q)}"><b>${hoursOf(q)}</b> ${esc(q.client.name)||'קבוצה'}<small>קבוצת מלון · ללא תשלום${q.event.guests?' · '+q.event.guests+' אנשים':''}${cl?' · התנגשות':''}</small></button>`;continue}
       col+=`<button class="ev ${q.status==='approved'?'st-ok':'st-tent'} ${cl?'clashing':''}" style="--tone:var(${sp.v.tone});top:${(a-TL_FROM)/60*HH+1}px;height:${Math.max(22,(b-a)/60*HH-2)}px" data-openq="${q.id}" title="${esc(q.client.name)} · ${hoursOf(q)} · #${q.num}"><b>${hoursOf(q)}</b> ${esc(q.client.name)||'ללא שם'}<small>#${q.num} · ${q.status==='approved'?'סגור':'טנטטיב'} · ${q.event.guests||0} אורחים${cl?' · התנגשות':''}</small></button>`;
     }
     if(nowM!=null&&nowM>=TL_FROM)col+=`<div class="now" style="top:${(nowM-TL_FROM)/60*HH}px"></div>`;
@@ -1814,6 +1873,8 @@ $('#board').addEventListener('mousemove',e=>{
 });
 $('#board').addEventListener('mouseleave',()=>$('#board').querySelectorAll('.ghost').forEach(g=>g.remove()));
 $('#board').addEventListener('click',e=>{
+  const gq=e.target.closest('[data-opengrp]');
+  if(gq){const q=quotes.find(x=>x.id===gq.dataset.opengrp);if(q)openGroup(q);return}
   const o=e.target.closest('[data-openq]');
   if(o){const q=quotes.find(x=>x.id===o.dataset.openq);if(!q)return;cur=structuredClone(q);viewingVer=null;qkOpen=false;fillForm();showTab('new');window.scrollTo(0,0);return}
   const col=e.target.closest('.col');if(!col)return;const sp=SPACES[+col.dataset.sp];const m=hourAt(col,e.clientY);
@@ -1825,11 +1886,11 @@ $('#board').addEventListener('click',e=>{
 function qMonth(q){const d=(q.event&&q.event.date)||q.createdAt||'';return /^\d{4}-\d{2}/.test(d)?d.slice(0,7):null}
 function qAmount(q,vat){const c=calc(q);return vat?c.total:c.net}
 function renderCeo(){
-  const years=[...new Set(quotes.map(q=>qMonth(q)?.slice(0,4)).filter(Boolean).concat(String(new Date().getFullYear())))].sort().reverse();
+  const years=[...new Set(quotes.filter(q=>!isGroup(q)).map(q=>qMonth(q)?.slice(0,4)).filter(Boolean).concat(String(new Date().getFullYear())))].sort().reverse();
   const ys=$('#cYear');const yh=years.map(y=>`<option>${y}</option>`).join('');if(ys.dataset.h!==yh){const v=ys.value;ys.innerHTML=yh;ys.dataset.h=yh;ys.value=years.includes(v)?v:String(new Date().getFullYear())}
   const Y=ys.value,vat=$('#cVat').checked;
   const rows=Array.from({length:12},(_,m)=>({m,key:`${Y}-${String(m+1).padStart(2,'0')}`,v:Object.fromEntries(VENUES.map(x=>[x.id,0])),n:0,pipe:0,pipeN:0}));
-  for(const q of quotes){const k=qMonth(q);if(!k||k.slice(0,4)!==Y)continue;const r=rows[+k.slice(5,7)-1];const a=qAmount(q,vat);
+  for(const q of quotes){if(isGroup(q))continue;const k=qMonth(q);if(!k||k.slice(0,4)!==Y)continue;const r=rows[+k.slice(5,7)-1];const a=qAmount(q,vat);
     if(q.status==='approved'){r.v[q.event.venue]=(r.v[q.event.venue]||0)+a;r.n++}else if(q.status!=='declined'){r.pipe+=a;r.pipeN++}}
   rows.forEach(r=>r.total=VENUES.reduce((a,x)=>a+r.v[x.id],0));
   const T=rows.reduce((a,r)=>a+r.total,0),N=rows.reduce((a,r)=>a+r.n,0),P=rows.reduce((a,r)=>a+r.pipe,0),PN=rows.reduce((a,r)=>a+r.pipeN,0);

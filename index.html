@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#132033">
-<script src="i18n.js?v=202610182339"></script>
+<script src="i18n.js?v=202610182350"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -702,11 +702,11 @@ async function ceoLoad(Y){
   const db=S.db,C=S.ceo;C.loading=true;C.err='';render();
   try{
     const from=addDays(weekOf(Y+'-01-01'),-7),to=Y+'-12-31';
-    const [sh,sc,mg,st,qs,cf,iv]=await Promise.all([
+    const [sh,sc,mg,st,qs,cf,iv,sr]=await Promise.all([
       db.collection('shifts').where('date','>=',from).where('date','<=',to).get(),
       db.collection('schedule').get(),db.collection('mgr').get(),db.collection('settings').get(),
-      db.collection('quotes').get().catch(()=>null),db.doc('config/main').get().catch(()=>null),db.collection('invoices').get().catch(()=>null)]);
-    C.data={shifts:docsMap(sh),scheds:docsMap(sc),mgr:docsMap(mg),settings:docsMap(st),quotes:qs?qs.docs.map(d=>d.data()):[],cfg:cf&&cf.exists?cf.data():{},invs:iv?iv.docs.map(d=>d.data()):[]};C.year=Y;
+      db.collection('quotes').get().catch(()=>null),db.doc('config/main').get().catch(()=>null),db.collection('invoices').get().catch(()=>null),db.collection('shiftReports').get().catch(()=>null)]);
+    C.data={shifts:docsMap(sh),scheds:docsMap(sc),mgr:docsMap(mg),settings:docsMap(st),quotes:qs?qs.docs.map(d=>d.data()):[],cfg:cf&&cf.exists?cf.data():{},invs:iv?iv.docs.map(d=>d.data()):[],sreps:sr?sr.docs.map(d=>d.data()):[]};C.year=Y;
   }catch(e){C.err=errMsg(mapErr(e))}
   C.loading=false;render();
 }
@@ -717,7 +717,7 @@ function ceoCompute(){
   const D=S.ceo.data,Y=S.ceo.year,hs=[...new Set([...hotelIds(),...Object.keys(D.settings)])];
   const cf=h=>{const x=D.settings[h]||{};return {oh:1+(+(x.overhead??25)||0)/100,sp:1+(+(x.shabbatPct??50)||0)/100}};
   const brk=(h,dept)=>{const b=((D.settings[h]||{}).deptBreaks||{})[dept];return b===undefined?dept!=='reception':!!b};
-  const rows=HE_MON.map((n,m)=>({m,key:Y+'-'+String(m+1).padStart(2,'0'),h:Object.fromEntries(hs.map(h=>[h,0])),hours:0,rev:0,events:0,exp:0}));
+  const rows=HE_MON.map((n,m)=>({m,key:Y+'-'+String(m+1).padStart(2,'0'),h:Object.fromEntries(hs.map(h=>[h,0])),hours:0,rev:0,events:0,exp:0,rec:0,recH:{}}));
   const empH=u=>(D.mgr[u]?.hotel)||hotelOf(u);
   // per-shift pay, by the date of the shift
   const list=Object.entries(D.shifts).map(([id,s])=>{const h=hotelOfShift(s),sd=D.scheds[schedPath(weekOf(s.date),h).slice(9)];return {id,s,h,a:(sd?.assign?.[id])||[],ext:(sd?.ext?.[id])||{}}}).filter(x=>+x.s.need&&x.a.length);
@@ -742,7 +742,9 @@ function ceoCompute(){
     const r=rows[+String(d).slice(5,7)-1];if(!r)continue;r.rev+=quoteNet(q,vat);r.events++}
   // supplier invoices (before VAT), by invoice date
   for(const v of D.invs||[]){const d=String(v.date||'');if(d.slice(0,4)!==Y)continue;const r=rows[+d.slice(5,7)-1];if(r)r.exp+=+v.net||invTotals(v).net}
-  rows.forEach(r=>r.labor=hs.reduce((a,h)=>a+(r.h[h]||0),0));
+  // reception takings: cash + card from the shift reports, by report date
+  for(const x of D.sreps||[]){const d=String(x.date||'');if(d.slice(0,4)!==Y)continue;const r=rows[+d.slice(5,7)-1];if(!r)continue;const v=(+x.cash||0)+(+x.credit||0);r.rec+=v;r.recH[x.hotel]=(r.recH[x.hotel]||0)+v}
+  rows.forEach(r=>{r.labor=hs.reduce((a,h)=>a+(r.h[h]||0),0);r.inc=r.rev+r.rec});
   return {rows,hs:hs.filter(h=>rows.some(r=>r.h[h])||S.hotels[h]||h==='main')};
 }
 function vCeo(){
@@ -753,13 +755,14 @@ function vCeo(){
     <select data-ceo-year aria-label="שנה">${years.map(y=>`<option ${y===C.year?'selected':''}>${y}</option>`).join('')}</select></div>`;
   if(C.err)return wrap(head+`<div class="notice">לא הצלחתי לטעון את הנתונים: ${esc(C.err)}</div></section>`);
   if(!C.data||C.loading)return wrap(head+'<p class="muted">טוען נתונים…</p></section>');
-  const {rows,hs}=ceoCompute(),T=k=>rows.reduce((a,r)=>a+r[k],0),L=T('labor'),R=T('rev'),N=T('events'),E=T('exp');
+  const {rows,hs}=ceoCompute(),T=k=>rows.reduce((a,r)=>a+r[k],0),L=T('labor'),RE=T('rev'),RC=T('rec'),R=RE+RC,N=T('events'),E=T('exp');
   const cur=todayISO().slice(0,7),done=rows.filter(r=>r.key<=cur&&r.labor);
-  return wrap(head+`<div class="kpis">${kpi('עלות עובדים בשנה',ils(L),`${fmtH(T('hours'))} שעות לתשלום`)}${kpi('ממוצע לחודש',ils(done.length?done.reduce((a,r)=>a+r.labor,0)/done.length:0),'חודשים שכבר התחילו')}${kpi('הכנסות מאירועים',ils(R),`${N} אירועים שאושרו · לפני מע״מ`)}${kpi('הוצאות ספקים',ils(E),'לפי חשבוניות · לפני מע״מ')}${kpi('הכנסות פחות עובדים והוצאות',ils(R-L-E),R?`עלות העובדים היא ${Math.round(L/R*100)}% מההכנסות`:'',R-L-E<0?'bad':'')}</div></section>
-  <div class="card"><h3>לפי חודש</h3><div class="scroll-x"><table class="plain"><thead><tr><th>חודש</th>${hs.map(h=>`<th class="num">${esc(hotelName(h))}</th>`).join('')}<th class="num">סה״כ עובדים</th><th class="num">הוצאות ספקים</th><th class="num">הכנסות מאירועים</th><th class="num">הפרש</th></tr></thead><tbody>
-  ${rows.map(r=>`<tr${r.key===cur?' style="font-weight:600"':''}><td>${HE_MON[r.m]}</td>${hs.map(h=>`<td class="num">${r.h[h]?ils(r.h[h]):'—'}</td>`).join('')}<td class="num">${r.labor?ils(r.labor):'—'}</td><td class="num">${r.exp?ils(r.exp):'—'}</td><td class="num">${r.rev?ils(r.rev):'—'}</td><td class="num">${r.labor||r.rev||r.exp?ils(r.rev-r.labor-r.exp):'—'}</td></tr>`).join('')}
-  <tr style="font-weight:700"><td>סה״כ</td>${hs.map(h=>`<td class="num">${ils(rows.reduce((a,r)=>a+(r.h[h]||0),0))}</td>`).join('')}<td class="num">${ils(L)}</td><td class="num">${ils(E)}</td><td class="num">${ils(R)}</td><td class="num">${ils(R-L-E)}</td></tr></tbody></table></div>
-  <p class="muted" style="font-size:.85rem">עלות העובדים מחושבת מהסידורים של כל המלונות: שעתיים לפי שעות לתשלום (אחרי הפסקה) עם תוספת שבת ועלות מעסיק, מזומן ומתנדבים בלי תוספות, עובדים גלובליים לפי השכר החודשי עם עלות מעסיק, פחות הורדות מגורים. שכר גלובלי נספר מהחודש הראשון שיש למלון סידור במערכת ועד החודש הנוכחי. הוצאות ספקים הן החשבוניות שהוזנו בעמוד ההוצאות, לפני מע״מ, לפי תאריך החשבונית. הכנסות הן הצעות מחיר שאושרו, לפי תאריך האירוע.</p>
+  return wrap(head+`<div class="kpis">${kpi('עלות עובדים בשנה',ils(L),`${fmtH(T('hours'))} שעות לתשלום`)}${kpi('ממוצע לחודש',ils(done.length?done.reduce((a,r)=>a+r.labor,0)/done.length:0),'חודשים שכבר התחילו')}${kpi('סה״כ הכנסות',ils(R),`אירועים ${ils(RE)} · קבלה ${ils(RC)}`)}${kpi('הכנסות מאירועים',ils(RE),`${N} אירועים שאושרו · לפני מע״מ`)}${kpi('הכנסות קבלה',ils(RC),'מזומן ואשראי מדוחות סיכום משמרת')}${kpi('הוצאות ספקים',ils(E),'לפי חשבוניות · לפני מע״מ')}${kpi('הכנסות פחות עובדים והוצאות',ils(R-L-E),R?`עלות העובדים היא ${Math.round(L/R*100)}% מההכנסות`:'',R-L-E<0?'bad':'')}</div></section>
+  <div class="card"><h3>לפי חודש</h3><div class="scroll-x"><table class="plain"><thead><tr><th>חודש</th>${hs.map(h=>`<th class="num">${esc(hotelName(h))}</th>`).join('')}<th class="num">סה״כ עובדים</th><th class="num">הוצאות ספקים</th><th class="num">הכנסות מאירועים</th><th class="num">הכנסות קבלה</th><th class="num">סה״כ הכנסות</th><th class="num">הפרש</th></tr></thead><tbody>
+  ${rows.map(r=>`<tr${r.key===cur?' style="font-weight:600"':''}><td>${HE_MON[r.m]}</td>${hs.map(h=>`<td class="num">${r.h[h]?ils(r.h[h]):'—'}</td>`).join('')}<td class="num">${r.labor?ils(r.labor):'—'}</td><td class="num">${r.exp?ils(r.exp):'—'}</td><td class="num">${r.rev?ils(r.rev):'—'}</td><td class="num">${r.rec?ils(r.rec):'—'}</td><td class="num">${r.inc?ils(r.inc):'—'}</td><td class="num">${r.labor||r.inc||r.exp?ils(r.inc-r.labor-r.exp):'—'}</td></tr>`).join('')}
+  <tr style="font-weight:700"><td>סה״כ</td>${hs.map(h=>`<td class="num">${ils(rows.reduce((a,r)=>a+(r.h[h]||0),0))}</td>`).join('')}<td class="num">${ils(L)}</td><td class="num">${ils(E)}</td><td class="num">${ils(RE)}</td><td class="num">${ils(RC)}</td><td class="num">${ils(R)}</td><td class="num">${ils(R-L-E)}</td></tr></tbody></table></div>
+  ${RC?`<h3 style="margin-top:14px">הכנסות קבלה לפי מלון</h3><div class="scroll-x"><table class="plain"><thead><tr><th>חודש</th>${hs.map(h=>`<th class="num">${esc(hotelName(h))}</th>`).join('')}</tr></thead><tbody>${rows.filter(r=>r.rec).map(r=>`<tr><td>${HE_MON[r.m]}</td>${hs.map(h=>`<td class="num">${r.recH[h]?ils(r.recH[h]):'—'}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`:''}
+  <p class="muted" style="font-size:.85rem">עלות העובדים מחושבת מהסידורים של כל המלונות: שעתיים לפי שעות לתשלום (אחרי הפסקה) עם תוספת שבת ועלות מעסיק, מזומן ומתנדבים בלי תוספות, עובדים גלובליים לפי השכר החודשי עם עלות מעסיק, פחות הורדות מגורים. שכר גלובלי נספר מהחודש הראשון שיש למלון סידור במערכת ועד החודש הנוכחי. הוצאות ספקים הן החשבוניות שהוזנו בעמוד ההוצאות, לפני מע״מ, לפי תאריך החשבונית. הכנסות מאירועים הן הצעות מחיר שאושרו, לפי תאריך האירוע, לפני מע״מ. הכנסות קבלה הן המזומן והאשראי מדוחות סיכום המשמרת, כפי שנרשמו, לפי תאריך הדוח.</p>
   <div style="display:flex;gap:8px;flex-wrap:wrap"><a class="btn" href="events.html#ceo">פירוט הכנסות לפי מקום</a><button class="btn ghost" data-act="ceo-reload">רענון</button></div></div>`);
 }
 /* ---------- marketing: campaigns (collection campaigns) ---------- */
@@ -975,11 +978,18 @@ function vGm(){const hs=scopeHs();if(!hs.length)return wrap(emptyBox('אין מ�
   const nav=`<div class="actions" style="align-items:center"><button class="btn sm" data-act="week" data-d="-7" aria-label="שבוע קודם">›</button><b class="mono">${weekLabel(w)}</b><button class="btn sm" data-act="week" data-d="7" aria-label="שבוע הבא">‹</button></div>`;
   const chips=hs.length>1?`<div class="chips" style="gap:6px">${hs.map(x=>`<button class="dchip ${x===h?'':'off'}" style="--h:var(--brass)" data-act="gm-hotel" data-h="${x}">${esc(hotelName(x))}</button>`).join('')}</div>`:'';
   const pendN=preqs.length+sreqs.length+toApprove.length;
+  // revenue: reception takings (cash + card from shift reports) and approved events in the hotel's spaces (before VAT)
+  const wEnd=addDays(w,6),srAll={};for(const m of [...new Set([month,w.slice(0,7),wEnd.slice(0,7)])]){const d=srSub(h,m);if(d&&!d.__err)Object.assign(srAll,d)}
+  const recIn=(a,b)=>Object.values(srAll).filter(r=>r.date>=a&&r.date<=b).reduce((t,r)=>t+(+r.cash||0)+(+r.credit||0),0);
+  const evIn=(a,b)=>(G.quotes||[]).filter(q=>q.status==='approved'&&q.kind!=='group'&&q.event&&q.event.date>=a&&q.event.date<=b&&evForHotel(q,h)).reduce((t,q)=>t+quoteNet(q,18),0);
+  const revK=(lbl,a,b)=>{const r=recIn(a,b),e=evIn(a,b);return kpi(lbl,ils(r+e),`קבלה ${ils(r)} · אירועים ${ils(e)}`)};
+  const revRow=`<div class="kpis">${revK('הכנסות היום',today,today)}${revK('הכנסות השבוע',w,wEnd)}${revK('הכנסות החודש',month+'-01',month+'-31')}</div>
+    <p class="muted" style="font-size:.8rem;margin:0">קבלה = מזומן ואשראי מדוחות סיכום המשמרת, כפי שנרשמו. אירועים = הצעות שאושרו בחללים של המלון, לפי תאריך האירוע, לפני מע״מ.</p>`;
   const head=`<section class="head"><div class="head-t"><h1>מנהל מלון · ${esc(hotelName(h))}</h1>${nav}</div>${chips}
     <div class="kpis">${dayCost!=null?kpi('עלות עובדים היום',ils(dayCost),dm(today)):''}${cost?kpi('עלות עובדים השבוע',ils(cost.total),`${fmtH(cost.hours)} שעות לתשלום`):''}
     ${G.invs?kpi('הוצאות ספקים היום',ils(tExp),'לפי חשבוניות · לפני מע״מ'):''}${G.invs?kpi('הוצאות ספקים השבוע',ils(wExp),`החודש: ${ils(mExp)}`):''}
     ${G.invs?kpi('חוב לספקים',ils(owe),late?`${late} חשבוניות באיחור`:`${unpaid.length} חשבוניות פתוחות`,late?'bad':''):''}
-    ${kpi('ממתינות לאישור',String(pendN),pendN?'פירוט למטה':'אין בקשות פתוחות',pendN?'bad':'ok')}</div></section>`;
+    ${kpi('ממתינות לאישור',String(pendN),pendN?'פירוט למטה':'אין בקשות פתוחות',pendN?'bad':'ok')}</div>${revRow}</section>`;
   const reqCard=`<div class="card" style="${pendN?'border-color:var(--brass)':''}"><h3>בקשות ממתינות לאישור · ${pendN}</h3>
     ${preqs.length?`<h3 style="font-size:.95rem">דרישות רכש</h3><div class="plist">${preqs.map(([rid,r])=>`<div class="prow"><span class="who"><b>${esc(r.itemName)} · ${+r.qty} ${esc(r.unit||'')}</b><small>${esc(DMAP[r.dept]?.n||'')} · ${esc(empName(r.by)||'')}${r.note?' · '+esc(r.note):''}</small></span><span class="actions"><button class="btn sm pri" data-act="preq-st" data-r="${rid}" data-h="${h}" data-st="approved">אישור</button><button class="btn sm" data-act="preq-st" data-r="${rid}" data-h="${h}" data-st="declined">דחייה</button></span></div>`).join('')}</div>`:''}
     ${toApprove.length?`<h3 style="font-size:.95rem">חשבוניות לאישור תשלום</h3><div class="plist">${toApprove.slice(0,15).map(([iid,v])=>`<div class="prow"><span class="who"><b>${esc((S.sups||{})[v.supplier]?.name||'ספק')}${v.number?' · #'+esc(v.number):''}</b><small>${v.date?dm(v.date):''} · ${invPill(v)}</small></span><span class="actions"><b class="mono">${ils(invTotals(v).total)}</b>${S.can.exp?`<button class="btn sm pri" data-act="inv-status" data-id="${iid}" data-st="approved">אישור לתשלום</button>`:''}</span></div>`).join('')}</div>`:''}

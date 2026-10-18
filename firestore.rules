@@ -312,9 +312,9 @@ service cloud.firestore {
     }
 
     // ---------- דוח סיכום משמרת בקבלה ----------
-    // הקבלה ממלאה ורואה את דוחות המלון שלה; מנהל המלון ומנהל הסידור רואים, מתקנים ומוחקים
+    // הקבלה ממלאה ורואה את דוחות המלון שלה; מנהל המלון ומנהל הסידור רואים, מתקנים ומוחקים; מנכ״ל רואה (הכנסות קבלה)
     match /shiftReports/{id} {
-      allow read: if frontIn(resource.data.hotel) || manages(resource.data.hotel) || gmIn(resource.data.hotel);
+      allow read: if frontIn(resource.data.hotel) || manages(resource.data.hotel) || gmIn(resource.data.hotel) || canCeo();
       allow create: if (frontIn(request.resource.data.hotel) || manages(request.resource.data.hotel) || gmIn(request.resource.data.hotel))
         && request.resource.data.by == request.auth.uid;
       allow update, delete: if manages(resource.data.hotel) || gmIn(resource.data.hotel);

@@ -260,7 +260,7 @@ const KORD={m:0,d:1,e:2,n:3};
 const DEF_TIMES={m:{s:'07:00',e:'15:00'},d:{s:'10:00',e:'18:00'},e:{s:'15:00',e:'23:00'},n:{s:'23:00',e:'07:00'}};
 const DAYS=['ראשון','שני','שלישי','רביעי','חמישי','שישי','שבת'];
 const DAYS_S=['א׳','ב׳','ג׳','ד׳','ה׳','ו׳','ש׳'];
-const ICO={"shifts": `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>`, "events": `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 13h7M9 17h5"/></svg>`, "perms": `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M12 3l7 3v5c0 5-3 8-7 10-4-2-7-5-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg>`, "out": `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10"/></svg>`};
+const ICO={"ceo":`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>`,"shifts": `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>`, "events": `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 13h7M9 17h5"/></svg>`, "perms": `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M12 3l7 3v5c0 5-3 8-7 10-4-2-7-5-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg>`, "out": `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10"/></svg>`};
 const BELL='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 17h16"/><path d="M6 17a6 6 0 0 1 12 0"/><path d="M12 8V6"/><path d="M10 6h4"/><path d="M3 20h18"/></svg>';
 
 /* dates */
@@ -285,7 +285,7 @@ const schedPath=(w,h)=>'schedule/'+(h==='main'?w:w+'_'+h);
 /* state */
 const S={db:null,uid:null,admin:false,meName:'',ready:false,noDb:false,
   settingsAll:{},hotels:{},scheds:{},hotel:'main',subKey:'',emps:{},mgr:{},avail:{},shifts:{},
-  auth:'pending',roles:{},can:{shifts:false,events:false,perms:false},registering:false,isOwner:false,role:null,email:'',phone:'',week:null,tab:null,dept:'all',drafts:{},sheet:null,pending:false,unsub:[],empsLoaded:false,confirm:null};
+  auth:'pending',roles:{},can:{shifts:false,events:false,perms:false,ceo:false},registering:false,isOwner:false,role:null,email:'',phone:'',week:null,tab:null,dept:'all',drafts:{},sheet:null,pending:false,unsub:[],empsLoaded:false,confirm:null};
 Object.defineProperty(S,'sched',{get(){return S.scheds[S.hotel]||{assign:{},published:false}},set(v){S.scheds[S.hotel]=v}});
 Object.defineProperty(S,'settings',{get(){return S.settingsAll[S.hotel]||{}},set(v){S.settingsAll[S.hotel]=v}});
 function cfg(){const s=S.settings||{};return {overhead:25,shabbatPct:50,restHours:8,availOpen:true,preferGlobal:false,hotelName:'',shareLink:'',deadline:'',...s,times:{...DEF_TIMES,...(s.times||{})}}}
@@ -349,7 +349,7 @@ function renderTop(){
   ${S.ready&&!S.registering&&S.auth==='in'&&S.tab!=='perms'?`<nav class="wrap tabs" aria-label="ניווט">${tabs.map(([k,n])=>`<button data-act="tab" data-t="${k}" ${S.tab===k?'aria-current="page"':''}>${n}</button>`).join('')}</nav>`:''}`;
 }
 function renderDrawer(){const el=$('#drawer');if(!S.menu||S.auth!=='in'){el.innerHTML='';return}
-  const items=S.registering?[]:[['shifts','סידור עבודה','data-act="app-shifts"',S.tab!=='perms'],S.can.events&&['events','הצעות מחיר','href="events.html"',false],S.can.perms&&['perms','הרשאות','data-act="app-perms"',S.tab==='perms']].filter(Boolean);
+  const items=S.registering?[]:[['shifts','סידור עבודה','data-act="app-shifts"',S.tab!=='perms'],S.can.events&&['events','הצעות מחיר','href="events.html"',false],S.can.ceo&&['ceo','מבט מנכ״ל','href="events.html#ceo"',false],S.can.perms&&['perms','הרשאות','data-act="app-perms"',S.tab==='perms']].filter(Boolean);
   el.innerHTML=`<div class="drawer-bg" data-act="menu-close"></div><nav class="drawer" aria-label="אפליקציות">
     <div class="drawer-h"><b>Seven Collection</b><button class="x" data-act="menu-close" aria-label="סגירה">×</button></div>
     <div class="drawer-who">${esc(S.meName||'')}${S.meName&&(S.email||S.phone)?'<br>':''}<bdi>${esc(S.email||S.phone||'')}</bdi></div>
@@ -769,9 +769,9 @@ function roleHTML(u,e,isNew){if(!S.can.perms||isNew||e.manual||u===S.uid)return 
   return `<div class="sep"></div><h3>הרשאות</h3><p class="muted" style="font-size:.85rem">${r?esc(permSummary(r)):'עובד רגיל, בלי הרשאות ניהול.'}</p><div><button class="btn" data-act="perm-open" data-u="${u}">עריכת הרשאות</button></div>`}
 
 /* ---------- permissions page ---------- */
-const APPS=[['shifts','ניהול סידור עבודה','סידור, משמרות, עובדים, שכר ועלויות במלונות שנבחרו'],['events','הצעות מחיר לאירועים','כל ההצעות, התפריטים והחוזים'],['perms','ניהול הרשאות','יכול לתת לאחרים רק הרשאות שיש לו בעצמו']];
+const APPS=[['shifts','ניהול סידור עבודה','סידור, משמרות, עובדים, שכר ועלויות במלונות שנבחרו'],['events','הצעות מחיר לאירועים','כל ההצעות, התפריטים והחוזים'],['perms','ניהול הרשאות','יכול לתת לאחרים רק הרשאות שיש לו בעצמו'],['ceo','מבט מנכ״ל','הכנסות מאירועים לפי חודש וסיכום שנתי']];
 const roleApps=r=>r?(r.apps||{shifts:true}):{};
-function myApps(){return S.isOwner?{shifts:true,events:true,perms:true}:roleApps(S.role)}
+function myApps(){return S.isOwner?{shifts:true,events:true,perms:true,ceo:true}:roleApps(S.role)}
 const allHotelsP=()=>S.isOwner||!(S.role&&Array.isArray(S.role.hotels)&&S.role.hotels.length);
 function grantableHotels(){return allHotelsP()?hotelIds():hotelIds().filter(h=>S.role.hotels.includes(h))}
 function permSummary(r){const a=roleApps(r),parts=APPS.filter(([k])=>a[k]).map(([,n])=>n);if(!parts.length)return 'בלי הרשאות';
@@ -980,7 +980,7 @@ async function start(u){
   try{const r=await db.doc('roles/'+u.uid).get();if(r.exists)S.role=r.data()}catch(_){ }
   // what this person may use: managing shifts, the quotes app, managing permissions (set in the permissions page)
   const apps=S.role?(S.role.apps||{shifts:true}):{};
-  S.can={shifts:S.isOwner||!!apps.shifts,events:S.isOwner||!!apps.events,perms:S.isOwner||!!apps.perms};
+  S.can={shifts:S.isOwner||!!apps.shifts,events:S.isOwner||!!apps.events,perms:S.isOwner||!!apps.perms,ceo:S.isOwner||!!apps.ceo};
   S.admin=S.can.shifts;S.auth='in';
   // a manager limited to some hotels can only read those hotels' salaries, availability and settings (enforced in firestore.rules)
   S.scoped=!S.isOwner&&!!S.role&&Array.isArray(S.role.hotels)&&S.role.hotels.length>0;

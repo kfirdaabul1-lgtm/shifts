@@ -31,7 +31,8 @@
   <div class="drawer-h"><b>Seven Collection</b><button class="dx" data-close aria-label="סגירה">×</button></div>
   <div class="drawer-who" id="abUser"></div>
   <a class="item" href="./"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>סידור עבודה</a>
-  <a class="item" href="events.html" aria-current="page"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 13h7M9 17h5"/></svg>הצעות מחיר</a>
+  <a class="item" href="events.html" id="abEvents" aria-current="page"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 13h7M9 17h5"/></svg>הצעות מחיר</a>
+  <a class="item" href="events.html#ceo" id="abCeo" hidden><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>מבט מנכ״ל</a>
   <a class="item" href="./#perms" id="abPerms" hidden><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M12 3l7 3v5c0 5-3 8-7 10-4-2-7-5-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg>הרשאות</a>
   <span class="sp"></span><button class="item" id="abOut"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10"/></svg>יציאה</button>
 </nav></div>
@@ -311,7 +312,7 @@ table.ctable{border-collapse:collapse;width:100%;min-width:620px;font-size:14px;
     <button role="tab" data-tab="new" aria-selected="true">הצעה חדשה</button>
     <button role="tab" data-tab="list" aria-selected="false">הצעות שלי</button>
     <button role="tab" data-tab="board" aria-selected="false">לוח אירועים</button>
-    <button role="tab" data-tab="ceo" aria-selected="false" id="tabCeo">מנכ״ל</button>
+    <button role="tab" data-tab="ceo" aria-selected="false" id="tabCeo" hidden>מנכ״ל</button>
     <button role="tab" data-tab="menus" aria-selected="false">תפריטים</button>
     <button role="tab" data-tab="contracts" aria-selected="false">חוזים</button>
     <button role="tab" data-tab="settings" aria-selected="false">הגדרות</button>
@@ -945,11 +946,15 @@ const D = &lt;?!= dJson ?&gt;, S = &lt;?!= sJson ?&gt;;
       ctx.isOwner=!!(email&&u.emailVerified&&email===String(CFG.ownerEmail||'').trim().toLowerCase());
       let role=null;try{const r=await ctx.fdb.doc('roles/'+u.uid).get();if(r.exists)role=r.data()}catch(_){ }
       const apps=role?(role.apps||{shifts:true}):{};
-      ctx.allowed=ctx.isOwner||!!apps.events;
+      // events.html#ceo is the CEO view (needs the ceo permission); events.html is the quotes app (needs events)
+      const ceoMode=location.hash==='#ceo',canEv=ctx.isOwner||!!apps.events,canCeo=ctx.isOwner||!!apps.ceo;
+      ctx.allowed=ceoMode?canCeo:canEv;
       document.getElementById('abPerms').hidden=!(ctx.isOwner||apps.perms);
+      document.getElementById('abCeo').hidden=!canCeo;document.getElementById('abEvents').hidden=!canEv;
+      if(ceoMode){document.getElementById('abEvents').removeAttribute('aria-current');document.getElementById('abCeo').setAttribute('aria-current','page')}
       document.getElementById('abUser').textContent=(u.displayName?u.displayName+' · ':'')+(u.email||'');
       document.getElementById('abMenu').hidden=false;
-      if(!ctx.allowed)showGate('<h1>אין לך גישה להצעות המחיר</h1><p>מנהל עם הרשאה לנהל הרשאות יכול לפתוח לך גישה בעמוד ההרשאות.</p><p>מחובר/ת בתור <bdi>'+esc(u.email||'')+'</bdi></p><a class="btn" href="./">לסידור העבודה</a>');
+      if(!ctx.allowed)showGate(ceoMode?'<h1>אין לך גישה למבט המנכ״ל</h1><p>מי שיש לו הרשאה לנהל הרשאות יכול לפתוח לך גישה בעמוד ההרשאות.</p><a class="btn" href="./">לסידור העבודה</a>':'<h1>אין לך גישה להצעות המחיר</h1><p>מנהל עם הרשאה לנהל הרשאות יכול לפתוח לך גישה בעמוד ההרשאות.</p><p>מחובר/ת בתור <bdi>'+esc(u.email||'')+'</bdi></p><a class="btn" href="./">לסידור העבודה</a>');
       else gate.hidden=true;
       resolveReady();
     });
@@ -2011,7 +2016,7 @@ $('#syncState').textContent='';
   try{db=await window.claude.use('db')}catch(e){db=null}
   if(!db)return;
   store='db';$('#syncState').textContent='מסונכרן בענן';
-  try{userCap=await window.claude.use('user');if(userCap){const me=await userCap.me();myId=me.id;$('#tabCeo').hidden=!me.isOwner;if(myId)nameCache[myId]=me.name||'אני';$('#meLine').textContent=myId?(me.name?`מחובר/ת: ${me.name}`:''):'לא מזוהה: הצעות יישמרו ללא שם עובד';renderAuthor()}}catch(e){userCap=null}
+  try{userCap=await window.claude.use('user');if(userCap){const me=await userCap.me();myId=me.id;$('#tabCeo').hidden=true;if(myId)nameCache[myId]=me.name||'אני';$('#meLine').textContent=myId?(me.name?`מחובר/ת: ${me.name}`:''):'לא מזוהה: הצעות יישמרו ללא שם עובד';renderAuthor()}}catch(e){userCap=null}
   settings=structuredClone(DEF_SETTINGS);quotes=[];menus=[];contracts=[];
   db.doc('config/main').onSnapshot(s=>{
     if(s.exists){settings=Object.assign(structuredClone(DEF_SETTINGS),structuredClone(s.data()));settings.business=Object.assign({},DEF_SETTINGS.business,settings.business||{})}
@@ -2033,5 +2038,17 @@ $('#syncState').textContent='';
   },()=>{});
 })();
 </script>
+<script>
+/* CEO view: the same page opened as events.html#ceo shows only the yearly revenue view */
+(function(){
+  if(location.hash==='#ceo'){document.documentElement.classList.add('ceo-mode');
+    const b=document.getElementById('brandName');if(b)b.innerHTML='מבט מנכ״ל<small>הכנסות מאירועים · <bdi>מלון 7EVEN</bdi> · <bdi>Gutman</bdi> · <bdi>7seas</bdi></small>';
+    document.title='מבט מנכ״ל · Seven Collection';showTab('ceo')}
+  // switching between the quotes app and the CEO view changes only the #hash, so reload to re-check access
+  window.addEventListener('hashchange',()=>location.reload());
+})();
+</script>
+<style>.ceo-mode nav.tabs,.ceo-mode #syncState{display:none!important}</style>
+
 
 </body></html>

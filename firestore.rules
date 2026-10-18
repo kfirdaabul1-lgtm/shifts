@@ -223,10 +223,11 @@ service cloud.firestore {
 
     // בקשות שינוי אחרי פרסום: המנהל שולח, העובד מאשר או דוחה. בקשה מאושרת נכנסת לסידור.
     match /requests/{id} {
-      allow get: if signedIn() && (resource.data.uid == request.auth.uid || hotelStaff(resource.data.hotel)
+      allow get: if signedIn() && (resource.data.uid == request.auth.uid || hotelStaff(resource.data.hotel) || gmIn(resource.data.hotel)
         || (isEmployee() && (resource.data.hotel == myHotel() || myHotel() == 'chain') && resource.data.status == 'approved'));
       allow list: if signedIn() && (resource.data.uid == request.auth.uid || shiftsAllHotels()
         || ((canShifts() || (hasRole() && roleApp('dept'))) && resource.data.hotel in roleHotels())
+        || (gmRole() && (roleHotels().size() == 0 || resource.data.hotel in roleHotels()))
         || (isEmployee() && (resource.data.hotel == myHotel() || myHotel() == 'chain') && resource.data.status == 'approved'));
       allow create: if hotelStaff(request.resource.data.hotel) && request.resource.data.status == 'pending';
       allow update: if (hotelStaff(resource.data.hotel) && hotelStaff(request.resource.data.hotel))

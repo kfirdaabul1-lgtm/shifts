@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#132033">
-<script src="i18n.js?v=202610181822"></script>
+<script src="i18n.js?v=202610181826"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -387,7 +387,7 @@ function renderTop(){
   $('#top').innerHTML=`${appBarHTML()}<div class="wrap top-in">
     <div class="brand"><span class="mark">${BELL}</span><div><div class="b1">Seven Collection</div><div class="b2">${S.auth==='in'&&!S.registering?`${esc(hotelName(S.hotel))} · ${S.admin?'ממשק מנהל':'ממשק עובד'}`:''}</div></div></div>
     ${nav?`<div class="weeknav"><button data-act="week" data-d="-7" aria-label="שבוע קודם">›</button><div class="wk"><span class="wk-l">שבוע</span><b class="mono">${weekLabel(S.week)}</b></div><button data-act="week" data-d="7" aria-label="שבוע הבא">‹</button></div>`:''}
-    ${S.auth==='in'?`<button class="burger" data-act="menu" aria-label="תפריט" aria-expanded="${!!S.menu}"><svg width="26" height="26" viewBox="0 0 26 26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h18"/><path d="M4 13h14"/><path d="M4 19h10"/></svg></button>`:''}
+    ${S.auth==='in'?`<button class="burger" data-act="menu" aria-label="תפריט" aria-expanded="${!!S.menu}" style="position:relative">${S.ready&&alertCount()?`<span style="position:absolute;top:2px;inset-inline-end:2px;min-width:18px;height:18px;border-radius:9px;background:#c0392b;color:#fff;font:700 11px/18px system-ui;text-align:center;padding:0 4px">${alertCount()}</span>`:''}<svg width="26" height="26" viewBox="0 0 26 26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h18"/><path d="M4 13h14"/><path d="M4 19h10"/></svg></button>`:''}
   </div>
   ${S.ready&&S.admin&&!APPTABS.includes(S.tab)&&visibleHotels().length>1?`<div class="wrap hotels" role="group" aria-label="בחירת מלון">${visibleHotels().map(h=>`<button class="hchip" data-act="hotel" data-h="${h}" aria-pressed="${h===S.hotel}">${esc(hotelName(h))}</button>`).join('')}</div>`:''}
   ${S.ready&&!S.registering&&S.auth==='in'&&!APPTABS.includes(S.tab)?`<nav class="wrap tabs" aria-label="ניווט">${tabs.map(([k,n])=>`<button data-act="tab" data-t="${k}" ${S.tab===k?'aria-current="page"':''}>${n}</button>`).join('')}</nav>`:''}`;
@@ -398,6 +398,7 @@ function renderDrawer(){const el=$('#drawer');if(!S.menu||S.auth!=='in'){el.inne
     <div class="drawer-h"><b>Seven Collection</b><button class="x" data-act="menu-close" aria-label="סגירה">×</button></div>
     <div class="drawer-who">${esc(S.meName||'')}${S.meName&&(S.email||S.phone)?'<br>':''}<bdi>${esc(S.email||S.phone||'')}</bdi></div>
     ${items.map(([k,n,attr,cur])=>attr.startsWith('href')?`<a class="item" ${attr}>${ICO[k]}${n}</a>`:`<button class="item" ${attr} ${cur?'aria-current="page"':''}>${ICO[k]}${n}</button>`).join('')}
+    ${window.Notification&&Notification.permission!=='granted'&&Notification.permission!=='denied'?'<button class="item" data-act="notif-on">🔔 הפעלת התראות</button>':''}
     <span class="sp"></span><button class="item" data-act="logout">${ICO.out}יציאה</button></nav>`}
 function appBarHTML(){return '';
   return `<div class="appbar"><div class="wrap appbar-in" role="navigation" aria-label="אפליקציות"><button data-act="app-shifts" ${!APPTABS.includes(S.tab)?'aria-current="page"':''}>סידור עבודה</button>${S.can.events?'<a href="events.html">אירועים</a>':''}${S.can.perms?`<button data-act="app-perms" ${S.tab==='perms'?'aria-current="page"':''}>הרשאות</button>`:''}</div></div>`}
@@ -950,36 +951,54 @@ function gmLoad(h){const G=S.gmData||(S.gmData={});if(G[h])return;G[h]={ready:fa
   db.collection('inventory').where('hotel','==',h).onSnapshot(q=>mine({stock:docsMap(q)}),()=>mine({stock:null}));
   db.collection('purchaseReqs').where('hotel','==',h).onSnapshot(q=>mine({preqs:docsMap(q)}),()=>mine({preqs:null}));
   db.collection('quotes').get().then(q=>mine({quotes:q.docs.map(d=>d.data())})).catch(()=>mine({quotes:null}));
+  db.collection('requests').where('hotel','==',h).where('status','==','pending').onSnapshot(q=>mine({reqs:docsMap(q)}),()=>mine({reqs:{}}));
+  if(S.can.exp&&!S.live.sups)liveColl('sups','suppliers');
   if(!S.settingsAll[h])db.doc('settings/'+h).get().then(d=>{if(d.exists){S.settingsAll[h]=d.data();render()}}).catch(()=>{})}
+// labor cost of one day at the current hotel (same rules as computeCost, salaried share = monthly × 12 ÷ 365)
+function laborDay(d){const c=cfg(),oh=1+(+c.overhead||0)/100,sp=1+(+c.shabbatPct||0)/100;let t=0;
+  for(const [id,s] of Object.entries(S.shifts)){if(s.date!==d||!(+s.need)||hotelOfShift(s)!==S.hotel)continue;
+    for(const u of asg(id)){const m=S.mgr[u]||{},su=withEnd(s,id,u),h=paidHrs(su),sh=isShabbat(su);
+      if(m.payType==='hourly'&&+m.rate)t+=h*(+m.rate)*(sh?sp:1)*oh;else if(m.payType==='cash'&&+m.rate)t+=h*(+m.rate);else if(m.payType==='volunteer'&&+m.rate)t+=m.volUnit==='hour'?h*(+m.rate):(+m.rate)}}
+  for(const [u,m] of Object.entries(S.mgr)){if(m.active===false||hotelOf(u)!==S.hotel)continue;if(m.payType==='global'&&+m.monthly)t+=(+m.monthly)*12/365*oh;if(+m.housing>0)t-=(+m.housing)*12/365}
+  return t}
 function vGm(){const hs=scopeHs();if(!hs.length)return wrap(emptyBox('אין מלונות בהרשאה','בעל המערכת יכול להוסיף לך מלון בעמוד ההרשאות.'));
   if(!hs.includes(S.hotel))S.hotel=hs[0];const h=S.hotel;gmLoad(h);const G=S.gmData[h]||{};
-  const w=S.week,today=todayISO(),sh=weekShifts();let need=0,fill=0;sh.forEach(([id,s])=>{need+=+s.need;fill+=Math.min(asg(id).length,+s.need)});
-  const roster=Object.keys(S.emps).filter(inRoster),ow=openWeek(),sub=roster.filter(u=>S.avail[u]?.sub?.[ow]);
-  const cost=G.mgr?computeCost(w):null,sched=S.scheds[h]||{},daily=(sched.daily||{})[today]||{};
-  const invs=Object.values(G.invs||{}),month=today.slice(0,7),mExp=invs.filter(v=>String(v.date||'').slice(0,7)===month).reduce((a,v)=>a+invTotals(v).net,0);
-  const unpaid=invs.filter(v=>invStatus(v)!=='paid'),owe=unpaid.reduce((a,v)=>a+invTotals(v).total,0),late=unpaid.filter(isOverdue).length;
+  const w=S.week,today=todayISO(),inWeek=today>=w&&today<=addDays(w,6);
+  const cost=G.mgr?computeCost(w):null,dayCost=G.mgr&&inWeek?laborDay(today):null,sched=S.scheds[h]||{},daily=(sched.daily||{})[today]||{};
+  const invs=Object.entries(G.invs||{}),month=today.slice(0,7),mExp=invs.filter(([,v])=>String(v.date||'').slice(0,7)===month).reduce((a,[,v])=>a+invTotals(v).net,0);
+  const wExp=invs.filter(([,v])=>v.date>=w&&v.date<=addDays(w,6)).reduce((a,[,v])=>a+invTotals(v).net,0),tExp=invs.filter(([,v])=>v.date===today).reduce((a,[,v])=>a+invTotals(v).net,0);
+  const unpaid=invs.filter(([,v])=>invStatus(v)!=='paid'),owe=unpaid.reduce((a,[,v])=>a+invTotals(v).total,0),late=unpaid.filter(([,v])=>isOverdue(v)).length;
+  const toApprove=invs.filter(([,v])=>invStatus(v)==='open');
   const items=Object.entries(G.stock||{}),low=items.filter(([,x])=>+x.min>0&&(+x.qty||0)<+x.min),preqs=Object.entries(G.preqs||{}).filter(([,r])=>r.status==='pending');
+  const sreqs=Object.entries(G.reqs||{}).filter(([,r])=>r.status==='pending').sort(([,a],[,b])=>(a.createdAt||0)-(b.createdAt||0));
   const evs=(G.quotes||[]).filter(q=>q.status!=='declined'&&q.event&&q.event.date>=w&&q.event.date<=addDays(w,6)&&evForHotel(q,h)).sort((a,b)=>String(a.event.date+(a.event.start||'')).localeCompare(String(b.event.date+(b.event.start||''))));
   const nav=`<div class="actions" style="align-items:center"><button class="btn sm" data-act="week" data-d="-7" aria-label="שבוע קודם">›</button><b class="mono">${weekLabel(w)}</b><button class="btn sm" data-act="week" data-d="7" aria-label="שבוע הבא">‹</button></div>`;
   const chips=hs.length>1?`<div class="chips" style="gap:6px">${hs.map(x=>`<button class="dchip ${x===h?'':'off'}" style="--h:var(--brass)" data-act="gm-hotel" data-h="${x}">${esc(hotelName(x))}</button>`).join('')}</div>`:'';
+  const pendN=preqs.length+sreqs.length+toApprove.length;
   const head=`<section class="head"><div class="head-t"><h1>מנהל מלון · ${esc(hotelName(h))}</h1>${nav}</div>${chips}
-    <div class="kpis">${kpi('משבצות מאוישות',`${fill}/${need}`,need&&fill>=need?'הכל מאויש':need?`חסרים ${need-fill}`:'אין משמרות פתוחות',need&&fill<need?'bad':'ok')}
-    ${kpi('הגישו זמינות',`${sub.length}/${roster.length}`,`לשבוע ${weekLabel(ow)}`,sub.length<roster.length?'bad':'')}
-    ${cost?kpi('עלות עובדים השבוע',ils(cost.total),`${fmtH(cost.hours)} שעות לתשלום`):''}
-    ${G.invs?kpi('הוצאות החודש',ils(mExp),'לפי חשבוניות · לפני מע״מ'):''}
+    <div class="kpis">${dayCost!=null?kpi('עלות עובדים היום',ils(dayCost),dm(today)):''}${cost?kpi('עלות עובדים השבוע',ils(cost.total),`${fmtH(cost.hours)} שעות לתשלום`):''}
+    ${G.invs?kpi('הוצאות ספקים היום',ils(tExp),'לפי חשבוניות · לפני מע״מ'):''}${G.invs?kpi('הוצאות ספקים השבוע',ils(wExp),`החודש: ${ils(mExp)}`):''}
     ${G.invs?kpi('חוב לספקים',ils(owe),late?`${late} חשבוניות באיחור`:`${unpaid.length} חשבוניות פתוחות`,late?'bad':''):''}
-    ${G.stock?kpi('מלאי מתחת למינימום',String(low.length),`${preqs.length} דרישות רכש ממתינות`,low.length?'bad':''):''}</div></section>`;
+    ${kpi('ממתינות לאישור',String(pendN),pendN?'פירוט למטה':'אין בקשות פתוחות',pendN?'bad':'ok')}</div></section>`;
+  const reqCard=`<div class="card" style="${pendN?'border-color:var(--brass)':''}"><h3>בקשות ממתינות לאישור · ${pendN}</h3>
+    ${preqs.length?`<h3 style="font-size:.95rem">דרישות רכש</h3><div class="plist">${preqs.map(([rid,r])=>`<div class="prow"><span class="who"><b>${esc(r.itemName)} · ${+r.qty} ${esc(r.unit||'')}</b><small>${esc(DMAP[r.dept]?.n||'')} · ${esc(empName(r.by)||'')}${r.note?' · '+esc(r.note):''}</small></span><span class="actions"><button class="btn sm pri" data-act="preq-st" data-r="${rid}" data-h="${h}" data-st="approved">אישור</button><button class="btn sm" data-act="preq-st" data-r="${rid}" data-h="${h}" data-st="declined">דחייה</button></span></div>`).join('')}</div>`:''}
+    ${toApprove.length?`<h3 style="font-size:.95rem">חשבוניות לאישור תשלום</h3><div class="plist">${toApprove.slice(0,15).map(([iid,v])=>`<div class="prow"><span class="who"><b>${esc((S.sups||{})[v.supplier]?.name||'ספק')}${v.number?' · #'+esc(v.number):''}</b><small>${v.date?dm(v.date):''} · ${invPill(v)}</small></span><span class="actions"><b class="mono">${ils(invTotals(v).total)}</b>${S.can.exp?`<button class="btn sm pri" data-act="inv-status" data-id="${iid}" data-st="approved">אישור לתשלום</button>`:''}</span></div>`).join('')}</div>`:''}
+    ${sreqs.length?`<h3 style="font-size:.95rem">בקשות שינוי משמרת שמחכות לעובד</h3><div class="plist">${sreqs.slice(0,15).map(([,r])=>`<div class="prow"><span class="who"><b>${esc(empName(r.uid))}</b><small>${esc(reqText(r))}</small></span></div>`).join('')}</div>`:''}
+    ${pendN?'':'<p class="muted">אין בקשות שמחכות לאישור.</p>'}</div>`;
   const sched10=`<div class="card"><h3>היום · ${dm(today)} (10days)</h3>${DAILY.some(([k])=>daily[k]!=null)?`<div class="kpis">${DAILY.map(([k,n])=>kpi(n,daily[k]!=null?String(daily[k]):'—')).join('')}</div>`:'<p class="muted">עוד לא הוזנו נתונים להיום.</p>'}</div>`;
-  const missing=sh.filter(([id,s])=>asg(id).length<+s.need).sort(([,a],[,b])=>a.date.localeCompare(b.date)||KORD[a.kind]-KORD[b.kind]);
-  const gaps=`<div class="card"><h3>משמרות חסרות השבוע</h3>${missing.length?`<div class="plist">${missing.slice(0,12).map(([id,s])=>`<div class="prow"><span class="who"><b>${esc(shiftDesc(id))}</b><small>${asg(id).length}/${s.need} משובצים</small></span></div>`).join('')}</div>`:'<p class="muted">אין משמרות חסרות.</p>'}${!sched.published&&sh.length?'<p class="muted" style="font-size:.85rem">הסידור לשבוע הזה עוד לא פורסם.</p>':''}</div>`;
-  const notSub=roster.filter(u=>!S.avail[u]?.sub?.[ow]);
-  const staff=`<div class="card"><h3>עובדים · ${roster.length}</h3>${notSub.length?`<p class="muted" style="font-size:.85rem">עוד לא הגישו זמינות: ${notSub.slice(0,15).map(u=>esc(empName(u))).join(', ')}${notSub.length>15?'…':''}</p>`:'<p class="muted">כולם הגישו זמינות.</p>'}</div>`;
   const events=`<div class="card"><h3>אירועים השבוע</h3>${G.quotes===null?'<p class="muted">אין לך גישה לאירועים.</p>':evs.length?`<div class="plist">${evs.map(q=>`<div class="prow"><span class="who"><b>${dm(q.event.date)} ${esc(q.event.start||'')} · ${esc(q.client?.name||'')}</b><small>${esc(q.event.type||'')} · ${+q.event.guests||0} אורחים${q.kind==='group'?' · קבוצת מלון':q.status==='approved'?' · סגור':' · טנטטיב'}</small></span></div>`).join('')}</div>`:'<p class="muted">אין אירועים השבוע.</p>'}</div>`;
-  const stock=G.stock?`<div class="card"><h3>מלאי</h3>${low.length?`<div class="plist">${low.slice(0,12).map(([,x])=>`<div class="prow"><span class="who"><b>${esc(x.name)}</b><small>${esc(DMAP[x.dept]?.n||'')} · ${+x.qty||0} מתוך מינימום ${+x.min}${x.unit?' '+esc(x.unit):''}</small></span></div>`).join('')}</div>`:'<p class="muted">אין פריטים מתחת למינימום.</p>'}
-    ${preqs.length?`<h3>דרישות רכש ממתינות</h3><div class="plist">${preqs.map(([rid,r])=>`<div class="prow"><span class="who"><b>${esc(r.itemName)} · ${+r.qty} ${esc(r.unit||'')}</b><small>${esc(DMAP[r.dept]?.n||'')}${r.note?' · '+esc(r.note):''}</small></span><span class="actions"><button class="btn sm pri" data-act="preq-st" data-r="${rid}" data-h="${h}" data-st="approved">אישור</button><button class="btn sm" data-act="preq-st" data-r="${rid}" data-h="${h}" data-st="declined">דחייה</button></span></div>`).join('')}</div>`:''}
-    <div><button class="btn sm" data-act="app-stock">לעמוד המלאי</button></div></div>`:'';
-  return wrap(head+`<div class="setgrid">${sched10}${gaps}${staff}${events}${stock}</div>`);
+  const stock=G.stock?`<div class="card"><h3>מלאי מתחת למינימום · ${low.length}</h3>${low.length?`<div class="plist">${low.slice(0,12).map(([,x])=>`<div class="prow"><span class="who"><b>${esc(x.name)}</b><small>${esc(DMAP[x.dept]?.n||'')} · ${+x.qty||0} מתוך מינימום ${+x.min}${x.unit?' '+esc(x.unit):''}</small></span></div>`).join('')}</div>`:'<p class="muted">אין פריטים מתחת למינימום.</p>'}<div><button class="btn sm" data-act="app-stock">לעמוד המלאי</button></div></div>`:'';
+  return wrap(head+reqCard+`<div class="setgrid">${sched10}${events}${stock}</div>`);
 }
+/* ---------- in-app alerts: badge on the menu, page title count, and a phone/browser notification while the site is open ---------- */
+function alertCount(){let n=myPending().length;
+  if(S.can.gm||S.can.shifts||S.isOwner)n+=Object.values(S.alertPreqs||{}).filter(r=>r.status==='pending').length;
+  return n}
+function alertsSub(){if(S.live.alerts)return;S.live.alerts=true;
+  if(S.can.gm||S.can.shifts||S.isOwner){const hs=scopeHs().slice(0,10);if(hs.length)S.db.collection('purchaseReqs').where('hotel','in',hs).where('status','==','pending').onSnapshot(q=>{S.alertPreqs=docsMap(q);alertTick()},()=>{})}}
+function alertTick(){const n=alertCount(),prev=S.alertPrev??n;S.alertPrev=n;try{document.title=(n?`(${n}) `:'')+'Seven Collection'}catch(_){ }
+  if(n>prev&&window.Notification&&Notification.permission==='granted'){try{new Notification('Seven Collection',{body:n===1?'יש בקשה שמחכה לאישור שלך':`יש ${n} בקשות שמחכות לאישור שלך`,tag:'sc-pending'})}catch(_){ }}
+  render()}
 
 /* ---------- stock: items per hotel and department, minimum level, purchase requests ---------- */
 // collections: inventory/{id} {hotel, dept, name, unit, qty, min}, purchaseReqs/{id} {hotel, dept, itemId, itemName, unit, qty, note, status, by, createdAt}
@@ -1477,6 +1496,7 @@ const ACT={
   'app-gm':()=>{S.menu=false;setTab('gm')},
   'app-brief':()=>{S.menu=false;setTab('brief')},
   'app-front':()=>{S.menu=false;setTab('front')},
+  'notif-on':()=>{try{Notification.requestPermission().then(p=>{toast(p==='granted'?'ההתראות הופעלו. תקבל התראה כשתגיע בקשה חדשה, כל עוד האתר פתוח.':'ההתראות לא הופעלו');render()})}catch(_){toast('הדפדפן הזה לא תומך בהתראות')}},
   'hotel-venue':D=>{const cur=hotelVenues(S.hotel);saveSettings({venues:cur.includes(D.v)?cur.filter(x=>x!==D.v):[...cur,D.v]})},
   'brief-day':D=>{S.briefDate=+D.d?addDays(S.briefDate||todayISO(),+D.d):todayISO();render()},
   'app-stock':()=>{S.menu=false;setTab('stock')},
@@ -1509,7 +1529,7 @@ const ACT={
   'sup-del':()=>{if(S.confirm!=='sup-del'){S.confirm='sup-del';render();return}const id=S.sheet.id;S.confirm=null;const c={...S.sups};delete c[id];S.sups=c;save('suppliers/'+id,null);S.sheet=null;render();toast('הספק נמחק')},
   'acct-save':()=>{for(const h of expHs()){const v=String(dv('acct',h,acctFor(h))).trim();if(v!==acctFor(h)){S.expAcct={...S.expAcct,[h]:v};save('expcfg/'+h,{email:v,updatedAt:Date.now(),updatedBy:S.uid})}}S.drafts.acct=null;render();toast('נשמר')},
   'sup-hotel':D=>{const x=(S.sups||{})[S.sheet.id]||{},cur=dv('sup','hotels',x.hotels||[]);(S.drafts.sup||(S.drafts.sup={})).hotels=cur.includes(D.h)?cur.filter(h=>h!==D.h):[...cur,D.h];render()},
-  'inv-status':D=>{const v=S.invs[D.id];if(!v)return;const doc={...v,status:D.st,updatedAt:Date.now(),updatedBy:S.uid};S.invs={...S.invs,[D.id]:doc};save('invoices/'+D.id,doc);render();toast('הסטטוס עודכן')},
+  'inv-status':D=>{const v=(S.invs||{})[D.id]||Object.values(S.gmData||{}).map(g=>g.invs||{}).find(m=>m[D.id])?.[D.id];if(!v)return;const doc={...v,status:D.st,updatedAt:Date.now(),updatedBy:S.uid};S.invs={...S.invs,[D.id]:doc};save('invoices/'+D.id,doc);render();toast('הסטטוס עודכן')},
   'inv-paid':D=>{const v=S.invs[D.id];if(!v)return;const doc={...v,status:'paid',paidAt:todayISO(),payMethod:v.payMethod||(S.sups||{})[v.supplier]?.payMethod||'transfer',updatedAt:Date.now(),updatedBy:S.uid};S.invs={...S.invs,[D.id]:doc};save('invoices/'+D.id,doc);if(S.drafts.inv&&S.drafts.inv.id===D.id)S.drafts.inv=null;render();toast(`סומנה כשולמה · ${supName(v.supplier)} · ${ils(invTotals(v).total)}`)},
   'inv-new':()=>{S.drafts.inv=null;S.confirm=null;S.invImg=null;S.sheet={type:'inv',id:'i'+Date.now().toString(36)+Math.random().toString(36).slice(2,6)};render()},
   'inv-open':D=>{S.drafts.inv=null;S.confirm=null;S.invImg=null;S.sheet={type:'inv',id:D.id};if(S.invs[D.id]?.hasImg)loadInvImg(D.id);render()},
@@ -1688,11 +1708,11 @@ async function start(u){
   else{db.doc('avail/'+S.uid).onSnapshot(s=>{if(s.exists)S.avail[S.uid]=s.data();render()},onErr)}
   if(S.can.perms)db.collection('roles').onSnapshot(q=>{S.roles=docsMap(q);render()},onErr);
   if(S.isOwner)migrateHotelFields();
-  if(S.admin){const hs=visibleHotels().slice(0,30);db.collection('requests').where('hotel','in',hs).onSnapshot(q=>{S.reqs=docsMap(q);S.reqVer++;render()},onErr)}
-  else{let own={},hot={};const mix=()=>{S.reqs={...hot,...own};S.reqVer++;render()};
+  if(S.admin){const hs=visibleHotels().slice(0,30);db.collection('requests').where('hotel','in',hs).onSnapshot(q=>{S.reqs=docsMap(q);S.reqVer++;alertTick()},onErr)}
+  else{let own={},hot={};const mix=()=>{S.reqs={...hot,...own};S.reqVer++;alertTick()};
     db.collection('requests').where('uid','==',S.uid).onSnapshot(q=>{own=docsMap(q);mix()},onErr);
     db.collection('requests').where('hotel','==',S.myHotel===CHAIN?S.hotel:(S.myHotel||S.hotel)).where('status','==','approved').onSnapshot(q=>{hot=docsMap(q);mix()},()=>{})}
-  subWeek();S.ready=true;render();checkJoinCodes();
+  subWeek();S.ready=true;render();checkJoinCodes();alertsSub();
 }
 (function boot(){
   render();

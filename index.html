@@ -307,7 +307,21 @@ function hotelIds(){return [...new Set(['main',...Object.keys(S.hotels)])].sort(
 function visibleHotels(){const all=hotelIds();if(S.isOwner||!S.role||!Array.isArray(S.role.hotels)||!S.role.hotels.length)return all;const v=all.filter(h=>S.role.hotels.includes(h));return v.length?v:all}
 function hotelName(h){return S.hotels[h]?.name||S.settingsAll[h]?.hotelName||(h==='main'?'מלון ראשי':'מלון')}
 const allWeekShifts=()=>{const w=S.week,e=addDays(w,6);return Object.entries(S.shifts).filter(([,s])=>s.date>=w&&s.date<=e&&+s.need>0)};
-const asg=id=>{const s=S.shifts[id],h=s?hotelOfShift(s):S.hotel;return (S.scheds[h]?.assign?.[id]||[]).filter(u=>S.emps[u])};
+// after publishing, changes go through requests/{id}; an approved request is applied on top of the published schedule
+S.reqs={};S.reqVer=0;
+function reqOverlay(){if(S._rqv===S.reqVer)return S._rqo;const o={add:{},rm:{}};
+  for(const r of Object.values(S.reqs))if(r.status==='approved'){if(r.from)(o.rm[r.from]||(o.rm[r.from]=[])).push(r.uid);if(r.to)(o.add[r.to]||(o.add[r.to]=[])).push(r.uid)}
+  S._rqo=o;S._rqv=S.reqVer;return o}
+const asg=id=>{const s=S.shifts[id],h=s?hotelOfShift(s):S.hotel,o=reqOverlay();
+  let l=(S.scheds[h]?.assign?.[id]||[]).filter(u=>!(o.rm[id]||[]).includes(u));for(const u of (o.add[id]||[]))if(!l.includes(u))l=[...l,u];
+  return l.filter(u=>S.emps[u])};
+function shiftDesc(id){const s=S.shifts[id];if(!s)return '';return `יום ${DAYS[dow(s.date)]} ${dm(s.date)} · ${KMAP[s.kind].n} ${s.start}–${s.end} · ${DMAP[s.dept]?.n||''}`+(hotelIds().length>1?` · ${hotelName(hotelOfShift(s))}`:'')}
+function reqText(r,forEmp){if(r.type==='add')return (forEmp?'המנהל מבקש להוסיף לך משמרת: ':'הוספת משמרת: ')+r.toDesc;
+  if(r.type==='remove')return (forEmp?'המנהל מבקש לבטל לך משמרת: ':'ביטול משמרת: ')+r.fromDesc;
+  return (forEmp?'המנהל מבקש להחליף לך משמרת: ':'החלפת משמרת: ')+r.fromDesc+' ← במקום → '+r.toDesc}
+const pendingFor=id=>Object.entries(S.reqs).filter(([,r])=>r.status==='pending'&&(r.to===id||r.from===id));
+const myPending=()=>Object.entries(S.reqs).filter(([,r])=>r.uid===S.uid&&r.status==='pending').sort(([,a],[,b])=>a.createdAt-b.createdAt);
+const availLocked=()=>!cfg().availOpen||!!S.sched.published;
 const weekShifts=()=>allWeekShifts().filter(([,s])=>hotelOfShift(s)===S.hotel);
 const empName=u=>S.emps[u]?.name||'ללא שם';
 const shortName=u=>{const p=empName(u).trim().split(/\s+/);return p.length>1?`${p[0]} ${p[1][0]}׳`:p[0]};
@@ -342,7 +356,7 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'&&S.menu){S.menu=fals
 function render(){if(isTyping()){S.pending=true;return}S.pending=false;renderTop();renderDrawer();$('#main').innerHTML=viewHTML();renderSheet()}
 function renderTop(){
   const c=cfg();
-  const tabs=S.admin?[['sched','סידור'],['shifts','משמרות פתוחות'],['staff','עובדים'],['costs','עלויות'],['settings','הגדרות']]:[['avail','הזמינות שלי'],['mine','המשמרות שלי'],['profile','הפרופיל שלי']];
+  const tabs=S.admin?[['sched','סידור'],['shifts','משמרות פתוחות'],['staff','עובדים'],['costs','עלויות'],['settings','הגדרות']]:[['avail','הזמינות שלי'],['mine','המשמרות שלי'+(myPending().length?` (${myPending().length})`:'')],['profile','הפרופיל שלי']];
   const nav=S.ready&&!S.registering&&S.auth==='in'&&S.week&&S.tab!=='settings'&&S.tab!=='perms'&&!(!S.admin&&(S.tab==='avail'||S.tab==='profile'));
   $('#top').innerHTML=`${appBarHTML()}<div class="wrap top-in">
     <div class="brand"><span class="mark">${BELL}</span><div><div class="b1">Seven Collection</div><div class="b2">${S.auth==='in'&&!S.registering?`${esc(hotelName(S.hotel))} · ${S.admin?'ממשק מנהל':'ממשק עובד'}`:''}</div></div></div>
@@ -370,6 +384,9 @@ function viewHTML(){
   if(!S.ready)return wrap('<p class="muted">טוען את הסידור…</p>');
   if(S.registering)return vRegister();
   if(!S.admin&&S.empsLoaded&&!S.emps[S.uid]&&S.tab!=='profile')S.tab='profile';
+  if(!S.admin&&S.tab!=='mine'&&myPending().length){const b=`<div class="wrap" style="padding-top:12px"><div class="notice" style="display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap"><span>יש לך ${myPending().length} בקשות מהמנהל לשינוי משמרות</span><button class="btn sm pri" data-act="tab" data-t="mine">לצפייה ואישור</button></div></div>`;const v=viewInner();return b+v}
+  return viewInner()}
+function viewInner(){
   switch(S.tab){case 'sched':return vSched();case 'shifts':return vShifts();case 'staff':return vStaff();case 'costs':return vCosts();case 'settings':return vSettings();case 'perms':return S.can.perms?vPerms():'';
     case 'avail':return vAvail();case 'mine':return vMine();case 'profile':return vProfile()}
   return '';
@@ -399,6 +416,11 @@ function cellHTML(dept,date,kind,mode,hi){
 }
 
 /* ---------- manager: schedule ---------- */
+function reqCardHTML(){const rs=Object.entries(S.reqs).filter(([,r])=>r.hotel===S.hotel&&r.week===S.week&&(r.status==='pending'||r.status==='declined'||r.status==='approved')).sort(([,a],[,b])=>b.createdAt-a.createdAt);
+  if(!rs.length)return '';const pill={pending:'<span class="pill warn">ממתין לאישור</span>',declined:'<span class="pill bad">נדחה</span>',approved:'<span class="pill ok">אושר</span>'};
+  return `<div class="card"><h3>בקשות לעובדים</h3><div class="plist">${rs.map(([rid,r])=>{const ph=normPhone(S.emps[r.uid]?.phone||'').replace('+','');
+    const wa=ph?`https://wa.me/${ph}?text=${encodeURIComponent(`שלום ${empName(r.uid)}, יש לך בקשה לשינוי משמרת בסידור העבודה. נא להיכנס ולאשר או לדחות: ${appLink()}`)}`:'';
+    return `<div class="prow"><span class="who"><b>${esc(empName(r.uid))} ${pill[r.status]}</b><small>${esc(reqText(r))}${r.note?` · "${esc(r.note)}"`:''}</small></span><span class="actions">${r.status==='pending'?`${wa?`<a class="btn sm" href="${wa}" target="_blank" rel="noopener">וואטסאפ</a>`:''}<button class="btn sm ghost" data-act="rq-cancel" data-r="${rid}">ביטול בקשה</button>`:r.status==='declined'?`<button class="btn sm ghost" data-act="rq-cancel" data-r="${rid}">הסרה</button>`:''}</span></div>`}).join('')}</div></div>`}
 function vSched(){
   const w=S.week,c=cfg(),sh=weekShifts(),act=Object.keys(S.emps).filter(u=>isActive(u)&&isHome(u));
   const submitted=act.filter(u=>S.avail[u]?.sub?.[w]).length;
@@ -415,12 +437,12 @@ function vSched(){
     </div>
     ${(()=>{const bm=belowMin();return bm.length?`<div class="notice">מתחת למינימום משמרות: ${bm.map(u=>`${esc(empName(u))} (${loadOf(u)}/${minFor(u)})`).join(', ')}</div>`:''})()}
     <div class="actions">
-      <button class="btn pri" data-act="auto">שיבוץ אוטומטי</button>
+      <button class="btn pri" data-act="auto" ${S.sched.published?'disabled':''}>שיבוץ אוטומטי</button>
       <button class="btn" data-act="publish">${S.sched.published?'ביטול פרסום':'פרסום לעובדים'}</button>
       <button class="btn brass" data-act="send">שליחה לעובדים</button>
       ${isOpen?'':'<button class="btn" data-act="openweek">פתיחת השבוע להגשה</button>'}
       <button class="btn ghost" data-act="clear">${S.confirm==='clear'?'לחיצה נוספת תנקה את השיבוץ':'ניקוי שיבוץ'}</button>
-    </div></section>`;
+    </div>${S.sched.published?'<p class="muted" style="font-size:.85rem">הסידור פורסם. כדי לשנות משמרת, לוחצים על המשבצת ושולחים בקשה לעובד. השינוי נכנס לסידור רק אחרי שהעובד מאשר.</p>':''}${reqCardHTML()}</section>`;
   if(!sh.length)return wrap(head+emptyBox('עוד לא הוגדרו משמרות פתוחות לשבוע הזה','קובעים כמה עובדים צריך בכל משמרת בכל מחלקה. אחר כך העובדים מסמנים מתי הם יכולים, והמערכת משבצת.','<button class="btn pri" data-act="tab" data-t="shifts">הגדרת משמרות פתוחות</button>'));
   const depts=DEPTS.filter(d=>(S.dept==='all'||S.dept===d.k)&&sh.some(([,s])=>s.dept===d.k));
   const secs=depts.map(d=>{let n=0,f=0;sh.forEach(([id,s])=>{if(s.dept===d.k){n+=+s.need;f+=Math.min(asg(id).length,+s.need)}});
@@ -466,7 +488,11 @@ function autoAssign(){
   const bm=belowMin().length;
   toast((bm?`${bm} עובדים מתחת למינימום שלהם (אין מספיק זמינות). `:'')+(added?`שובצו ${added} משבצות. ${missing?`חסרים עדיין ${missing} עובדים — אין מספיק זמינות.`:'כל המשמרות מאוישות.'}`:(missing?`לא נמצאו עובדים זמינים ל-${missing} משבצות פתוחות.`:'כל המשמרות כבר מאוישות.')));
 }
-function saveSched(){save(schedPath(S.week,S.hotel),{assign:S.sched.assign||{},published:!!S.sched.published,updatedAt:Date.now()})}
+function bakeApproved(){const ids=new Set(),done=[];
+  for(const [rid,r] of Object.entries(S.reqs))if(r.status==='approved'&&r.hotel===S.hotel&&r.week===S.week){if(r.from)ids.add(r.from);if(r.to)ids.add(r.to);done.push(rid)}
+  if(!done.length)return;const a={...(S.sched.assign||{})};for(const id of ids)a[id]=asg(id);S.sched={...S.sched,assign:a};
+  for(const rid of done){S.reqs[rid]={...S.reqs[rid],status:'applied'};save('requests/'+rid,S.reqs[rid])}S.reqVer++}
+function saveSched(){bakeApproved();save(schedPath(S.week,S.hotel),{assign:S.sched.assign||{},published:!!S.sched.published,updatedAt:Date.now()})}
 
 /* conflicts for manual assignment */
 function conflictFor(u,s){
@@ -642,10 +668,10 @@ function writeAvail(u,slots,note,w){
   if(u===S.uid&&S.drafts.myav&&'maxw' in S.drafts.myav){const v=String(S.drafts.myav.maxw).trim();if(v==='')delete maxw[w];else maxw[w]=Math.max(0,Math.min(7,Math.round(+v)||0))}
   const doc={slots,note,sub,maxw,hotel:S.emps[u]?.hotel||S.hotel,updatedAt:Date.now()};S.avail[u]=doc;save('avail/'+u,doc);render()}
 function vAvail(){
-  const me=S.emps[S.uid],w=S.week,c=cfg(),a=S.avail[S.uid]||{},locked=!c.availOpen,sub=a.sub?.[w];
+  const me=S.emps[S.uid],w=S.week,c=cfg(),a=S.avail[S.uid]||{},locked=availLocked(),pub=!!S.sched.published,sub=a.sub?.[w];
   const cnt=Object.keys(a.slots||{}).filter(k=>k>=w&&k<=addDays(w,6)+'~').length;
   const head=`<section class="head"><div class="head-t"><h1>זמינות לשבוע ${weekLabel(w)}</h1><div class="meta">${locked?'<span class="pill warn">ההגשה נעולה</span>':'<span class="pill brass">פתוח להגשה</span>'}${sub?`<span class="pill ok">נשלח · ${cnt} משמרות</span>`:'<span class="pill">טרם נשלח</span>'}</div></div>
-    <p class="lede">${locked?'המנהל נעל את ההגשה לשבוע הזה. לשינויים פנו אליו ישירות.':`סמנו כל משמרת שאתם יכולים לעבוד בה. כל סימון נשמר מיד ומגיע למנהל.${c.deadline?` להגיש עד ${esc(c.deadline)}.`:''}`}</p>
+    <p class="lede">${pub?'הסידור לשבוע הזה כבר פורסם, ולכן אי אפשר לשנות את הזמינות. לשינוי משמרת פנו למנהל.':locked?'המנהל נעל את ההגשה לשבוע הזה. לשינויים פנו אליו ישירות.':`סמנו כל משמרת שאתם יכולים לעבוד בה. כל סימון נשמר מיד ומגיע למנהל.${c.deadline?` להגיש עד ${esc(c.deadline)}.`:''}`}</p>
     ${locked?'':'<div class="actions"><button class="btn" data-act="my-all">יכול/ה בכולן</button><button class="btn ghost" data-act="my-none">ניקוי הסימונים</button></div>'}</section>`;
   const mx=dv('myav','maxw',a.maxw?.[w]??'');
   const note=`<div class="card"><label class="f">כמה משמרות לכל היותר אני יכול/ה לעבוד השבוע<input type="number" id="my_maxw" min="0" max="7" inputmode="numeric" data-f="myav.maxw" value="${esc(mx)}" ${locked?'disabled':''} placeholder="למשל 5"></label>
@@ -658,11 +684,11 @@ function vAvail(){
 function vMine(){
   const w=S.week,me=S.emps[S.uid];
   const mine=allWeekShifts().filter(([id,s])=>asg(id).includes(S.uid)&&S.scheds[hotelOfShift(s)]?.published).sort(([,a],[,b])=>a.date.localeCompare(b.date)||KORD[a.kind]-KORD[b.kind]);
-  if(!mine.length&&!S.sched.published)return wrap(`<section class="head"><h1>המשמרות שלי · ${weekLabel(w)}</h1></section>`+emptyBox('הסידור לשבוע הזה עוד לא פורסם','ברגע שהמנהל יפרסם, המשמרות שלך יופיעו כאן. אפשר לעבור בין שבועות בחיצים למעלה.'));
+  if(!mine.length&&!S.sched.published)return wrap(`<section class="head"><h1>המשמרות שלי · ${weekLabel(w)}</h1></section>`+reqsEmpHTML()+emptyBox('הסידור לשבוע הזה עוד לא פורסם','ברגע שהמנהל יפרסם, המשמרות שלך יופיעו כאן. אפשר לעבור בין שבועות בחיצים למעלה.'));
   const h=mine.reduce((a,[,s])=>a+paidHrs(s),0);
   const list=mine.length?`<div class="days">${mine.map(([,s])=>{const dp=DMAP[s.dept];return `<div class="day" style="--h:${dp.h}"><div class="day-h"><b>יום ${DAYS[dow(s.date)]}</b><span class="muted mono">${dm(s.date)}</span></div><div class="slot on" style="--h:${dp.h};cursor:default"><span class="t"><b>${KMAP[s.kind].n} <span class="mono">${s.start}–${s.end}</span></b><small>${dp.n}${hotelOfShift(s)!==hotelOf(S.uid)?` · ${esc(hotelName(hotelOfShift(s)))}`:''}</small></span></div></div>`}).join('')}</div>`:emptyBox('לא שובצת השבוע','אם זו טעות, דברו עם המנהל.');
   const teams=!S.sched.published?'':(me?.depts||[]).filter(k=>DMAP[k]&&weekShifts().some(([,s])=>s.dept===k)).map(k=>`<section class="dept" style="--h:${DMAP[k].h}"><div class="dept-h"><span class="sw"></span><h2>הצוות ב${DMAP[k].n}</h2></div>${deptTable(k,'view',S.uid)}</section>`).join('');
-  return wrap(`<section class="head"><div class="head-t"><h1>המשמרות שלי · ${weekLabel(w)}</h1><div class="meta"><span class="pill ok">${mine.length} משמרות · ${fmtH(h)} שעות</span></div></div></section>`+list+teams);
+  return wrap(`<section class="head"><div class="head-t"><h1>המשמרות שלי · ${weekLabel(w)}</h1><div class="meta"><span class="pill ok">${mine.length} משמרות · ${fmtH(h)} שעות</span></div></div></section>`+reqsEmpHTML()+list+teams);
 }
 
 /* ---------- employee: profile ---------- */
@@ -694,6 +720,7 @@ function sheetCell(){
   const pool=Object.entries(S.emps).filter(([u,e])=>isActive(u)&&!as.includes(u)&&(isHome(u)||S.sheet.other)&&(S.sheet.all||(e.depts||[]).includes(s.dept)))
     .map(([u])=>({u,home:isHome(u),av:!!S.avail[u]?.slots?.[id],day:Object.keys(S.avail[u]?.slots||{}).some(k=>k.startsWith(s.date)),cf:conflictFor(u,s),ld:loadOf(u)}))
     .sort((a,b)=>b.home-a.home||(b.av&&!b.cf)-(a.av&&!a.cf)||a.ld-b.ld||empName(a.u).localeCompare(empName(b.u),'he'));
+  if(S.sched.published)return sheetCellPublished(id,s,dp,as,pool);
   return sheetHead(`${dp.n} · ${KMAP[s.kind].n}`,`יום ${DAYS[dow(s.date)]} ${dm(s.date)} · <span class="mono">${s.start}–${s.end}</span>`)+
   `<div class="actions" style="align-items:center"><span class="muted">צריך</span><div class="step on" style="--h:${dp.h}"><button data-act="need" data-id="${id}" data-dept="${s.dept}" data-date="${s.date}" data-kind="${s.kind}" data-n="-1" aria-label="פחות">−</button><b>${s.need}</b><button data-act="need" data-id="${id}" data-dept="${s.dept}" data-date="${s.date}" data-kind="${s.kind}" data-n="1" aria-label="יותר">+</button></div><span class="muted">עובדים · משובצים ${as.length}</span></div>
   <div class="plist">${as.length?as.map(u=>`<div class="prow"><span class="who"><b>${esc(empName(u))}${isHome(u)?'':` <span class="pill brass">מ${esc(hotelName(hotelOf(u)))}</span>`}</b><small>${S.avail[u]?.slots?.[id]?'סימן/ה זמינות':isHome(u)?'שובץ/ה בלי שסימן/ה זמינות':'שיבוץ חריג ממלון אחר'}</small></span><button class="btn sm danger" data-act="as-rm" data-id="${id}" data-u="${u}">הסרה</button></div>`).join(''):'<p class="muted">עוד אין משובצים.</p>'}</div>
@@ -701,6 +728,26 @@ function sheetCell(){
   <div class="panel-h"><h3>להוספה</h3><div class="actions"><label class="check"><input type="checkbox" id="sh_all" data-act="sh-all" ${S.sheet.all?'checked':''}> גם ממחלקות אחרות</label>${hotelIds().length>1?`<label class="check"><input type="checkbox" id="sh_other" data-act="sh-other" ${S.sheet.other?'checked':''}> גם ממלונות אחרים (חריג)</label>`:''}</div></div>
   <div class="plist">${pool.length?pool.map(p=>`<div class="prow"><span class="who"><b>${esc(empName(p.u))}${p.home?'':` <span class="pill brass">${esc(hotelName(hotelOf(p.u)))}</span>`}</b><small>${p.cf?`<span style="color:var(--warn)">${p.cf}</span>`:p.av?'<span style="color:var(--ok)">זמין/ה</span>':(!p.home&&p.day?'סימן/ה זמינות באותו יום במלון שלו':'לא סימן/ה זמינות')} · ${p.ld} משמרות השבוע${empMaxW(p.u)!==null?` · ביקש/ה עד ${empMaxW(p.u)}`:''}${minFor(p.u)?` · מינימום ${minFor(p.u)}`:''}</small></span><button class="btn sm ${p.av&&!p.cf?'pri':''}" data-act="as-add" data-id="${id}" data-u="${p.u}">שיבוץ</button></div>`).join(''):'<p class="muted">אין עובדים נוספים במחלקה.</p>'}</div>`;
 }
+function sheetCellPublished(id,s,dp,as,pool){
+  const pend=pendingFor(id);const targets=u=>weekShifts().filter(([x,o])=>x!==id&&!asg(x).includes(u)&&(S.emps[u]?.depts||[]).includes(o.dept)).sort(([,a],[,b])=>a.date.localeCompare(b.date)||KORD[a.kind]-KORD[b.kind]);
+  return sheetHead(`${dp.n} · ${KMAP[s.kind].n}`,`יום ${DAYS[dow(s.date)]} ${dm(s.date)} · <span class="mono">${s.start}–${s.end}</span>`)+
+  `<div class="notice">הסידור פורסם. כל שינוי נשלח לעובד כבקשה, ונכנס לסידור רק אחרי שהוא מאשר.</div>
+  <label class="f">הודעה לעובד (לא חובה)<input type="text" id="rq_note" data-f="rq.note" value="${esc(dv('rq','note',''))}" placeholder="למשל: חסר לנו מישהו בבוקר, תוכל/י?"></label>
+  <h3>משובצים <span class="muted" style="font-weight:400">${as.length}/${s.need}</span></h3>
+  <div class="plist">${as.length?as.map(u=>`<div class="prow" style="flex-wrap:wrap"><span class="who"><b>${esc(empName(u))}</b></span><span class="actions"><button class="btn sm" data-act="rq-chg-open" data-u="${u}">החלפת משמרת</button><button class="btn sm danger" data-act="rq-rm" data-id="${id}" data-u="${u}">בקשת ביטול</button></span>
+    ${S.sheet.change===u?`<div style="flex-basis:100%;display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"><select id="rq_to" style="flex:1;min-width:200px">${targets(u).map(([x])=>`<option value="${x}">${esc(shiftDesc(x))}</option>`).join('')}</select><button class="btn sm pri" data-act="rq-chg" data-id="${id}" data-u="${u}" ${targets(u).length?'':'disabled'}>שליחת בקשה</button></div>`:''}</div>`).join(''):'<p class="muted">עוד אין משובצים.</p>'}</div>
+  ${pend.length?`<h3>ממתין לאישור העובד</h3><div class="plist">${pend.map(([rid,r])=>`<div class="prow"><span class="who"><b>${esc(empName(r.uid))}</b><small>${esc(reqText(r))}</small></span><button class="btn sm ghost" data-act="rq-cancel" data-r="${rid}">ביטול בקשה</button></div>`).join('')}</div>`:''}
+  <div class="sep"></div>
+  <div class="panel-h"><h3>לבקש מעובד להוסיף את המשמרת</h3><div class="actions"><label class="check"><input type="checkbox" id="sh_all" data-act="sh-all" ${S.sheet.all?'checked':''}> גם ממחלקות אחרות</label></div></div>
+  <div class="plist">${pool.length?pool.map(p=>`<div class="prow"><span class="who"><b>${esc(empName(p.u))}</b><small>${p.cf?`<span style="color:var(--warn)">${p.cf}</span>`:p.av?'<span style="color:var(--ok)">זמין/ה</span>':'לא סימן/ה זמינות'} · ${p.ld} משמרות השבוע</small></span><button class="btn sm ${p.av&&!p.cf?'pri':''}" data-act="rq-add" data-id="${id}" data-u="${p.u}" ${pend.some(([,r])=>r.uid===p.u)?'disabled':''}>שליחת בקשה</button></div>`).join(''):'<p class="muted">אין עובדים נוספים במחלקה.</p>'}</div>`;
+}
+function makeReq(type,u,from,to){
+  if(Object.values(S.reqs).some(r=>r.status==='pending'&&r.uid===u&&(r.from||null)===(from||null)&&(r.to||null)===(to||null))){toast('כבר נשלחה בקשה כזו');return}
+  const sh=S.shifts[to||from];const rid='r'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+  const doc={type,uid:u,from:from||null,to:to||null,fromDesc:from?shiftDesc(from):'',toDesc:to?shiftDesc(to):'',hotel:hotelOfShift(sh),week:S.week,status:'pending',note:String(dv('rq','note','')).trim(),by:S.uid,createdAt:Date.now()};
+  S.reqs[rid]=doc;S.reqVer++;save('requests/'+rid,doc);S.sheet.change=null;render();toast(`הבקשה נשלחה ל${empName(u)}. היא תיכנס לסידור אחרי שיאשר/תאשר.`)}
+function reqsEmpHTML(){const ps=myPending();if(!ps.length)return '';
+  return `<div class="card" style="border-color:var(--brass)"><h3>בקשות מהמנהל</h3><div class="plist">${ps.map(([rid,r])=>`<div class="prow" style="flex-wrap:wrap"><span class="who"><b>${esc(reqText(r,true))}</b>${r.note?`<small>"${esc(r.note)}"</small>`:''}</span><span class="actions"><button class="btn sm pri" data-act="rq-yes" data-r="${rid}">אישור</button><button class="btn sm" data-act="rq-no" data-r="${rid}">דחייה</button></span></div>`).join('')}</div></div>`}
 function sheetEmp(){
   const u=S.sheet.id,e=S.emps[u]||{},m=S.mgr[u]||{},isNew=!S.emps[u];
   const depts=dv('emp','depts',e.depts||[]),pt=dv('emp','payType',m.payType||'hourly');
@@ -858,11 +905,18 @@ const ACT={
     const id='h'+Math.random().toString(36).slice(2,10);S.hotels[id]={name,createdAt:Date.now()};save('hotels/'+id,S.hotels[id]);
     const base={...cfg()};delete base.openWeek;delete base.joinCode;S.settingsAll[id]={...base,hotelName:name,openWeek:openWeek()};save('settings/'+id,S.settingsAll[id]);
     S.drafts.nh=null;subWeek();setHotel(id);toast(`${name} נוסף. עכשיו אתה עובד על המלון החדש.`)},
-  'as-add':D=>setAssign(D.id,[...asg(D.id),D.u]),
-  'as-rm':D=>setAssign(D.id,asg(D.id).filter(u=>u!==D.u)),
-  auto:()=>autoAssign(),
+  'as-add':D=>{if(S.sched.published)return;setAssign(D.id,[...asg(D.id),D.u])},
+  'as-rm':D=>{if(S.sched.published)return;setAssign(D.id,asg(D.id).filter(u=>u!==D.u))},
+  auto:()=>{if(S.sched.published){toast('הסידור פורסם. שינויים נשלחים כבקשה לעובד מתוך המשבצת, או מבטלים את הפרסום.');return}autoAssign()},
+  'rq-add':D=>makeReq('add',D.u,null,D.id),
+  'rq-rm':D=>makeReq('remove',D.u,D.id,null),
+  'rq-chg-open':D=>{S.sheet.change=S.sheet.change===D.u?null:D.u;render()},
+  'rq-chg':D=>{const to=$('#rq_to')?.value;if(!to)return;makeReq('change',D.u,D.id,to)},
+  'rq-cancel':D=>{delete S.reqs[D.r];S.reqVer++;save('requests/'+D.r,null);render()},
+  'rq-yes':D=>{const r=S.reqs[D.r];if(!r)return;S.reqs[D.r]={...r,status:'approved',respondedAt:Date.now()};S.reqVer++;save('requests/'+D.r,S.reqs[D.r]);render();toast('אישרת. הסידור עודכן.')},
+  'rq-no':D=>{const r=S.reqs[D.r];if(!r)return;S.reqs[D.r]={...r,status:'declined',respondedAt:Date.now()};S.reqVer++;save('requests/'+D.r,S.reqs[D.r]);render();toast('הבקשה נדחתה. המנהל יראה את זה.')},
   publish:()=>{S.sched={...S.sched,published:!S.sched.published};saveSched();render();toast(S.sched.published?'הסידור פורסם. העובדים רואים אותו בלשונית המשמרות שלי.':'הפרסום בוטל. העובדים לא רואים את הסידור.')},
-  clear:()=>{if(S.confirm!=='clear'){S.confirm='clear';render();return}S.confirm=null;S.sched={...S.sched,assign:{}};saveSched();render();toast('השיבוץ נוקה')},
+  clear:()=>{if(S.sched.published){toast('הסידור פורסם. כדי לנקות, בטלו קודם את הפרסום.');return}if(S.confirm!=='clear'){S.confirm='clear';render();return}S.confirm=null;S.sched={...S.sched,assign:{}};saveSched();render();toast('השיבוץ נוקה')},
   openweek:()=>{saveSettings({openWeek:S.week,availOpen:true});toast(`שבוע ${weekLabel(S.week)} פתוח עכשיו להגשת זמינות`)},
   lock:()=>saveSettings({availOpen:!cfg().availOpen}),
   send:()=>{S.drafts.send=null;S.sheet={type:'send'};render()},
@@ -889,14 +943,14 @@ const ACT={
   'emp-del':()=>{if(S.confirm!=='del'){S.confirm='del';render();return}const u=S.sheet.id;S.confirm=null;S.sheet=null;
     delete S.emps[u];delete S.mgr[u];delete S.avail[u];save('employees/'+u,null);save('mgr/'+u,null);save('avail/'+u,null);render();toast('העובד נמחק')},
   'av-t':D=>toggleAvail(D.u,D.id),
-  'day-all':D=>{const u=D.u;if(u===S.uid&&!S.admin&&!cfg().availOpen)return;
+  'day-all':D=>{const u=D.u;if(u===S.uid&&!S.admin&&availLocked())return;
     const cur=S.avail[u]||{},slots={...(cur.slots||{})},ids=myShiftsFor(u,S.week).filter(([,s])=>s.date===D.d).map(([id])=>id);
     const full=ids.every(id=>slots[id]);ids.forEach(id=>{if(full)delete slots[id];else slots[id]=true});
     writeAvail(u,slots,u===S.uid?String(dv('myav','note',cur.note||'')):(cur.note??''),S.week)},
-  'my-t':D=>{if(cfg().availOpen)toggleAvail(S.uid,D.id)},
-  'my-all':()=>{const a=S.avail[S.uid]||{};const slots={...(a.slots||{})};myShiftsFor(S.uid,S.week).forEach(([id])=>slots[id]=true);writeAvail(S.uid,slots,dv('myav','note',a.note||''),S.week)},
-  'my-none':()=>{const a=S.avail[S.uid]||{};const w=S.week,e=addDays(w,6)+'~';const slots={};Object.keys(a.slots||{}).forEach(k=>{if(!(k>=w&&k<=e))slots[k]=true});writeAvail(S.uid,slots,dv('myav','note',a.note||''),w)},
-  'my-send':()=>{const a=S.avail[S.uid]||{};const cnt=Object.keys(a.slots||{}).filter(k=>k>=S.week&&k<=addDays(S.week,6)+'~').length;
+  'my-t':D=>{if(!availLocked())toggleAvail(S.uid,D.id)},
+  'my-all':()=>{if(availLocked())return;const a=S.avail[S.uid]||{};const slots={...(a.slots||{})};myShiftsFor(S.uid,S.week).forEach(([id])=>slots[id]=true);writeAvail(S.uid,slots,dv('myav','note',a.note||''),S.week)},
+  'my-none':()=>{if(availLocked())return;const a=S.avail[S.uid]||{};const w=S.week,e=addDays(w,6)+'~';const slots={};Object.keys(a.slots||{}).forEach(k=>{if(!(k>=w&&k<=e))slots[k]=true});writeAvail(S.uid,slots,dv('myav','note',a.note||''),w)},
+  'my-send':()=>{if(availLocked())return;const a=S.avail[S.uid]||{};const cnt=Object.keys(a.slots||{}).filter(k=>k>=S.week&&k<=addDays(S.week,6)+'~').length;
     if(cnt&&String(dv('myav','maxw',a.maxw?.[S.week]??'')).trim()===''){toast('צריך לכתוב כמה משמרות לכל היותר אפשר לעבוד השבוע');const el=$('#my_maxw');if(el)el.focus();return}
     writeAvail(S.uid,{...(a.slots||{})},String(dv('myav','note',a.note||'')),S.week);S.drafts.myav=null;toast('הזמינות נשלחה למנהל')},
   'pf-dept':D=>{const e=S.emps[S.uid]||{};const cur=dv('pf','depts',e.depts||[]);(S.drafts.pf||(S.drafts.pf={})).depts=cur.includes(D.k)?cur.filter(k=>k!==D.k):[...cur,D.k];render()},
@@ -1043,6 +1097,10 @@ async function start(u){
   else{db.doc('avail/'+S.uid).onSnapshot(s=>{if(s.exists)S.avail[S.uid]=s.data();render()},onErr)}
   if(S.can.perms)db.collection('roles').onSnapshot(q=>{S.roles=docsMap(q);render()},onErr);
   if(S.isOwner)migrateHotelFields();
+  if(S.admin){const hs=visibleHotels().slice(0,30);db.collection('requests').where('hotel','in',hs).onSnapshot(q=>{S.reqs=docsMap(q);S.reqVer++;render()},onErr)}
+  else{let own={},hot={};const mix=()=>{S.reqs={...hot,...own};S.reqVer++;render()};
+    db.collection('requests').where('uid','==',S.uid).onSnapshot(q=>{own=docsMap(q);mix()},onErr);
+    db.collection('requests').where('hotel','==',S.hotel).where('status','==','approved').onSnapshot(q=>{hot=docsMap(q);mix()},()=>{})}
   subWeek();S.ready=true;render();checkJoinCodes();
 }
 (function boot(){

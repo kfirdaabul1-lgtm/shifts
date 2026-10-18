@@ -167,6 +167,21 @@ service cloud.firestore {
       allow write: if manages(schedHotel(id));
     }
 
+    // בקשות שינוי אחרי פרסום: המנהל שולח, העובד מאשר או דוחה. בקשה מאושרת נכנסת לסידור.
+    match /requests/{id} {
+      allow get: if signedIn() && (resource.data.uid == request.auth.uid || manages(resource.data.hotel)
+        || (isEmployee() && resource.data.hotel == myHotel() && resource.data.status == 'approved'));
+      allow list: if signedIn() && (resource.data.uid == request.auth.uid || shiftsAllHotels()
+        || (canShifts() && resource.data.hotel in roleHotels())
+        || (isEmployee() && resource.data.hotel == myHotel() && resource.data.status == 'approved'));
+      allow create: if manages(request.resource.data.hotel) && request.resource.data.status == 'pending';
+      allow update: if (manages(resource.data.hotel) && manages(request.resource.data.hotel))
+        || (signedIn() && resource.data.uid == request.auth.uid && resource.data.status == 'pending'
+            && request.resource.data.status in ['approved', 'declined']
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'respondedAt', 'reply']));
+      allow delete: if manages(resource.data.hotel);
+    }
+
     // ---------- הצעות מחיר לאירועים ----------
     // מבט מנכ״ל קורא הצעות והגדרות, בלי לשנות
     match /config/{id}    { allow read: if canEvents() || canCeo(); allow write: if canEvents(); }

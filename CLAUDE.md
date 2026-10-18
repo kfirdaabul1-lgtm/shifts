@@ -13,6 +13,7 @@ Owner: kfirdaabul1@gmail.com. The user writes in Hebrew and is not a developer: 
 
 ## Data model (Firestore)
 `hotels/{id}`, `settings/{hotelId}`, `employees/{uid}` (has `hotel`), `mgr/{uid}` (salary; has `hotel`), `avail/{uid}` (has `hotel`), `shifts/{date_dept_kind[_hotel]}` (has `hotel`), `schedule/{week[_hotel]}`, `roles/{uid}` ({apps:{shifts,events,perms,ceo}, hotels:[...]} — hotels empty = all; a legacy role without `apps` means shifts manager), `joinCodes/{code}` ({hotel}).
+Change requests after publishing: `requests/{id}` ({type:add|remove|change, uid, from, to, fromDesc, toDesc, hotel, week, status:pending|approved|declined|applied, note}). `asg()` applies approved requests on top of the published schedule; a manager's next `saveSched` bakes them in and marks them `applied`. While a week is published, managers can't edit assignments directly and employees can't change availability.
 Events: `config/main`, `quotes/{id}` (+ `versions/{v}`), `menus/{id}`, `contracts/{id}`.
 Permissions: owner = everything. `perms` holders may only grant apps/hotels they hold themselves (enforced in rules via `grantOk`/`existingOk`/`targetInScope`). Everyone must self-register with a hotel join code before they can be given permissions.
 Hotel `main` has no suffix in shift/schedule ids. Every record must carry `hotel` — the rules scope managers per hotel by it.

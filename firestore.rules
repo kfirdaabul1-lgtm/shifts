@@ -237,8 +237,8 @@ service cloud.firestore {
       // מנהל מחלקה משבץ, אבל לא מפרסם ולא מבטל פרסום
       allow write: if manages(schedHotel(id)) || (deptMgr(schedHotel(id))
         && request.resource.data.get('published', false) == (resource == null ? false : resource.data.get('published', false)))
-        // קבלה: רק נתוני 10days
-        || (frontIn(schedHotel(id)) && (resource == null
+        // קבלה ומנהל מלון: רק נתוני 10days
+        || ((frontIn(schedHotel(id)) || gmIn(schedHotel(id))) && (resource == null
               ? request.resource.data.get('assign', {}).size() == 0 && request.resource.data.get('published', false) == false
               : request.resource.data.diff(resource.data).affectedKeys().hasOnly(['daily', 'updatedAt'])));
     }

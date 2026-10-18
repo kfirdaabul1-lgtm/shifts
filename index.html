@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#132033">
-<script src="i18n.js?v=202610190053"></script>
+<script src="i18n.js?v=202610190108"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1003,7 +1003,7 @@ function vGm(){const hs=scopeHs();if(!hs.length)return wrap(emptyBox('אין מ�
   faultsSub(h);const fo=faultsOf(h).filter(([,f])=>f.status!=='done').sort(([,a],[,b])=>(a.openedAt||0)-(b.openedAt||0)),fl=fo.filter(([,f])=>faultLate(f)).length;
   const faultsCard=`<div class="card" style="${fl?'border-color:var(--bad)':''}"><div class="actions" style="justify-content:space-between;align-items:center"><h3 style="margin:0">תקלות פתוחות · ${fo.length}${fl?` <span class="pill bad">${fl} באיחור</span>`:''}</h3><button class="btn sm" data-act="app-maint">לעמוד האחזקה</button></div>
     ${fo.length?`<div class="plist">${fo.slice(0,12).map(([id,f])=>faultRowHTML(id,f,h,false)).join('')}</div>`:'<p class="muted">אין תקלות פתוחות.</p>'}</div>`;
-  return wrap(head+reqCard+faultsCard+`<div class="setgrid">${sched10}${events}${stock}</div>`+srListHTML(h,true));
+  return wrap(head+reqCard+recurCardHTML(faultsOf(h).map(([,f])=>f))+faultsCard+`<div class="setgrid">${sched10}${events}${stock}</div>`+srListHTML(h,true));
 }
 /* ---------- in-app alerts: badge on the menu, page title count, and a phone/browser notification while the site is open ---------- */
 // an item reached its minimum: quantity at or below the minimum set for it
@@ -1011,13 +1011,27 @@ const isLow=x=>+x.min>0&&(+x.qty||0)<=+x.min;
 const lowItems=()=>Object.entries(S.alertInv||{}).filter(([,x])=>isLow(x));
 function alertCount(){let n=myPending().length;
   if(S.can.gm||S.can.shifts||S.isOwner)n+=Object.values(S.alertPreqs||{}).filter(r=>r.status==='pending').length+lowItems().length;
+  if(S.can.maint)n+=recurRooms(Object.values(S.alertFaultsAll||{})).length;
   return n}
+// recurring fault: the same room had faults opened twice in 7 days or 3 times in 30 days
+function recurRooms(list){const now=Date.now(),D=864e5,by={};
+  for(const f of list){const r=String(f.room||'').trim();if(!r||!f.openedAt||now-f.openedAt>30*D)continue;(by[f.hotel+'|'+r]||(by[f.hotel+'|'+r]=[])).push(f)}
+  return Object.entries(by).map(([k,fs])=>{const w=fs.filter(f=>now-f.openedAt<=7*D).length,m=fs.length;return {key:k,hotel:k.split('|')[0],room:k.slice(k.indexOf('|')+1),w,m,fs:fs.sort((a,b)=>b.openedAt-a.openedAt)}}).filter(x=>x.w>=2||x.m>=3).sort((a,b)=>b.m-a.m)}
+function recurCardHTML(list){const rr=recurRooms(list);if(!rr.length)return '';
+  return `<div class="card" style="border-color:var(--bad)"><h3 style="color:var(--bad)">⚠ תקלות חוזרות · ${rr.length}</h3><p class="muted" style="font-size:.85rem">חדר שהיו בו 2 תקלות בשבוע או 3 תקלות בחודש. כדאי לבדוק את הסיבה ולא רק לתקן שוב.</p>
+  <div class="plist">${rr.map(x=>`<div class="prow" style="flex-wrap:wrap;border-color:var(--bad)"><span class="who"><b>חדר ${esc(x.room)}${scopeHs().length>1?' · '+esc(hotelName(x.hotel)):''}</b><small>${x.w} תקלות בשבוע האחרון · ${x.m} בחודש האחרון</small><small>${x.fs.map(f=>`${new Date(f.openedAt).toLocaleDateString('he-IL')}: ${esc(f.desc||'')}${f.status==='done'?' (תוקנה)':''}`).join(' · ')}</small></span><span class="pill bad">תקלה חוזרת</span></div>`).join('')}</div></div>`}
 function alertsSub(){if(S.live.alerts)return;S.live.alerts=true;
   if(S.can.gm||S.can.shifts||S.isOwner){const hs=scopeHs().slice(0,10);if(hs.length){S.db.collection('purchaseReqs').where('hotel','in',hs).where('status','==','pending').onSnapshot(q=>{S.alertPreqs=docsMap(q);alertTick()},()=>{});
     S.db.collection('inventory').where('hotel','in',hs).onSnapshot(q=>{S.alertInv=docsMap(q);alertTick()},()=>{});
-    S.db.collection('faults').where('hotel','in',hs).where('status','==','open').onSnapshot(q=>{S.alertFaults=docsMap(q);render()},()=>{})}}}
+  }}
+  // faults (all statuses): open count for managers, recurring rooms for managers and maintenance staff
+  if(S.can.maint){const hs=scopeHs().slice(0,10);if(hs.length)S.db.collection('faults').where('hotel','in',hs).onSnapshot(q=>{const all=docsMap(q);S.alertFaultsAll=all;S.alertFaults=Object.fromEntries(Object.entries(all).filter(([,f])=>f.status!=='done'));alertTick()},()=>{})}}
 function alertTick(){const n=alertCount(),prev=S.alertPrev??n;S.alertPrev=n;try{document.title=(n?`(${n}) `:'')+'Seven Collection'}catch(_){ }
   // items that just reached their minimum get their own notification (first load only records what is already low)
+  // a room that just became a recurring-fault room gets its own notification
+  if(S.can.maint&&S.alertFaultsAll){const rr=recurRooms(Object.values(S.alertFaultsAll)),firstR=!S.recSeen,freshR=rr.filter(x=>!(S.recSeen||new Set()).has(x.key));S.recSeen=new Set(rr.map(x=>x.key));
+    if(!firstR&&freshR.length){const t=freshR.map(x=>`חדר ${x.room} (${hotelName(x.hotel)})`).join(', ');toast('תקלה חוזרת: '+t);
+      if(window.Notification&&Notification.permission==='granted'){try{new Notification('Seven Collection · אחזקה',{body:'תקלה חוזרת: '+t,tag:'sc-recur'})}catch(_){ }}}}
   const low=lowItems(),first=!S.lowSeen;S.lowSeen=S.lowSeen||new Set();const fresh=low.filter(([id])=>!S.lowSeen.has(id));S.lowSeen=new Set(low.map(([id])=>id));
   if(!first&&fresh.length){const t=fresh.map(([,x])=>`${x.name} (${hotelName(x.hotel)}): ${+x.qty||0}${x.unit?' '+x.unit:''}`).join(', ');toast('הגיע למינימום במלאי: '+t);
     if(window.Notification&&Notification.permission==='granted'){try{new Notification('Seven Collection · מלאי',{body:'הגיע לרף המינימום: '+t,tag:'sc-low'})}catch(_){ }}}
@@ -1194,8 +1208,8 @@ function ageText(ms){const m=Math.max(0,Math.floor((Date.now()-ms)/60000)),d=Mat
   return d?`${d} ${d===1?'יום':'ימים'}${hh?` ו-${hh} ${hh===1?'שעה':'שעות'}`:''}`:hh?`${hh} ${hh===1?'שעה':'שעות'}`:'פחות משעה'}
 const faultLate=f=>f.status!=='done'&&f.due&&f.due<todayISO();
 const maintBoss=h=>S.isOwner||(S.can.shifts&&scopeHs().includes(h))||(S.can.gm&&scopeHs().includes(h));
-function faultRowHTML(id,f,h,full){const late=faultLate(f),dueTxt=f.due?`${f.due===todayISO()?'היום':'עד '+dm(f.due)}`:'עוד לא נקבע';
-  return `<div class="prow" style="flex-wrap:wrap${late?';border-color:var(--bad)':''}"><span class="who"><b>${f.room?`חדר ${esc(f.room)} · `:''}${esc(f.desc||'')}</b>
+function faultRowHTML(id,f,h,full){const rec=f.room&&recurRooms(faultsOf(h).map(([,x])=>x)).some(x=>x.room===String(f.room).trim()),late=faultLate(f),dueTxt=f.due?`${f.due===todayISO()?'היום':'עד '+dm(f.due)}`:'עוד לא נקבע';
+  return `<div class="prow" style="flex-wrap:wrap${late?';border-color:var(--bad)':''}"><span class="who"><b>${f.room?`חדר ${esc(f.room)} · `:''}${esc(f.desc||'')}${rec?' <span class="pill bad">תקלה חוזרת</span>':''}</b>
     <small>פתוחה ${ageText(f.openedAt||Date.now())} · נפתחה ${new Date(f.openedAt||0).toLocaleDateString('he-IL')}${f.openedByName?' · '+esc(f.openedByName):''}${f.source==='report'?' · מדוח משמרת':''}</small>
     <small style="${late?'color:var(--bad);font-weight:600':''}">תיקון: ${dueTxt}${late?' · באיחור':''}</small></span>
     ${full?`<span class="actions"><input type="date" data-fdue="${id}" data-h="${h}" value="${esc(f.due||'')}" style="width:auto" aria-label="תאריך תיקון" title="תאריך תיקון"><button class="btn sm pri" data-act="fault-done" data-id="${id}" data-h="${h}">${S.confirm==='fd:'+id?'לחיצה נוספת תסגור':'תוקן'}</button>${maintBoss(h)?`<button class="btn sm ghost" data-act="fault-del" data-id="${id}" data-h="${h}">${S.confirm==='fx:'+id?'לחיצה נוספת תמחק':'מחיקה'}</button>`:''}</span>`:`<span class="pill ${late?'bad':'warn'}">${late?'באיחור':'פתוחה'}</span>`}</div>`}
@@ -1214,7 +1228,7 @@ function vMaint(){const hs=scopeHs();if(!hs.length)return wrap(emptyBox('אין 
     <div><button class="btn pri" data-act="fault-add" data-h="${h}">פתיחת תקלה</button></div></div>`;
   const list=`<div class="card"><h3>תקלות פתוחות · ${open.length}</h3>${!F?'<p class="muted">טוען…</p>':open.length?`<div class="plist">${open.map(([id,f])=>faultRowHTML(id,f,h,true)).join('')}</div>`:'<p class="muted">אין תקלות פתוחות 🎉</p>'}</div>`;
   const closed=done.length?`<div class="card"><h3>תוקנו לאחרונה</h3><div class="plist">${done.slice(0,20).map(([,f])=>`<div class="prow"><span class="who"><b>${f.room?`חדר ${esc(f.room)} · `:''}${esc(f.desc||'')}</b><small>תוקנה ${new Date(f.doneAt||0).toLocaleDateString('he-IL')} · אחרי ${ageText(Date.now()-((f.doneAt||0)-(f.openedAt||0)))}${f.fixNote?' · '+esc(f.fixNote):''}</small></span><span class="pill ok">תוקנה</span></div>`).join('')}</div></div>`:'';
-  return wrap(head+form+list+closed)}
+  return wrap(head+recurCardHTML(all.map(([,f])=>f))+form+list+closed)}
 // shift-report faults open maintenance faults (once per hotel + room + description)
 async function faultsFromReport(h,rows,name){if(!rows.length)return;let open=[];try{open=(await S.db.collection('faults').where('hotel','==',h).where('status','==','open').get()).docs.map(d=>d.data())}catch(_){ }
   for(const r of rows){if(open.some(f=>String(f.room||'')===r.room&&String(f.desc||'').trim()===r.note))continue;

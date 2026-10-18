@@ -327,6 +327,7 @@ let toastT;function toast(m){const t=$('#toast');t.textContent=m;t.hidden=false;
 const dv=(f,k,fb)=>{const d=S.drafts[f];return d&&k in d?d[k]:fb};
 function onField(e){const f=e.target.dataset&&e.target.dataset.f;if(!f)return;const [form,key]=f.split('.');(S.drafts[form]||(S.drafts[form]={}))[key]=e.target.type==='checkbox'?e.target.checked:e.target.value;
   if(form==='set'){if(e.target.type==='checkbox'){if(e.type==='change')render()}else S.pending=true}}
+document.addEventListener('change',e=>{if(e.target.id==='pm_hotel'&&S.drafts.perm){S.drafts.perm.hotel=e.target.value;e.target.blur();render()}});
 document.addEventListener('input',onField);document.addEventListener('change',onField);
 const isTyping=()=>{const a=document.activeElement;return a&&['INPUT','TEXTAREA','SELECT'].includes(a.tagName)&&!['checkbox','radio'].includes(a.type)};
 document.addEventListener('focusout',()=>setTimeout(()=>{if(S.pending&&!isTyping())render()},0));
@@ -711,9 +712,9 @@ function sheetEmp(){
   ${manual&&!isNew?`<div class="sep"></div><h3>זמינות לשבוע ${weekLabel(S.week)}</h3>${slotsHTML(u,S.week,false,'av-t')}`:''}`;
 }
 function appLink(){return (CFG.appUrl||'').trim()||(location.origin+location.pathname)}
-function composeMsg(){const c=cfg(),dl=dv('send','deadline',c.deadline);
+function composeMsg(){const c={...cfg(),joinCode:validCode()},dl=dv('send','deadline',c.deadline);
   return `שלום לכולם,\nהגשת הזמינות ב${hotelName(S.hotel)} לשבוע ${weekLabel(openWeek())} פתוחה.\nנא לסמן את כל המשמרות שאתם יכולים לעבוד${dl?` עד ${dl}`:''}.\n${appLink()}\nעובד חדש? נכנסים לקישור, מתחברים${c.joinCode?` ומקלידים את קוד ההצטרפות: ${c.joinCode}`:'.'}`}
-function sheetSend(){const c=cfg();
+function sheetSend(){const c={...cfg(),joinCode:validCode()};
   return sheetHead('שליחה לעובדים',`הגשת זמינות לשבוע ${weekLabel(openWeek())}`)+
   `${c.joinCode?'':'<div class="notice">עוד אין קוד הצטרפות למלון הזה, אז עובדים חדשים לא יוכלו להירשם. יוצרים קוד בלשונית הגדרות.</div>'}
   <label class="f">עד מתי להגיש<input type="text" id="s_dl" data-f="send.deadline" value="${esc(dv('send','deadline',c.deadline))}" placeholder="למשל: יום רביעי ב-18:00"></label>
@@ -746,7 +747,18 @@ function vRegister(){const g=k=>dv('reg',k,''),depts=dv('reg','depts',[]);
     <div><button class="btn pri" data-act="reg-save">הצטרפות</button></div>
   </div>
   <p class="muted" style="font-size:.85rem">מחובר/ת בתור <span dir="ltr">${esc(S.email||S.phone||'')}</span> · <button class="linkbtn" data-act="logout">החלפת חשבון</button></p>`)}
-function joinCodeHTML(){const c=cfg();
+// join codes: settings/{hotel}.joinCode must point back to that hotel in joinCodes/{code}
+S.jc={};
+function validCode(h=S.hotel){const c=(S.settingsAll[h]||{}).joinCode;if(!c)return '';const v=S.jc[c];return v===undefined||v==='pending'||v===h?c:''}
+function checkJoinCodes(){if(!S.admin)return;
+  const fix=()=>{for(const h of visibleHotels()){const c=(S.settingsAll[h]||{}).joinCode;if(c&&S.jc[c]!==undefined&&S.jc[c]!=='pending'&&S.jc[c]!==h)repairJoinCode(h)}render()};
+  for(const h of visibleHotels()){const c=(S.settingsAll[h]||{}).joinCode;if(!c||c in S.jc)continue;S.jc[c]='pending';
+    S.db.doc('joinCodes/'+c).get().then(d=>{S.jc[c]=d.exists?(d.data().hotel||'main'):null;fix()}).catch(()=>{delete S.jc[c]})}
+  fix()}
+function repairJoinCode(h){const code=randCode();S.jc[code]=h;save('joinCodes/'+code,{hotel:h,createdAt:Date.now()});
+  S.settingsAll[h]={...(S.settingsAll[h]||{}),joinCode:code};save('settings/'+h,S.settingsAll[h]);
+  toast(`קוד ההצטרפות של ${hotelName(h)} היה שייך למלון אחר. נוצר לו קוד חדש: ${code}`)}
+function joinCodeHTML(){const c={...cfg(),joinCode:validCode()};
   return `<div class="sep"></div><h3>קוד הצטרפות לעובדים</h3>
   <p class="muted" style="font-size:.85rem">עובד חדש נכנס לאפליקציה, מתחבר ומקליד את הקוד, וכך הוא משויך ל${esc(hotelName(S.hotel))}. אפשר להחליף קוד בכל זמן, והקוד הישן מפסיק לעבוד.</p>
   <div class="actions" style="align-items:center">${c.joinCode?`<b class="code">${esc(c.joinCode)}</b>`:'<span class="muted">עוד אין קוד</span>'}<button class="btn" data-act="join-new">${c.joinCode?'החלפת קוד':'יצירת קוד'}</button></div>`}
@@ -784,7 +796,10 @@ function sheetPerm(){
   const u=S.sheet.id,e=S.emps[u];if(!e)return '';const r=S.roles[u],mine=myApps(),hs=grantableHotels();
   const d=S.drafts.perm||(S.drafts.perm={apps:{...roleApps(r)},hotels:[...((r&&r.hotels)||(allHotelsP()?[]:[e.hotel||'main']))]});
   const outside=r&&!allHotelsP()&&!(r.hotels||[]).length;
+  // moving someone between hotels needs shift-manager rights over both hotels
+  const canMove=S.can.shifts&&hs.includes(e.hotel||'main')&&hs.length>1,curH=d.hotel||e.hotel||'main';
   return sheetHead(esc(e.name||'עובד'),`${esc(hotelName(e.hotel||'main'))}${e.title?' · '+esc(e.title):''}`)+
+  (canMove?`<label class="f">מלון<select id="pm_hotel">${hs.map(h=>`<option value="${h}" ${h===curH?'selected':''}>${esc(hotelName(h))}</option>`).join('')}</select></label>${curH!==(e.hotel||'main')?`<div class="notice">${esc(e.name||'העובד')} יעבור מ${esc(hotelName(e.hotel||'main'))} ל${esc(hotelName(curH))}. הוא יראה את המשמרות והצוות של המלון החדש, והשכר שלו יירשם שם. שיבוצים שכבר נקבעו במלון הקודם נשארים.</div>`:''}`:'')+
   (outside?'<div class="notice">לאדם הזה יש הרשאה לכל המלונות, ורק מי שמנהל את כל המלונות יכול לשנות אותה.</div>':'')+
   `<div class="plist">${APPS.map(([k,n,desc])=>`<label class="prow" style="cursor:${mine[k]?'pointer':'default'}"><span class="who"><b>${n}</b><small>${mine[k]?desc:'אין לך את ההרשאה הזו, ולכן אי אפשר לתת אותה'}</small></span><input type="checkbox" id="pa_${k}" data-act="perm-app" data-k="${k}" ${d.apps[k]?'checked':''} ${mine[k]&&!outside?'':'disabled'}></label>`).join('')}</div>
   ${d.apps.shifts?`<div class="f"><span>מנהל סידור במלונות: <span class="muted">${allHotelsP()?'(בלי בחירה = כל המלונות)':'(לפחות מלון אחד)'}</span></span><div class="chips" style="gap:6px">${hs.map(h=>`<button class="hchip" data-act="perm-hotel" data-h="${h}" aria-pressed="${d.hotels.includes(h)}" ${outside?'disabled':''}>${esc(hotelName(h))}</button>`).join('')}</div></div>`:''}
@@ -800,7 +815,7 @@ function subWeek(){S.unsub.forEach(f=>f());S.unsub=[];const w=S.week;
   S.unsub.push(S.db.collection('shifts').where('date','>=',w).where('date','<=',addDays(w,6)).onSnapshot(q=>{S.shifts=Object.fromEntries(q.docs.map(d=>[d.id,d.data()]));render()},onErr));
   for(const h of hotelIds())S.unsub.push(S.db.doc(schedPath(w,h)).onSnapshot(s=>{S.scheds[h]=s.exists?{assign:{},...s.data()}:{assign:{},published:false};render()},onErr));
   S.subKey=hotelIds().join(',')}
-function setHotel(h){S.hotel=h;try{localStorage.setItem('hs_hotel',h)}catch(_){ }S.dept='all';S.sheet=null;S.confirm=null;['set','cost','send','times'].forEach(k=>S.drafts[k]=null);render();window.scrollTo(0,0)}
+function setHotel(h){S.hotel=h;setTimeout(checkJoinCodes,0);try{localStorage.setItem('hs_hotel',h)}catch(_){ }S.dept='all';S.sheet=null;S.confirm=null;['set','cost','send','times'].forEach(k=>S.drafts[k]=null);render();window.scrollTo(0,0)}
 function setAssign(id,list){S.sched={...S.sched,assign:{...(S.sched.assign||{}),[id]:list}};saveSched();render()}
 function persistSend(){const c=cfg(),d=S.drafts.send||{};const p={};if('link' in d&&d.link!==c.shareLink)p.shareLink=d.link.trim();if('deadline' in d&&d.deadline!==c.deadline)p.deadline=d.deadline.trim();if(Object.keys(p).length)saveSettings(p)}
 const ACT={
@@ -814,7 +829,7 @@ const ACT={
   'hotel-add':()=>{const name=String(dv('nh','name','')).trim();if(!name){toast('צריך לכתוב שם למלון החדש');return}
     if(!S.hotels.main){S.hotels.main={name:hotelName('main'),createdAt:1};save('hotels/main',S.hotels.main)}
     const id='h'+Math.random().toString(36).slice(2,10);S.hotels[id]={name,createdAt:Date.now()};save('hotels/'+id,S.hotels[id]);
-    const base={...cfg()};delete base.openWeek;S.settingsAll[id]={...base,hotelName:name,openWeek:openWeek()};save('settings/'+id,S.settingsAll[id]);
+    const base={...cfg()};delete base.openWeek;delete base.joinCode;S.settingsAll[id]={...base,hotelName:name,openWeek:openWeek()};save('settings/'+id,S.settingsAll[id]);
     S.drafts.nh=null;subWeek();setHotel(id);toast(`${name} נוסף. עכשיו אתה עובד על המלון החדש.`)},
   'as-add':D=>setAssign(D.id,[...asg(D.id),D.u]),
   'as-rm':D=>setAssign(D.id,asg(D.id).filter(u=>u!==D.u)),
@@ -873,10 +888,15 @@ const ACT={
   'perm-save':()=>{const u=S.sheet.id,d=S.drafts.perm,e=S.emps[u];if(!d||!e)return;const mine=myApps();
     const apps={};for(const [k] of APPS)if(d.apps[k]&&mine[k])apps[k]=true;
     const hotels=d.hotels.filter(h=>grantableHotels().includes(h));
-    if(!Object.keys(apps).length){delete S.roles[u];save('roles/'+u,null)}
+    let moved='';const from=e.hotel||'main';
+    if(d.hotel&&d.hotel!==from&&S.can.shifts&&grantableHotels().includes(d.hotel)){const to=d.hotel;moved=to;
+      S.emps[u]={...e,hotel:to};save('employees/'+u,S.emps[u]);
+      if(S.mgr[u]){S.mgr[u]={...S.mgr[u],hotel:to};save('mgr/'+u,S.mgr[u])}
+      if(S.avail[u]){S.avail[u]={...S.avail[u],hotel:to};save('avail/'+u,S.avail[u])}}
+    if(!Object.keys(apps).length){if(S.roles[u]){delete S.roles[u];save('roles/'+u,null)}}
     else{if(!allHotelsP()&&!hotels.length){toast('צריך לבחור לפחות מלון אחד');return}
       const doc={apps,hotels:allHotelsP()?hotels:hotels,name:e.name||'',updatedBy:S.uid,updatedAt:Date.now()};S.roles[u]=doc;save('roles/'+u,doc)}
-    S.sheet=null;S.drafts.perm=null;render();toast(`ההרשאות של ${e.name||'העובד'} נשמרו`)},
+    S.sheet=null;S.drafts.perm=null;render();toast(moved?`${e.name||'העובד'} הועבר ל${hotelName(moved)}`:`ההרשאות של ${e.name||'העובד'} נשמרו`)},
   'bg-close':(D,t,e)=>{if(e.target===t)ACT.close()},
 };
 document.addEventListener('click',e=>{const t=e.target.closest('[data-act]');if(!t)return;const f=ACT[t.dataset.act];if(!f)return;
@@ -941,7 +961,7 @@ Object.assign(ACT,{
     if(!jc||!jc.exists){toast('הקוד לא נמצא. בדקו אותו מול המנהל.');return}
     const doc={name,phone:String(d.phone??S.phone??'').trim(),title:String(d.title||'').trim(),want:d.want||'',depts,hotel:jc.data().hotel||'main',joinCode:code,manual:false,createdAt:Date.now()};
     try{await S.db.doc('employees/'+S.uid).set(doc);toast('נרשמת! טוען…');setTimeout(()=>location.reload(),800)}catch(e){toast(errMsg(e))}},
-  'join-new':()=>{const code=randCode(),old=cfg().joinCode;save('joinCodes/'+code,{hotel:S.hotel,createdAt:Date.now()});if(old)save('joinCodes/'+old,null);saveSettings({joinCode:code});toast('קוד ההצטרפות החדש: '+code)},
+  'join-new':()=>{const code=randCode(),old=cfg().joinCode;S.jc[code]=S.hotel;save('joinCodes/'+code,{hotel:S.hotel,createdAt:Date.now()});if(old&&S.jc[old]===S.hotel)save('joinCodes/'+old,null);saveSettings({joinCode:code});toast('קוד ההצטרפות החדש: '+code)},
   import:async()=>{const f=$('#imp_file')&&$('#imp_file').files&&$('#imp_file').files[0];if(!f){toast('בחרו קודם את הקובץ');return}
     let j;try{j=JSON.parse(await f.text())}catch(_){toast('הקובץ לא תקין');return}
     const cols=j&&j.collections;if(!cols){toast('זה לא נראה כמו קובץ ייבוא');return}
@@ -989,7 +1009,7 @@ async function start(u){
   else{db.doc('avail/'+S.uid).onSnapshot(s=>{if(s.exists)S.avail[S.uid]=s.data();render()},onErr)}
   if(S.can.perms)db.collection('roles').onSnapshot(q=>{S.roles=docsMap(q);render()},onErr);
   if(S.isOwner)migrateHotelFields();
-  subWeek();S.ready=true;render();
+  subWeek();S.ready=true;render();checkJoinCodes();
 }
 (function boot(){
   render();

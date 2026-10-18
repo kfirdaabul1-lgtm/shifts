@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#132033">
-<title>סידור עבודה</title>
+<title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500&family=IBM+Plex+Sans+Hebrew:wght@400;500;600&family=Suez+One&display=swap">
@@ -322,7 +322,7 @@ function renderTop(){
   const tabs=S.admin?[['sched','סידור'],['shifts','משמרות פתוחות'],['staff','עובדים'],['costs','עלויות'],['settings','הגדרות']]:[['avail','הזמינות שלי'],['mine','המשמרות שלי'],['profile','הפרופיל שלי']];
   const nav=S.ready&&!S.registering&&S.auth==='in'&&S.week&&S.tab!=='settings'&&S.tab!=='perms'&&!(!S.admin&&(S.tab==='avail'||S.tab==='profile'));
   $('#top').innerHTML=`${appBarHTML()}<div class="wrap top-in">
-    <div class="brand"><span class="mark">${BELL}</span><div><div class="b1">סידור עבודה</div><div class="b2">${S.auth==='in'&&!S.registering?`${esc(hotelName(S.hotel))} · ${S.admin?'ממשק מנהל':'ממשק עובד'} · `:''}${S.auth==='in'?'<button class="linkbtn" data-act="logout">יציאה</button>':''}</div></div></div>
+    <div class="brand"><span class="mark">${BELL}</span><div><div class="b1">Seven Collection</div><div class="b2">${S.auth==='in'&&!S.registering?`${esc(hotelName(S.hotel))} · ${S.admin?'ממשק מנהל':'ממשק עובד'} · `:''}${S.auth==='in'?'<button class="linkbtn" data-act="logout">יציאה</button>':''}</div></div></div>
     ${nav?`<div class="weeknav"><button data-act="week" data-d="-7" aria-label="שבוע קודם">›</button><div class="wk"><span class="wk-l">שבוע</span><b class="mono">${weekLabel(S.week)}</b></div><button data-act="week" data-d="7" aria-label="שבוע הבא">‹</button></div>`:''}
   </div>
   ${S.ready&&S.admin&&S.tab!=='perms'&&visibleHotels().length>1?`<div class="wrap hotels" role="group" aria-label="בחירת מלון">${visibleHotels().map(h=>`<button class="hchip" data-act="hotel" data-h="${h}" aria-pressed="${h===S.hotel}">${esc(hotelName(h))}</button>`).join('')}</div>`:''}
@@ -697,9 +697,14 @@ function sheetSend(){const c=cfg();
 
 /* ---------- login, registration, roles, join codes, import ---------- */
 function vLogin(){const ph=!!CFG.enablePhone;
-  return wrap(`<section class="head" style="max-width:440px;width:100%;margin-inline:auto;padding-top:24px"><h1>כניסה לסידור העבודה</h1><p class="lede">לעובדים ולמנהלים. עובד חדש? אחרי הכניסה מקלידים את קוד ההצטרפות שקיבלתם מהמנהל.</p></section>
+  return wrap(`<section class="head" style="max-width:440px;width:100%;margin-inline:auto;padding-top:24px"><h1>כניסה ל-Seven Collection</h1><p class="lede">לעובדים ולמנהלים. עובד חדש? אחרי הכניסה מקלידים את קוד ההצטרפות שקיבלתם מהמנהל.</p></section>
   <div class="card" style="max-width:440px;width:100%;margin-inline:auto">
+    ${S.loginMsg?`<div class="notice">${S.loginMsg==='blocked'?'הדפדפן חסם את חלון הכניסה של Google. לחצו שוב על הכפתור, או היכנסו עם קישור למייל.':'הדפדפן לא מאפשר את הכניסה עם Google (למשל בגלישה בסתר). היכנסו עם קישור למייל, או פתחו את האתר בלשונית רגילה.'}</div>`:''}
     <button class="btn pri" style="justify-content:center;padding:12px" data-act="login-google">כניסה עם Google</button>
+    <div class="sep"></div>
+    ${S.needEmail?`<label class="f">כדי לסיים את הכניסה, הקלידו שוב את המייל שאליו נשלח הקישור<input type="email" id="lg_email2" data-f="login.email2" dir="ltr" autocomplete="email"></label><button class="btn pri" data-act="email-finish">סיום הכניסה</button>`
+      :S.emailSent?`<div class="notice">שלחנו קישור כניסה ל-<bdi>${esc(S.emailSent)}</bdi>. פותחים את המייל בטלפון ולוחצים על הקישור. לא הגיע? בדקו בספאם.</div><button class="linkbtn" data-act="email-again">שליחה לכתובת אחרת</button>`
+      :`<label class="f">או כניסה עם קישור למייל, בלי סיסמה<input type="email" id="lg_email" data-f="login.email" dir="ltr" autocomplete="email" placeholder="name@gmail.com" value="${esc(dv('login','email',''))}"></label><button class="btn" data-act="email-send">שליחת קישור כניסה</button>`}
     ${ph?`<div class="sep"></div>${S.phoneSent?`<label class="f">הקוד שקיבלת ב-SMS<input type="text" id="lg_code" inputmode="numeric" autocomplete="one-time-code" data-f="login.code" dir="ltr"></label><button class="btn" data-act="phone-verify">כניסה</button>`:`<label class="f">או כניסה עם מספר טלפון<input type="tel" id="lg_phone" data-f="login.phone" dir="ltr" placeholder="050-1234567" value="${esc(dv('login','phone',''))}"></label><button class="btn" data-act="phone-send">שליחת קוד ב-SMS</button>`}`:''}
     <p class="muted" style="font-size:.8rem">אם הכניסה לא נפתחת, פתחו את הקישור בדפדפן עצמו (Chrome או Safari) ולא מתוך אפליקציה אחרת.</p>
   </div>`)}
@@ -879,11 +884,22 @@ function makeDB(){return {
 function normPhone(p){p=String(p||'').replace(/[^\d+]/g,'');if(p.startsWith('+'))return p.length>8?p:'';if(p.startsWith('972'))return '+'+p;if(p.startsWith('0')&&p.length>=9)return '+972'+p.slice(1);return ''}
 function randCode(){const ch='ABCDEFGHJKLMNPQRSTUVWXYZ23456789',a=new Uint32Array(6);crypto.getRandomValues(a);return [...a].map(x=>ch[x%ch.length]).join('')}
 async function loginGoogle(){const pr=new firebase.auth.GoogleAuthProvider();pr.setCustomParameters({prompt:'select_account'});
-  try{await fauth.signInWithPopup(pr)}
-  catch(e){if(['auth/popup-blocked','auth/operation-not-supported-in-this-environment','auth/cancelled-popup-request'].includes(e.code)){try{await fauth.signInWithRedirect(pr)}catch(e2){toast('הכניסה לא הצליחה ('+(e2.code||'')+')')}}
+  // popup only: the redirect flow fails on iPhone/Safari because the site and the sign-in domain differ
+  try{S.loginMsg=null;await fauth.signInWithPopup(pr)}
+  catch(e){if(['auth/popup-blocked','auth/cancelled-popup-request'].includes(e.code)){S.loginMsg='blocked';render()}
+    else if(['auth/operation-not-supported-in-this-environment','auth/web-storage-unsupported','auth/internal-error','auth/network-request-failed'].includes(e.code)){S.loginMsg='storage';render()}
     else if(e.code!=='auth/popup-closed-by-user')toast('הכניסה לא הצליחה ('+(e.code||'')+')')}}
+async function finishEmailLink(em){
+  try{await fauth.signInWithEmailLink(em,location.href);try{localStorage.removeItem('emailForSignIn')}catch(_){ }history.replaceState(null,'',location.pathname)}
+  catch(e){history.replaceState(null,'',location.pathname);S.needEmail=false;render();
+    toast(e.code==='auth/invalid-action-code'||e.code==='auth/expired-action-code'?'הקישור כבר נוצל או שפג תוקפו. שלחו קישור חדש.':e.code==='auth/invalid-email'?'המייל לא תואם לקישור. שלחו קישור חדש.':'הכניסה עם הקישור נכשלה ('+(e.code||'')+')')}}
 Object.assign(ACT,{
   'login-google':()=>loginGoogle(),
+  'email-send':async()=>{const em=String(dv('login','email','')).trim();if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)){toast('כתובת המייל לא תקינה');return}
+    try{await fauth.sendSignInLinkToEmail(em,{url:location.origin+location.pathname,handleCodeInApp:true});try{localStorage.setItem('emailForSignIn',em)}catch(_){ }S.emailSent=em;render()}
+    catch(e){toast(e.code==='auth/operation-not-allowed'?'הכניסה עם מייל עוד לא הופעלה במערכת. פנו למנהל.':'שליחת הקישור נכשלה ('+(e.code||'')+')')}},
+  'email-again':()=>{S.emailSent=null;render()},
+  'email-finish':()=>{const em=String(dv('login','email2','')).trim();if(em)finishEmailLink(em)},
   'phone-send':async()=>{const ph=normPhone(dv('login','phone',''));if(!ph){toast('מספר הטלפון לא תקין');return}
     try{S.recaptcha=S.recaptcha||new firebase.auth.RecaptchaVerifier('recaptcha',{size:'invisible'});S.confirmRes=await fauth.signInWithPhoneNumber(ph,S.recaptcha);S.phoneSent=true;render()}
     catch(e){toast('שליחת הקוד נכשלה ('+(e.code||'')+')')}},
@@ -954,7 +970,8 @@ async function start(u){
   if(!window.firebase||!fc.apiKey||String(fc.apiKey).includes('PASTE')){S.noCfg=true;render();return}
   firebase.initializeApp(fc);fdb=firebase.firestore();try{fdb.settings({ignoreUndefinedProperties:true})}catch(_){ }
   fauth=firebase.auth();fauth.languageCode='he';
-  fauth.getRedirectResult().catch(e=>toast('הכניסה לא הצליחה ('+(e.code||'')+')'));
+  fauth.getRedirectResult().catch(()=>{ });
+  if(fauth.isSignInWithEmailLink(location.href)){let em='';try{em=localStorage.getItem('emailForSignIn')||''}catch(_){ }if(em)finishEmailLink(em);else S.needEmail=true}
   let started=false;
   fauth.onAuthStateChanged(u=>{if(u&&!started){started=true;start(u)}else if(!u){if(started)location.reload();else{S.auth='out';render()}}});
 })();

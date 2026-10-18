@@ -1,4 +1,4 @@
-# Hotel shift scheduler — notes for Claude
+# Seven Collection (hotel shift scheduler + event quotes) — notes for Claude
 
 Live site: https://kfirdaabul1-lgtm.github.io/shifts/ (GitHub Pages, deploys from `main` root on every push).
 Owner: kfirdaabul1@gmail.com. The user writes in Hebrew and is not a developer: make the change, push to `main`, and tell them in plain Hebrew what changed. Do not ask them to upload files.
@@ -22,6 +22,9 @@ Hotel `main` has no suffix in shift/schedule ids. Every record must carry `hotel
 - `computeCost` (pay types: hourly, global, cash, volunteer; breaks via `paidHrs`; housing deducted from net).
 - `autoAssign` (never borrows from other hotels).
 - `start()` / `boot()` at the bottom: auth, role detection, subscriptions (scoped managers query with `where('hotel','in',…)`).
+
+## Sign-in
+Google uses `signInWithPopup` only — never add a redirect fallback: redirect breaks on iPhone/Safari because the site (github.io) and authDomain (firebaseapp.com) differ. Email-link sign-in (`sendSignInLinkToEmail`) is the fallback; it needs Email/Password + Email link enabled in Firebase Authentication.
 
 ## Before pushing
 Run `node --check` on the extracted script and keep `esc()` around any user-entered text inserted into HTML.

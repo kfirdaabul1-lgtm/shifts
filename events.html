@@ -13,12 +13,12 @@
 .evgate p{margin:0;color:var(--muted)}
 </style>
 <nav class="appbar" aria-label="אפליקציות"><div class="appbar-in">
-  <a href="./">סידור עבודה</a><a href="events.html" aria-current="page">הצעות מחיר</a><a href="./#perms" id="abPerms" hidden>הרשאות</a>
+  <b style="font-family:var(--f-display);font-size:15px;padding-inline-end:10px;white-space:nowrap">Seven Collection</b><a href="./">סידור עבודה</a><a href="events.html" aria-current="page">הצעות מחיר</a><a href="./#perms" id="abPerms" hidden>הרשאות</a>
   <span class="sp"></span><span class="who" id="abUser"></span><button id="abOut" hidden>יציאה</button>
 </div></nav>
 <div class="evgate" id="evGate"><div class="card"><p>טוען…</p></div></div>
 <div id="recaptcha"></div>
-<title>הצעות מחיר לאירועים</title>
+<title>הצעות מחיר · Seven Collection</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&family=Assistant:wght@400;500;600;700&display=swap">
 <style>
@@ -892,14 +892,29 @@ const D = &lt;?!= dJson ?&gt;, S = &lt;?!= sJson ?&gt;;
     auth.getRedirectResult().catch(e=>console.warn(e));
     async function login(){const pr=new firebase.auth.GoogleAuthProvider();pr.setCustomParameters({prompt:'select_account'});
       try{await auth.signInWithPopup(pr)}catch(e){
-        if(['auth/popup-blocked','auth/operation-not-supported-in-this-environment','auth/cancelled-popup-request'].includes(e.code)){try{await auth.signInWithRedirect(pr)}catch(_){ }}
-        else if(e.code!=='auth/popup-closed-by-user')alert('הכניסה לא הצליחה ('+(e.code||'')+')')}}
+        const m=document.getElementById('gMsg');
+        if(['auth/popup-blocked','auth/cancelled-popup-request'].includes(e.code)){if(m){m.hidden=false;m.textContent='הדפדפן חסם את חלון הכניסה של Google. לחצו שוב על הכפתור, או היכנסו עם קישור למייל.'}}
+        else if(e.code!=='auth/popup-closed-by-user'){if(m){m.hidden=false;m.textContent='הכניסה עם Google לא הצליחה בדפדפן הזה. היכנסו עם קישור למייל.'}}}}
+    async function finishLink(em){try{await auth.signInWithEmailLink(em,location.href);try{localStorage.removeItem('emailForSignIn')}catch(_){ }history.replaceState(null,'',location.pathname)}
+      catch(e){history.replaceState(null,'',location.pathname);alert('הכניסה עם הקישור נכשלה. שלחו קישור חדש.');location.reload()}}
+    let needEmail=false;
+    if(auth.isSignInWithEmailLink(location.href)){let em='';try{em=localStorage.getItem('emailForSignIn')||''}catch(_){ }if(em)finishLink(em);else needEmail=true}
+    function wireEmail(){
+      const send=document.getElementById('gSend');if(send)send.addEventListener('click',async()=>{const em=document.getElementById('gEmail').value.trim();
+        if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)){alert('כתובת המייל לא תקינה');return}
+        try{await auth.sendSignInLinkToEmail(em,{url:location.origin+location.pathname,handleCodeInApp:true});try{localStorage.setItem('emailForSignIn',em)}catch(_){ }
+          document.getElementById('gEmailBox').innerHTML='<p>שלחנו קישור כניסה ל-<bdi>'+esc(em)+'</bdi>. פותחים את המייל ולוחצים על הקישור. לא הגיע? בדקו בספאם.</p>'}
+        catch(e){alert(e.code==='auth/operation-not-allowed'?'הכניסה עם מייל עוד לא הופעלה במערכת. פנו למנהל.':'שליחת הקישור נכשלה ('+(e.code||'')+')')}});
+      const fin=document.getElementById('gFinish');if(fin)fin.addEventListener('click',()=>{const em=document.getElementById('gEmail2').value.trim();if(em)finishLink(em)});
+    }
     document.getElementById('abOut').addEventListener('click',async()=>{try{await auth.signOut()}catch(_){ }location.reload()});
     let started=false,sawOut=false;
     auth.onAuthStateChanged(async u=>{
       if(!u){if(started){location.reload();return}sawOut=true;
-        showGate('<h1>הצעות מחיר לאירועים</h1><p>נכנסים עם אותו חשבון Google של סידור העבודה.</p><button class="btn pri" id="gLogin" style="padding:12px">כניסה עם Google</button><p style="font-size:13px">אם הכניסה לא נפתחת, פתחו את הקישור בדפדפן עצמו (Chrome או Safari).</p>');
-        document.getElementById('gLogin').addEventListener('click',login);resolveReady();return}
+        showGate('<h1>'+esc(CFG.appName||'Seven Collection')+'</h1><p>הצעות מחיר לאירועים. נכנסים עם אותו חשבון של סידור העבודה.</p><p id="gMsg" hidden style="color:var(--warn)"></p><button class="btn pri" id="gLogin" style="padding:12px">כניסה עם Google</button>'
+          +'<div id="gEmailBox">'+(needEmail?'<label class="f">כדי לסיים את הכניסה, הקלידו שוב את המייל<input type="email" id="gEmail2" dir="ltr"></label><button class="btn pri" id="gFinish">סיום הכניסה</button>'
+          :'<label class="f">או כניסה עם קישור למייל, בלי סיסמה<input type="email" id="gEmail" dir="ltr" placeholder="name@gmail.com"></label><button class="btn" id="gSend">שליחת קישור כניסה</button>')+'</div>');
+        document.getElementById('gLogin').addEventListener('click',login);wireEmail();resolveReady();return}
       if(sawOut){location.reload();return}
       if(started)return;started=true;ctx.user=u;
       const email=String(u.email||'').toLowerCase();

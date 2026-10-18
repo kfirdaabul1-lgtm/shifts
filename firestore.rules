@@ -1,13 +1,16 @@
 rules_version = '2';
 
-// כללי האבטחה של מסד הנתונים.
+// כללי האבטחה של מסד הנתונים (סידור עבודה + הצעות מחיר + הרשאות).
 // מדביקים את כל הקובץ ב-Firebase Console ← Firestore Database ← Rules ← Publish.
 // המייל בפונקציה ownerEmail חייב להיות זהה ל-ownerEmail בקובץ config.js.
 //
 // מי רואה מה:
 //  - בעל המערכת: הכל.
-//  - מנהל: רק המלונות שבעל המערכת שייך לו (בלי שיוך = כל המלונות). שכר, זמינות והגדרות של מלון אחר חסומים.
-//  - עובד: הפרטים שלו, הזמינות שלו, הצוות והמשמרות של המלון שלו. אף פעם לא שכר.
+//  - לכל אדם אחר יש מסמך הרשאות (roles) עם רשימת מלונות ושלוש אפליקציות:
+//      shifts = ניהול סידור עבודה במלונות שלו (בלי מלונות = כולם)
+//      events = הצעות מחיר לאירועים
+//      perms  = ניהול הרשאות: נותן לאחרים רק אפליקציות ומלונות שיש לו בעצמו
+//  - עובד בלי הרשאות: הפרטים, הזמינות והמשמרות שלו והצוות של המלון שלו. אף פעם לא שכר.
 //  - מי שלא מחובר: כלום.
 
 service cloud.firestore {
@@ -23,18 +26,29 @@ service cloud.firestore {
         && request.auth.token.email.lower() == ownerEmail();
     }
 
-    // מנהלים
+    // ---------- הרשאות ----------
     function hasRole() {
       return signedIn() && exists(/databases/$(database)/documents/roles/$(request.auth.uid));
     }
-    function roleHotels() {
-      return get(/databases/$(database)/documents/roles/$(request.auth.uid)).data.get('hotels', []);
+    function roleData() {
+      return get(/databases/$(database)/documents/roles/$(request.auth.uid)).data;
     }
-    function isManager() { return isOwner() || hasRole(); }
-    function allHotels() { return isOwner() || (hasRole() && roleHotels().size() == 0); }
-    function manages(h) { return allHotels() || (hasRole() && h in roleHotels()); }
+    function roleHotels() { return roleData().get('hotels', []); }
+    // מסמך הרשאות ישן בלי apps נחשב כמנהל סידור
+    function roleApp(a) { return roleData().get('apps', {'shifts': true}).get(a, false) == true; }
 
-    // עובדים
+    function canShifts() { return isOwner() || (hasRole() && roleApp('shifts')); }
+    function canEvents() { return isOwner() || (hasRole() && roleApp('events')); }
+    function canPerms()  { return isOwner() || (hasRole() && roleApp('perms')); }
+    function isManager() { return isOwner() || hasRole(); }
+
+    // היקף המלונות של מי שמחזיק הרשאות (ריק = כל המלונות)
+    function allHotels() { return isOwner() || (hasRole() && roleHotels().size() == 0); }
+    // ניהול סידור במלון מסוים
+    function manages(h) { return isOwner() || (canShifts() && (roleHotels().size() == 0 || h in roleHotels())); }
+    function shiftsAllHotels() { return isOwner() || (canShifts() && roleHotels().size() == 0); }
+
+    // ---------- עובדים ----------
     function isEmployee() {
       return signedIn() && exists(/databases/$(database)/documents/employees/$(request.auth.uid));
     }
@@ -47,22 +61,50 @@ service cloud.firestore {
     // מזהה סידור: "2026-10-18" למלון הראשי, "2026-10-18_hxxxx" למלון אחר
     function schedHotel(id) { return id.split('_').size() > 1 ? id.split('_')[1] : 'main'; }
 
-    // מי מנהל: רק בעל המערכת ממנה מנהלים
-    match /roles/{uid} {
-      allow get: if isOwner() || (signedIn() && request.auth.uid == uid);
-      allow list, write: if isOwner();
+    // ---------- מתן הרשאות ----------
+    // מסמך הרשאות בתוך ההיקף שלי: מלונות שאני מנהל (או שאני מנהל את כולם)
+    function hotelsInScope(r) {
+      return allHotels() || (r.get('hotels', []).size() > 0 && r.get('hotels', []).hasOnly(roleHotels()));
+    }
+    // האפליקציות במסמך הן רק כאלה שיש לי
+    function appsWithin(a) {
+      return (!a.get('shifts', false) || roleApp('shifts'))
+        && (!a.get('events', false) || roleApp('events'))
+        && (!a.get('perms', false) || roleApp('perms'));
+    }
+    function grantOk(n) {
+      return n.apps is map
+        && n.apps.keys().hasOnly(['shifts', 'events', 'perms'])
+        && n.get('hotels', []) is list
+        && appsWithin(n.apps)
+        && hotelsInScope(n);
+    }
+    function existingOk(r) { return appsWithin(r.get('apps', {'shifts': true})) && hotelsInScope(r); }
+    function targetInScope(uid) {
+      return allHotels() || (
+        exists(/databases/$(database)/documents/employees/$(uid))
+        && get(/databases/$(database)/documents/employees/$(uid)).data.get('hotel', 'main') in roleHotels()
+      );
     }
 
+    match /roles/{uid} {
+      allow get: if signedIn() && (request.auth.uid == uid || canPerms());
+      allow list: if canPerms();
+      allow create: if isOwner() || (canPerms() && grantOk(request.resource.data) && targetInScope(uid));
+      allow update: if isOwner() || (canPerms() && grantOk(request.resource.data) && existingOk(resource.data) && targetInScope(uid));
+      allow delete: if isOwner() || (canPerms() && existingOk(resource.data) && targetInScope(uid));
+    }
+
+    // ---------- סידור עבודה ----------
     // קודי הצטרפות: עובד יכול לבדוק קוד שהוא יודע, רק מנהל המלון יוצר ומחליף
     match /joinCodes/{code} {
       allow get: if signedIn();
-      allow list: if allHotels();
+      allow list: if shiftsAllHotels();
       allow create: if manages(request.resource.data.hotel);
       allow update: if manages(resource.data.hotel) && manages(request.resource.data.hotel);
       allow delete: if manages(resource.data.hotel);
     }
 
-    // עובדים
     match /employees/{uid} {
       allow get: if signedIn() && (request.auth.uid == uid || isManager()
         || (isEmployee() && hotelOf(resource.data) == myHotel()));
@@ -74,17 +116,16 @@ service cloud.firestore {
         && exists(/databases/$(database)/documents/joinCodes/$(request.resource.data.joinCode))
         && get(/databases/$(database)/documents/joinCodes/$(request.resource.data.joinCode)).data.hotel == request.resource.data.hotel
       );
-      // עובד מעדכן רק שם, טלפון, תפקיד, משמרות רצויות ומחלקות. לא מלון ולא שום דבר אחר.
+      // עובד מעדכן רק שם, טלפון, תפקיד, משמרות רצויות ומחלקות
       allow update: if (manages(hotelOf(resource.data)) && manages(hotelOf(request.resource.data)))
         || (signedIn() && request.auth.uid == uid
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'phone', 'title', 'want', 'depts']));
       allow delete: if manages(hotelOf(resource.data));
     }
 
-    // זמינות: כל עובד רק את שלו ורק במלון שלו, מנהלים רק במלונות שלהם
     match /avail/{uid} {
       allow get: if signedIn() && (request.auth.uid == uid || manages(hotelOf(resource.data)));
-      allow list: if allHotels() || (hasRole() && resource.data.hotel in roleHotels());
+      allow list: if shiftsAllHotels() || (canShifts() && resource.data.hotel in roleHotels());
       allow create: if (signedIn() && request.auth.uid == uid && isEmployee() && request.resource.data.hotel == myHotel())
         || manages(hotelOf(request.resource.data));
       allow update: if (signedIn() && request.auth.uid == uid && isEmployee() && request.resource.data.hotel == myHotel())
@@ -92,29 +133,26 @@ service cloud.firestore {
       allow delete: if (signedIn() && request.auth.uid == uid) || manages(hotelOf(resource.data));
     }
 
-    // שכר: רק מנהלים, ורק של המלונות שלהם
+    // שכר: רק מנהלי סידור, ורק של המלונות שלהם
     match /mgr/{uid} {
       allow get: if manages(hotelOf(resource.data));
-      allow list: if allHotels() || (hasRole() && resource.data.hotel in roleHotels());
+      allow list: if shiftsAllHotels() || (canShifts() && resource.data.hotel in roleHotels());
       allow create: if manages(hotelOf(request.resource.data));
       allow update: if manages(hotelOf(resource.data)) && manages(hotelOf(request.resource.data));
       allow delete: if manages(hotelOf(resource.data));
     }
 
-    // הגדרות מלון (כולל קוד ההצטרפות): מנהלי המלון, והעובדים של אותו מלון לקריאה
     match /settings/{h} {
       allow read: if manages(h) || (isEmployee() && h == myHotel());
       allow write: if manages(h);
     }
 
-    // שמות המלונות
     match /hotels/{h} {
       allow read: if isMember();
       allow create, update: if manages(h);
       allow delete: if isOwner();
     }
 
-    // משמרות וסידור: כל הצוות קורא (בלי שכר), רק מנהלי המלון כותבים
     match /shifts/{id} {
       allow read: if isMember();
       allow create: if manages(hotelOf(request.resource.data));
@@ -124,6 +162,15 @@ service cloud.firestore {
     match /schedule/{id} {
       allow read: if isMember();
       allow write: if manages(schedHotel(id));
+    }
+
+    // ---------- הצעות מחיר לאירועים ----------
+    match /config/{id}    { allow read, write: if canEvents(); }
+    match /menus/{id}     { allow read, write: if canEvents(); }
+    match /contracts/{id} { allow read, write: if canEvents(); }
+    match /quotes/{id} {
+      allow read, write: if canEvents();
+      match /versions/{v} { allow read, write: if canEvents(); }
     }
 
     // כל השאר חסום

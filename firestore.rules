@@ -15,7 +15,8 @@ rules_version = '2';
 //      dept   = מנהל מחלקה: מסדר רק את המחלקות שלו (depts), בלי שכר
 //      gm     = מנהל מלון: כל נתוני המלונות שלו (hotels), אישור דרישות רכש
 //      brief  = בריף יומי: 10days, האירועים ומי במשמרת
-//      front  = קבלת המלון: סידור העבודה והאירועים של המלון, הזנת 10days
+//      front  = קבלת המלון: סידור העבודה והאירועים של המלון, הזנת 10days.
+//               station = true: משתמש עמדת קבלה משותף (שם משתמש וסיסמה), לא אדם
 //      mkt    = שיווק: קמפיינים
 //      exp    = הוצאות: ספקים, חשבוניות ומחירים, לפי המלונות ב-expHotels (ריק = כולם). מבט מנכ״ל קורא את החשבוניות
 //  - עובד בלי הרשאות: הפרטים, הזמינות והמשמרות שלו והצוות של המלון שלו. אף פעם לא שכר.
@@ -126,6 +127,10 @@ service cloud.firestore {
         && expGrantOk(n)
         && hotelsInScope(n);
     }
+    // משתמש עמדת קבלה (לא אדם): רק קבלה, במלון אחד
+    function stationOk(r) {
+      return r.get('station', false) == true && r.get('apps', {}).keys().hasOnly(['front']) && r.get('hotels', []).size() == 1;
+    }
     function existingOk(r) { return appsWithin(r.get('apps', {'shifts': true})) && hotelsInScope(r); }
     function targetInScope(uid) {
       return allHotels() || (
@@ -137,9 +142,11 @@ service cloud.firestore {
     match /roles/{uid} {
       allow get: if signedIn() && (request.auth.uid == uid || canPerms());
       allow list: if canPerms();
-      allow create: if isOwner() || (canPerms() && grantOk(request.resource.data) && targetInScope(uid));
-      allow update: if isOwner() || (canPerms() && grantOk(request.resource.data) && existingOk(resource.data) && targetInScope(uid));
-      allow delete: if isOwner() || (canPerms() && existingOk(resource.data) && targetInScope(uid));
+      allow create: if isOwner() || (canPerms() && grantOk(request.resource.data)
+        && (targetInScope(uid) || stationOk(request.resource.data)));
+      allow update: if isOwner() || (canPerms() && grantOk(request.resource.data) && existingOk(resource.data)
+        && (targetInScope(uid) || (stationOk(resource.data) && stationOk(request.resource.data))));
+      allow delete: if isOwner() || (canPerms() && existingOk(resource.data) && (targetInScope(uid) || stationOk(resource.data)));
     }
 
     // ---------- סידור עבודה ----------
@@ -224,10 +231,12 @@ service cloud.firestore {
     // בקשות שינוי אחרי פרסום: המנהל שולח, העובד מאשר או דוחה. בקשה מאושרת נכנסת לסידור.
     match /requests/{id} {
       allow get: if signedIn() && (resource.data.uid == request.auth.uid || hotelStaff(resource.data.hotel) || gmIn(resource.data.hotel)
+        || (frontIn(resource.data.hotel) && resource.data.status == 'approved')
         || (isEmployee() && (resource.data.hotel == myHotel() || myHotel() == 'chain') && resource.data.status == 'approved'));
       allow list: if signedIn() && (resource.data.uid == request.auth.uid || shiftsAllHotels()
         || ((canShifts() || (hasRole() && roleApp('dept'))) && resource.data.hotel in roleHotels())
         || (gmRole() && (roleHotels().size() == 0 || resource.data.hotel in roleHotels()))
+        || (frontIn(resource.data.hotel) && resource.data.status == 'approved')
         || (isEmployee() && (resource.data.hotel == myHotel() || myHotel() == 'chain') && resource.data.status == 'approved'));
       allow create: if hotelStaff(request.resource.data.hotel) && request.resource.data.status == 'pending';
       allow update: if (hotelStaff(resource.data.hotel) && hotelStaff(request.resource.data.hotel))

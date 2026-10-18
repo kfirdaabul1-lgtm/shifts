@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#132033">
-<script src="i18n.js?v=202610181826"></script>
+<script src="i18n.js?v=202610182008"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -385,7 +385,7 @@ function renderTop(){
   const tabs=S.admin?(S.deptOnly?[['sched','סידור'],['shifts','משמרות פתוחות']]:[['sched','סידור'],['shifts','משמרות פתוחות'],['staff','עובדים'],['costs','עלויות'],['settings','הגדרות']]):S.myHotel===CHAIN||isMgmt(S.uid)?[['profile','הפרופיל שלי']]:[['avail','הזמינות שלי'],['mine','המשמרות שלי'+(myPending().length?` (${myPending().length})`:'')],['daily','10days'],['profile','הפרופיל שלי']];
   const nav=S.ready&&!S.registering&&S.auth==='in'&&S.week&&S.tab!=='settings'&&!APPTABS.includes(S.tab)&&!(!S.admin&&(S.tab==='avail'||S.tab==='profile'));
   $('#top').innerHTML=`${appBarHTML()}<div class="wrap top-in">
-    <div class="brand"><span class="mark">${BELL}</span><div><div class="b1">Seven Collection</div><div class="b2">${S.auth==='in'&&!S.registering?`${esc(hotelName(S.hotel))} · ${S.admin?'ממשק מנהל':'ממשק עובד'}`:''}</div></div></div>
+    <div class="brand"><span class="mark">${BELL}</span><div><div class="b1">Seven Collection</div><div class="b2">${S.auth==='in'&&!S.registering?`${esc(hotelName(S.hotel))} · ${S.station?'עמדת קבלה':S.admin?'ממשק מנהל':'ממשק עובד'}`:''}</div></div></div>
     ${nav?`<div class="weeknav"><button data-act="week" data-d="-7" aria-label="שבוע קודם">›</button><div class="wk"><span class="wk-l">שבוע</span><b class="mono">${weekLabel(S.week)}</b></div><button data-act="week" data-d="7" aria-label="שבוע הבא">‹</button></div>`:''}
     ${S.auth==='in'?`<button class="burger" data-act="menu" aria-label="תפריט" aria-expanded="${!!S.menu}" style="position:relative">${S.ready&&alertCount()?`<span style="position:absolute;top:2px;inset-inline-end:2px;min-width:18px;height:18px;border-radius:9px;background:#c0392b;color:#fff;font:700 11px/18px system-ui;text-align:center;padding:0 4px">${alertCount()}</span>`:''}<svg width="26" height="26" viewBox="0 0 26 26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h18"/><path d="M4 13h14"/><path d="M4 19h10"/></svg></button>`:''}
   </div>
@@ -393,12 +393,12 @@ function renderTop(){
   ${S.ready&&!S.registering&&S.auth==='in'&&!APPTABS.includes(S.tab)?`<nav class="wrap tabs" aria-label="ניווט">${tabs.map(([k,n])=>`<button data-act="tab" data-t="${k}" ${S.tab===k?'aria-current="page"':''}>${n}</button>`).join('')}</nav>`:''}`;
 }
 function renderDrawer(){const el=$('#drawer');if(!S.menu||S.auth!=='in'){el.innerHTML='';return}
-  const items=S.registering?[]:[['shifts','סידור עבודה','data-act="app-shifts"',!APPTABS.includes(S.tab)],S.can.events&&['events','אירועים','href="events.html"',false],S.can.front&&['front','קבלה','data-act="app-front"',S.tab==='front'],S.can.brief&&['brief','בריף יומי','data-act="app-brief"',S.tab==='brief'],S.can.gm&&['gm','מנהל מלון','data-act="app-gm"',S.tab==='gm'],S.can.ceo&&['ceo','מבט מנכ״ל','data-act="app-ceo"',S.tab==='ceo'],S.can.stock&&['stock','מלאי','data-act="app-stock"',S.tab==='stock'],S.can.mkt&&['mkt','שיווק','data-act="app-mkt"',S.tab==='mkt'],S.can.exp&&['exp','הוצאות','data-act="app-exp"',S.tab==='exp'],S.can.perms&&['perms','הרשאות','data-act="app-perms"',S.tab==='perms']].filter(Boolean);
+  const items=S.registering?[]:S.station?[['front','קבלה','data-act="app-front"',true]]:[['shifts','סידור עבודה','data-act="app-shifts"',!APPTABS.includes(S.tab)],S.can.events&&['events','אירועים','href="events.html"',false],S.can.front&&['front','קבלה','data-act="app-front"',S.tab==='front'],S.can.brief&&['brief','בריף יומי','data-act="app-brief"',S.tab==='brief'],S.can.gm&&['gm','מנהל מלון','data-act="app-gm"',S.tab==='gm'],S.can.ceo&&['ceo','מבט מנכ״ל','data-act="app-ceo"',S.tab==='ceo'],S.can.stock&&['stock','מלאי','data-act="app-stock"',S.tab==='stock'],S.can.mkt&&['mkt','שיווק','data-act="app-mkt"',S.tab==='mkt'],S.can.exp&&['exp','הוצאות','data-act="app-exp"',S.tab==='exp'],S.can.perms&&['perms','הרשאות','data-act="app-perms"',S.tab==='perms']].filter(Boolean);
   el.innerHTML=`<div class="drawer-bg" data-act="menu-close"></div><nav class="drawer" aria-label="אפליקציות">
     <div class="drawer-h"><b>Seven Collection</b><button class="x" data-act="menu-close" aria-label="סגירה">×</button></div>
     <div class="drawer-who">${esc(S.meName||'')}${S.meName&&(S.email||S.phone)?'<br>':''}<bdi>${esc(S.email||S.phone||'')}</bdi></div>
     ${items.map(([k,n,attr,cur])=>attr.startsWith('href')?`<a class="item" ${attr}>${ICO[k]}${n}</a>`:`<button class="item" ${attr} ${cur?'aria-current="page"':''}>${ICO[k]}${n}</button>`).join('')}
-    ${window.Notification&&Notification.permission!=='granted'&&Notification.permission!=='denied'?'<button class="item" data-act="notif-on">🔔 הפעלת התראות</button>':''}
+    ${!S.station&&window.Notification&&Notification.permission!=='granted'&&Notification.permission!=='denied'?'<button class="item" data-act="notif-on">🔔 הפעלת התראות</button>':''}
     <span class="sp"></span><button class="item" data-act="logout">${ICO.out}יציאה</button></nav>`}
 function appBarHTML(){return '';
   return `<div class="appbar"><div class="wrap appbar-in" role="navigation" aria-label="אפליקציות"><button data-act="app-shifts" ${!APPTABS.includes(S.tab)?'aria-current="page"':''}>סידור עבודה</button>${S.can.events?'<a href="events.html">אירועים</a>':''}${S.can.perms?`<button data-act="app-perms" ${S.tab==='perms'?'aria-current="page"':''}>הרשאות</button>`:''}</div></div>`}
@@ -409,8 +409,9 @@ function viewHTML(){
   if(S.noCfg)return msg('צריך לחבר את Firebase','ממלאים את הקובץ config.js לפי מדריך ההתקנה ומעלים אותו מחדש.');
   if(S.auth==='out')return vLogin();
   if(!S.ready)return wrap('<p class="muted">טוען את הסידור…</p>');
+  if(S.stationOff)return msg('משתמש הקבלה הזה בוטל','פנו למנהל לקבלת משתמש חדש.')+wrap('<div><button class="btn" data-act="logout">יציאה</button></div>');
   if(S.registering)return vRegister();
-  if(!S.admin&&S.empsLoaded&&!S.emps[S.uid]&&S.tab!=='profile')S.tab='profile';
+  if(S.station)S.tab='front';else if(!S.admin&&S.empsLoaded&&!S.emps[S.uid]&&S.tab!=='profile')S.tab='profile';
   if(!S.admin&&S.tab!=='mine'&&myPending().length){const b=`<div class="wrap" style="padding-top:12px"><div class="notice" style="display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap"><span>יש לך ${myPending().length} בקשות מהמנהל לשינוי משמרות</span><button class="btn sm pri" data-act="tab" data-t="mine">לצפייה ואישור</button></div></div>`;const v=viewInner();return b+v}
   return viewInner()}
 function viewInner(){
@@ -985,7 +986,7 @@ function vGm(){const hs=scopeHs();if(!hs.length)return wrap(emptyBox('אין מ�
     ${toApprove.length?`<h3 style="font-size:.95rem">חשבוניות לאישור תשלום</h3><div class="plist">${toApprove.slice(0,15).map(([iid,v])=>`<div class="prow"><span class="who"><b>${esc((S.sups||{})[v.supplier]?.name||'ספק')}${v.number?' · #'+esc(v.number):''}</b><small>${v.date?dm(v.date):''} · ${invPill(v)}</small></span><span class="actions"><b class="mono">${ils(invTotals(v).total)}</b>${S.can.exp?`<button class="btn sm pri" data-act="inv-status" data-id="${iid}" data-st="approved">אישור לתשלום</button>`:''}</span></div>`).join('')}</div>`:''}
     ${sreqs.length?`<h3 style="font-size:.95rem">בקשות שינוי משמרת שמחכות לעובד</h3><div class="plist">${sreqs.slice(0,15).map(([,r])=>`<div class="prow"><span class="who"><b>${esc(empName(r.uid))}</b><small>${esc(reqText(r))}</small></span></div>`).join('')}</div>`:''}
     ${pendN?'':'<p class="muted">אין בקשות שמחכות לאישור.</p>'}</div>`;
-  const sched10=`<div class="card"><h3>היום · ${dm(today)} (10days)</h3>${DAILY.some(([k])=>daily[k]!=null)?`<div class="kpis">${DAILY.map(([k,n])=>kpi(n,daily[k]!=null?String(daily[k]):'—')).join('')}</div>`:'<p class="muted">עוד לא הוזנו נתונים להיום.</p>'}</div>`;
+  const DAILY=dailyRows(h);const sched10=`<div class="card"><h3>היום · ${dm(today)} (10days)</h3>${DAILY.some(([k])=>daily[k]!=null)?`<div class="kpis">${DAILY.map(([k,n])=>kpi(n,daily[k]!=null?String(daily[k]):'—')).join('')}</div>`:'<p class="muted">עוד לא הוזנו נתונים להיום.</p>'}</div>`;
   const events=`<div class="card"><h3>אירועים השבוע</h3>${G.quotes===null?'<p class="muted">אין לך גישה לאירועים.</p>':evs.length?`<div class="plist">${evs.map(q=>`<div class="prow"><span class="who"><b>${dm(q.event.date)} ${esc(q.event.start||'')} · ${esc(q.client?.name||'')}</b><small>${esc(q.event.type||'')} · ${+q.event.guests||0} אורחים${q.kind==='group'?' · קבוצת מלון':q.status==='approved'?' · סגור':' · טנטטיב'}</small></span></div>`).join('')}</div>`:'<p class="muted">אין אירועים השבוע.</p>'}</div>`;
   const stock=G.stock?`<div class="card"><h3>מלאי מתחת למינימום · ${low.length}</h3>${low.length?`<div class="plist">${low.slice(0,12).map(([,x])=>`<div class="prow"><span class="who"><b>${esc(x.name)}</b><small>${esc(DMAP[x.dept]?.n||'')} · ${+x.qty||0} מתוך מינימום ${+x.min}${x.unit?' '+esc(x.unit):''}</small></span></div>`).join('')}</div>`:'<p class="muted">אין פריטים מתחת למינימום.</p>'}<div><button class="btn sm" data-act="app-stock">לעמוד המלאי</button></div></div>`:'';
   return wrap(head+reqCard+`<div class="setgrid">${sched10}${events}${stock}</div>`);
@@ -1053,7 +1054,7 @@ function briefLoad(h,d){const B=S.briefData||(S.briefData={}),k=h+'|'+d;if(B[k])
   if(!S.live.bquotes){S.live.bquotes=true;db.collection('quotes').onSnapshot(q=>{S.bQuotes=q.docs.map(x=>x.data());render()},()=>{S.bQuotes=null;render()})}
   return B[k]}
 const EV_VENUE={sola:'מלון 7EVEN',boheme:'Gutman',sevenseas:'7seas'};
-function briefText(h,d,daily,evs,crew){return `בריף יומי · ${hotelName(h)} · יום ${DAYS[dow(d)]} ${dm(d)}\n`+
+function briefText(h,d,daily,evs,crew){const DAILY=dailyRows(h);return `בריף יומי · ${hotelName(h)} · יום ${DAYS[dow(d)]} ${dm(d)}\n`+
   DAILY.filter(([k])=>daily[k]!=null).map(([k,n])=>`${n}: ${daily[k]}`).join('\n')+
   (evs.length?`\n\nאירועים:\n`+evs.map(q=>`• ${q.event.start||''}${q.event.end?'–'+q.event.end:''} ${q.client?.name||''} (${EV_VENUE[q.event.venue]||''}${q.event.area?' · '+q.event.area:''}) ${+q.event.guests||0} אורחים${q.kind==='group'?' · קבוצת מלון':q.status==='approved'?'':' · טנטטיב'}`).join('\n'):'\n\nאין אירועים היום.')+
   (crew.length?`\n\nבמשמרת:\n`+crew.map(([dept,list])=>`${DMAP[dept]?.n||dept}: ${list.map(x=>`${x.name} (${x.t})`).join(', ')}`).join('\n'):'')}
@@ -1067,7 +1068,7 @@ function vBrief(){const hs=scopeHs();if(!hs.length)return wrap(emptyBox('אין 
   const nav=`<div class="actions" style="align-items:center"><button class="btn sm" data-act="brief-day" data-d="-1" aria-label="יום קודם">›</button><b>יום ${DAYS[dow(d)]} ${dm(d)}</b><button class="btn sm" data-act="brief-day" data-d="1" aria-label="יום הבא">‹</button>${d!==todayISO()?'<button class="btn sm ghost" data-act="brief-day" data-d="0">היום</button>':''}</div>`;
   const head=`<section class="head"><div class="head-t"><h1>בריף יומי · ${esc(hotelName(h))}</h1>${nav}</div>${chips}</section>`;
   if(!ready)return wrap(head+'<p class="muted">טוען…</p>');
-  const nums=`<div class="card"><h3>10days</h3>${DAILY.some(([k])=>daily[k]!=null)?`<div class="kpis">${DAILY.map(([k,n])=>kpi(n,daily[k]!=null?String(daily[k]):'—')).join('')}</div>`:'<p class="muted">עוד לא הוזנו נתונים ליום הזה.</p>'}</div>`;
+  const DAILY=dailyRows(h);const nums=`<div class="card"><h3>10days</h3>${DAILY.some(([k])=>daily[k]!=null)?`<div class="kpis">${DAILY.map(([k,n])=>kpi(n,daily[k]!=null?String(daily[k]):'—')).join('')}</div>`:'<p class="muted">עוד לא הוזנו נתונים ליום הזה.</p>'}</div>`;
   const evCard=`<div class="card"><h3>אירועים היום · ${evs.length}</h3>${S.bQuotes===null?'<p class="muted">אין לך גישה לאירועים.</p>':evs.length?`<div class="plist">${evs.map(q=>`<div class="prow"><span class="who"><b class="mono" style="font-family:inherit">${esc(q.event.start||'')}${q.event.end?'–'+esc(q.event.end):''} · ${esc(q.client?.name||'ללא שם')}</b><small>${esc(EV_VENUE[q.event.venue]||'')}${q.event.area?' · '+esc(q.event.area):''} · ${esc(q.event.type||'')} · ${+q.event.guests||0} אורחים</small></span>${q.kind==='group'?'<span class="pill" style="background:#2a6fbf;color:#fff">קבוצת מלון</span>':q.status==='approved'?'<span class="pill ok">סגור</span>':'<span class="pill">טנטטיב</span>'}</div>`).join('')}</div>`:'<p class="muted">אין אירועים היום.</p>'}</div>`;
   const crewCard=`<div class="card"><h3>במשמרת היום</h3>${!sched.published?'<p class="muted" style="font-size:.85rem">הסידור לשבוע הזה עוד לא פורסם, מוצג השיבוץ הנוכחי.</p>':''}${crew.length?crew.map(([k,l])=>`<div style="margin-bottom:8px"><b style="color:hsl(${DMAP[k].h} 45% 38%)">${DMAP[k].n}</b><div class="muted" style="font-size:.9rem">${l.map(x=>`${esc(x.name)} <span class="mono">(${esc(x.t)})</span>`).join(' · ')}</div></div>`).join(''):'<p class="muted">אין שיבוצים ליום הזה.</p>'}</div>`;
   const wa=`https://wa.me/?text=${encodeURIComponent(briefText(h,d,daily,evs,crew))}`;
@@ -1256,7 +1257,11 @@ function composeMsg(){const c={...cfg(),joinCode:validCode()},dl=dv('send','dead
   return `שלום לכולם,\nהגשת הזמינות ב${hotelName(S.hotel)} לשבוע ${weekLabel(openWeek())} פתוחה.\nנא לסמן את כל המשמרות שאתם יכולים לעבוד${dl?` עד ${dl}`:''}.\n${appLink()}\nעובד חדש? נכנסים לקישור, מתחברים${c.joinCode?` ומקלידים את קוד ההצטרפות: ${c.joinCode}`:'.'}`}
 /* ---------- 10days: daily numbers per hotel (check-in, check-out, breakfast, dinner, refresh), kept in the week's schedule doc ---------- */
 const DAILY=[['ci','צ׳ק אין'],['co','צ׳ק אאוט'],['bf','ארוחת בוקר'],['dn','ארוחת ערב'],['rf','רפרש']];
-function dailyTable(edit){const d=S.sched.daily||{},dates=weekDates(S.week);
+// hostel: check-in split into dorms (cid) and private (ci); check-out is private only
+const isHostel=h=>{const v=(S.settingsAll[h]||{}).dorms;return typeof v==='boolean'?v:/הוסטל|hostel/i.test(hotelName(h))};
+const DAILY_HOSTEL=[['cid','צ׳ק אין דורמס'],['ci','צ׳ק אין פרייבט'],['co','צ׳ק אאוט (פרייבט בלבד)'],['bf','ארוחת בוקר'],['dn','ארוחת ערב'],['rf','רפרש']];
+const dailyRows=h=>isHostel(h)?DAILY_HOSTEL:DAILY;
+function dailyTable(edit){const d=S.sched.daily||{},dates=weekDates(S.week),DAILY=dailyRows(S.hotel);
   return `<div class="tbl"><table class="grid"><thead><tr><th></th>${dates.map(x=>`<th class="${dow(x)===6?'sat':''}"><span>${DAYS_S[dow(x)]}</span><small>${dm(x)}</small></th>`).join('')}</tr></thead><tbody>
   ${DAILY.map(([k,n])=>`<tr><th class="kind"><b>${n}</b></th>${dates.map(x=>{const v=d[x]?.[k];return `<td>${edit?`<input type="number" min="0" inputmode="numeric" class="dly" data-daily="${x}|${k}" value="${v??''}" aria-label="${n} ${dm(x)}" style="width:100%;min-width:52px;text-align:center">`:`<div class="cell" style="min-height:40px;justify-content:center;align-items:center;padding:6px;cursor:default"><b class="mono">${v??'—'}</b></div>`}</td>`}).join('')}</tr>`).join('')}</tbody></table></div>`}
 function dailyCardHTML(){return `<div class="card"><h3>10days · ${esc(hotelName(S.hotel))}</h3><p class="muted" style="font-size:.85rem">כמה צ׳ק אין, צ׳ק אאוט, ארוחות בוקר, ארוחות ערב ורפרש בכל יום. כל שינוי נשמר מיד, והעובדים רואים את זה בלשונית 10days.</p>${dailyTable(true)}</div>`}
@@ -1292,6 +1297,11 @@ function vLogin(){const ph=!!CFG.enablePhone;
       :S.emailSent?`<div class="notice">שלחנו קישור כניסה ל-<bdi>${esc(S.emailSent)}</bdi>. פותחים את המייל בטלפון ולוחצים על הקישור. לא הגיע? בדקו בספאם.</div><button class="linkbtn" data-act="email-again">שליחה לכתובת אחרת</button>`
       :`<label class="f">או כניסה עם קישור למייל, בלי סיסמה<input type="email" id="lg_email" data-f="login.email" dir="ltr" autocomplete="email" placeholder="name@gmail.com" value="${esc(dv('login','email',''))}"></label><button class="btn" data-act="email-send">שליחת קישור כניסה</button>`}
     ${ph?`<div class="sep"></div>${S.phoneSent?`<label class="f">הקוד שקיבלת ב-SMS<input type="text" id="lg_code" inputmode="numeric" autocomplete="one-time-code" data-f="login.code" dir="ltr"></label><button class="btn" data-act="phone-verify">כניסה</button>`:`<label class="f">או כניסה עם מספר טלפון<input type="tel" id="lg_phone" data-f="login.phone" dir="ltr" placeholder="050-1234567" value="${esc(dv('login','phone',''))}"></label><button class="btn" data-act="phone-send">שליחת קוד ב-SMS</button>`}`:''}
+    <div class="sep"></div>
+    <details ${dv('login','user','')?'open':''}><summary style="cursor:pointer;font-weight:600">כניסת עמדת קבלה (שם משתמש וסיסמה)</summary>
+      <div class="stack" style="gap:10px;margin-top:10px"><label class="f">שם משתמש<input type="text" id="lg_user" data-f="login.user" dir="ltr" autocomplete="username" autocapitalize="none" value="${esc(dv('login','user',''))}"></label>
+      <label class="f">סיסמה<input type="password" id="lg_pass" data-f="login.pass" dir="ltr" autocomplete="current-password"></label>
+      <button class="btn" data-act="station-login">כניסה</button></div></details>
     <p class="muted" style="font-size:.8rem">אם הכניסה לא נפתחת, פתחו את הקישור בדפדפן עצמו (Chrome או Safari) ולא מתוך אפליקציה אחרת.</p>
   </div>`)}
 function vRegister(){const g=k=>dv('reg',k,''),depts=dv('reg','depts',[]);
@@ -1350,6 +1360,21 @@ function hotelsCardHTML(){if(!S.admin)return '';const hs=visibleHotels();
   ${S.isOwner?`<div class="sep"></div><h3>הוספת מלון</h3>
   <div class="actions" style="align-items:flex-end"><label class="f" style="flex:1;min-width:180px">שם המלון החדש<input type="text" id="new_hotel" data-f="nh.name" value="${esc(dv('nh','name',''))}" placeholder="למשל: מלון הגליל"></label><button class="btn" data-act="hotel-add">הוספת מלון</button></div>
   <p class="muted" style="font-size:.82rem">המלון החדש מקבל עותק של שעות המשמרות וההגדרות של המלון שנבחר כרגע בסידור, בלי קוד הצטרפות. אחרי ההוספה יוצרים לו קוד כאן.</p>`:''}</div>`}
+// shared reception-desk logins (not a person): username + password, front desk page of one hotel
+function stationsCardHTML(){if(!myApps().front)return '';const hs=grantableHotels();if(!hs.length)return '';
+  const list=Object.entries(S.roles).filter(([,r])=>r&&r.station&&hs.includes((r.hotels||[])[0])).sort(([,a],[,b])=>String(a.login||'').localeCompare(String(b.login||'')));
+  const nh=dv('st','hotel',hs[0]),pwFor=S.drafts.st&&S.drafts.st.pwFor;
+  return `<div class="card"><h3>משתמשי עמדת קבלה</h3>
+  <p class="muted" style="font-size:.85rem">משתמש אחד לכל עמדת קבלה, לא של אדם מסוים: כל מי שבמשמרת נכנס איתו. נכנסים במסך הכניסה ב"כניסת עמדת קבלה" עם שם המשתמש והסיסמה, והמחשב בעמדה נשאר מחובר. המשתמש רואה רק את עמוד הקבלה של המלון: סידור העבודה, האירועים והזנת 10days.</p>
+  ${list.length?`<div class="plist">${list.map(([u,r])=>`<div class="prow" style="flex-wrap:wrap"><span class="who"><b>${esc(hotelName((r.hotels||[])[0]))}</b><small>שם משתמש: <bdi dir="ltr">${esc(r.login||'')}</bdi></small></span>
+    <span class="actions"><button class="btn sm" data-act="st-pwopen" data-u="${u}">שינוי סיסמה</button><button class="btn sm ${S.confirm==='st:'+u?'danger':'ghost'}" data-act="st-del" data-u="${u}">${S.confirm==='st:'+u?'לחיצה נוספת תבטל':'ביטול המשתמש'}</button></span>
+    ${pwFor===u?`<div class="row" style="width:100%;align-items:flex-end"><label class="f">הסיסמה הנוכחית<input type="password" id="st_old" data-f="st.old" dir="ltr" autocomplete="off"></label><label class="f">סיסמה חדשה<input type="password" id="st_new" data-f="st.new" dir="ltr" autocomplete="new-password"></label><button class="btn pri" data-act="st-pw" data-u="${u}">שמירה</button></div>`:''}</div>`).join('')}</div>`:'<p class="muted">עוד אין משתמשי קבלה.</p>'}
+  <div class="sep"></div><h3>משתמש קבלה חדש</h3>
+  <div class="row" style="align-items:flex-end">${hs.length>1?`<label class="f">מלון<select id="st_hotel" data-f="st.hotel">${hs.map(h=>`<option value="${h}" ${h===nh?'selected':''}>${esc(hotelName(h))}</option>`).join('')}</select></label>`:''}
+  <label class="f">שם משתמש<input type="text" id="st_user" data-f="st.user" dir="ltr" autocapitalize="none" autocomplete="off" placeholder="reception1" value="${esc(dv('st','user',''))}"></label>
+  <label class="f">סיסמה<input type="text" id="st_pass" data-f="st.pass" dir="ltr" autocomplete="off" placeholder="6 תווים לפחות" value="${esc(dv('st','pass',''))}"></label></div>
+  <p class="muted" style="font-size:.82rem">שם המשתמש באנגלית או במספרים, בלי רווחים. רושמים את הסיסמה ונותנים אותה לצוות הקבלה.</p>
+  <div><button class="btn pri" data-act="station-add">יצירת המשתמש</button></div></div>`}
 function vPerms(){
   const hs=peopleHotels(),ord=h=>h===CHAIN?-1:hotelIds().indexOf(h);
   const people=Object.entries(S.emps).filter(([u,e])=>!e.manual&&hs.includes(e.hotel||'main'))
@@ -1357,7 +1382,7 @@ function vPerms(){
   const head=`<section class="head"><div class="head-t"><h1>הרשאות</h1><div class="meta"><span class="pill">${people.length} אנשים</span></div></div>
     <p class="lede">לכל אחד מסמנים מה הוא רואה: ניהול סידור עבודה (באילו מלונות), הצעות מחיר וניהול הרשאות. מי שבלי סימון הוא עובד רגיל: רואה רק את הזמינות והמשמרות שלו. כדי שמישהו יופיע כאן, הוא צריך להירשם פעם אחת עם קוד ההצטרפות של המלון.</p>
     ${S.isOwner?'':'<p class="muted" style="font-size:.85rem">אפשר לתת רק הרשאות ומלונות שיש לך בעצמך.</p>'}</section>`;
-  const hc=hotelsCardHTML();
+  const hc=hotelsCardHTML()+stationsCardHTML();
   if(!people.length)return wrap(head+hc+emptyBox('עוד אין אנשים רשומים','שולחים לעובדים את הקישור וקוד ההצטרפות של המלון שלהם מהכרטיס למעלה. אחרי שהם נרשמים, הם מופיעים כאן.'));
   let last=null;const rows=people.map(([u,e])=>{const h=e.hotel||'main',r=S.roles[u],a=roleApps(r);
     const sep=h!==last?`<div class="lh">${esc(hotelName(h))}</div>`:'';last=h;
@@ -1619,6 +1644,12 @@ async function loginGoogle(){const pr=new firebase.auth.GoogleAuthProvider();pr.
   catch(e){if(['auth/popup-blocked','auth/cancelled-popup-request'].includes(e.code)){S.loginMsg='blocked';render()}
     else if(['auth/operation-not-supported-in-this-environment','auth/web-storage-unsupported','auth/internal-error','auth/network-request-failed'].includes(e.code)){S.loginMsg='storage';render()}
     else if(e.code!=='auth/popup-closed-by-user')toast('הכניסה לא הצליחה ('+(e.code||'')+')')}}
+// reception desk accounts: username → internal e-mail (no mail is ever sent to it)
+const STATION_DOMAIN='front.seven-collection.app';
+const stationEmail=u=>{u=String(u||'').trim().toLowerCase();return u.includes('@')?u:u+'@'+STATION_DOMAIN};
+const stationUserOk=u=>/^[a-z0-9][a-z0-9._-]{2,29}$/.test(String(u||'').trim().toLowerCase());
+// a second Firebase app, so creating the desk login doesn't sign the manager out
+function stationAuth(){const a=(firebase.apps||[]).find(x=>x.name==='station')||firebase.initializeApp(CFG.firebase,'station');const au=a.auth();try{au.setPersistence(firebase.auth.Auth.Persistence.NONE)}catch(_){ }return au}
 async function finishEmailLink(em){
   try{await fauth.signInWithEmailLink(em,location.href);try{localStorage.removeItem('emailForSignIn')}catch(_){ }history.replaceState(null,'',location.pathname)}
   catch(e){history.replaceState(null,'',location.pathname);S.needEmail=false;render();
@@ -1629,6 +1660,26 @@ Object.assign(ACT,{
     try{await fauth.sendSignInLinkToEmail(em,{url:location.origin+location.pathname,handleCodeInApp:true});try{localStorage.setItem('emailForSignIn',em)}catch(_){ }S.emailSent=em;render()}
     catch(e){toast(e.code==='auth/operation-not-allowed'?'הכניסה עם מייל עוד לא הופעלה במערכת. פנו למנהל.':'שליחת הקישור נכשלה ('+(e.code||'')+')')}},
   'email-again':()=>{S.emailSent=null;render()},
+  'station-add':async()=>{const hs=grantableHotels(),h=dv('st','hotel',hs[0]),u=String(dv('st','user','')).trim().toLowerCase(),pw=String(dv('st','pass',''));
+    if(!hs.includes(h))return;if(!stationUserOk(u)){toast('שם משתמש באנגלית או מספרים, 3 תווים לפחות, בלי רווחים');return}if(pw.length<6){toast('הסיסמה צריכה להיות באורך 6 תווים לפחות');return}
+    if(Object.values(S.roles).some(r=>r&&r.station&&r.login===u)){toast('שם המשתמש הזה כבר קיים');return}
+    const au=stationAuth(),em=stationEmail(u);let uid=null;
+    try{uid=(await au.createUserWithEmailAndPassword(em,pw)).user.uid}
+    catch(e){if(e.code==='auth/email-already-in-use'){try{uid=(await au.signInWithEmailAndPassword(em,pw)).user.uid}catch(_){toast('שם המשתמש תפוס. בחרו שם אחר.');return}}
+      else{toast(e.code==='auth/operation-not-allowed'?'צריך להפעיל ב-Firebase את הכניסה עם מייל וסיסמה (Authentication ← Sign-in method ← Email/Password)':e.code==='auth/weak-password'?'הסיסמה חלשה מדי':'יצירת המשתמש נכשלה ('+(e.code||'')+')');return}}
+    try{await au.signOut()}catch(_){ }
+    try{await S.db.doc('roles/'+uid).set({apps:{front:true},hotels:[h],depts:[],station:true,login:u,name:'קבלה · '+hotelName(h),createdAt:Date.now(),by:S.uid})}catch(e){toast(errMsg(e));return}
+    S.drafts.st={hotel:h};render();toast(`המשתמש נוצר: ${u}`)},
+  'st-pwopen':D=>{S.drafts.st={...(S.drafts.st||{}),pwFor:(S.drafts.st||{}).pwFor===D.u?null:D.u,old:'',new:''};render()},
+  'st-pw':async D=>{const r=S.roles[D.u];if(!r)return;const o=String(dv('st','old','')),n=String(dv('st','new',''));if(!o){toast('צריך להקליד את הסיסמה הנוכחית');return}if(n.length<6){toast('הסיסמה צריכה להיות באורך 6 תווים לפחות');return}
+    const au=stationAuth();try{const c=await au.signInWithEmailAndPassword(stationEmail(r.login),o);await c.user.updatePassword(n);try{await au.signOut()}catch(_){ }S.drafts.st={hotel:dv('st','hotel','')};render();toast('הסיסמה עודכנה')}
+    catch(e){toast(['auth/wrong-password','auth/invalid-credential','auth/invalid-login-credentials'].includes(e.code)?'הסיסמה הנוכחית שגויה':'שינוי הסיסמה נכשל ('+(e.code||'')+')')}},
+  'st-del':async D=>{if(S.confirm!=='st:'+D.u){S.confirm='st:'+D.u;render();return}S.confirm=null;
+    try{await S.db.doc('roles/'+D.u).delete();toast('המשתמש בוטל. מי שמחובר איתו ינותק ברענון הבא.')}catch(e){toast(errMsg(e))}},
+  'station-login':async()=>{const u=String(dv('login','user','')).trim(),pw=String(dv('login','pass',''));if(!u||!pw){toast('צריך להקליד שם משתמש וסיסמה');return}
+    try{await fauth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)}catch(_){ }
+    try{await fauth.signInWithEmailAndPassword(stationEmail(u),pw)}
+    catch(e){toast(['auth/wrong-password','auth/user-not-found','auth/invalid-credential','auth/invalid-login-credentials','auth/invalid-email'].includes(e.code)?'שם המשתמש או הסיסמה שגויים':e.code==='auth/operation-not-allowed'?'כניסה עם סיסמה עוד לא הופעלה ב-Firebase. פנו לבעל המערכת.':e.code==='auth/too-many-requests'?'יותר מדי ניסיונות. נסו שוב בעוד כמה דקות.':'הכניסה נכשלה ('+(e.code||'')+')')}},
   'email-finish':()=>{const em=String(dv('login','email2','')).trim();if(em)finishEmailLink(em)},
   'phone-send':async()=>{const ph=normPhone(dv('login','phone',''));if(!ph){toast('מספר הטלפון לא תקין');return}
     try{S.recaptcha=S.recaptcha||new firebase.auth.RecaptchaVerifier('recaptcha',{size:'invisible'});S.confirmRes=await fauth.signInWithPhoneNumber(ph,S.recaptcha);S.phoneSent=true;render()}
@@ -1674,7 +1725,11 @@ async function start(u){
   S.admin=S.can.shifts||S.deptOnly;S.can.stock=S.isOwner||S.can.shifts||S.deptOnly||S.can.gm;S.auth='in';
   // a manager limited to some hotels can only read those hotels' salaries, availability and settings (enforced in firestore.rules)
   S.scoped=!S.isOwner&&!!S.role&&Array.isArray(S.role.hotels)&&S.role.hotels.length>0;
-  if(!S.admin){let me=null;try{const m=await db.doc('employees/'+u.uid).get();if(m.exists)me=m.data()}catch(_){ }
+  // shared reception account (one login for the desk, people change through the day): front desk page only
+  S.station=!S.isOwner&&!!(S.role&&S.role.station);
+  if(S.station){S.can={...S.can,front:true,brief:false,stock:false,events:false,perms:false};S.admin=false;S.deptOnly=false;S.myHotel=((S.role.hotels||[])[0])||'main';S.hotel=S.myHotel;S.meName=S.role.name||'קבלה';S.email=S.role.login||''}
+  else if(!S.role&&S.email.endsWith('@'+STATION_DOMAIN)){S.stationOff=true;S.tab='front';S.ready=true;render();return}
+  else if(!S.admin){let me=null;try{const m=await db.doc('employees/'+u.uid).get();if(m.exists)me=m.data()}catch(_){ }
     if(!me){S.registering=true;S.ready=true;render();return}
     S.myHotel=me.hotel||'main';S.myMgmt=!!MGMT[me.mgmt];S.hotel=S.myHotel}
   const setIds=()=>S.admin?(S.scoped?S.role.hotels:null):(S.myHotel===CHAIN?[]:[S.hotel]);
@@ -1686,7 +1741,7 @@ async function start(u){
   catch(e){onErr(e)}
   S.week=openWeek();
   let t=null;try{t=localStorage.getItem('hs_tab')}catch(_){ }
-  const allowed=(S.admin?(S.deptOnly?['sched','shifts']:['sched','shifts','staff','costs','settings']):S.myHotel===CHAIN||S.myMgmt?['profile']:['avail','mine','daily','profile']).concat(S.can.perms?['perms']:[]).concat(S.can.ceo?['ceo']:[]).concat(S.can.mkt?['mkt']:[]).concat(S.can.exp?['exp']:[]).concat(S.can.gm?['gm']:[]).concat(S.can.stock?['stock']:[]).concat(S.can.brief?['brief']:[]).concat(S.can.front?['front']:[]);S.tab=allowed.includes(t)?t:allowed[0];
+  const allowed=S.station?['front']:((S.admin?(S.deptOnly?['sched','shifts']:['sched','shifts','staff','costs','settings']):S.myHotel===CHAIN||S.myMgmt?['profile']:['avail','mine','daily','profile']).concat(S.can.perms?['perms']:[]).concat(S.can.ceo?['ceo']:[]).concat(S.can.mkt?['mkt']:[]).concat(S.can.exp?['exp']:[]).concat(S.can.gm?['gm']:[]).concat(S.can.stock?['stock']:[]).concat(S.can.brief?['brief']:[]).concat(S.can.front?['front']:[]));S.tab=allowed.includes(t)?t:allowed[0];
   if(location.hash==='#perms'&&S.can.perms)S.tab='perms';
   if(location.hash==='#ceo'&&S.can.ceo)S.tab='ceo';
   if(location.hash==='#mkt'&&S.can.mkt)S.tab='mkt';
@@ -1712,7 +1767,7 @@ async function start(u){
   else{let own={},hot={};const mix=()=>{S.reqs={...hot,...own};S.reqVer++;alertTick()};
     db.collection('requests').where('uid','==',S.uid).onSnapshot(q=>{own=docsMap(q);mix()},onErr);
     db.collection('requests').where('hotel','==',S.myHotel===CHAIN?S.hotel:(S.myHotel||S.hotel)).where('status','==','approved').onSnapshot(q=>{hot=docsMap(q);mix()},()=>{})}
-  subWeek();S.ready=true;render();checkJoinCodes();alertsSub();
+  subWeek();S.ready=true;render();checkJoinCodes();if(!S.station)alertsSub();
 }
 (function boot(){
   render();

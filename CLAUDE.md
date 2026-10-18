@@ -7,7 +7,7 @@ Owner: kfirdaabul1@gmail.com. The user writes in Hebrew and is not a developer: 
 - `index.html` — shift scheduler + permissions page (`#perms`). Hebrew, RTL, plain JS, no build step. Firebase compat SDK from gstatic.
 - `events.html` — event quotes app (7EVEN / Gutman / 7seas). Originally a claude.ai artifact: it still calls `window.claude.use('db'|'user'|'downloads')`, and a bridge script near the bottom (before html2canvas) maps those to Firebase and shows the login / no-access gate. Keep that bridge when editing. `events.html#ceo` is the CEO view (the quotes app's yearly revenue tab shown alone); it needs the `ceo` permission, which may read `quotes` and `config` but not write.
 - `config.js` — Firebase web config (not secret) + `ownerEmail`, `appUrl`, `enablePhone`.
-- `firestore.rules` — Firestore security rules. **Pushing this file does NOT deploy it.** When it changes, tell the user to paste it in Firebase Console → Firestore → Rules → Publish, and send the full text in a code block.
+- `firestore.rules` — Firestore security rules. Pushing a change runs `.github/workflows/deploy-rules.yml`, which publishes them to Firebase (needs the repo secret `FIREBASE_RULES_KEY`, a service-account key with the Firebase Rules Admin role). If the owner says the automatic publish isn't set up or failed, send the full rules text in a code block to paste in Firebase Console → Firestore → Rules → Publish.
 - `README.md` — Hebrew setup guide.
 - Never commit `import-data.json` (salaries) or `events-import.json` (client details); both are in `.gitignore`.
 

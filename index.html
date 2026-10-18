@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#132033">
-<script src="i18n.js?v=202610190108"></script>
+<script src="i18n.js?v=202610190110"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -395,7 +395,7 @@ function renderTop(){
   ${S.ready&&!S.registering&&S.auth==='in'&&!APPTABS.includes(S.tab)?`<nav class="wrap tabs" aria-label="ניווט">${tabs.map(([k,n])=>`<button data-act="tab" data-t="${k}" ${S.tab===k?'aria-current="page"':''}>${n}</button>`).join('')}</nav>`:''}`;
 }
 function renderDrawer(){const el=$('#drawer');if(!S.menu||S.auth!=='in'){el.innerHTML='';return}
-  const items=S.registering?[]:S.station?[['front','קבלה','data-act="app-front"',true]]:[['shifts','סידור עבודה','data-act="app-shifts"',!APPTABS.includes(S.tab)],S.can.events&&['events','אירועים','href="events.html"',false],S.can.front&&['front','קבלה','data-act="app-front"',S.tab==='front'],S.can.brief&&['brief','בריף יומי','data-act="app-brief"',S.tab==='brief'],S.can.gm&&['gm','מנהל מלון','data-act="app-gm"',S.tab==='gm'],S.can.ceo&&['ceo','מבט מנכ״ל','data-act="app-ceo"',S.tab==='ceo'],S.can.maint&&['maint','אחזקה'+((S.can.gm||S.can.shifts||S.isOwner)&&openFaultsN()?` (${openFaultsN()} פתוחות)`:''),'data-act="app-maint"',S.tab==='maint'],S.can.stock&&['stock','מלאי'+((S.can.gm||S.can.shifts||S.isOwner)&&lowItems().length?` (${lowItems().length} במינימום)`:''),'data-act="app-stock"',S.tab==='stock'],S.can.mkt&&['mkt','שיווק','data-act="app-mkt"',S.tab==='mkt'],S.can.exp&&['exp','הוצאות','data-act="app-exp"',S.tab==='exp'],S.can.perms&&['perms','הרשאות','data-act="app-perms"',S.tab==='perms']].filter(Boolean);
+  const items=S.registering?[]:S.station?[['front','קבלה','data-act="app-front"',true]]:[['shifts','סידור עבודה','data-act="app-shifts"',!APPTABS.includes(S.tab)],S.can.events&&['events','אירועים','href="events.html"',false],S.can.front&&['front','קבלה','data-act="app-front"',S.tab==='front'],S.can.brief&&['brief','בריף יומי','data-act="app-brief"',S.tab==='brief'],S.can.gm&&['gm','מנהל מלון','data-act="app-gm"',S.tab==='gm'],S.can.ceo&&['ceo','מבט מנכ״ל','data-act="app-ceo"',S.tab==='ceo'],S.can.maint&&['maint','אחזקה'+((S.can.gm||S.can.shifts||S.isOwner)&&openFaultsN()?` (${openFaultsN()} פתוחות)`:''),'data-act="app-maint"',S.tab==='maint'],S.can.stock&&['stock','מלאי'+((S.can.gm||S.can.shifts||S.isOwner)&&lowItems().length?` (${lowItems().length} במינימום)`:''),'data-act="app-stock"',S.tab==='stock'],S.can.mkt&&['mkt','סושיאל מדיה','data-act="app-mkt"',S.tab==='mkt'],S.can.exp&&['exp','הוצאות','data-act="app-exp"',S.tab==='exp'],S.can.perms&&['perms','הרשאות','data-act="app-perms"',S.tab==='perms']].filter(Boolean);
   el.innerHTML=`<div class="drawer-bg" data-act="menu-close"></div><nav class="drawer" aria-label="אפליקציות">
     <div class="drawer-h"><b>Seven Collection</b><button class="x" data-act="menu-close" aria-label="סגירה">×</button></div>
     <div class="drawer-who">${esc(S.meName||'')}${S.meName&&(S.email||S.phone)?'<br>':''}<bdi>${esc(S.email||S.phone||'')}</bdi></div>
@@ -772,32 +772,37 @@ const PLATFORMS=[['google','Google'],['meta','Meta'],['tiktok','TikTok'],['other
 const PLMAP=Object.fromEntries(PLATFORMS);
 function liveColl(key,coll,order){if(S.live[key])return;S.live[key]=true;S[key]=S[key]||{};
   S.db.collection(coll).onSnapshot(q=>{S[key]=docsMap(q);S[key+'Ready']=true;render()},e=>{S[key+'Err']=errMsg(mapErr(e));render()})}
+// social media: weekly reports (collection campaigns; each doc is one week of one campaign/platform: week, start=week, end=week+6)
+const campWeek=c=>c.week||weekOf(c.start||todayISO());
 function vMkt(){liveColl('camps','campaigns');
-  const f=S.mktF||(S.mktF={pl:'all',y:String(new Date().getFullYear())});
-  const all=Object.entries(S.camps||{}),years=[...new Set([String(new Date().getFullYear()),...all.map(([,c])=>String(c.start||'').slice(0,4)).filter(Boolean)])].sort().reverse();
-  const rows=all.filter(([,c])=>(f.pl==='all'||c.platform===f.pl)&&(f.y==='all'||String(c.start||'').slice(0,4)===f.y)).sort(([,a],[,b])=>String(b.start||'').localeCompare(String(a.start||'')));
-  const T=k=>rows.reduce((a,[,c])=>a+(+c[k]||0),0),sp=T('spend'),ld=T('leads'),rv=T('revenue');
-  const head=`<section class="head"><div class="head-t"><h1>שיווק · קמפיינים</h1><button class="btn pri" data-act="camp-new">+ קמפיין חדש</button></div>
-    <div class="actions" style="margin-top:8px"><select data-mktf="pl" style="width:auto"><option value="all">כל הפלטפורמות</option>${PLATFORMS.map(([k,n])=>`<option value="${k}" ${f.pl===k?'selected':''}>${n}</option>`).join('')}</select>
-    <select data-mktf="y" style="width:auto"><option value="all" ${f.y==='all'?'selected':''}>כל השנים</option>${years.map(y=>`<option ${f.y===y?'selected':''}>${y}</option>`).join('')}</select></div>
-    <div class="kpis">${kpi('הושקע',ils(sp),`${rows.length} קמפיינים`)}${kpi('לידים',String(ld),ld?`${ils(sp/ld)} לליד`:'')}${kpi('הכנסות ממרכז ההזמנות',ils(rv),sp?`החזר ×${(rv/sp).toFixed(1)} על כל שקל`:'')}${kpi('רווח מהקמפיינים',ils(rv-sp),'הכנסות פחות השקעה',rv-sp<0?'bad':'')}</div></section>`;
+  const f=S.mktF||(S.mktF={pl:'all',view:'week'}),W=S.mktW||(S.mktW=weekOf(todayISO()));
+  const all=Object.entries(S.camps||{}).filter(([,c])=>f.pl==='all'||c.platform===f.pl);
+  const sum=list=>{const sp=list.reduce((a,[,c])=>a+(+c.spend||0),0),ld=list.reduce((a,[,c])=>a+(+c.leads||0),0),rv=list.reduce((a,[,c])=>a+(+c.revenue||0),0);return {sp,ld,rv,n:list.length}};
+  const wk=all.filter(([,c])=>campWeek(c)===W),pw=all.filter(([,c])=>campWeek(c)===addDays(W,-7)),A=sum(wk),P=sum(pw);
+  const chg=(a,b)=>b?` · ${a>=b?'▲':'▼'} ${Math.abs(Math.round((a-b)/b*100))}% משבוע קודם`:'';
+  const tabs=`<div class="chips" style="gap:6px;margin-top:8px"><button class="dchip ${f.view==='week'?'':'off'}" data-act="mkt-view" data-v="week">דוח שבועי</button><button class="dchip ${f.view==='year'?'':'off'}" data-act="mkt-view" data-v="year">סיכום לפי שבועות</button>
+    <select data-mktf="pl" style="width:auto"><option value="all">כל הפלטפורמות</option>${PLATFORMS.map(([k,n])=>`<option value="${k}" ${f.pl===k?'selected':''}>${n}</option>`).join('')}</select></div>`;
+  const nav=`<div class="actions" style="align-items:center"><button class="btn sm" data-act="mkt-week" data-d="-7" aria-label="שבוע קודם">›</button><b class="mono">${weekLabel(W)}</b><button class="btn sm" data-act="mkt-week" data-d="7" aria-label="שבוע הבא">‹</button></div>`;
+  const head=`<section class="head"><div class="head-t"><h1>סושיאל מדיה · דוחות שבועיים</h1><button class="btn pri" data-act="camp-new">+ דוח שבועי</button></div>${tabs}</section>`;
   if(S.campsErr)return wrap(head+`<div class="notice">לא הצלחתי לטעון: ${esc(S.campsErr)}</div>`);
   if(!S.campsReady)return wrap(head+'<p class="muted">טוען…</p>');
-  const byPl=PLATFORMS.map(([k,n])=>{const r=rows.filter(([,c])=>c.platform===k);return {n,sp:r.reduce((a,[,c])=>a+(+c.spend||0),0),ld:r.reduce((a,[,c])=>a+(+c.leads||0),0),rv:r.reduce((a,[,c])=>a+(+c.revenue||0),0),cnt:r.length}}).filter(x=>x.cnt);
-  const plCard=byPl.length>1?`<div class="card"><h3>לפי פלטפורמה</h3><div class="scroll-x"><table class="plain"><thead><tr><th>פלטפורמה</th><th class="num">קמפיינים</th><th class="num">הושקע</th><th class="num">לידים</th><th class="num">עלות לליד</th><th class="num">הכנסות</th><th class="num">החזר</th></tr></thead><tbody>${byPl.map(x=>`<tr><td>${x.n}</td><td class="num">${x.cnt}</td><td class="num">${ils(x.sp)}</td><td class="num">${x.ld}</td><td class="num">${x.ld?ils(x.sp/x.ld):'—'}</td><td class="num">${ils(x.rv)}</td><td class="num">${x.sp?'×'+(x.rv/x.sp).toFixed(1):'—'}</td></tr>`).join('')}</tbody></table></div></div>`:'';
-  const list=rows.length?`<div class="card"><h3>קמפיינים</h3><div class="scroll-x"><table class="plain"><thead><tr><th>קמפיין</th><th>פלטפורמה</th><th>מופנה ל</th><th>תאריכים</th><th class="num">הושקע</th><th class="num">לידים</th><th class="num">עלות לליד</th><th class="num">הכנסות</th><th class="num">החזר</th><th></th></tr></thead><tbody>
-    ${rows.map(([id,c])=>`<tr><td><b>${esc(c.name||'')}</b>${c.notes?`<div class="muted" style="font-size:.8rem">${esc(c.notes)}</div>`:''}</td><td>${PLMAP[c.platform]||esc(c.platform||'')}</td><td>${esc(c.target||'')}</td><td class="mono" style="white-space:nowrap">${c.start?dm(c.start):''}${c.end?'–'+dm(c.end):''}</td><td class="num">${ils(c.spend)}</td><td class="num">${+c.leads||0}</td><td class="num">${+c.leads?ils(c.spend/c.leads):'—'}</td><td class="num">${ils(c.revenue)}</td><td class="num">${+c.spend?'×'+((+c.revenue||0)/c.spend).toFixed(1):'—'}</td><td><button class="btn sm" data-act="camp-open" data-id="${id}">עריכה</button></td></tr>`).join('')}</tbody></table></div></div>`
-    :emptyBox('עוד אין קמפיינים','לוחצים "קמפיין חדש" ומזינים שם, פלטפורמה, לאן מופנה, כמה הושקע, כמה לידים נכנסו וכמה הכנסות הגיעו דרך מרכז ההזמנות.');
-  return wrap(head+plCard+list);
+  if(f.view==='year'){const weeks=[...new Set(all.map(([,c])=>campWeek(c)))].sort().reverse();
+    return wrap(head+(weeks.length?`<div class="card"><h3>לפי שבועות</h3><div class="scroll-x"><table class="plain"><thead><tr><th>שבוע</th><th class="num">דוחות</th><th class="num">הושקע</th><th class="num">לידים</th><th class="num">עלות לליד</th><th class="num">הכנסות</th><th class="num">החזר</th><th></th></tr></thead><tbody>
+      ${weeks.map(w=>{const x=sum(all.filter(([,c])=>campWeek(c)===w));return `<tr><td class="mono">${weekLabel(w)}</td><td class="num">${x.n}</td><td class="num">${ils(x.sp)}</td><td class="num">${x.ld}</td><td class="num">${x.ld?ils(x.sp/x.ld):'—'}</td><td class="num">${ils(x.rv)}</td><td class="num">${x.sp?'×'+(x.rv/x.sp).toFixed(1):'—'}</td><td><button class="btn sm" data-act="mkt-go" data-w="${w}">פתיחה</button></td></tr>`}).join('')}</tbody></table></div></div>`:emptyBox('עוד אין דוחות','לוחצים "דוח שבועי" ומזינים את נתוני השבוע.')))}
+  const k=`<div class="kpis">${kpi('הושקע השבוע',ils(A.sp),`${A.n} דוחות${chg(A.sp,P.sp)}`)}${kpi('לידים',String(A.ld),(A.ld?`${ils(A.sp/A.ld)} לליד`:'')+chg(A.ld,P.ld))}${kpi('הכנסות ממרכז ההזמנות',ils(A.rv),(A.sp?`החזר ×${(A.rv/A.sp).toFixed(1)}`:'')+chg(A.rv,P.rv))}${kpi('רווח השבוע',ils(A.rv-A.sp),'הכנסות פחות השקעה',A.rv-A.sp<0?'bad':'')}</div>`;
+  const list=wk.length?`<div class="card"><h3>דוחות השבוע</h3><div class="scroll-x"><table class="plain"><thead><tr><th>קמפיין</th><th>פלטפורמה</th><th>מופנה ל</th><th class="num">הושקע</th><th class="num">לידים</th><th class="num">עלות לליד</th><th class="num">הכנסות</th><th class="num">החזר</th><th></th></tr></thead><tbody>
+    ${wk.sort(([,a],[,b])=>String(a.name).localeCompare(String(b.name),'he')).map(([id,c])=>`<tr><td><b>${esc(c.name||'')}</b>${c.notes?`<div class="muted" style="font-size:.8rem">${esc(c.notes)}</div>`:''}</td><td>${PLMAP[c.platform]||esc(c.platform||'')}</td><td>${esc(c.target||'')}</td><td class="num">${ils(c.spend)}</td><td class="num">${+c.leads||0}</td><td class="num">${+c.leads?ils(c.spend/c.leads):'—'}</td><td class="num">${ils(c.revenue)}</td><td class="num">${+c.spend?'×'+((+c.revenue||0)/c.spend).toFixed(1):'—'}</td><td><button class="btn sm" data-act="camp-open" data-id="${id}">עריכה</button></td></tr>`).join('')}</tbody></table></div></div>`
+    :emptyBox('אין דוחות לשבוע הזה','לוחצים "דוח שבועי" ומזינים לכל קמפיין או פלטפורמה כמה הושקע, כמה לידים נכנסו וכמה הכנסות הגיעו השבוע.');
+  return wrap(head+`<div class="card" style="padding-block:10px">${nav}</div>`+k+list);
 }
 function sheetCamp(){const id=S.sheet.id,c=(S.camps||{})[id]||{},g=k=>dv('camp',k,c[k]??'');
-  return sheetHead(S.camps?.[id]?'עריכת קמפיין':'קמפיין חדש','')+`
+  return sheetHead(S.camps?.[id]?'עריכת דוח שבועי':'דוח שבועי חדש','')+`
+  <label class="f">שבוע (בוחרים יום כלשהו בשבוע)<input type="date" id="cp_w" data-f="camp.week" value="${esc(g('week')||c.start||S.mktW||weekOf(todayISO()))}"></label>
   <label class="f">שם הקמפיין<input type="text" id="cp_name" data-f="camp.name" value="${esc(g('name'))}" placeholder="למשל: חבילת ספא לחורף"></label>
   <div class="row"><label class="f">פלטפורמה<select id="cp_pl" data-f="camp.platform">${PLATFORMS.map(([k,n])=>`<option value="${k}" ${String(g('platform')||'meta')===k?'selected':''}>${n}</option>`).join('')}</select></label>
   <label class="f">לאן מופנה<input type="text" id="cp_tg" data-f="camp.target" value="${esc(g('target'))}" placeholder="למשל: דף נחיתה, וואטסאפ, אתר ההזמנות"></label></div>
-  <div class="row"><label class="f">מתאריך<input type="date" id="cp_s" data-f="camp.start" value="${esc(g('start'))}"></label><label class="f">עד תאריך<input type="date" id="cp_e" data-f="camp.end" value="${esc(g('end'))}"></label></div>
-  <div class="row"><label class="f">כמה הושקע (₪)<input type="number" min="0" id="cp_sp" data-f="camp.spend" value="${esc(g('spend'))}" inputmode="decimal"></label><label class="f">כמה לידים נכנסו<input type="number" min="0" id="cp_ld" data-f="camp.leads" value="${esc(g('leads'))}" inputmode="numeric"></label></div>
-  <label class="f">כמה כסף הכניס דרך מרכז ההזמנות (₪)<input type="number" min="0" id="cp_rv" data-f="camp.revenue" value="${esc(g('revenue'))}" inputmode="decimal"></label>
+  <div class="row"><label class="f">כמה הושקע השבוע (₪)<input type="number" min="0" id="cp_sp" data-f="camp.spend" value="${esc(g('spend'))}" inputmode="decimal"></label><label class="f">כמה לידים נכנסו השבוע<input type="number" min="0" id="cp_ld" data-f="camp.leads" value="${esc(g('leads'))}" inputmode="numeric"></label></div>
+  <label class="f">כמה כסף הכניס השבוע דרך מרכז ההזמנות (₪)<input type="number" min="0" id="cp_rv" data-f="camp.revenue" value="${esc(g('revenue'))}" inputmode="decimal"></label>
   <label class="f">הערות<input type="text" id="cp_nt" data-f="camp.notes" value="${esc(g('notes'))}"></label>
   <div class="actions"><button class="btn pri" data-act="camp-save">שמירה</button>${S.camps?.[id]?(S.confirm==='camp-del'?'<button class="btn danger" data-act="camp-del">לחיצה נוספת תמחק</button>':'<button class="btn ghost" data-act="camp-del">מחיקה</button>'):''}</div>`}
 /* ---------- expenses: suppliers, invoices (with photo and line items), price tracking, accounting e-mail per hotel ---------- */
@@ -1478,7 +1483,7 @@ function roleHTML(u,e,isNew){if(!S.can.perms||isNew||e.manual||u===S.uid)return 
   return `<div class="sep"></div><h3>הרשאות</h3><p class="muted" style="font-size:.85rem">${r?esc(permSummary(r)):'עובד רגיל, בלי הרשאות ניהול.'}</p><div><button class="btn" data-act="perm-open" data-u="${u}">עריכת הרשאות</button></div>`}
 
 /* ---------- permissions page ---------- */
-const APPS=[['shifts','ניהול סידור עבודה','סידור, משמרות, עובדים, שכר ועלויות במלונות שנבחרו'],['events','אירועים','כל ההצעות, התפריטים והחוזים'],['perms','ניהול הרשאות','יכול לתת לאחרים רק הרשאות שיש לו בעצמו'],['front','קבלת המלון','רואה את סידור העבודה והאירועים של המלון ומזין את נתוני 10days'],['maint','אחזקה','עמוד התקלות של המלונות שנבחרו: פתיחה, תאריך תיקון וסגירה'],['brief','בריף יומי','נתוני 10days, האירועים ומי במשמרת, לכל יום במלונות שנבחרו'],['gm','מנהל מלון','עמוד מנהל מלון עם כל נתוני המלונות שנבחרו, אישור דרישות רכש. לא נספר בהגשת משמרות'],['ceo','מנכ״ל','מבט מנכ״ל: עלויות עובדים, הוצאות והכנסות לפי חודש. לא נספר בהגשת משמרות'],['dept','מנהל מחלקה','מסדר רק את המחלקות שנבחרו, בלי שכר ועלויות'],['mkt','שיווק','קמפיינים ברשתות: השקעה, לידים והכנסות'],['exp','הוצאות','ספקים, חשבוניות ומעקב אחרי מחירים']];
+const APPS=[['shifts','ניהול סידור עבודה','סידור, משמרות, עובדים, שכר ועלויות במלונות שנבחרו'],['events','אירועים','כל ההצעות, התפריטים והחוזים'],['perms','ניהול הרשאות','יכול לתת לאחרים רק הרשאות שיש לו בעצמו'],['front','קבלת המלון','רואה את סידור העבודה והאירועים של המלון ומזין את נתוני 10days'],['maint','אחזקה','עמוד התקלות של המלונות שנבחרו: פתיחה, תאריך תיקון וסגירה'],['brief','בריף יומי','נתוני 10days, האירועים ומי במשמרת, לכל יום במלונות שנבחרו'],['gm','מנהל מלון','עמוד מנהל מלון עם כל נתוני המלונות שנבחרו, אישור דרישות רכש. לא נספר בהגשת משמרות'],['ceo','מנכ״ל','מבט מנכ״ל: עלויות עובדים, הוצאות והכנסות לפי חודש. לא נספר בהגשת משמרות'],['dept','מנהל מחלקה','מסדר רק את המחלקות שנבחרו, בלי שכר ועלויות'],['mkt','סושיאל מדיה','דוחות שבועיים של הרשתות: השקעה, לידים והכנסות'],['exp','הוצאות','ספקים, חשבוניות ומעקב אחרי מחירים']];
 const roleApps=r=>r?(r.apps||{shifts:true}):{};
 function myApps(){if(S.isOwner)return {shifts:true,events:true,perms:true,ceo:true,dept:true,mkt:true,exp:true,gm:true,brief:true,front:true,maint:true};const a={...roleApps(S.role)};if(a.shifts)a.dept=true;return a}
 const grantDepts=()=>S.isOwner||roleApps(S.role).shifts?DEPTS:DEPTS.filter(d=>((S.role&&S.role.depts)||[]).includes(d.k));
@@ -1666,10 +1671,14 @@ const ACT={
   'app-mkt':()=>{S.menu=false;setTab('mkt')},
   'camp-new':()=>{S.drafts.camp=null;S.confirm=null;S.sheet={type:'camp',id:'c'+Date.now().toString(36)+Math.random().toString(36).slice(2,6)};render()},
   'camp-open':D=>{S.drafts.camp=null;S.confirm=null;S.sheet={type:'camp',id:D.id};render()},
+  'mkt-view':D=>{S.mktF.view=D.v;render()},
+  'mkt-week':D=>{S.mktW=addDays(S.mktW||weekOf(todayISO()),+D.d);render()},
+  'mkt-go':D=>{S.mktW=D.w;S.mktF.view='week';render();window.scrollTo(0,0)},
   'camp-save':()=>{const id=S.sheet.id,c=(S.camps||{})[id]||{},g=k=>dv('camp',k,c[k]??''),name=String(g('name')).trim();if(!name){toast('צריך לרשום שם קמפיין');return}
-    const doc={name,platform:String(g('platform')||'meta'),target:String(g('target')).trim(),start:String(g('start')),end:String(g('end')),spend:+g('spend')||0,leads:Math.round(+g('leads')||0),revenue:+g('revenue')||0,notes:String(g('notes')).trim(),createdBy:c.createdBy||S.uid,createdAt:c.createdAt||Date.now(),updatedBy:S.uid,updatedAt:Date.now()};
-    S.camps={...S.camps,[id]:doc};save('campaigns/'+id,doc);S.sheet=null;S.drafts.camp=null;render();toast('הקמפיין נשמר')},
-  'camp-del':()=>{if(S.confirm!=='camp-del'){S.confirm='camp-del';render();return}const id=S.sheet.id;S.confirm=null;const c={...S.camps};delete c[id];S.camps=c;save('campaigns/'+id,null);S.sheet=null;render();toast('הקמפיין נמחק')},
+    const wd=String(g('week')||c.start||S.mktW||todayISO());if(!/^\d{4}-\d{2}-\d{2}$/.test(wd)){toast('צריך לבחור שבוע');return}const week=weekOf(wd);
+    const doc={name,platform:String(g('platform')||'meta'),target:String(g('target')).trim(),week,start:week,end:addDays(week,6),spend:+g('spend')||0,leads:Math.round(+g('leads')||0),revenue:+g('revenue')||0,notes:String(g('notes')).trim(),createdBy:c.createdBy||S.uid,createdAt:c.createdAt||Date.now(),updatedBy:S.uid,updatedAt:Date.now()};
+    S.camps={...S.camps,[id]:doc};save('campaigns/'+id,doc);S.sheet=null;S.drafts.camp=null;S.mktW=week;render();toast('הדוח נשמר')},
+  'camp-del':()=>{if(S.confirm!=='camp-del'){S.confirm='camp-del';render();return}const id=S.sheet.id;S.confirm=null;const c={...S.camps};delete c[id];S.camps=c;save('campaigns/'+id,null);S.sheet=null;render();toast('הדוח נמחק')},
   'app-exp':()=>{S.menu=false;setTab('exp')},
   'app-gm':()=>{S.menu=false;setTab('gm')},
   'app-brief':()=>{S.menu=false;setTab('brief')},

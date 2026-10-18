@@ -1141,7 +1141,7 @@ function vFront(){const hs=scopeHs();if(!hs.length)return wrap(emptyBox('אין 
   return wrap(head+daily+srFormHTML(h)+srListHTML(h,false)+evCard+sched);
 }
 /* ---------- reception shift report: shiftReports/{id} {hotel, month, date, shift, name, float, cash, credit, unusual, details, by, createdAt} ---------- */
-const SR_SHIFTS=[['morning','בוקר'],['noon','צהריים'],['evening','ערב'],['night','לילה']];const SR_N=Object.fromEntries(SR_SHIFTS);
+const SR_SHIFTS=[['morning','בוקר'],['evening','ערב'],['night','לילה']];const SR_N={...Object.fromEntries(SR_SHIFTS),noon:'צהריים'};
 const srBoss=h=>S.isOwner||(S.can.shifts&&scopeHs().includes(h))||(S.can.gm&&scopeHs().includes(h));
 function srSub(h,m){const k='sr:'+h+'|'+m;S.sreps=S.sreps||{};if(S.live[k])return S.sreps[h+'|'+m];S.live[k]=true;
   S.db.collection('shiftReports').where('hotel','==',h).where('month','==',m).onSnapshot(q=>{S.sreps[h+'|'+m]=docsMap(q);render()},e=>{S.sreps[h+'|'+m]={__err:errMsg(mapErr(e))};render()});return null}
@@ -1149,7 +1149,8 @@ function srSub(h,m){const k='sr:'+h+'|'+m;S.sreps=S.sreps||{};if(S.live[k])retur
 async function srToDaily(h,date,vals){const path=schedPath(weekOf(date),h),upd={updatedAt:Date.now()};for(const [k,v] of Object.entries(vals))if(v!=null)upd['daily.'+date+'.'+k]=v;
   try{await fdb.doc(path).update(upd)}catch(e){try{const d={};for(const [k,v] of Object.entries(vals))if(v!=null)d[k]=v;const snap=await fdb.doc(path).get();
       if(!snap.exists)await fdb.doc(path).set({assign:{},published:false,daily:{[date]:d},updatedAt:Date.now()});else throw e}catch(_){toast('הדוח נשמר, אבל עדכון ה-10days נכשל. אפשר להזין ידנית.')}}}
-function srDefShift(){const hr=new Date().getHours();return hr<6?'night':hr<12?'morning':hr<17?'noon':hr<23?'evening':'night'}
+// the report is filled at the end of the shift: early morning = night shift, afternoon = morning shift, late evening = evening shift
+function srDefShift(){const hr=new Date().getHours();return hr>=5&&hr<11?'night':hr>=11&&hr<19?'morning':'evening'}
 // rows of rooms (out of order / open faults): [{room, note}]
 function srRowsHTML(l,title,ph){const a=dv('sr',l,[]);return `<div class="f"><span>${title}</span>${a.map((r,i)=>`<div class="row" style="align-items:flex-end;flex-wrap:nowrap"><label class="f" style="max-width:90px">מספר חדר<input type="text" inputmode="numeric" data-srrow="${l}|${i}|room" value="${esc(r.room||'')}"></label><label class="f" style="flex:3">פירוט<input type="text" data-srrow="${l}|${i}|note" value="${esc(r.note||'')}" placeholder="${ph}"></label><button type="button" class="btn sm ghost" data-act="sr-rm" data-l="${l}" data-i="${i}" aria-label="הסרה">×</button></div>`).join('')}<div><button type="button" class="btn sm" data-act="sr-add" data-l="${l}">+ הוספת חדר</button></div></div>`}
 function srFormHTML(h){const g=(k,d)=>dv('sr',k,d),un=g('unusual','');
@@ -1171,7 +1172,7 @@ function srListHTML(h,gm){const m=S.srMonth||todayISO().slice(0,7);srSub(h,m);co
   const nav=`<div class="actions" style="align-items:center"><button class="btn sm" data-act="sr-month" data-d="-1" aria-label="חודש קודם">›</button><b>${HE_MON[+m.slice(5)-1]} ${m.slice(0,4)}</b><button class="btn sm" data-act="sr-month" data-d="1" aria-label="חודש הבא">‹</button></div>`;
   if(!d)return `<div class="card"><h3>דוחות סיכום משמרת</h3>${nav}<p class="muted">טוען…</p></div>`;
   if(d.__err)return `<div class="card"><h3>דוחות סיכום משמרת</h3><p class="muted">אין גישה לדוחות.</p></div>`;
-  const ord={morning:0,noon:1,evening:2},rows=Object.entries(d).sort(([,a],[,b])=>String(b.date).localeCompare(String(a.date))||ord[b.shift]-ord[a.shift]);
+  const ord={night:-1,morning:0,noon:1,evening:2},rows=Object.entries(d).sort(([,a],[,b])=>String(b.date).localeCompare(String(a.date))||ord[b.shift]-ord[a.shift]);
   const sum=k=>rows.reduce((t,[,r])=>t+(+r[k]||0),0),unN=rows.filter(([,r])=>r.unusual).length,boss=srBoss(h);
   return `<div class="card"><div class="actions" style="justify-content:space-between;align-items:center"><h3 style="margin:0">דוחות סיכום משמרת</h3>${nav}</div>
   <div class="kpis">${kpi('דוחות',String(rows.length))}${kpi('מזומן להפקדה',ils(sum('cash')))}${kpi('סליקה באשראי',ils(sum('credit')))}${kpi('אירועים חריגים',String(unN),'',unN?'bad':'ok')}</div>

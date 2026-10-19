@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#132033">
-<script src="i18n.js?v=202610191649"></script>
+<script src="i18n.js?v=202610191930"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -324,7 +324,8 @@ const allWeekShifts=()=>{const w=S.week,e=addDays(w,6);return Object.entries(S.s
 S.reqs={};S.reqVer=0;
 function reqOverlay(){if(S._rqv===S.reqVer)return S._rqo;const o={add:{},rm:{},ext:{}};
   for(const r of Object.values(S.reqs))if(r.status==='approved'&&r.type==='extend'){(o.ext[r.shift]||(o.ext[r.shift]={}))[r.uid]=r.newEnd}
-  else if(r.status==='approved'){if(r.from)(o.rm[r.from]||(o.rm[r.from]=[])).push(r.uid);if(r.to)(o.add[r.to]||(o.add[r.to]=[])).push(r.uid)}
+  else if(r.status==='approved'){if(r.from)(o.rm[r.from]||(o.rm[r.from]=[])).push(r.uid);if(r.to)(o.add[r.to]||(o.add[r.to]=[])).push(r.uid);
+    if(r.type==='swap'&&r.peer){if(r.from)(o.add[r.from]||(o.add[r.from]=[])).push(r.peer);if(r.to)(o.rm[r.to]||(o.rm[r.to]=[])).push(r.peer)}}
   S._rqo=o;S._rqv=S.reqVer;return o}
 const asg=id=>{const s=S.shifts[id],h=s?hotelOfShift(s):S.hotel,o=reqOverlay();
   let l=(S.scheds[h]?.assign?.[id]||[]).filter(u=>!(o.rm[id]||[]).includes(u));for(const u of (o.add[id]||[]))if(!l.includes(u))l=[...l,u];
@@ -333,10 +334,15 @@ const asg=id=>{const s=S.shifts[id],h=s?hotelOfShift(s):S.hotel,o=reqOverlay();
 function endFor(id,u){const s=S.shifts[id];if(!s)return '';const o=reqOverlay();return o.ext[id]?.[u]||S.scheds[hotelOfShift(s)]?.ext?.[id]?.[u]||s.end}
 const withEnd=(s,id,u)=>{const e=endFor(id,u);return e&&e!==s.end?{...s,end:e}:s};
 function shiftDesc(id){const s=S.shifts[id];if(!s)return '';return `יום ${DAYS[dow(s.date)]} ${dm(s.date)} · ${KMAP[s.kind].n} ${s.start}–${s.end} · ${DMAP[s.dept]?.n||''}`+(hotelIds().length>1?` · ${hotelName(hotelOfShift(s))}`:'')}
-function reqText(r,forEmp){if(r.type==='extend')return (forEmp?'המנהל מבקש להאריך לך משמרת: ':'הארכת משמרת: ')+r.fromDesc+` · עד ${r.newEnd} (+${r.hours} ש׳)`;
+function reqText(r,forEmp){if(r.type==='swap')return `החלפה: ${empName(r.uid)} נותן/ת ${r.fromDesc}`+(r.to?` ומקבל/ת מ${empName(r.peer)} ${r.toDesc}`:` ל${empName(r.peer)}`);
+  if(r.type==='extend')return (forEmp?'המנהל מבקש להאריך לך משמרת: ':'הארכת משמרת: ')+r.fromDesc+` · עד ${r.newEnd} (+${r.hours} ש׳)`;
   if(r.type==='add')return (forEmp?'המנהל מבקש להוסיף לך משמרת: ':'הוספת משמרת: ')+r.toDesc;
   if(r.type==='remove')return (forEmp?'המנהל מבקש לבטל לך משמרת: ':'ביטול משמרת: ')+r.fromDesc;
   return (forEmp?'המנהל מבקש להחליף לך משמרת: ':'החלפת משמרת: ')+r.fromDesc+' ← במקום → '+r.toDesc}
+// shift swaps between employees (after publishing): requester -> colleague accepts (status peer -> mgr) -> manager approves (approved)
+const swapIn=()=>Object.entries(S.reqs).filter(([,r])=>r.type==='swap'&&r.peer===S.uid&&r.status==='peer');
+const swapMine=()=>Object.entries(S.reqs).filter(([,r])=>r.type==='swap'&&r.uid===S.uid&&['peer','mgr','declined','approved'].includes(r.status)&&r.week===S.week);
+const swapMgr=()=>Object.entries(S.reqs).filter(([,r])=>r.type==='swap'&&r.status==='mgr');
 const pendingFor=id=>Object.entries(S.reqs).filter(([,r])=>r.status==='pending'&&(r.to===id||r.from===id||r.shift===id));
 const myPending=()=>Object.entries(S.reqs).filter(([,r])=>r.uid===S.uid&&r.status==='pending').sort(([,a],[,b])=>a.createdAt-b.createdAt);
 const availLocked=()=>!cfg().availOpen||!!S.sched.published;
@@ -376,6 +382,7 @@ document.addEventListener('change',e=>{const t=e.target;if(!t.matches)return;
   if(t.id==='inv_img'&&t.files&&t.files[0]){const d=S.drafts.inv;toast('מעבד את הצילום…');compressImage(t.files[0]).then(u=>{S.invImg={id:d.id,data:u,changed:true};render()}).catch(()=>toast('לא הצלחתי לקרוא את התמונה'))}});
 document.addEventListener('change',e=>{if(e.target.matches('[data-mktf]')){S.mktF[e.target.dataset.mktf]=e.target.value;e.target.blur();render()}});
 document.addEventListener('change',e=>{if(e.target.matches('[data-ceo-year]')){S.ceo.year=e.target.value;S.ceo.data=null;ceoLoad(S.ceo.year)}});
+document.addEventListener('change',e=>{if(e.target.id==='sw_peer'){const d=S.drafts.sw||(S.drafts.sw={});d.peer=e.target.value;d.to='';e.target.blur();render();return}});
 document.addEventListener('change',e=>{if(e.target.id==='pm_hotel'&&S.drafts.perm){S.drafts.perm.hotel=e.target.value;e.target.blur();render()}});
 document.addEventListener('input',onField);document.addEventListener('change',onField);
 const isTyping=()=>{const a=document.activeElement;return a&&['INPUT','TEXTAREA','SELECT'].includes(a.tagName)&&!['checkbox','radio'].includes(a.type)};
@@ -450,9 +457,13 @@ function cellHTML(dept,date,kind,mode,hi){
 }
 
 /* ---------- manager: schedule ---------- */
-function reqCardHTML(){const rs=Object.entries(S.reqs).filter(([,r])=>r.hotel===S.hotel&&r.week===S.week&&(r.status==='pending'||r.status==='declined'||r.status==='approved')).sort(([,a],[,b])=>b.createdAt-a.createdAt);
-  if(!rs.length)return '';const pill={pending:'<span class="pill warn">ממתין לאישור</span>',declined:'<span class="pill bad">נדחה</span>',approved:'<span class="pill ok">אושר</span>'};
-  return `<div class="card"><h3>בקשות לעובדים</h3><div class="plist">${rs.map(([rid,r])=>{const ph=normPhone(S.emps[r.uid]?.phone||'').replace('+','');
+function reqCardHTML(){const rs=Object.entries(S.reqs).filter(([,r])=>r.hotel===S.hotel&&r.week===S.week&&r.type!=='swap'&&(r.status==='pending'||r.status==='declined'||r.status==='approved')).sort(([,a],[,b])=>b.createdAt-a.createdAt);
+  const sw=Object.entries(S.reqs).filter(([,r])=>r.type==='swap'&&r.hotel===S.hotel&&r.week===S.week&&['peer','mgr','approved','declined'].includes(r.status)).sort(([,a],[,b])=>b.createdAt-a.createdAt);
+  const swPill={peer:'<span class="pill">מחכה לעובד השני</span>',mgr:'<span class="pill warn">מחכה לאישורך</span>',approved:'<span class="pill ok">אושרה</span>',declined:'<span class="pill bad">נדחתה</span>'};
+  const swHTML=sw.length?`<div class="card" style="${sw.some(([,r])=>r.status==='mgr')?'border-color:var(--brass)':''}"><h3>בקשות החלפה בין עובדים</h3><div class="plist">${sw.map(([rid,r])=>`<div class="prow" style="flex-wrap:wrap"><span class="who"><b>${esc(empName(r.uid))} ↔ ${esc(empName(r.peer))} ${swPill[r.status]}</b><small>${esc(reqText(r))}${r.note?` · "${esc(r.note)}"`:''}</small></span>${r.status==='mgr'?`<span class="actions"><button class="btn sm pri" data-act="sw-mgr" data-r="${rid}" data-v="yes">אישור</button><button class="btn sm" data-act="sw-mgr" data-r="${rid}" data-v="no">דחייה</button></span>`:''}</div>`).join('')}</div></div>`:'';
+  if(!rs.length)return swHTML;
+  const pill={pending:'<span class="pill warn">ממתין לאישור</span>',declined:'<span class="pill bad">נדחה</span>',approved:'<span class="pill ok">אושר</span>'};
+  return swHTML+`<div class="card"><h3>בקשות לעובדים</h3><div class="plist">${rs.map(([rid,r])=>{const ph=normPhone(S.emps[r.uid]?.phone||'').replace('+','');
     const wa=ph?`https://wa.me/${ph}?text=${encodeURIComponent(`שלום ${empName(r.uid)}, יש לך בקשה לשינוי משמרת בסידור העבודה. נא להיכנס ולאשר או לדחות: ${appLink()}`)}`:'';
     return `<div class="prow"><span class="who"><b>${esc(empName(r.uid))} ${pill[r.status]}</b><small>${esc(reqText(r))}${r.note?` · "${esc(r.note)}"`:''}</small></span><span class="actions">${r.status==='pending'?`${wa?`<a class="btn sm" href="${wa}" target="_blank" rel="noopener">וואטסאפ</a>`:''}<button class="btn sm ghost" data-act="rq-cancel" data-r="${rid}">ביטול בקשה</button>`:r.status==='declined'?`<button class="btn sm ghost" data-act="rq-cancel" data-r="${rid}">הסרה</button>`:''}</span></div>`}).join('')}</div></div>`}
 /* printable schedule: one landscape A4 page (PDF) or an image, built from the published week */
@@ -1051,7 +1062,7 @@ function vGm(){const hs=scopeHs();if(!hs.length)return wrap(emptyBox('אין מ�
 // an item reached its minimum: quantity at or below the minimum set for it
 const isLow=x=>+x.min>0&&(+x.qty||0)<=+x.min;
 const lowItems=()=>Object.entries(S.alertInv||{}).filter(([,x])=>isLow(x));
-function alertCount(){let n=myPending().length;
+function alertCount(){let n=myPending().length+swapIn().length+(S.admin?swapMgr().filter(([,r])=>visibleHotels().includes(r.hotel)).length:0);
   if(S.can.gm||S.can.shifts||S.isOwner)n+=Object.values(S.alertPreqs||{}).filter(r=>r.status==='pending').length+lowItems().length;
   if(S.can.maint)n+=recurRooms(Object.values(S.alertFaultsAll||{})).length;
   if(S.can.fin)n+=finPendingAll();
@@ -1165,8 +1176,8 @@ function vBrief(){const hs=scopeHs();if(!hs.length)return wrap(emptyBox('אין 
   const sched=B.sched||{},daily=(sched.daily||{})[d]||{},ready=B.shifts&&B.sched;
   const evs=(S.bQuotes||[]).filter(q=>q.status!=='declined'&&q.event&&q.event.date===d&&evForHotel(q,h)).sort((a,b)=>String(a.event.start||'').localeCompare(String(b.event.start||'')));
   const rq=B.reqs||[],rqExt={};for(const r of rq)if(r.type==='extend')(rqExt[r.shift]||(rqExt[r.shift]={}))[r.uid]=r.newEnd;
-  const crewMap={};for(const [id,s] of Object.entries(B.shifts||{})){if(!(+s.need))continue;let a=((sched.assign||{})[id]||[]).filter(u=>!rq.some(r=>r.type!=='extend'&&r.from===id&&r.uid===u));
-    for(const r of rq)if(r.type!=='extend'&&r.to===id&&!a.includes(r.uid))a=[...a,r.uid];
+  const crewMap={};for(const [id,s] of Object.entries(B.shifts||{})){if(!(+s.need))continue;let a=((sched.assign||{})[id]||[]).filter(u=>!rq.some(r=>r.type!=='extend'&&((r.from===id&&r.uid===u)||(r.type==='swap'&&r.to&&r.to===id&&r.peer===u))));
+    for(const r of rq)if(r.type!=='extend'){if(r.to===id&&!a.includes(r.uid))a=[...a,r.uid];if(r.type==='swap'&&r.from===id&&r.peer&&!a.includes(r.peer))a=[...a,r.peer]}
     for(const u of a){(crewMap[s.dept]||(crewMap[s.dept]=[])).push({name:empName(u),t:`${KMAP[s.kind]?.n||''} ${s.start}–${rqExt[id]?.[u]||(sched.ext||{})[id]?.[u]||s.end}`,k:KORD[s.kind]})}}
   const crew=DEPTS.filter(x=>crewMap[x.k]).map(x=>[x.k,crewMap[x.k].sort((a,b)=>a.k-b.k)]);
   const chips=hs.length>1?`<div class="chips" style="gap:6px">${hs.map(x=>`<button class="dchip ${x===h?'':'off'}" style="--h:var(--brass)" data-act="gm-hotel" data-h="${x}">${esc(hotelName(x))}</button>`).join('')}</div>`:'';
@@ -1395,10 +1406,10 @@ function vMine(){
   const mine=allWeekShifts().filter(([id,s])=>asg(id).includes(S.uid)&&S.scheds[hotelOfShift(s)]?.published).sort(([,a],[,b])=>a.date.localeCompare(b.date)||KORD[a.kind]-KORD[b.kind]);
   if(!mine.length&&!S.sched.published)return wrap(`<section class="head"><h1>המשמרות שלי · ${weekLabel(w)}</h1></section>`+reqsEmpHTML()+emptyBox('הסידור לשבוע הזה עוד לא פורסם','ברגע שהמנהל יפרסם, המשמרות שלך יופיעו כאן. אפשר לעבור בין שבועות בחיצים למעלה.'));
   const h=mine.reduce((a,[id,s])=>a+paidHrs(withEnd(s,id,S.uid)),0);
-  const list=mine.length?`<div class="days">${mine.map(([id,s0])=>{const s=withEnd(s0,id,S.uid),dp=DMAP[s.dept];return `<div class="day" style="--h:${dp.h}"><div class="day-h"><b>יום ${DAYS[dow(s.date)]}</b><span class="muted mono">${dm(s.date)}</span></div><div class="slot on" style="--h:${dp.h};cursor:default"><span class="t"><b>${KMAP[s.kind].n} <span class="mono">${s.start}–${s.end}</span></b><small>${dp.n}${hotelOfShift(s)!==hotelOf(S.uid)?` · ${esc(hotelName(hotelOfShift(s)))}`:''}</small></span></div></div>`}).join('')}</div>`:emptyBox('לא שובצת השבוע','אם זו טעות, דברו עם המנהל.');
+  const list=mine.length?`<div class="days">${mine.map(([id,s0])=>{const s=withEnd(s0,id,S.uid),dp=DMAP[s.dept];const open=swapMine().some(([,r])=>r.from===id&&['peer','mgr'].includes(r.status));return `<div class="day" style="--h:${dp.h}"><div class="day-h"><b>יום ${DAYS[dow(s.date)]}</b><span class="muted mono">${dm(s.date)}</span></div><div class="slot on" style="--h:${dp.h};cursor:default"><span class="t"><b>${KMAP[s.kind].n} <span class="mono">${s.start}–${s.end}</span></b><small>${dp.n}${hotelOfShift(s)!==hotelOf(S.uid)?` · ${esc(hotelName(hotelOfShift(s)))}`:''}</small></span></div>${s0.date>=todayISO()&&hotelOfShift(s0)===hotelOf(S.uid)?`<div style="margin-top:6px">${open?'<span class="pill warn">בקשת החלפה נשלחה</span>':`<button class="btn sm" data-act="sw-open" data-id="${id}">בקשת החלפה</button>`}</div>`:''}</div>`}).join('')}</div>`:emptyBox('לא שובצת השבוע','אם זו טעות, דברו עם המנהל.');
   const myD=me?.depts||[],ordD=[...myD.filter(k=>DMAP[k]),...DEPTS.map(d=>d.k).filter(k=>!myD.includes(k))];
   const teams=!S.sched.published?'':ordD.filter(k=>weekShifts().some(([,s])=>s.dept===k)).map(k=>`<section class="dept" style="--h:${DMAP[k].h}"><div class="dept-h"><span class="sw"></span><h2>${myD.includes(k)?'הצוות ב':'סידור '}${DMAP[k].n}</h2></div>${deptTable(k,'view',S.uid)}</section>`).join('');
-  return wrap(`<section class="head"><div class="head-t"><h1>המשמרות שלי · ${weekLabel(w)}</h1><div class="meta"><span class="pill ok">${mine.length} משמרות · ${fmtH(h)} שעות</span></div></div></section>`+reqsEmpHTML()+list+teams);
+  return wrap(`<section class="head"><div class="head-t"><h1>המשמרות שלי · ${weekLabel(w)}</h1><div class="meta"><span class="pill ok">${mine.length} משמרות · ${fmtH(h)} שעות</span></div></div></section>`+reqsEmpHTML()+swapCardHTML()+list+teams);
 }
 
 /* ---------- employee: profile ---------- */
@@ -1420,7 +1431,7 @@ function vProfile(){
 /* ---------- sheets ---------- */
 function renderSheet(){
   const el=$('#sheet');if(!S.sheet){el.hidden=true;el.innerHTML='';return}
-  let h='';if(S.sheet.type==='perm')h=sheetPerm();else if(S.sheet.type==='cell')h=sheetCell();else if(S.sheet.type==='emp')h=sheetEmp();else if(S.sheet.type==='send')h=sheetSend();else if(S.sheet.type==='remind')h=sheetRemind();else if(S.sheet.type==='camp')h=sheetCamp();else if(S.sheet.type==='sup')h=sheetSup();else if(S.sheet.type==='inv')h=sheetInv();else if(S.sheet.type==='stock')h=sheetStock();else if(S.sheet.type==='preq')h=sheetPreq();
+  let h='';if(S.sheet.type==='perm')h=sheetPerm();else if(S.sheet.type==='cell')h=sheetCell();else if(S.sheet.type==='emp')h=sheetEmp();else if(S.sheet.type==='send')h=sheetSend();else if(S.sheet.type==='remind')h=sheetRemind();else if(S.sheet.type==='camp')h=sheetCamp();else if(S.sheet.type==='sup')h=sheetSup();else if(S.sheet.type==='inv')h=sheetInv();else if(S.sheet.type==='stock')h=sheetStock();else if(S.sheet.type==='preq')h=sheetPreq();else if(S.sheet.type==='swap')h=sheetSwap();
   if(!h){S.sheet=null;el.hidden=true;return}
   el.innerHTML=`<div class="panel" role="dialog" aria-modal="true">${h}</div>`;el.hidden=false;
 }
@@ -1460,6 +1471,21 @@ function makeReq(type,u,from,to){
   const sh=S.shifts[to||from];const rid='r'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
   const doc={type,uid:u,from:from||null,to:to||null,fromDesc:from?shiftDesc(from):'',toDesc:to?shiftDesc(to):'',hotel:hotelOfShift(sh),week:S.week,status:'pending',note:String(dv('rq','note','')).trim(),by:S.uid,createdAt:Date.now()};
   S.reqs[rid]=doc;S.reqVer++;save('requests/'+rid,doc);S.sheet.change=null;render();toast(`הבקשה נשלחה ל${empName(u)}. היא תיכנס לסידור אחרי שיאשר/תאשר.`)}
+function swapCardHTML(){const inc=swapIn(),mine=swapMine();if(!inc.length&&!mine.length)return '';
+  const st={peer:'<span class="pill warn">מחכה לעובד</span>',mgr:'<span class="pill warn">מחכה לאישור המנהל</span>',declined:'<span class="pill bad">נדחתה</span>',approved:'<span class="pill ok">אושרה</span>'};
+  return `<div class="card" style="border-color:var(--brass)"><h3>בקשות החלפה</h3><div class="plist">${inc.map(([rid,r])=>`<div class="prow" style="flex-wrap:wrap"><span class="who"><b>${esc(empName(r.uid))} מבקש/ת להתחלף איתך</b><small>${r.to?`את/ה תיקח/י: ${esc(r.fromDesc)} · ${esc(empName(r.uid))} ייקח/תיקח: ${esc(r.toDesc)}`:`את/ה תיקח/י: ${esc(r.fromDesc)}`}${r.note?` · "${esc(r.note)}"`:''}</small></span><span class="actions"><button class="btn sm pri" data-act="sw-peer" data-r="${rid}" data-v="yes">מסכים/ה</button><button class="btn sm" data-act="sw-peer" data-r="${rid}" data-v="no">לא מתאים</button></span></div>`).join('')}
+  ${mine.map(([rid,r])=>`<div class="prow" style="flex-wrap:wrap"><span class="who"><b>${esc(r.fromDesc)} ${st[r.status]||''}</b><small>${r.to?`בתמורה ל: ${esc(r.toDesc)} של ${esc(empName(r.peer))}`:`ל${esc(empName(r.peer))}`}${r.reply?` · "${esc(r.reply)}"`:''}</small></span>${['peer','mgr'].includes(r.status)?`<span class="actions"><button class="btn sm ghost" data-act="sw-cancel" data-r="${rid}">ביטול</button></span>`:''}</div>`).join('')}</div>
+  <p class="muted" style="font-size:.82rem;margin:6px 0 0">החלפה נכנסת לסידור אחרי שהעובד השני מסכים והמנהל מאשר.</p></div>`}
+function sheetSwap(){const id=S.sheet.id,s=S.shifts[id];if(!s)return '';const h=hotelOfShift(s),d=S.drafts.sw||(S.drafts.sw={});
+  const peers=Object.keys(S.emps).filter(u=>u!==S.uid&&(S.emps[u].hotel||'main')===h&&(S.emps[u].depts||[]).includes(s.dept)&&isActive(u)&&!isMgmt(u)).sort((a,b)=>empName(a).localeCompare(empName(b),'he'));
+  const myD=S.emps[S.uid]?.depts||[];
+  const theirs=d.peer?allWeekShifts().filter(([x,z])=>x!==id&&hotelOfShift(z)===h&&myD.includes(z.dept)&&z.date>=todayISO()&&asg(x).includes(d.peer)&&!asg(x).includes(S.uid)).sort(([,a],[,b])=>a.date.localeCompare(b.date)||KORD[a.kind]-KORD[b.kind]):[];
+  return sheetHead('בקשת החלפה',esc(shiftDesc(id)))+`
+  <label class="f">עם מי להתחלף<select id="sw_peer" data-f="sw.peer"><option value="">בחרו עובד…</option>${peers.map(u=>`<option value="${u}" ${d.peer===u?'selected':''}>${esc(empName(u))}</option>`).join('')}</select></label>
+  ${d.peer?`<label class="f">מה תקבלו בתמורה<select id="sw_to" data-f="sw.to"><option value="">כלום – ${esc(empName(d.peer))} ייקח/תיקח את המשמרת שלי</option>${theirs.map(([x])=>`<option value="${x}" ${d.to===x?'selected':''}>${esc(shiftDesc(x))}</option>`).join('')}</select></label>`:''}
+  <label class="f">הודעה (לא חובה)<input type="text" id="sw_note" data-f="sw.note" value="${esc(d.note||'')}" placeholder="למשל: יש לי אירוע משפחתי"></label>
+  ${peers.length?'':'<p class="notice">אין עובדים נוספים במחלקה הזו שאפשר להתחלף איתם.</p>'}
+  <div class="actions"><button class="btn pri" data-act="sw-send">שליחת הבקשה</button><button class="btn ghost" data-act="close">ביטול</button></div>`}
 function reqsEmpHTML(){const ps=myPending();if(!ps.length)return '';
   return `<div class="card" style="border-color:var(--brass)"><h3>בקשות מהמנהל</h3><div class="plist">${ps.map(([rid,r])=>`<div class="prow" style="flex-wrap:wrap"><span class="who"><b>${esc(reqText(r,true))}</b>${r.note?`<small>"${esc(r.note)}"</small>`:''}</span><span class="actions"><button class="btn sm pri" data-act="rq-yes" data-r="${rid}">אישור</button><button class="btn sm" data-act="rq-no" data-r="${rid}">דחייה</button></span></div>`).join('')}</div></div>`}
 function sheetEmp(){
@@ -1729,6 +1755,16 @@ const ACT={
     S.reqs[rid]=doc;S.reqVer++;save('requests/'+rid,doc);S.sheet.ext=null;render();toast(`הבקשה נשלחה ל${empName(D.u)}. ההארכה תיכנס לסידור אחרי שיאשר/תאשר.`)},
   'rq-chg-open':D=>{S.sheet.change=S.sheet.change===D.u?null:D.u;render()},
   'rq-chg':D=>{const to=$('#rq_to')?.value;if(!to)return;makeReq('change',D.u,D.id,to)},
+  'sw-open':D=>{S.drafts.sw={};S.sheet={type:'swap',id:D.id};render()},
+  'sw-send':()=>{const id=S.sheet.id,s=S.shifts[id],d=S.drafts.sw||{};if(!s)return;if(!d.peer){toast('צריך לבחור עם מי להתחלף');return}
+    const rid='sw'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+    const doc={type:'swap',uid:S.uid,by:S.uid,peer:d.peer,from:id,to:d.to||'',fromDesc:shiftDesc(id),toDesc:d.to?shiftDesc(d.to):'',hotel:hotelOfShift(s),week:weekOf(s.date),status:'peer',note:String(d.note||'').trim(),createdAt:Date.now()};
+    S.reqs[rid]=doc;S.reqVer++;save('requests/'+rid,doc);S.sheet=null;S.drafts.sw=null;render();
+    const ph=normPhone(S.emps[d.peer]?.phone||'').replace('+','');toast(`הבקשה נשלחה ל${empName(d.peer)}`);
+    if(ph)window.open(`https://wa.me/${ph}?text=${encodeURIComponent(`היי ${empName(d.peer)}, שלחתי לך בקשה להתחלף במשמרת (${doc.fromDesc}). אפשר לאשר כאן: ${appLink()}`)}`,'_blank')},
+  'sw-peer':D=>{const r=S.reqs[D.r];if(!r)return;S.reqs[D.r]={...r,status:D.v==='yes'?'mgr':'declined',respondedAt:Date.now()};S.reqVer++;save('requests/'+D.r,S.reqs[D.r]);render();toast(D.v==='yes'?'הסכמת. הבקשה עברה לאישור המנהל.':'הבקשה נדחתה')},
+  'sw-cancel':D=>{const r=S.reqs[D.r];if(!r)return;S.reqs[D.r]={...r,status:'canceled',respondedAt:Date.now()};S.reqVer++;save('requests/'+D.r,S.reqs[D.r]);render();toast('הבקשה בוטלה')},
+  'sw-mgr':D=>{const r=S.reqs[D.r];if(!r)return;S.reqs[D.r]={...r,status:D.v==='yes'?'approved':'declined',respondedAt:Date.now(),decidedBy:S.uid};S.reqVer++;save('requests/'+D.r,S.reqs[D.r]);render();toast(D.v==='yes'?'ההחלפה אושרה ונכנסה לסידור':'ההחלפה נדחתה')},
   'rq-cancel':D=>{delete S.reqs[D.r];S.reqVer++;save('requests/'+D.r,null);render()},
   'rq-yes':D=>{const r=S.reqs[D.r];if(!r)return;S.reqs[D.r]={...r,status:'approved',respondedAt:Date.now()};S.reqVer++;save('requests/'+D.r,S.reqs[D.r]);render();toast('אישרת. הסידור עודכן.')},
   'rq-no':D=>{const r=S.reqs[D.r];if(!r)return;S.reqs[D.r]={...r,status:'declined',respondedAt:Date.now()};S.reqVer++;save('requests/'+D.r,S.reqs[D.r]);render();toast('הבקשה נדחתה. המנהל יראה את זה.')},
@@ -2117,8 +2153,9 @@ async function start(u){
   if(S.can.perms)db.collection('roles').onSnapshot(q=>{S.roles=docsMap(q);render()},onErr);
   if(S.isOwner)migrateHotelFields();
   if(S.admin){const hs=visibleHotels().slice(0,30);db.collection('requests').where('hotel','in',hs).onSnapshot(q=>{S.reqs=docsMap(q);S.reqVer++;alertTick()},onErr)}
-  else{let own={},hot={};const mix=()=>{S.reqs={...hot,...own};S.reqVer++;alertTick()};
+  else{let own={},hot={},peer={};const mix=()=>{S.reqs={...hot,...peer,...own};S.reqVer++;alertTick()};
     db.collection('requests').where('uid','==',S.uid).onSnapshot(q=>{own=docsMap(q);mix()},onErr);
+    db.collection('requests').where('peer','==',S.uid).onSnapshot(q=>{peer=docsMap(q);mix()},()=>{});
     db.collection('requests').where('hotel','==',S.myHotel===CHAIN?S.hotel:(S.myHotel||S.hotel)).where('status','==','approved').onSnapshot(q=>{hot=docsMap(q);mix()},()=>{})}
   subWeek();S.ready=true;render();checkJoinCodes();if(!S.station)alertsSub();
 }

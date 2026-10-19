@@ -2,7 +2,7 @@ name: Deploy notification functions
 on:
   push:
     branches: [main]
-    paths: ['functions/**', 'firebase.json']
+    paths: ['functions/**', 'firebase.json', '.github/workflows/deploy-functions.yml']
   workflow_dispatch:
 jobs:
   deploy:
@@ -20,4 +20,13 @@ jobs:
           if [ -z "$KEY" ]; then echo "Secret FIREBASE_DEPLOY_KEY is missing"; exit 1; fi
           echo "$KEY" > "$RUNNER_TEMP/key.json"
           export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/key.json"
-          npx -y firebase-tools@13 deploy --only functions --project hotel-shifts --non-interactive --force
+          set +e
+          npx -y firebase-tools@13 deploy --only functions --project hotel-shifts --non-interactive --force 2>&1 | tee "$RUNNER_TEMP/out.txt"
+          rc=${PIPESTATUS[0]}
+          if [ "$rc" != "0" ]; then
+            { tail -n 40 "$RUNNER_TEMP/out.txt"; [ -f firebase-debug.log ] && grep -iE 'error|denied|permission|requires|enable' firebase-debug.log | tail -n 25; } > "$RUNNER_TEMP/err.txt"
+            msg=$(sed 's/%/%25/g' "$RUNNER_TEMP/err.txt" | cut -c1-400 | awk '{printf "%s%%0A", $0}')
+            echo "::error title=Deploy failed::$msg"
+          fi
+          rm -f "$RUNNER_TEMP/key.json"
+          exit $rc

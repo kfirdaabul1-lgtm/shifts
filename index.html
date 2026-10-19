@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#132033">
-<script src="i18n.js?v=202610191200"></script>
+<script src="i18n.js?v=202610191220"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -721,7 +721,7 @@ function ceoCompute(){
   const D=S.ceo.data,Y=S.ceo.year,hs=[...new Set([...hotelIds(),...Object.keys(D.settings)])];
   const cf=h=>{const x=D.settings[h]||{};return {oh:1+(+(x.overhead??25)||0)/100,sp:1+(+(x.shabbatPct??50)||0)/100}};
   const brk=(h,dept)=>{const b=((D.settings[h]||{}).deptBreaks||{})[dept];return b===undefined?dept!=='reception':!!b};
-  const rows=HE_MON.map((n,m)=>({m,key:Y+'-'+String(m+1).padStart(2,'0'),h:Object.fromEntries(hs.map(h=>[h,0])),hours:0,rev:0,events:0,exp:0,rec:0,recH:{}}));
+  const rows=HE_MON.map((n,m)=>({m,key:Y+'-'+String(m+1).padStart(2,'0'),h:Object.fromEntries(hs.map(h=>[h,0])),hours:0,rev:0,events:0,exp:0,rec:0,recH:{},evH:{},expH:{}}));
   const empH=u=>(D.mgr[u]?.hotel)||hotelOf(u);
   // per-shift pay, by the date of the shift
   const list=Object.entries(D.shifts).map(([id,s])=>{const h=hotelOfShift(s),sd=D.scheds[schedPath(weekOf(s.date),h).slice(9)];return {id,s,h,a:(sd?.assign?.[id])||[],ext:(sd?.ext?.[id])||{}}}).filter(x=>+x.s.need&&x.a.length);
@@ -743,9 +743,10 @@ function ceoCompute(){
       if(+m.housing>0)r.h[h]=(r.h[h]||0)-(+m.housing)}}
   const vat=D.cfg.vatRate??18;
   for(const q of D.quotes){if(q.status!=='approved'||q.kind==='group')continue;const d=(q.event&&q.event.date)||q.createdAt||'';if(String(d).slice(0,4)!==Y)continue;
-    const r=rows[+String(d).slice(5,7)-1];if(!r)continue;r.rev+=quoteNet(q,vat);r.events++}
+    const r=rows[+String(d).slice(5,7)-1];if(!r)continue;const v=quoteNet(q,vat);r.rev+=v;r.events++;
+    const qh=hs.find(h=>evForHotel(q,h,D.settings))||'';r.evH[qh]=(r.evH[qh]||0)+v}
   // supplier invoices (before VAT), by invoice date
-  for(const v of D.invs||[]){const d=String(v.date||'');if(d.slice(0,4)!==Y)continue;const r=rows[+d.slice(5,7)-1];if(r)r.exp+=+v.net||invTotals(v).net}
+  for(const v of D.invs||[]){const d=String(v.date||'');if(d.slice(0,4)!==Y)continue;const r=rows[+d.slice(5,7)-1];if(r){const n=+v.net||invTotals(v).net;r.exp+=n;r.expH[v.hotel||'main']=(r.expH[v.hotel||'main']||0)+n}}
   // reception takings: cash + card from the shift reports, by report date
   for(const x of D.sreps||[]){const d=String(x.date||'');if(d.slice(0,4)!==Y)continue;const r=rows[+d.slice(5,7)-1];if(!r)continue;const v=(+x.cash||0)+(+x.credit||0);r.rec+=v;r.recH[x.hotel]=(r.recH[x.hotel]||0)+v}
   rows.forEach(r=>{r.labor=hs.reduce((a,h)=>a+(r.h[h]||0),0);r.inc=r.rev+r.rec});
@@ -759,14 +760,23 @@ function vCeo(){
     <select data-ceo-year aria-label="שנה">${years.map(y=>`<option ${y===C.year?'selected':''}>${y}</option>`).join('')}</select></div>`;
   if(C.err)return wrap(head+`<div class="notice">לא הצלחתי לטעון את הנתונים: ${esc(C.err)}</div></section>`);
   if(!C.data||C.loading)return wrap(head+'<p class="muted">טוען נתונים…</p></section>');
-  const {rows,hs}=ceoCompute(),T=k=>rows.reduce((a,r)=>a+r[k],0),L=T('labor'),RE=T('rev'),RC=T('rec'),R=RE+RC,N=T('events'),E=T('exp');
-  const cur=todayISO().slice(0,7),done=rows.filter(r=>r.key<=cur&&r.labor);
-  return wrap(head+`<div class="kpis">${kpi('עלות עובדים בשנה',ils(L),`${fmtH(T('hours'))} שעות לתשלום`)}${kpi('ממוצע לחודש',ils(done.length?done.reduce((a,r)=>a+r.labor,0)/done.length:0),'חודשים שכבר התחילו')}${kpi('סה״כ הכנסות',ils(R),`אירועים ${ils(RE)} · קבלה ${ils(RC)}`)}${kpi('הכנסות מאירועים',ils(RE),`${N} אירועים שאושרו · לפני מע״מ`)}${kpi('הכנסות קבלה',ils(RC),'מזומן ואשראי מדוחות סיכום משמרת')}${kpi('הוצאות ספקים',ils(E),'לפי חשבוניות · לפני מע״מ')}${kpi('הכנסות פחות עובדים והוצאות',ils(R-L-E),R?`עלות העובדים היא ${Math.round(L/R*100)}% מההכנסות`:'',R-L-E<0?'bad':'')}</div></section>
-  <div class="card"><h3>לפי חודש</h3><div class="scroll-x"><table class="plain"><thead><tr><th>חודש</th>${hs.map(h=>`<th class="num">${esc(hotelName(h))}</th>`).join('')}<th class="num">סה״כ עובדים</th><th class="num">הוצאות ספקים</th><th class="num">הכנסות מאירועים</th><th class="num">הכנסות קבלה</th><th class="num">סה״כ הכנסות</th><th class="num">הפרש</th></tr></thead><tbody>
+  const {rows,hs}=ceoCompute(),T=k=>rows.reduce((a,r)=>a+r[k],0),L=T('labor'),RE=T('rev'),RC=T('rec'),R=RE+RC,E=T('exp');
+  const cur=todayISO().slice(0,7);if(!C.mon||C.mon.slice(0,4)!==C.year)C.mon=cur.slice(0,4)===C.year?cur:C.year+'-12';
+  const mr=rows[+C.mon.slice(5,7)-1],mNet=mr.inc-mr.labor-mr.exp;
+  const mnav=`<div class="actions" style="align-items:center;margin-top:8px"><button class="btn sm" data-act="ceo-month" data-d="-1" aria-label="חודש קודם" ${mr.m===0?'disabled':''}>›</button><b>${monLabel(C.mon)}</b><button class="btn sm" data-act="ceo-month" data-d="1" aria-label="חודש הבא" ${mr.m===11?'disabled':''}>‹</button></div>`;
+  const unk=mr.evH['']||0;
+  const perH=`<div class="card"><h3><span>לפי מלון</span> · ${monLabel(C.mon)}</h3><div class="scroll-x"><table class="plain"><thead><tr><th>מלון</th><th class="num">הכנסות מלינה</th><th class="num">הכנסות מאירועים</th><th class="num">סה״כ הכנסות</th><th class="num">עלות עובדים</th><th class="num">הוצאות ספקים</th><th class="num">הפרש</th></tr></thead><tbody>
+    ${hs.map(h=>{const lo=mr.recH[h]||0,ev=mr.evH[h]||0,lb=mr.h[h]||0,ex=mr.expH[h]||0;return `<tr><td>${esc(hotelName(h))}</td><td class="num">${lo?ils(lo):'—'}</td><td class="num">${ev?ils(ev):'—'}</td><td class="num">${lo+ev?ils(lo+ev):'—'}</td><td class="num">${lb?ils(lb):'—'}</td><td class="num">${ex?ils(ex):'—'}</td><td class="num">${lo+ev||lb||ex?ils(lo+ev-lb-ex):'—'}</td></tr>`}).join('')}
+    ${unk?`<tr><td class="muted">אירועים בחללים שלא שויכו למלון</td><td></td><td class="num">${ils(unk)}</td><td class="num">${ils(unk)}</td><td></td><td></td><td class="num">${ils(unk)}</td></tr>`:''}
+    <tr style="font-weight:700"><td>סה״כ</td><td class="num">${ils(mr.rec)}</td><td class="num">${ils(mr.rev)}</td><td class="num">${ils(mr.inc)}</td><td class="num">${ils(mr.labor)}</td><td class="num">${ils(mr.exp)}</td><td class="num">${ils(mNet)}</td></tr></tbody></table></div>
+    <p class="muted" style="font-size:.8rem">אירוע משויך למלון לפי חללי האירועים שהוגדרו למלון בעמוד ההרשאות.</p></div>`;
+  return wrap(head+mnav+`<div class="kpis">${kpi('הכנסות מלינה',ils(mr.rec),'מזומן + אשראי מדוחות סוף משמרת')}${kpi('הכנסות מאירועים',ils(mr.rev),`${mr.events} אירועים שאושרו · לפני מע״מ`)}${kpi('סה״כ הכנסות',ils(mr.inc),'לינה + אירועים')}${kpi('עלות עובדים',ils(mr.labor),`${fmtH(mr.hours)} שעות לתשלום`)}${kpi('הוצאות ספקים',ils(mr.exp),'לפי חשבוניות · לפני מע״מ')}${kpi('הכנסות פחות עובדים והוצאות',ils(mNet),mr.inc?`עלות העובדים היא ${Math.round(mr.labor/mr.inc*100)}% מההכנסות`:'',mNet<0?'bad':'')}</div></section>
+  ${perH}
+  <div class="card"><h3><span>כל השנה לפי חודש</span> · ${C.year}</h3><div class="scroll-x"><table class="plain"><thead><tr><th>חודש</th>${hs.map(h=>`<th class="num">${esc(hotelName(h))}</th>`).join('')}<th class="num">סה״כ עובדים</th><th class="num">הוצאות ספקים</th><th class="num">הכנסות מאירועים</th><th class="num">הכנסות מלינה</th><th class="num">סה״כ הכנסות</th><th class="num">הפרש</th></tr></thead><tbody>
   ${rows.map(r=>`<tr${r.key===cur?' style="font-weight:600"':''}><td>${HE_MON[r.m]}</td>${hs.map(h=>`<td class="num">${r.h[h]?ils(r.h[h]):'—'}</td>`).join('')}<td class="num">${r.labor?ils(r.labor):'—'}</td><td class="num">${r.exp?ils(r.exp):'—'}</td><td class="num">${r.rev?ils(r.rev):'—'}</td><td class="num">${r.rec?ils(r.rec):'—'}</td><td class="num">${r.inc?ils(r.inc):'—'}</td><td class="num">${r.labor||r.inc||r.exp?ils(r.inc-r.labor-r.exp):'—'}</td></tr>`).join('')}
   <tr style="font-weight:700"><td>סה״כ</td>${hs.map(h=>`<td class="num">${ils(rows.reduce((a,r)=>a+(r.h[h]||0),0))}</td>`).join('')}<td class="num">${ils(L)}</td><td class="num">${ils(E)}</td><td class="num">${ils(RE)}</td><td class="num">${ils(RC)}</td><td class="num">${ils(R)}</td><td class="num">${ils(R-L-E)}</td></tr></tbody></table></div>
-  ${RC?`<h3 style="margin-top:14px">הכנסות קבלה לפי מלון</h3><div class="scroll-x"><table class="plain"><thead><tr><th>חודש</th>${hs.map(h=>`<th class="num">${esc(hotelName(h))}</th>`).join('')}</tr></thead><tbody>${rows.filter(r=>r.rec).map(r=>`<tr><td>${HE_MON[r.m]}</td>${hs.map(h=>`<td class="num">${r.recH[h]?ils(r.recH[h]):'—'}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`:''}
-  <p class="muted" style="font-size:.85rem">עלות העובדים מחושבת מהסידורים של כל המלונות: שעתיים לפי שעות לתשלום (אחרי הפסקה) עם תוספת שבת ועלות מעסיק, מזומן ומתנדבים בלי תוספות, עובדים גלובליים לפי השכר החודשי עם עלות מעסיק, פחות הורדות מגורים. שכר גלובלי נספר מהחודש הראשון שיש למלון סידור במערכת ועד החודש הנוכחי. הוצאות ספקים הן החשבוניות שהוזנו בעמוד ההוצאות, לפני מע״מ, לפי תאריך החשבונית. הכנסות מאירועים הן הצעות מחיר שאושרו, לפי תאריך האירוע, לפני מע״מ. הכנסות קבלה הן המזומן והאשראי מדוחות סיכום המשמרת, כפי שנרשמו, לפי תאריך הדוח.</p>
+  ${RC?`<h3 style="margin-top:14px">הכנסות מלינה לפי מלון</h3><div class="scroll-x"><table class="plain"><thead><tr><th>חודש</th>${hs.map(h=>`<th class="num">${esc(hotelName(h))}</th>`).join('')}</tr></thead><tbody>${rows.filter(r=>r.rec).map(r=>`<tr><td>${HE_MON[r.m]}</td>${hs.map(h=>`<td class="num">${r.recH[h]?ils(r.recH[h]):'—'}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`:''}
+  <p class="muted" style="font-size:.85rem"><span>עלות העובדים מחושבת מהסידורים של כל המלונות: שעתיים לפי שעות לתשלום (אחרי הפסקה) עם תוספת שבת ועלות מעסיק, מזומן ומתנדבים בלי תוספות, עובדים גלובליים לפי השכר החודשי עם עלות מעסיק, פחות הורדות מגורים.</span> <span>שכר גלובלי נספר מהחודש הראשון שיש למלון סידור במערכת ועד החודש הנוכחי.</span> <span>הוצאות ספקים הן החשבוניות שהוזנו בעמוד ההוצאות, לפני מע״מ, לפי תאריך החשבונית.</span> <span>הכנסות מאירועים הן הצעות מחיר שאושרו, לפי תאריך האירוע, לפני מע״מ.</span> <span>הכנסות מלינה הן המזומן והאשראי מדוחות סוף המשמרת, כפי שנרשמו, לפי תאריך הדוח.</span></p>
   <div style="display:flex;gap:8px;flex-wrap:wrap"><a class="btn" href="events.html#ceo">פירוט הכנסות לפי מקום</a><button class="btn ghost" data-act="ceo-reload">רענון</button></div></div>`);
 }
 /* ---------- marketing: campaigns (collection campaigns) ---------- */
@@ -966,6 +976,26 @@ function gmLoad(h){const G=S.gmData||(S.gmData={});if(G[h])return;G[h]={ready:fa
   db.collection('requests').where('hotel','==',h).where('status','==','pending').onSnapshot(q=>mine({reqs:docsMap(q)}),()=>mine({reqs:{}}));
   if(S.can.exp&&!S.live.sups)liveColl('sups','suppliers');
   if(!S.settingsAll[h])db.doc('settings/'+h).get().then(d=>{if(d.exists){S.settingsAll[h]=d.data();render()}}).catch(()=>{})}
+// labor cost of one hotel for a whole month (same rules as the CEO view): shifts of the month from the schedule docs + monthly salaries, minus housing
+const monLast=m=>{const [y,mo]=m.split('-').map(Number);return new Date(Date.UTC(y,mo,0)).toISOString().slice(0,10)};
+const monAdd=(m,n)=>{const [y,mo]=m.split('-').map(Number),d=new Date(Date.UTC(y,mo-1+n,1));return d.toISOString().slice(0,7)};
+const monLabel=m=>HE_MON[+m.slice(5,7)-1]+' '+m.slice(0,4);
+function gmMonth(h,m){const G=S.gmData[h]||(S.gmData[h]={});const MM=G.mon||(G.mon={});if(MM[m])return MM[m];MM[m]={ready:false};
+  const db=S.db,from=weekOf(m+'-01'),to=monLast(m),weeks=[];for(let w=from;w<=to;w=addDays(w,7))weeks.push(w);
+  Promise.all([db.collection('shifts').where('date','>=',from).where('date','<=',to).get(),...weeks.map(w=>db.doc(schedPath(w,h)).get().catch(()=>null))])
+    .then(([sh,...sc])=>{const scheds={};weeks.forEach((w,i)=>{const d=sc[i];if(d&&d.exists)scheds[w]=d.data()});
+      const shifts=Object.fromEntries(sh.docs.map(d=>[d.id,d.data()]).filter(([,x])=>hotelOfShift(x)===h));MM[m]={ready:true,shifts,scheds};render()})
+    .catch(e=>{MM[m]={ready:true,err:errMsg(mapErr(e))};render()});return MM[m]}
+function laborMonth(h,m,D){const st=S.settingsAll[h]||{},oh=1+(+(st.overhead??25)||0)/100,sp=1+(+(st.shabbatPct??50)||0)/100;
+  const brk=dept=>{const b=(st.deptBreaks||{})[dept];return b===undefined?dept!=='reception':!!b};
+  const list=Object.entries(D.shifts).map(([id,x])=>{const sd=D.scheds[weekOf(x.date)];return {id,s:x,a:(sd?.assign?.[id])||[],ext:(sd?.ext?.[id])||{}}}).filter(x=>+x.s.need&&x.a.length);
+  const vol={};list.slice().sort((a,b)=>span(a.s).s-span(b.s).s).forEach(x=>{for(const u of x.a){if(S.mgr[u]?.payType!=='volunteer')continue;const k=u+'|'+weekOf(x.s.date);vol[k]=(vol[k]||0)+1;vol[u+'|'+x.id]=vol[k]}});
+  let t=0,hours=0;for(const x of list){if(x.s.date.slice(0,7)!==m)continue;
+    for(const u of x.a){const su=x.ext[u]?{...x.s,end:x.ext[u]}:x.s,hr=hrs(su),ph=brk(x.s.dept)?netH(hr):hr,sh=isShabbat(su),g=S.mgr[u]||{};hours+=ph;
+      if(g.payType==='hourly'&&+g.rate)t+=ph*(+g.rate)*(sh?sp:1)*oh;else if(g.payType==='cash'&&+g.rate)t+=ph*(+g.rate);
+      else if(g.payType==='volunteer'&&vol[u+'|'+x.id]>(+g.freeShifts||0))t+=g.volUnit==='hour'?ph*(+g.rate||0):(+g.rate||0)}}
+  if(m<=todayISO().slice(0,7))for(const [u,g] of Object.entries(S.mgr)){if(g.active===false||((g.hotel)||hotelOf(u))!==h)continue;if(g.payType==='global'&&+g.monthly)t+=(+g.monthly)*oh;if(+g.housing>0)t-=(+g.housing)}
+  return {labor:t,hours}}
 // labor cost of one day at the current hotel (same rules as computeCost, salaried share = monthly × 12 ÷ 365)
 function laborDay(d){const c=cfg(),oh=1+(+c.overhead||0)/100,sp=1+(+c.shabbatPct||0)/100;let t=0;
   for(const [id,s] of Object.entries(S.shifts)){if(s.date!==d||!(+s.need)||hotelOfShift(s)!==S.hotel)continue;
@@ -975,37 +1005,40 @@ function laborDay(d){const c=cfg(),oh=1+(+c.overhead||0)/100,sp=1+(+c.shabbatPct
   return t}
 function vGm(){const hs=scopeHs();if(!hs.length)return wrap(emptyBox('אין מלונות בהרשאה','בעל המערכת יכול להוסיף לך מלון בעמוד ההרשאות.'));
   if(!hs.includes(S.hotel))S.hotel=hs[0];const h=S.hotel;gmLoad(h);const G=S.gmData[h]||{};
-  const w=S.week,today=todayISO(),inWeek=today>=w&&today<=addDays(w,6);
-  const cost=G.mgr?computeCost(w):null,dayCost=G.mgr&&inWeek?laborDay(today):null,sched=S.scheds[h]||{},daily=(sched.daily||{})[today]||{};
-  const invs=Object.entries(G.invs||{}),month=today.slice(0,7),mExp=invs.filter(([,v])=>String(v.date||'').slice(0,7)===month).reduce((a,[,v])=>a+invTotals(v).net,0);
-  const wExp=invs.filter(([,v])=>v.date>=w&&v.date<=addDays(w,6)).reduce((a,[,v])=>a+invTotals(v).net,0),tExp=invs.filter(([,v])=>v.date===today).reduce((a,[,v])=>a+invTotals(v).net,0);
+  const w=S.week,today=todayISO(),sched=S.scheds[h]||{},daily=(sched.daily||{})[today]||{};
+  const M=S.gmM||(S.gmM=today.slice(0,7)),mStart=M+'-01',mEnd=monLast(M);
+  const invs=Object.entries(G.invs||{}),mExp=invs.filter(([,v])=>String(v.date||'').slice(0,7)===M).reduce((a,[,v])=>a+invTotals(v).net,0);
   const unpaid=invs.filter(([,v])=>invStatus(v)!=='paid'),owe=unpaid.reduce((a,[,v])=>a+invTotals(v).total,0),late=unpaid.filter(([,v])=>isOverdue(v)).length;
   const toApprove=invs.filter(([,v])=>invStatus(v)==='open');
   const items=Object.entries(G.stock||{}),low=items.filter(([,x])=>isLow(x)),preqs=Object.entries(G.preqs||{}).filter(([,r])=>r.status==='pending');
   const sreqs=Object.entries(G.reqs||{}).filter(([,r])=>r.status==='pending').sort(([,a],[,b])=>(a.createdAt||0)-(b.createdAt||0));
   const evs=(G.quotes||[]).filter(q=>q.status!=='declined'&&q.event&&q.event.date>=w&&q.event.date<=addDays(w,6)&&evForHotel(q,h)).sort((a,b)=>String(a.event.date+(a.event.start||'')).localeCompare(String(b.event.date+(b.event.start||''))));
-  const nav=`<div class="actions" style="align-items:center"><button class="btn sm" data-act="week" data-d="-7" aria-label="שבוע קודם">›</button><b class="mono">${weekLabel(w)}</b><button class="btn sm" data-act="week" data-d="7" aria-label="שבוע הבא">‹</button></div>`;
+  const nav=`<div class="actions" style="align-items:center"><button class="btn sm" data-act="gm-month" data-d="-1" aria-label="חודש קודם">›</button><b>${monLabel(M)}</b><button class="btn sm" data-act="gm-month" data-d="1" aria-label="חודש הבא">‹</button></div>`;
   const chips=hs.length>1?`<div class="chips" style="gap:6px">${hs.map(x=>`<button class="dchip ${x===h?'':'off'}" style="--h:var(--brass)" data-act="gm-hotel" data-h="${x}">${esc(hotelName(x))}</button>`).join('')}</div>`:'';
   const pendN=preqs.length+sreqs.length+toApprove.length;
-  // revenue: reception takings (cash + card from shift reports) and approved events in the hotel's spaces (before VAT)
-  const wEnd=addDays(w,6),srAll={};for(const m of [...new Set([month,w.slice(0,7),wEnd.slice(0,7)])]){const d=srSub(h,m);if(d&&!d.__err)Object.assign(srAll,d)}
-  const recIn=(a,b)=>Object.values(srAll).filter(r=>r.date>=a&&r.date<=b).reduce((t,r)=>t+(+r.cash||0)+(+r.credit||0),0);
-  const evIn=(a,b)=>(G.quotes||[]).filter(q=>q.status==='approved'&&q.kind!=='group'&&q.event&&q.event.date>=a&&q.event.date<=b&&evForHotel(q,h)).reduce((t,q)=>t+quoteNet(q,18),0);
-  const revK=(lbl,a,b)=>{const r=recIn(a,b),e=evIn(a,b);return kpi(lbl,ils(r+e),`קבלה ${ils(r)} · אירועים ${ils(e)}`)};
-  const revRow=`<div class="kpis">${revK('הכנסות היום',today,today)}${revK('הכנסות השבוע',w,wEnd)}${revK('הכנסות החודש',month+'-01',month+'-31')}</div>
-    <p class="muted" style="font-size:.8rem;margin:0">קבלה = מזומן ואשראי מדוחות סיכום המשמרת, כפי שנרשמו. אירועים = הצעות שאושרו בחללים של המלון, לפי תאריך האירוע, לפני מע״מ.</p>`;
+  // monthly money: lodging = cash + card from the shift reports; events = approved events in the hotel's spaces (before VAT)
+  srSub(h,M);const srM=(S.sreps||{})[h+'|'+M],srOk=srM&&!srM.__err;
+  const lodging=srOk?Object.values(srM).reduce((t,r)=>t+(+r.cash||0)+(+r.credit||0),0):0,srN=srOk?Object.keys(srM).length:0;
+  const evM=(G.quotes||[]).filter(q=>q.status==='approved'&&q.kind!=='group'&&q.event&&q.event.date>=mStart&&q.event.date<=mEnd&&evForHotel(q,h)),evRev=evM.reduce((t,q)=>t+quoteNet(q,18),0);
+  const inc=lodging+evRev,mon=G.mgr?gmMonth(h,M):null,lab=mon&&mon.ready&&!mon.err?laborMonth(h,M,mon):null,net=inc-(lab?lab.labor:0)-mExp;
+  const money=`<h3 style="margin:10px 0 4px"><span>הכנסות והוצאות</span> · ${monLabel(M)}</h3><div class="kpis">
+    ${kpi('הכנסות מלינה',srM&&srM.__err?'—':ils(lodging),srM&&srM.__err?'אין גישה לדוחות':`${srN} דוחות סוף משמרת · מזומן + אשראי`)}
+    ${kpi('הכנסות מאירועים',G.quotes===null?'—':ils(evRev),G.quotes===null?'אין גישה לאירועים':`${evM.length} אירועים שאושרו · לפני מע״מ`)}
+    ${kpi('סה״כ הכנסות',ils(inc),'לינה + אירועים')}
+    ${G.mgr?kpi('עלות עובדים',lab?ils(lab.labor):mon&&mon.err?'—':'…',lab?`${fmtH(lab.hours)} שעות לתשלום`:mon&&mon.err?esc(mon.err):'מחשב…'):''}
+    ${G.invs?kpi('הוצאות ספקים',ils(mExp),'לפי חשבוניות · לפני מע״מ'):''}
+    ${kpi('הכנסות פחות הוצאות',ils(net),inc&&lab?`עלות העובדים ${Math.round(lab.labor/inc*100)}% מההכנסות`:'',net<0?'bad':'ok')}</div>
+    <p class="muted" style="font-size:.8rem;margin:0">הכל לפי החודש שנבחר. לינה = מזומן ואשראי מדוחות סוף משמרת, כפי שנרשמו. אירועים = הצעות שאושרו בחללים של המלון, לפי תאריך האירוע, לפני מע״מ. עובדים = לפי הסידורים של החודש ושכר חודשי, עם עלות מעסיק.</p>`;
   const head=`<section class="head"><div class="head-t"><h1>מנהל מלון · ${esc(hotelName(h))}</h1>${nav}</div>${chips}
-    <div class="kpis">${dayCost!=null?kpi('עלות עובדים היום',ils(dayCost),dm(today)):''}${cost?kpi('עלות עובדים השבוע',ils(cost.total),`${fmtH(cost.hours)} שעות לתשלום`):''}
-    ${G.invs?kpi('הוצאות ספקים היום',ils(tExp),'לפי חשבוניות · לפני מע״מ'):''}${G.invs?kpi('הוצאות ספקים השבוע',ils(wExp),`החודש: ${ils(mExp)}`):''}
-    ${G.invs?kpi('חוב לספקים',ils(owe),late?`${late} חשבוניות באיחור`:`${unpaid.length} חשבוניות פתוחות`,late?'bad':''):''}
-    ${kpi('ממתינות לאישור',String(pendN),pendN?'פירוט למטה':'אין בקשות פתוחות',pendN?'bad':'ok')}</div>${revRow}</section>`;
+    <div class="kpis">${G.invs?kpi('חוב לספקים',ils(owe),late?`${late} חשבוניות באיחור`:`${unpaid.length} חשבוניות פתוחות`,late?'bad':''):''}
+    ${kpi('ממתינות לאישור',String(pendN),pendN?'פירוט למטה':'אין בקשות פתוחות',pendN?'bad':'ok')}</div>${money}</section>`;
   const reqCard=`<div class="card" style="${pendN?'border-color:var(--brass)':''}"><h3>בקשות ממתינות לאישור · ${pendN}</h3>
     ${preqs.length?`<h3 style="font-size:.95rem">דרישות רכש</h3><div class="plist">${preqs.map(([rid,r])=>`<div class="prow"><span class="who"><b>${esc(r.itemName)} · ${+r.qty} ${esc(r.unit||'')}</b><small>${esc(DMAP[r.dept]?.n||'')} · ${esc(empName(r.by)||'')}${r.note?' · '+esc(r.note):''}</small></span><span class="actions"><button class="btn sm pri" data-act="preq-st" data-r="${rid}" data-h="${h}" data-st="approved">אישור</button><button class="btn sm" data-act="preq-st" data-r="${rid}" data-h="${h}" data-st="declined">דחייה</button></span></div>`).join('')}</div>`:''}
     ${toApprove.length?`<h3 style="font-size:.95rem">חשבוניות לאישור תשלום</h3><div class="plist">${toApprove.slice(0,15).map(([iid,v])=>`<div class="prow"><span class="who"><b>${esc((S.sups||{})[v.supplier]?.name||'ספק')}${v.number?' · #'+esc(v.number):''}</b><small>${v.date?dm(v.date):''} · ${invPill(v)}</small></span><span class="actions"><b class="mono">${ils(invTotals(v).total)}</b>${S.can.exp?`<button class="btn sm pri" data-act="inv-status" data-id="${iid}" data-st="approved">אישור לתשלום</button>`:''}</span></div>`).join('')}</div>`:''}
     ${sreqs.length?`<h3 style="font-size:.95rem">בקשות שינוי משמרת שמחכות לעובד</h3><div class="plist">${sreqs.slice(0,15).map(([,r])=>`<div class="prow"><span class="who"><b>${esc(empName(r.uid))}</b><small>${esc(reqText(r))}</small></span></div>`).join('')}</div>`:''}
     ${pendN?'':'<p class="muted">אין בקשות שמחכות לאישור.</p>'}</div>`;
   const DAILY=dailyRows(h);const sched10=`<div class="card"><h3>היום · ${dm(today)} (10days)</h3>${DAILY.some(([k])=>daily[k]!=null)?`<div class="kpis">${DAILY.map(([k,n])=>kpi(n,daily[k]!=null?String(daily[k]):'—')).join('')}</div>`:'<p class="muted">עוד לא הוזנו נתונים להיום.</p>'}</div>`;
-  const events=`<div class="card"><h3>אירועים השבוע</h3>${G.quotes===null?'<p class="muted">אין לך גישה לאירועים.</p>':evs.length?`<div class="plist">${evs.map(q=>`<div class="prow"><span class="who"><b>${dm(q.event.date)} ${esc(q.event.start||'')} · ${esc(q.client?.name||'')}</b><small>${esc(q.event.type||'')} · ${+q.event.guests||0} אורחים${q.kind==='group'?' · קבוצת מלון':q.status==='approved'?' · סגור':' · טנטטיב'}</small></span></div>`).join('')}</div>`:'<p class="muted">אין אירועים השבוע.</p>'}</div>`;
+  const events=`<div class="card"><div class="actions" style="justify-content:space-between;align-items:center"><h3 style="margin:0">אירועים השבוע</h3><span class="actions" style="align-items:center"><button class="btn sm" data-act="week" data-d="-7" aria-label="שבוע קודם">›</button><small class="mono">${weekLabel(w)}</small><button class="btn sm" data-act="week" data-d="7" aria-label="שבוע הבא">‹</button></span></div>${G.quotes===null?'<p class="muted">אין לך גישה לאירועים.</p>':evs.length?`<div class="plist">${evs.map(q=>`<div class="prow"><span class="who"><b>${dm(q.event.date)} ${esc(q.event.start||'')} · ${esc(q.client?.name||'')}</b><small>${esc(q.event.type||'')} · ${+q.event.guests||0} אורחים${q.kind==='group'?' · קבוצת מלון':q.status==='approved'?' · סגור':' · טנטטיב'}</small></span></div>`).join('')}</div>`:'<p class="muted">אין אירועים השבוע.</p>'}</div>`;
   const stock=G.stock?`<div class="card"><h3>מלאי מתחת למינימום · ${low.length}</h3>${low.length?`<div class="plist">${low.slice(0,12).map(([,x])=>`<div class="prow"><span class="who"><b>${esc(x.name)}</b><small>${esc(DMAP[x.dept]?.n||'')} · ${+x.qty||0} מתוך מינימום ${+x.min}${x.unit?' '+esc(x.unit):''}</small></span></div>`).join('')}</div>`:'<p class="muted">אין פריטים מתחת למינימום.</p>'}<div><button class="btn sm" data-act="app-stock">לעמוד המלאי</button></div></div>`:'';
   faultsSub(h);const fo=faultsOf(h).filter(([,f])=>f.status!=='done').sort(([,a],[,b])=>(a.openedAt||0)-(b.openedAt||0)),fl=fo.filter(([,f])=>faultLate(f)).length;
   const faultsCard=`<div class="card" style="${fl?'border-color:var(--bad)':''}"><div class="actions" style="justify-content:space-between;align-items:center"><h3 style="margin:0">תקלות פתוחות · ${fo.length}${fl?` <span class="pill bad">${fl} באיחור</span>`:''}</h3><button class="btn sm" data-act="app-maint">לעמוד האחזקה</button></div>
@@ -1146,12 +1179,12 @@ function vBrief(){const hs=scopeHs();if(!hs.length)return wrap(emptyBox('אין 
 const EV_SPACES={sola:['סולה','Co-Work','מסעדה','בויילר','וולנס'],boheme:['לה בוהם','לה בוהם גארדן'],sevenseas:['גג']};
 const EV_LEGACY={'גג@sola':['סולה'],'מסעדת לה בוהם':['לה בוהם'],'לה בוהם גארדן – בר היין':['לה בוהם גארדן'],'המסעדה + הגארדן':['לה בוהם','לה בוהם גארדן']};
 const hotelVenues=h=>((S.settingsAll[h]||{}).venues)||[];
-function hotelSpaces(h){const st=S.settingsAll[h]||{};if(Array.isArray(st.spaces))return st.spaces;return (st.venues||[]).flatMap(v=>(EV_SPACES[v]||[]).map(a=>v+'|'+a))}
+function hotelSpaces(h,stAll){const st=(stAll||S.settingsAll)[h]||{};if(Array.isArray(st.spaces))return st.spaces;return (st.venues||[]).flatMap(v=>(EV_SPACES[v]||[]).map(a=>v+'|'+a))}
 function quoteSpaces(q){const e=q.event||{},v=EV_SPACES[e.venue]?e.venue:'sola',all=EV_SPACES[v];
   let a=Array.isArray(e.areas)?e.areas.map(x=>v==='sola'&&x==='גג'?'סולה':x):(EV_LEGACY[e.area+'@'+v]||EV_LEGACY[e.area]||(e.area?[e.area]:[]));a=a.filter(x=>all.includes(x));
   return (a.length?a:(Array.isArray(e.areas)||v==='sola'?[all[0]]:all.slice())).map(x=>v+'|'+x)}
 // a hotel without spaces has no events (e.g. the hostel)
-const evForHotel=(q,h)=>{const sp=hotelSpaces(h);return sp.length>0&&quoteSpaces(q).some(x=>sp.includes(x))};
+const evForHotel=(q,h,stAll)=>{const sp=hotelSpaces(h,stAll);return sp.length>0&&quoteSpaces(q).some(x=>sp.includes(x))};
 const spaceLabel=q=>quoteSpaces(q).map(x=>x.split('|')[1]).join(' + ');
 function frontSaveDaily(h,daily){const cur=S.scheds[h]||{assign:{},published:false},doc={...cur,daily,updatedAt:Date.now()};delete doc.id;S.scheds[h]=doc;save(schedPath(S.week,h),doc)}
 function vFront(){const hs=scopeHs();if(!hs.length)return wrap(emptyBox('אין מלונות בהרשאה','בעל המערכת יכול להוסיף לך מלון בעמוד ההרשאות.'));
@@ -1750,6 +1783,7 @@ const ACT={
   'brief-day':D=>{S.briefDate=+D.d?addDays(S.briefDate||todayISO(),+D.d):todayISO();render()},
   'app-stock':()=>{S.menu=false;setTab('stock')},
   'gm-hotel':D=>setHotel(D.h),
+  'gm-month':D=>{S.gmM=monAdd(S.gmM||todayISO().slice(0,7),+D.d);render()},
   'stock-d':D=>{S.stockF.d=D.k;render()},
   'stock-low':(D,t)=>{S.stockF.low=t.checked;render()},
   'stock-new':()=>{S.drafts.stk=null;S.confirm=null;S.sheet={type:'stock',id:'k'+Date.now().toString(36)+Math.random().toString(36).slice(2,6)};render()},
@@ -1845,6 +1879,7 @@ const ACT={
       location.href=`mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subj)}&body=${encodeURIComponent(body+(v.hasImg?'\n\n(צילום החשבונית מצורף)':''))}`;if(v.hasImg)toast('במחשב: צרפו למייל את צילום החשבונית')}
     const doc={...v,sentAt:Date.now(),sentTo:to};S.invs={...S.invs,[d.id]:doc};save('invoices/'+d.id,doc);render()},
   'inv-del':()=>{if(S.confirm!=='inv-del'){S.confirm='inv-del';render();return}const id=S.sheet.id;S.confirm=null;const c={...S.invs};const had=c[id]?.hasImg;delete c[id];S.invs=c;save('invoices/'+id,null);if(had)save('invoiceImgs/'+id,null);S.sheet=null;S.drafts.inv=null;render();toast('החשבונית נמחקה')},
+  'ceo-month':D=>{const C=S.ceo;if(!C)return;const m=monAdd(C.mon,+D.d);if(m.slice(0,4)===C.year){C.mon=m;render()}},
   'ceo-reload':()=>{if(S.ceo){S.ceo.data=null;ceoLoad(S.ceo.year)}},
   menu:()=>{S.menu=!S.menu;render()},
   'menu-close':()=>{S.menu=false;render()},

@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#132033">
-<script src="i18n.js?v=202610191518"></script>
+<script src="i18n.js?v=202610191530"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1248,9 +1248,11 @@ function srFormHTML(h){const g=(k,d)=>dv('sr',k,d),un=g('unusual','');
   <label class="f">סליקה באשראי (₪)<input type="number" min="0" step="any" inputmode="decimal" id="sr_credit" data-f="sr.credit" value="${esc(g('credit',''))}"></label></div>
   ${srGap(g('r420',''),g('cash',''))?`<label class="f" style="color:var(--bad)">יש פער של ${ils(Math.abs(srGap(g('r420',''),g('cash',''))))} בין דוח 420 למזומן שהופקד. הסבירו את הפער<textarea id="sr_gap" data-f="sr.gapNote" rows="2" placeholder="למשל: החזר ללקוח, טעות בקופה, עודף שנשאר">${esc(g('gapNote',''))}</textarea></label>`:''}
   ${g('shift',srDefShift())==='night'?`<div class="row">${isHostel(h)?`<label class="f">צ׳ק אין היום · דורמס<input type="number" min="0" inputmode="numeric" id="sr_cid" data-f="sr.cid" value="${esc(g('cid',''))}"></label><label class="f">צ׳ק אין היום · פרייבט<input type="number" min="0" inputmode="numeric" id="sr_ci" data-f="sr.ci" value="${esc(g('ci',''))}"></label>`:`<label class="f">כמה צ׳ק אין היום<input type="number" min="0" inputmode="numeric" id="sr_ci" data-f="sr.ci" value="${esc(g('ci',''))}"></label>`}<label class="f">כמה צ׳ק אאוט היום${isHostel(h)?' (פרייבט)':''}<input type="number" min="0" inputmode="numeric" id="sr_co" data-f="sr.co" value="${esc(g('co',''))}"></label></div><p class="muted" style="font-size:.82rem;margin:0">לפי ההזמנות. המספרים נכנסים גם ל-10days של התאריך בדוח.</p>`:''}
-  ${g('shift',srDefShift())==='morning'?`<label class="f">כמה צ׳ק אאוט נשאר<input type="number" min="0" inputmode="numeric" id="sr_col" data-f="sr.coLeft" value="${esc(g('coLeft',''))}"></label>`:''}
+  ${g('shift',srDefShift())!=='night'?`<div class="row">${g('shift',srDefShift())==='morning'?`<label class="f">כמה צ׳ק אאוט נשאר<input type="number" min="0" inputmode="numeric" id="sr_col" data-f="sr.coLeft" value="${esc(g('coLeft',''))}"></label>`:''}<label class="f">כמה צ׳ק אין נשארו להיום<input type="number" min="0" inputmode="numeric" id="sr_cil" data-f="sr.ciLeft" value="${esc(g('ciLeft',''))}"></label></div>`:''}
+  <label class="f">הודעות בוקינג (מספר)<input type="number" min="0" inputmode="numeric" id="sr_bk" data-f="sr.booking" value="${esc(g('booking',''))}" placeholder="כמה הודעות בוקינג היו במשמרת"></label>
   ${srRowsHTML('ooo','חדרים OOO (לא בשימוש)','סיבה: למשל נזילה, צבע, מזגן')}
   ${srRowsHTML('faults','תקלות פתוחות','מה התקלה')}
+  ${srRowsHTML('lost','אבדות ומציאות','תיאור הפריט')}
   <div class="f"><span>היו אירועים חריגים במשמרת?</span><div class="chips" style="gap:6px"><button type="button" class="hchip" data-act="sr-un" data-v="no" aria-pressed="${un==='no'}">לא</button><button type="button" class="hchip" data-act="sr-un" data-v="yes" aria-pressed="${un==='yes'}">כן</button></div></div>
   ${un==='yes'?`<label class="f">פירוט האירועים החריגים<textarea id="sr_det" data-f="sr.details" rows="4" placeholder="מה קרה, באיזו שעה, מי היה מעורב ומה נעשה">${esc(g('details',''))}</textarea></label>`:''}
   <div><button class="btn pri" data-act="sr-save" data-h="${h}">שליחת הדוח</button></div></div>`}
@@ -1264,8 +1266,8 @@ function srListHTML(h,gm){const m=S.srMonth||todayISO().slice(0,7);srSub(h,m);co
   <div class="kpis">${kpi('דוחות',String(rows.length))}${kpi('מזומן להפקדה',ils(sum('cash')))}${kpi('סליקה באשראי',ils(sum('credit')))}${kpi('אירועים חריגים',String(unN),'',unN?'bad':'ok')}</div>
   ${rows.length?`<div class="plist">${rows.map(([id,r])=>`<div class="prow" style="flex-wrap:wrap${r.unusual?';border-color:var(--bad)':''}"><span class="who"><b>יום ${DAYS[dow(r.date)]} ${dm(r.date)} · ${SR_N[r.shift]||''} · ${esc(r.name||'')}</b>
     <small>קרן קופה ${ils(+r.float||0)}${r.r420!=null?` · לפי 420 ${ils(+r.r420||0)}`:''} · הופקד ${ils(+r.cash||0)} · אשראי ${ils(+r.credit||0)}</small>${r.gap?`<small style="color:var(--bad)">פער ${ils(r.gap)}: ${esc(r.gapNote||'')}</small>`:''}${finPill(r)}
-    ${r.shift==='night'&&(r.ci!=null||r.co!=null||r.cid!=null)?`<small>${r.cid!=null?`צ׳ק אין דורמס ${+r.cid} · `:''}צ׳ק אין${r.cid!=null?' פרייבט':''} ${r.ci??'—'} · צ׳ק אאוט ${r.co??'—'}</small>`:''}${r.shift==='morning'&&r.coLeft!=null?`<small>צ׳ק אאוט שנשארו: ${+r.coLeft}</small>`:''}
-    ${(r.ooo||[]).length?`<small>חדרים OOO: ${r.ooo.map(x=>`${esc(x.room)}${x.note?' ('+esc(x.note)+')':''}`).join(', ')}</small>`:''}${(r.faults||[]).length?`<small>תקלות פתוחות: ${r.faults.map(x=>`${esc(x.room)}${x.note?' ('+esc(x.note)+')':''}`).join(', ')}</small>`:''}${r.unusual?`<small style="color:var(--bad);white-space:pre-wrap">⚠ ${esc(r.details||'אירוע חריג')}</small>`:''}</span>
+    ${r.shift==='night'&&(r.ci!=null||r.co!=null||r.cid!=null)?`<small>${r.cid!=null?`צ׳ק אין דורמס ${+r.cid} · `:''}צ׳ק אין${r.cid!=null?' פרייבט':''} ${r.ci??'—'} · צ׳ק אאוט ${r.co??'—'}</small>`:''}${r.shift==='morning'&&r.coLeft!=null?`<small>צ׳ק אאוט שנשארו: ${+r.coLeft}</small>`:''}${r.ciLeft!=null?`<small>צ׳ק אין שנשארו להיום: ${+r.ciLeft}</small>`:''}${r.booking!=null?`<small>הודעות בוקינג: ${+r.booking}</small>`:''}
+    ${(r.ooo||[]).length?`<small>חדרים OOO: ${r.ooo.map(x=>`${esc(x.room)}${x.note?' ('+esc(x.note)+')':''}`).join(', ')}</small>`:''}${(r.faults||[]).length?`<small>תקלות פתוחות: ${r.faults.map(x=>`${esc(x.room)}${x.note?' ('+esc(x.note)+')':''}`).join(', ')}</small>`:''}${(r.lost||[]).length?`<small>אבדות ומציאות: ${r.lost.map(x=>`${esc(x.room)}${x.note?' ('+esc(x.note)+')':''}`).join(', ')}</small>`:''}${r.unusual?`<small style="color:var(--bad);white-space:pre-wrap">⚠ ${esc(r.details||'אירוע חריג')}</small>`:''}</span>
     <span class="actions">${r.unusual?'<span class="pill bad">חריג</span>':'<span class="pill ok">תקין</span>'}${boss?`<button class="btn sm ghost" data-act="sr-del" data-id="${id}" data-h="${h}">${S.confirm==='sr:'+id?'לחיצה נוספת תמחק':'מחיקה'}</button>`:''}</span></div>`).join('')}</div>`:'<p class="muted">אין דוחות בחודש הזה.</p>'}</div>`}
 /* ---------- finance: confirms each shift report's cash deposit (shiftReports.finStatus pending|ok|issue) ---------- */
 const FIN_ST={pending:'ממתין לאישור כספים',ok:'ההפקדה אושרה',issue:'נמצא פער בהפקדה'};
@@ -1843,9 +1845,11 @@ const ACT={
     const gap=srGap(g('r420',''),g('cash','')),gapNote=String(g('gapNote','')).trim();if(gap&&!gapNote){toast('יש פער בין דוח 420 למזומן שהופקד. צריך להסביר אותו');return}
     if(!un){toast('צריך לסמן אם היו אירועים חריגים');return}if(un==='yes'&&!det){toast('צריך לפרט את האירועים החריגים');return}
     const shift=g('shift',srDefShift()),rows=l=>(g(l,[])||[]).map(x=>({room:String(x.room||'').trim(),note:String(x.note||'').trim()})).filter(x=>x.room||x.note);
-    if([...rows('ooo'),...rows('faults')].some(x=>!x.room)){toast('צריך מספר חדר בכל שורה של חדרים או תקלות');return}
+    if([...rows('ooo'),...rows('faults'),...rows('lost')].some(x=>!x.room)){toast('צריך מספר חדר בכל שורה של חדרים, תקלות או אבדות');return}
     const num=k=>{const v=String(g(k,'')).trim();return v===''?null:Math.max(0,Math.round(+v)||0)},hs=isHostel(h);
-    const extra={ooo:rows('ooo'),faults:rows('faults')};
+    const extra={ooo:rows('ooo'),faults:rows('faults'),lost:rows('lost'),booking:num('booking')};
+    if(extra.booking==null){toast('צריך למלא כמה הודעות בוקינג היו (אפשר 0)');return}
+    if(shift!=='night'){extra.ciLeft=num('ciLeft');if(extra.ciLeft==null){toast('צריך למלא כמה צ׳ק אין נשארו להיום');return}}
     if(shift==='night'){extra.ci=num('ci');extra.co=num('co');if(hs)extra.cid=num('cid');if(extra.ci==null||extra.co==null||(hs&&extra.cid==null)){toast('במשמרת לילה צריך למלא כמה צ׳ק אין וכמה צ׳ק אאוט היום');return}}
     if(shift==='morning'){extra.coLeft=num('coLeft');if(extra.coLeft==null){toast('במשמרת בוקר צריך למלא כמה צ׳ק אאוט נשאר');return}}
     faultsFromReport(h,extra.faults,name);

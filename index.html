@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#132033">
-<script src="i18n.js?v=202610191115"></script>
+<script src="i18n.js?v=202610191116"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1486,13 +1486,19 @@ const lastBackup=()=>{try{return +localStorage.getItem('scLastBackup')||0}catch(
 function backupHTML(){const lb=lastBackup();return `<div class="card"><h3>גיבוי</h3><p class="muted" style="font-size:.85rem">מוריד קובץ אחד עם כל הנתונים במערכת: עובדים, שכר, סידורים, אירועים, חשבוניות, מלאי, תקלות ודוחות. שומרים אותו במקום בטוח (מחשב, Google Drive). אפשר לשחזר ממנו דרך "ייבוא נתונים" שמתחת. כשעובר שבוע מהגיבוי האחרון, האתר מזכיר לך.</p>
   <p style="font-size:.9rem">${lb?`גיבוי אחרון מהמכשיר הזה: <b>${new Date(lb).toLocaleDateString('he-IL')}</b>`:'עוד לא נעשה גיבוי מהמכשיר הזה.'}</p>
   <label class="check"><input type="checkbox" id="bk_img" ${dv('bk','img',false)?'checked':''} data-f="bk.img"> כולל צילומי החשבוניות (קובץ גדול יותר)</label>
-  <div><button class="btn pri" data-act="backup-now">הורדת גיבוי מלא</button></div></div>`}
-async function backupNow(){if(!S.isOwner)return;if(S.backingUp)return;S.backingUp=true;toast('מכין גיבוי… זה יכול לקחת כמה שניות');
+  <div class="actions"><button class="btn pri" data-act="backup-now">הורדת גיבוי מלא</button><button class="btn" data-act="backup-drive">שיתוף לגוגל דרייב</button></div>
+  ${S.bkFile?`<div class="notice" style="display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-top:8px"><span>הגיבוי מוכן. לוחצים "שיתוף" ובוחרים Drive.</span><button class="btn sm pri" data-act="backup-share">שיתוף</button></div>`:''}</div>`}
+async function backupNow(mode){if(!S.isOwner)return;if(S.backingUp)return;S.backingUp=true;toast('מכין גיבוי… זה יכול לקחת כמה שניות');
   const out={exportedAt:new Date().toISOString(),by:S.email,collections:{}},cols=BACKUP_COLLS.concat(dv('bk','img',false)?['invoiceImgs']:[]);let n=0;
   try{for(const c of cols){const q=await fdb.collection(c).get();out.collections[c]=q.docs.map(d=>({id:d.id,data:d.data()}));n+=q.size;
       if(c==='quotes')for(const d of q.docs){try{const v=await fdb.collection('quotes/'+d.id+'/versions').get();if(v.size){out.collections['quotes/'+d.id+'/versions']=v.docs.map(x=>({id:x.id,data:x.data()}));n+=v.size}}catch(_){ }}}
-    const blob=new Blob([JSON.stringify(out)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='seven-backup-'+todayISO()+'.json';document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1500);
-    try{localStorage.setItem('scLastBackup',String(Date.now()))}catch(_){ }toast(`הגיבוי ירד: ${n} רשומות. שמרו את הקובץ במקום בטוח.`)}
+    const name='seven-backup-'+todayISO()+'.json',json=JSON.stringify(out);
+    // share to Google Drive: phones share the file (a fresh tap is needed, so we show a "share" button); computers download and open Drive
+    if(mode==='drive'){let f=null;try{f=new File([json],name,{type:'application/json'})}catch(_){ }
+      if(f&&navigator.canShare&&navigator.canShare({files:[f]})){S.bkFile=f;S.backingUp=false;try{localStorage.setItem('scLastBackup',String(Date.now()))}catch(_){ }render();toast('הגיבוי מוכן. לחצו "שיתוף" ובחרו Drive');return}
+      toast('הקובץ ירד. גררו אותו לחלון הדרייב שנפתח, או לחצו שם "חדש" ← "העלאת קובץ".')}
+    const blob=new Blob([json],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1500);
+    try{localStorage.setItem('scLastBackup',String(Date.now()))}catch(_){ }if(mode!=='drive')toast(`הגיבוי ירד: ${n} רשומות. שמרו את הקובץ במקום בטוח.`)}
   catch(e){toast('הגיבוי נכשל: '+errMsg(mapErr(e)))}S.backingUp=false;render()}
 function importHTML(){return `<div class="card"><h3>ייבוא נתונים</h3><p class="muted" style="font-size:.85rem">מעביר לכאן נתונים מהגרסה הקודמת: import-data.json לסידור העבודה, ו-events-import.json להצעות המחיר. בוחרים קובץ ולוחצים ייבוא, קובץ אחד בכל פעם. רשומה שכבר קיימת עם אותו מזהה תוחלף.</p>
   <div class="actions" style="align-items:center"><input type="file" id="imp_file" accept=".json,application/json"><button class="btn pri" data-act="import">ייבוא</button></div></div>`}
@@ -1723,6 +1729,9 @@ const ACT={
   'order-done':D=>{const h=D.h,items=(S.stockAll||{})[h]||{},lines=Object.entries((S.preqAll||{})[h]||{}).filter(([,r])=>r.status==='approved'&&(r.supplier||items[r.itemId]?.supplier||'')===D.s);
     for(const [rid,r] of lines){const doc={...r,status:'ordered',orderedAt:Date.now(),handledBy:S.uid};S.preqAll[h]={...S.preqAll[h],[rid]:doc};save('purchaseReqs/'+rid,doc)}render();toast(`סומן שהוזמן · ${lines.length} פריטים`)},
   'backup-now':()=>backupNow(),
+  'backup-drive':()=>{let canFiles=false;try{canFiles=!!(navigator.canShare&&navigator.canShare({files:[new File(['{}'],'t.json',{type:'application/json'})]}))}catch(_){ }
+    if(!canFiles)window.open('https://drive.google.com/drive/my-drive','_blank');backupNow('drive')},
+  'backup-share':async()=>{const f=S.bkFile;if(!f)return;try{await navigator.share({files:[f],title:f.name});S.bkFile=null;render();toast('נשלח. ודאו שהקובץ נשמר בדרייב.')}catch(e){if(e&&e.name==='AbortError')return;toast('השיתוף נכשל. נסו "הורדת גיבוי מלא" והעלו ידנית.')}},
   'backup-later':()=>{try{localStorage.setItem('scBackupSnooze',String(Date.now()+864e5))}catch(_){ }S.bkSnooze=true;render()},
   'fault-add':D=>{const h=D.h,g=(k,d)=>dv('flt',k,d),room=String(g('room','')).trim(),desc=String(g('desc','')).trim(),due=String(g('due',addDays(todayISO(),1)));
     if(!desc){toast('צריך לכתוב מה התקלה');return}const id='f'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),doc={hotel:h,room,desc,status:'open',openedAt:Date.now(),openedBy:S.uid,openedByName:S.meName||empName(S.uid)||'',due:/^\d{4}-\d{2}-\d{2}$/.test(due)?due:'',source:'manual'};

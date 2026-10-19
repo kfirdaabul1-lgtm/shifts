@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#132033">
-<script src="i18n.js?v=202610191139"></script>
+<script src="i18n.js?v=202610191146"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1606,9 +1606,8 @@ function sheetPerm(){
   (canMove?`<label class="f">מלון<select id="pm_hotel">${moveHs.map(h=>`<option value="${h}" ${h===curH?'selected':''}>${esc(hotelName(h))}</option>`).join('')}</select></label>${curH!==(e.hotel||'main')?`<div class="notice">${esc(e.name||'העובד')} יעבור מ${esc(hotelName(e.hotel||'main'))} ל${esc(hotelName(curH))}. הוא יראה את המשמרות והצוות של המלון החדש, והשכר שלו יירשם שם. שיבוצים שכבר נקבעו במלון הקודם נשארים.</div>`:''}`:'')+
   (outside?'<div class="notice">לאדם הזה יש הרשאה לכל המלונות, ורק מי שמנהל את כל המלונות יכול לשנות אותה.</div>':'')+
   `<div class="plist">${APPS.map(([k,n,desc])=>`<label class="prow" style="cursor:${mine[k]?'pointer':'default'}"><span class="who"><b>${n}</b><small>${mine[k]?desc:'אין לך את ההרשאה הזו, ולכן אי אפשר לתת אותה'}</small></span><input type="checkbox" id="pa_${k}" data-act="perm-app" data-k="${k}" ${d.apps[k]?'checked':''} ${mine[k]&&!outside?'':'disabled'}></label>`).join('')}</div>
-  ${d.apps.exp?`<div class="f"><span>הוצאות במלונות: <span class="muted">${expAllP()?'(בלי בחירה = כל המלונות)':'(לפחות מלון אחד)'}</span></span><div class="chips" style="gap:6px">${grantExpHotels().map(h=>`<button class="dchip ${d.expHotels.includes(h)?'':'off'}" style="--h:var(--brass);cursor:pointer" data-act="perm-exph" data-h="${h}" aria-pressed="${d.expHotels.includes(h)}">${esc(hotelName(h))}</button>`).join('')}</div></div>`:''}
   ${d.apps.dept?`<div class="f"><span>מנהל מחלקה של:</span><div class="chips" style="gap:6px">${grantDepts().map(x=>`<button class="dchip ${d.depts.includes(x.k)?'':'off'}" style="--h:${x.h};cursor:pointer" data-act="perm-dept" data-k="${x.k}" aria-pressed="${d.depts.includes(x.k)}">${x.n}</button>`).join('')}</div></div>`:''}
-  ${d.apps.shifts||d.apps.dept||d.apps.gm||d.apps.brief||d.apps.front||d.apps.maint||d.apps.fin?`<div class="f"><span>${d.apps.shifts?'מנהל סידור במלונות:':d.apps.gm?'מנהל המלונות:':(d.apps.brief||d.apps.front||d.apps.maint||d.apps.fin)&&!d.apps.dept?'במלונות:':'במלון:'} <span class="muted">${allHotelsP()&&!d.apps.dept?'(בלי בחירה = כל המלונות)':'(לפחות מלון אחד)'}</span></span><div class="chips" style="gap:6px">${hs.map(h=>`<button class="hchip" data-act="perm-hotel" data-h="${h}" aria-pressed="${d.hotels.includes(h)}" ${outside?'disabled':''}>${esc(hotelName(h))}</button>`).join('')}</div></div>`:''}
+  <div class="notice" style="font-size:.88rem">ההרשאות חלות על ${curH===CHAIN?'<b>כל המלונות</b> (עובד רשת)':`המלון שבו העובד רשום: <b>${esc(hotelName(curH))}</b>`}.</div>
   <p class="muted" style="font-size:.82rem">השינוי נכנס לתוקף כשהאדם מרענן את האתר.</p>
   <div class="actions"><button class="btn pri" data-act="perm-save" ${outside?'disabled':''}>שמירה</button><button class="btn ghost" data-act="close">ביטול</button></div>`;
 }
@@ -1853,16 +1852,18 @@ const ACT={
   'perm-hotel':D=>{const d=S.drafts.perm;if(!d)return;d.hotels=d.hotels.includes(D.h)?d.hotels.filter(h=>h!==D.h):[...d.hotels,D.h];render()},
   'perm-save':()=>{const u=S.sheet.id,d=S.drafts.perm,e=S.emps[u];if(!d||!e)return;const mine=myApps();
     const apps={};for(const [k] of APPS)if(d.apps[k]&&mine[k])apps[k]=true;
-    const hotels=d.hotels.filter(h=>grantableHotels().includes(h));
+    // permissions always apply to the hotel the person is registered in (chain staff = all hotels)
+    const th=(d.hotel&&S.can.shifts&&grantableHotels().includes(d.hotel))?d.hotel:(e.hotel||'main'),hotels=th===CHAIN?[]:[th];
+    if(th===CHAIN?!allHotelsP():!grantableHotels().includes(th)){toast('אין לך הרשאה למלון של העובד הזה');return}
     let moved='';const from=e.hotel||'main';
     if(d.hotel&&d.hotel!==from&&S.can.shifts&&grantableHotels().includes(d.hotel)){const to=d.hotel;moved=to;
       S.emps[u]={...e,hotel:to};save('employees/'+u,S.emps[u]);
       if(S.mgr[u]){S.mgr[u]={...S.mgr[u],hotel:to};save('mgr/'+u,S.mgr[u])}
       if(S.avail[u]){S.avail[u]={...S.avail[u],hotel:to};save('avail/'+u,S.avail[u])}}
     if(!Object.keys(apps).length){if(S.roles[u]){delete S.roles[u];save('roles/'+u,null)}}
-    else{if((!allHotelsP()||apps.dept)&&!hotels.length){toast('צריך לבחור לפחות מלון אחד');return}
+    else{if(apps.dept&&!hotels.length){toast('מנהל מחלקה צריך להיות רשום במלון מסוים, לא ברשת');return}
       if(apps.dept&&!d.depts.filter(x=>grantDepts().some(g=>g.k===x)).length){toast('צריך לבחור לפחות מחלקה אחת');return}
-      const expHotels=apps.exp?d.expHotels.filter(h=>grantExpHotels().includes(h)):[];if(apps.exp&&!expAllP()&&!expHotels.length){toast('צריך לבחור לפחות מלון אחד להוצאות');return}
+      const expHotels=apps.exp?hotels.slice():[];if(apps.exp&&(th===CHAIN?!expAllP():!grantExpHotels().includes(th))){toast('אין לך הרשאת הוצאות למלון של העובד הזה');return}
       const mg=apps.gm?'gm':apps.ceo?'ceo':'';if((e.mgmt||'')!==mg&&(S.isOwner||(S.can.shifts&&grantableHotels().includes(e.hotel||'main')))){S.emps[u]={...S.emps[u],mgmt:mg};save('employees/'+u,S.emps[u])}
       const doc={apps,hotels,depts:apps.dept?d.depts.filter(x=>grantDepts().some(g=>g.k===x)):[],expHotels,name:e.name||'',updatedBy:S.uid,updatedAt:Date.now()};S.roles[u]=doc;save('roles/'+u,doc)}
     S.sheet=null;S.drafts.perm=null;render();toast(moved?`${e.name||'העובד'} הועבר ל${hotelName(moved)}`:`ההרשאות של ${e.name||'העובד'} נשמרו`)},

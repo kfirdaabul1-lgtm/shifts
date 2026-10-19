@@ -384,7 +384,7 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'&&S.menu){S.menu=fals
 function render(){if(isTyping()){S.pending=true;return}S.pending=false;renderTop();renderDrawer();$('#main').innerHTML=viewHTML();renderSheet()}
 function renderTop(){
   const c=cfg();
-  const tabs=S.admin?(S.deptOnly?[['sched','סידור'],['shifts','משמרות פתוחות']]:[['sched','סידור'],['shifts','משמרות פתוחות'],['staff','עובדים'],['costs','עלויות'],['settings','הגדרות']]):S.myHotel===CHAIN||isMgmt(S.uid)?[['profile','הפרופיל שלי']]:[['avail','הזמינות שלי'],['mine','המשמרות שלי'+(myPending().length?` (${myPending().length})`:'')],['daily','10days'],['profile','הפרופיל שלי']];
+  const tabs=S.admin?(S.deptOnly?[['sched','סידור'],['shifts','משמרות פתוחות']]:[['sched','סידור'],['shifts','משמרות פתוחות'],['staff','עובדים'],['costs','עלויות'],['settings','הגדרות']]):S.myHotel===CHAIN||isMgmt(S.uid)?[['profile','הפרופיל שלי']]:[['avail','הזמינות שלי'],['mine','המשמרות שלי'+(myPending().length?` (${myPending().length})`:'')],['profile','הפרופיל שלי']];
   const nav=S.ready&&!S.registering&&S.auth==='in'&&S.week&&S.tab!=='settings'&&!APPTABS.includes(S.tab)&&!(!S.admin&&(S.tab==='avail'||S.tab==='profile'));
   $('#top').innerHTML=`${appBarHTML()}<div class="wrap top-in">
     <div class="brand"><span class="mark">${BELL}</span><div><div class="b1">Seven Collection</div><div class="b2">${S.auth==='in'&&!S.registering?`${esc(hotelName(S.hotel))} · ${S.station?'עמדת קבלה':S.admin?'ממשק מנהל':'ממשק עובד'}`:''}</div></div></div>
@@ -515,11 +515,11 @@ function vSched(){
       ${isOpen||S.deptOnly?'':'<button class="btn" data-act="openweek">פתיחת השבוע להגשה</button>'}
       <button class="btn ghost" data-act="clear" ${S.deptOnly?'hidden':''}>${S.confirm==='clear'?'לחיצה נוספת תנקה את השיבוץ':'ניקוי שיבוץ'}</button>
     </div>${S.sched.published?'':'<p class="muted" style="font-size:.85rem">שיבוץ ידני: לוחצים על משבצת ובוחרים עובד. משבצת עם + ריקה מוסיפה משמרת. אפשר גם להתחיל בשיבוץ אוטומטי ולתקן ידנית.</p>'}${S.sched.published?'<p class="muted" style="font-size:.85rem">הסידור פורסם. כדי לשנות משמרת, לוחצים על המשבצת ושולחים בקשה לעובד. השינוי נכנס לסידור רק אחרי שהעובד מאשר.</p>':''}${reqCardHTML()}</section>`;
-  if(!sh.length)return wrap(head+dailyCardHTML()+emptyBox('עוד לא הוגדרו משמרות פתוחות לשבוע הזה','קובעים כמה עובדים צריך בכל משמרת בכל מחלקה. אחר כך העובדים מסמנים מתי הם יכולים, והמערכת משבצת.','<button class="btn pri" data-act="tab" data-t="shifts">הגדרת משמרות פתוחות</button>'));
+  if(!sh.length)return wrap(head+emptyBox('עוד לא הוגדרו משמרות פתוחות לשבוע הזה','קובעים כמה עובדים צריך בכל משמרת בכל מחלקה. אחר כך העובדים מסמנים מתי הם יכולים, והמערכת משבצת.','<button class="btn pri" data-act="tab" data-t="shifts">הגדרת משמרות פתוחות</button>'));
   const depts=myDEPTS().filter(d=>(S.dept==='all'||S.dept===d.k)&&sh.some(([,s])=>s.dept===d.k));
   const secs=depts.map(d=>{let n=0,f=0;sh.forEach(([id,s])=>{if(s.dept===d.k){n+=+s.need;f+=Math.min(asg(id).length,+s.need)}});
     return `<section class="dept" style="--h:${d.h}"><div class="dept-h"><span class="sw"></span><h2>${d.n}</h2><span class="muted mono">${f}/${n}</span>${S.deptOnly?'':`<span class="muted">· ${ils(cost.dept[d.k])}</span>`}</div>${deptTable(d.k,'sched')}</section>`}).join('');
-  return wrap(head+deptFilter()+(secs||emptyBox('אין משמרות במחלקה הזו השבוע','אפשר להוסיף בלשונית משמרות פתוחות.'))+dailyCardHTML());
+  return wrap(head+deptFilter()+(secs||emptyBox('אין משמרות במחלקה הזו השבוע','אפשר להוסיף בלשונית משמרות פתוחות.')));
 }
 
 /* auto-assign: hardest-to-fill shift first, least-loaded available person first */
@@ -2083,7 +2083,7 @@ async function start(u){
   catch(e){onErr(e)}
   S.week=openWeek();
   let t=null;try{t=localStorage.getItem('hs_tab')}catch(_){ }
-  const allowed=S.station?['front']:((S.admin?(S.deptOnly?['sched','shifts']:['sched','shifts','staff','costs','settings']):S.myHotel===CHAIN||S.myMgmt?['profile']:['avail','mine','daily','profile']).concat(S.can.perms?['perms']:[]).concat(S.can.ceo?['ceo']:[]).concat(S.can.mkt?['mkt']:[]).concat(S.can.exp?['exp']:[]).concat(S.can.gm?['gm']:[]).concat(S.can.stock?['stock']:[]).concat(S.can.brief?['brief']:[]).concat(S.can.front?['front']:[]).concat(S.can.maint?['maint']:[]).concat(S.can.fin?['fin']:[]));S.tab=allowed.includes(t)?t:allowed[0];
+  const allowed=S.station?['front']:((S.admin?(S.deptOnly?['sched','shifts']:['sched','shifts','staff','costs','settings']):S.myHotel===CHAIN||S.myMgmt?['profile']:['avail','mine','profile']).concat(S.can.perms?['perms']:[]).concat(S.can.ceo?['ceo']:[]).concat(S.can.mkt?['mkt']:[]).concat(S.can.exp?['exp']:[]).concat(S.can.gm?['gm']:[]).concat(S.can.stock?['stock']:[]).concat(S.can.brief?['brief']:[]).concat(S.can.front?['front']:[]).concat(S.can.maint?['maint']:[]).concat(S.can.fin?['fin']:[]));S.tab=allowed.includes(t)?t:allowed[0];
   if(location.hash==='#perms'&&S.can.perms)S.tab='perms';
   if(location.hash==='#ceo'&&S.can.ceo)S.tab='ceo';
   if(location.hash==='#mkt'&&S.can.mkt)S.tab='mkt';

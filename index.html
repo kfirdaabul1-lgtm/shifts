@@ -4,7 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#132033">
-<script src="i18n.js?v=202610191930"></script>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Seven">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<script src="i18n.js?v=202610192213"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -255,6 +260,7 @@ body.nocopy input,body.nocopy textarea,body.nocopy select{-webkit-user-select:te
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js"></script>
 <!-- Connection settings: fill in config.js -->
 <script src="config.js"></script>
 <script>
@@ -390,6 +396,33 @@ document.addEventListener('focusout',()=>setTimeout(()=>{if(S.pending&&!isTyping
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&S.menu){S.menu=false;render();return}if(e.key==='Escape'&&S.sheet){S.sheet=null;S.drafts.emp=null;render()}});
 
 /* ---------- render ---------- */
+/* ---------- push notifications (FCM): this device gets notifications even when the site is closed ---------- */
+// tokens are saved in pushTokens/{uid}.tokens; the sending side (Cloud Functions) is a separate step
+const isIOS=()=>/iPhone|iPad|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+const isStandalone=()=>!!(navigator.standalone||(window.matchMedia&&matchMedia('(display-mode: standalone)').matches));
+const pushSupported=()=>'serviceWorker' in navigator&&'PushManager' in window&&'Notification' in window&&!!(window.firebase&&firebase.messaging);
+function pushLocalOk(){try{return localStorage.getItem('pushOk:'+S.uid)==='1'}catch(_){return false}}
+function pushOffered(){if(!S.uid)return false;if(isIOS()&&!isStandalone())return true;if(!pushSupported())return false;return Notification.permission!=='denied'&&!(Notification.permission==='granted'&&pushLocalOk())}
+async function pushToken(){const reg=await navigator.serviceWorker.register('firebase-messaging-sw.js');await navigator.serviceWorker.ready;
+  const opt={serviceWorkerRegistration:reg};if(CFG.vapidKey)opt.vapidKey=CFG.vapidKey;
+  const tok=await firebase.messaging().getToken(opt);if(!tok)throw new Error('no token');
+  await fdb.doc('pushTokens/'+S.uid).set({uid:S.uid,name:S.meName||'',hotel:S.myHotel||S.hotel||'',station:!!S.station,updatedAt:Date.now(),tokens:{[tok]:{ua:navigator.userAgent.slice(0,120),at:Date.now(),ios:isIOS()}}},{merge:true});
+  try{localStorage.setItem('pushOk:'+S.uid,'1')}catch(_){ }return {tok,reg}}
+async function pushEnable(){
+  if(isIOS()&&!isStandalone()){S.sheet={type:'iospush'};render();return}
+  if(!pushSupported()){toast('הדפדפן הזה לא תומך בהתראות. נסו ב-Chrome, או באייפון דרך מסך הבית.');return}
+  try{const p=await Notification.requestPermission();if(p!=='granted'){toast('ההתראות לא הופעלו. אפשר להפעיל אותן בהגדרות הדפדפן.');render();return}
+    const {reg}=await pushToken();
+    try{reg.showNotification('Seven Collection',{body:'ההתראות פעילות במכשיר הזה ✓',icon:'icon-192.png',dir:'rtl',lang:'he'})}catch(_){ }
+    toast('ההתראות הופעלו במכשיר הזה ✓');render()}
+  catch(e){console.warn('push',e);toast('לא הצלחתי להפעיל התראות במכשיר הזה. נסו שוב או בדפדפן אחר.')}}
+// on every sign-in with permission already granted: refresh the token quietly, and show messages that arrive while the site is open
+function pushInit(){if(!pushSupported()||Notification.permission!=='granted'||(isIOS()&&!isStandalone()))return;
+  pushToken().then(()=>{try{firebase.messaging().onMessage(m=>{const d=m.data||{},n=m.notification||{};toast((n.title||d.title||'')+(n.body||d.body?': '+(n.body||d.body):''))})}catch(_){ }render()}).catch(e=>console.warn('push init',e))}
+function sheetIosPush(){return sheetHead('התראות באייפון','')+`<p>באייפון אפשר לקבל התראות רק כשהאתר מותקן במסך הבית:</p>
+  <ol style="padding-inline-start:20px;line-height:1.9"><li>פותחים את האתר ב-<b>Safari</b>.</li><li>לוחצים על כפתור השיתוף <b>⎙</b> (ריבוע עם חץ למעלה) בתחתית המסך.</li><li>בוחרים <b>"הוסף למסך הבית"</b> ולוחצים "הוסף".</li><li>פותחים את <b>Seven</b> מהאייקון החדש במסך הבית.</li><li>בתפריט לוחצים <b>"הפעלת התראות"</b> ומאשרים.</li></ol>
+  <p class="muted" style="font-size:.85rem">צריך iOS 16.4 ומעלה. אחרי ההתקנה האתר נפתח כמו אפליקציה, בלי שורת הכתובת.</p>
+  <div class="actions"><button class="btn pri" data-act="close">הבנתי</button></div>`}
 function render(){if(isTyping()){S.pending=true;return}S.pending=false;renderTop();renderDrawer();$('#main').innerHTML=viewHTML();renderSheet()}
 function renderTop(){
   const c=cfg();
@@ -409,7 +442,7 @@ function renderDrawer(){const el=$('#drawer');if(!S.menu||S.auth!=='in'){el.inne
     <div class="drawer-h"><b>Seven Collection</b><button class="x" data-act="menu-close" aria-label="סגירה">×</button></div>
     <div class="drawer-who">${esc(S.meName||'')}${S.meName&&(S.email||S.phone)?'<br>':''}<bdi>${esc(S.email||S.phone||'')}</bdi></div>
     ${items.map(([k,n,attr,cur])=>attr.startsWith('href')?`<a class="item" ${attr}>${ICO[k]}${n}</a>`:`<button class="item" ${attr} ${cur?'aria-current="page"':''}>${ICO[k]}${n}</button>`).join('')}
-    ${!S.station&&window.Notification&&Notification.permission!=='granted'&&Notification.permission!=='denied'?'<button class="item" data-act="notif-on">🔔 הפעלת התראות</button>':''}
+    ${pushOffered()?'<button class="item" data-act="notif-on">🔔 הפעלת התראות</button>':''}
     <span class="sp"></span><button class="item" data-act="logout">${ICO.out}יציאה</button></nav>`}
 function appBarHTML(){return '';
   return `<div class="appbar"><div class="wrap appbar-in" role="navigation" aria-label="אפליקציות"><button data-act="app-shifts" ${!APPTABS.includes(S.tab)?'aria-current="page"':''}>סידור עבודה</button>${S.can.events?'<a href="events.html">אירועים</a>':''}${S.can.perms?`<button data-act="app-perms" ${S.tab==='perms'?'aria-current="page"':''}>הרשאות</button>`:''}</div></div>`}
@@ -1431,7 +1464,7 @@ function vProfile(){
 /* ---------- sheets ---------- */
 function renderSheet(){
   const el=$('#sheet');if(!S.sheet){el.hidden=true;el.innerHTML='';return}
-  let h='';if(S.sheet.type==='perm')h=sheetPerm();else if(S.sheet.type==='cell')h=sheetCell();else if(S.sheet.type==='emp')h=sheetEmp();else if(S.sheet.type==='send')h=sheetSend();else if(S.sheet.type==='remind')h=sheetRemind();else if(S.sheet.type==='camp')h=sheetCamp();else if(S.sheet.type==='sup')h=sheetSup();else if(S.sheet.type==='inv')h=sheetInv();else if(S.sheet.type==='stock')h=sheetStock();else if(S.sheet.type==='preq')h=sheetPreq();else if(S.sheet.type==='swap')h=sheetSwap();
+  let h='';if(S.sheet.type==='perm')h=sheetPerm();else if(S.sheet.type==='cell')h=sheetCell();else if(S.sheet.type==='emp')h=sheetEmp();else if(S.sheet.type==='send')h=sheetSend();else if(S.sheet.type==='remind')h=sheetRemind();else if(S.sheet.type==='camp')h=sheetCamp();else if(S.sheet.type==='sup')h=sheetSup();else if(S.sheet.type==='inv')h=sheetInv();else if(S.sheet.type==='stock')h=sheetStock();else if(S.sheet.type==='preq')h=sheetPreq();else if(S.sheet.type==='swap')h=sheetSwap();else if(S.sheet.type==='iospush')h=sheetIosPush();
   if(!h){S.sheet=null;el.hidden=true;return}
   el.innerHTML=`<div class="panel" role="dialog" aria-modal="true">${h}</div>`;el.hidden=false;
 }
@@ -1839,7 +1872,7 @@ const ACT={
   'app-brief':()=>{S.menu=false;setTab('brief')},
   'app-front':()=>{S.menu=false;const cw=weekOf(todayISO());if(S.week!==cw){S.tab='front';setWeek(cw)}setTab('front')},
   'app-maint':()=>{S.menu=false;setTab('maint')},
-  'notif-on':()=>{try{Notification.requestPermission().then(p=>{toast(p==='granted'?'ההתראות הופעלו. תקבל התראה כשתגיע בקשה חדשה או כשפריט במלאי מגיע לרף המינימום, כל עוד האתר פתוח.':'ההתראות לא הופעלו');render()})}catch(_){toast('הדפדפן הזה לא תומך בהתראות')}},
+  'notif-on':()=>{S.menu=false;pushEnable()},
   'hotel-space':D=>{const h=D.h,cur=hotelSpaces(h),k=D.v,sp=cur.includes(k)?cur.filter(x=>x!==k):[...cur,k];
     S.settingsAll[h]={...(S.settingsAll[h]||{}),spaces:sp,venues:[...new Set(sp.map(x=>x.split('|')[0]))]};save('settings/'+h,S.settingsAll[h]);render()},
   'brief-day':D=>{S.briefDate=+D.d?addDays(S.briefDate||todayISO(),+D.d):todayISO();render()},
@@ -2157,7 +2190,7 @@ async function start(u){
     db.collection('requests').where('uid','==',S.uid).onSnapshot(q=>{own=docsMap(q);mix()},onErr);
     db.collection('requests').where('peer','==',S.uid).onSnapshot(q=>{peer=docsMap(q);mix()},()=>{});
     db.collection('requests').where('hotel','==',S.myHotel===CHAIN?S.hotel:(S.myHotel||S.hotel)).where('status','==','approved').onSnapshot(q=>{hot=docsMap(q);mix()},()=>{})}
-  subWeek();S.ready=true;render();checkJoinCodes();if(!S.station)alertsSub();
+  subWeek();S.ready=true;render();checkJoinCodes();if(!S.station)alertsSub();setTimeout(pushInit,1500);
 }
 (function boot(){
   render();

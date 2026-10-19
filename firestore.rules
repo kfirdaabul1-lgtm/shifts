@@ -355,6 +355,12 @@ service cloud.firestore {
       allow delete: if manages(resource.data.hotel) || gmIn(resource.data.hotel);
     }
 
+    // ---------- התראות לטלפון ----------
+    // כל מכשיר שומר את הכתובת שלו לקבלת התראות; רק בעל החשבון (ובעל המערכת) רואה ומשנה. השליחה עצמה מהשרת.
+    match /pushTokens/{uid} {
+      allow read, write: if signedIn() && (request.auth.uid == uid || isOwner());
+    }
+
     // כל השאר חסום
     match /{document=**} {
       allow read, write: if false;

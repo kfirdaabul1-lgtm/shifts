@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#132033">
-<script src="i18n.js?v=202610191154"></script>
+<script src="i18n.js?v=202610191200"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1409,7 +1409,7 @@ function sheetEmp(){
   const manual=e.manual||isNew;
   return sheetHead(isNew?'עובד חדש':esc(e.name||'עובד'),isNew?'לעובד שלא נכנס לאפליקציה. את הזמינות שלו מסמנים כאן.':(e.manual?'נוסף ידנית':'נרשם בעצמו')+(isChain(u)?' · עובד רשת':''))+
   `<div class="row"><label class="f">שם מלא<input type="text" id="e_name" data-f="emp.name" value="${esc(dv('emp','name',e.name||''))}"></label><label class="f">טלפון<input type="tel" id="e_phone" dir="ltr" data-f="emp.phone" value="${esc(dv('emp','phone',e.phone||''))}"></label></div>
-  <div class="row"><label class="f">תפקיד<input type="text" id="e_title" data-f="emp.title" value="${esc(dv('emp','title',e.title||''))}"></label>${hotelIds().length>1?`<label class="f">מלון בית<select id="e_hotel" data-f="emp.hotel">${hotelIds().map(h=>`<option value="${h}" ${h===dv('emp','hotel',e.hotel||S.hotel)?'selected':''}>${esc(hotelName(h))}</option>`).join('')}</select></label>`:''}</div>
+  <div class="row"><label class="f">תפקיד<input type="text" id="e_title" data-f="emp.title" value="${esc(dv('emp','title',e.title||''))}"></label>${hotelIds().length>1||allHotelsP()?`<label class="f">מלון בית<select id="e_hotel" data-f="emp.hotel">${hotelIds().concat(allHotelsP()?[CHAIN]:[]).map(h=>`<option value="${h}" ${h===dv('emp','hotel',e.hotel||S.hotel)?'selected':''}>${esc(hotelName(h))}</option>`).join('')}</select></label>`:''}</div>
   <div class="f"><span>מחלקות</span><div class="chips" style="gap:6px">${DEPTS.map(d=>`<button class="dchip ${depts.includes(d.k)?'':'off'}" style="--h:${d.h};cursor:pointer" data-act="emp-dept" data-k="${d.k}" aria-pressed="${depts.includes(d.k)}">${d.n}</button>`).join('')}</div></div>
   <label class="f">תפקיד ניהולי<select id="e_mgmt" data-f="emp.mgmt"><option value="" ${!dv('emp','mgmt',e.mgmt||'')?'selected':''}>ללא (עובד במשמרות)</option>${Object.entries(MGMT).map(([k,n])=>`<option value="${k}" ${dv('emp','mgmt',e.mgmt||'')===k?'selected':''}>${n} · לא נספר בהגשת משמרות</option>`).join('')}</select></label>
   ${e.want?`<p class="muted" style="font-size:.85rem">העובד ביקש כ-${esc(e.want)} משמרות בשבוע.</p>`:''}
@@ -1698,7 +1698,12 @@ const ACT={
     const emp={...e,name,phone:String(d.phone??e.phone??'').trim(),title:String(d.title??e.title??'').trim(),depts:d.depts??e.depts??[],mgmt:d.mgmt??e.mgmt??'',hotel:d.hotel??e.hotel??S.hotel,manual:e.manual??!S.emps[u],createdAt:e.createdAt||Date.now()};
     const mg={...m,payType:d.payType??m.payType??'hourly',rate:+(d.rate??m.rate??0)||0,monthly:+(d.monthly??m.monthly??0)||0,maxShifts:+(d.maxShifts??m.maxShifts??6)||0,minShifts:Math.max(0,+(d.minShifts??m.minShifts??0)||0),freeShifts:+(d.freeShifts??m.freeShifts??3)||0,volUnit:d.volUnit??m.volUnit??'shift',housing:+(d.housing??m.housing??0)||0,active:!!(d.active??(m.active!==false))};
     mg.hotel=emp.hotel||'main';
+    if(emp.hotel===CHAIN&&!allHotelsP()){toast('רק מי שמנהל את כל המלונות יכול להעביר לרשת');return}
+    const movedH=S.emps[u]&&(e.hotel||'main')!==emp.hotel;
     S.emps[u]=emp;S.mgr[u]=mg;save('employees/'+u,emp);save('mgr/'+u,mg);
+    if(movedH){if(S.avail[u]){S.avail[u]={...S.avail[u],hotel:emp.hotel};save('avail/'+u,S.avail[u])}
+      // permissions follow the person's hotel (chain staff = all hotels)
+      const r=S.roles[u];if(r&&!r.station&&S.can.perms){const hs=emp.hotel===CHAIN?[]:[emp.hotel];const nr={...r,hotels:hs,expHotels:roleApps(r).exp?hs.slice():[],updatedBy:S.uid,updatedAt:Date.now()};S.roles[u]=nr;save('roles/'+u,nr)}}
     const wasNew=!e.name;S.drafts.emp=null;if(!wasNew||!emp.manual)S.sheet=null;render();toast(wasNew?'העובד נוסף. אפשר לסמן לו זמינות למטה.':'נשמר')},
   'emp-del':()=>{if(S.confirm!=='del'){S.confirm='del';render();return}const u=S.sheet.id;S.confirm=null;S.sheet=null;
     delete S.emps[u];delete S.mgr[u];delete S.avail[u];save('employees/'+u,null);save('mgr/'+u,null);save('avail/'+u,null);render();toast('העובד נמחק')},

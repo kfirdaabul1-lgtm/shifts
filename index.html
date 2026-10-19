@@ -237,6 +237,8 @@ table.plain th.num{text-align:end}
 @media (max-width:560px){.hrow{grid-template-columns:minmax(0,1fr)}}
 .notice{background:var(--brass-bg);color:var(--brass);border-radius:10px;padding:10px 14px;font-size:.9rem}
 @media (prefers-reduced-motion:no-preference){.cell,.slot,.btn{transition:background-color .15s,border-color .15s}}
+body.nocopy{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+body.nocopy input,body.nocopy textarea,body.nocopy select{-webkit-user-select:text;user-select:text}
 </style>
 </head>
 <body>
@@ -1939,6 +1941,8 @@ const ACT={
     S.sheet=null;S.drafts.perm=null;render();toast(moved?`${e.name||'העובד'} הועבר ל${hotelName(moved)}`:`ההרשאות של ${e.name||'העובד'} נשמרו`)},
   'bg-close':(D,t,e)=>{if(e.target===t)ACT.close()},
 };
+// no copying for plain employees: block copy/cut/right-click/drag outside form fields
+['copy','cut','contextmenu','dragstart'].forEach(ev=>document.addEventListener(ev,e=>{if(!S.noCopy)return;const t=e.target;if(t&&t.closest&&t.closest('input,textarea,select'))return;e.preventDefault()},true));
 document.addEventListener('click',e=>{const t=e.target.closest('[data-act]');if(!t)return;const f=ACT[t.dataset.act];if(!f)return;
   if(t.tagName==='BUTTON')e.preventDefault();f(t.dataset,t,e)});
 
@@ -2069,6 +2073,9 @@ async function start(u){
   S.scoped=!S.isOwner&&!!S.role&&Array.isArray(S.role.hotels)&&S.role.hotels.length>0;
   // shared reception account (one login for the desk, people change through the day): front desk page only
   S.station=!S.isOwner&&!!(S.role&&S.role.station);
+  // employees, reception and department managers can't select or copy what's on screen (typing in fields still works); managers keep copy for WhatsApp etc.
+  S.noCopy=!S.isOwner&&!(S.can.shifts||S.can.gm||S.can.ceo||S.can.fin||S.can.exp||S.can.perms||S.can.events||S.can.mkt);
+  document.body.classList.toggle('nocopy',S.noCopy);
   if(S.station){S.can={...S.can,front:true,brief:false,stock:false,events:false,perms:false,maint:false,fin:false};S.admin=false;S.deptOnly=false;S.myHotel=((S.role.hotels||[])[0])||'main';S.hotel=S.myHotel;S.meName=S.role.name||'קבלה';S.email=S.role.login||''}
   else if(!S.role&&S.email.endsWith('@'+STATION_DOMAIN)){S.stationOff=true;S.tab='front';S.ready=true;render();return}
   else if(!S.admin){let me=null;try{const m=await db.doc('employees/'+u.uid).get();if(m.exists)me=m.data()}catch(_){ }

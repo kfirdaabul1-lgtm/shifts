@@ -1,0 +1,23 @@
+name: Deploy push-notification functions
+on:
+  push:
+    branches: [main]
+    paths: ['functions/**', 'firebase.json']
+  workflow_dispatch:
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - name: Install
+        run: cd functions && npm install --no-audit --no-fund
+      - name: Deploy to Firebase
+        env:
+          KEY: ${{ secrets.FIREBASE_DEPLOY_KEY }}
+        run: |
+          if [ -z "$KEY" ]; then echo "Secret FIREBASE_DEPLOY_KEY is missing"; exit 1; fi
+          echo "$KEY" > "$RUNNER_TEMP/key.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/key.json"
+          npx --yes firebase-tools@13 deploy --only functions --project hotel-shifts --non-interactive --force

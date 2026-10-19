@@ -11,7 +11,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Publish firestore.rules to Firebase
         env:
-          KEY: ${{ secrets.FIREBASE_RULES_KEY }}
+          KEY: ${{ secrets.FIREBASE_RULES_KEY || secrets.FIREBASE_DEPLOY_KEY }}
         run: |
           pip install --quiet google-auth requests
           python3 .github/deploy_rules.py

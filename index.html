@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#132033">
-<script src="i18n.js?v=202610191116"></script>
+<script src="i18n.js?v=202610191139"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -293,7 +293,7 @@ const schedPath=(w,h)=>'schedule/'+(h==='main'?w:w+'_'+h);
 /* state */
 const S={db:null,uid:null,admin:false,meName:'',ready:false,noDb:false,
   settingsAll:{},hotels:{},live:{},scheds:{},hotel:'main',subKey:'',emps:{},mgr:{},avail:{},shifts:{},
-  auth:'pending',roles:{},can:{shifts:false,events:false,perms:false,ceo:false,mkt:false,exp:false,gm:false,stock:false,brief:false,front:false,maint:false,dept:false},deptOnly:false,myDepts:[],registering:false,isOwner:false,role:null,email:'',phone:'',week:null,tab:null,dept:'all',drafts:{},sheet:null,pending:false,unsub:[],empsLoaded:false,confirm:null};
+  auth:'pending',roles:{},can:{shifts:false,events:false,perms:false,ceo:false,mkt:false,exp:false,gm:false,stock:false,brief:false,front:false,maint:false,fin:false,dept:false},deptOnly:false,myDepts:[],registering:false,isOwner:false,role:null,email:'',phone:'',week:null,tab:null,dept:'all',drafts:{},sheet:null,pending:false,unsub:[],empsLoaded:false,confirm:null};
 Object.defineProperty(S,'sched',{get(){return S.scheds[S.hotel]||{assign:{},published:false}},set(v){S.scheds[S.hotel]=v}});
 Object.defineProperty(S,'settings',{get(){return S.settingsAll[S.hotel]||{}},set(v){S.settingsAll[S.hotel]=v}});
 function cfg(){const s=S.settings||{};return {overhead:25,shabbatPct:50,restHours:8,availOpen:true,preferGlobal:false,hotelName:'',shareLink:'',deadline:'',...s,times:{...DEF_TIMES,...(s.times||{})}}}
@@ -301,7 +301,7 @@ function timesFor(dept,kind){const c=cfg(),t=(c.deptTimes||{})[dept]?.[kind];ret
 function kindsFor(dept){const k=(cfg().deptKinds||{})[dept];return Array.isArray(k)&&k.length?k:['m','e','n']}
 const hrsOf=(a,b)=>{a=toMin(a);b=toMin(b);if(b<=a)b+=1440;return (b-a)/60};
 const openWeek=()=>cfg().openWeek||addDays(weekOf(todayISO()),7);
-const APPTABS=['perms','ceo','mkt','exp','gm','stock','brief','front','maint'];
+const APPTABS=['perms','ceo','mkt','exp','gm','stock','brief','front','maint','fin'];
 const deptOk=k=>!S.deptOnly||S.myDepts.includes(k);
 const myDEPTS=()=>DEPTS.filter(d=>deptOk(d.k));
 const isActive=u=>S.mgr[u]?.active!==false;
@@ -362,7 +362,7 @@ let toastT;function toast(m){const t=$('#toast');t.textContent=m;t.hidden=false;
 const dv=(f,k,fb)=>{const d=S.drafts[f];return d&&k in d?d[k]:fb};
 function onField(e){const f=e.target.dataset&&e.target.dataset.f;if(!f)return;const [form,key]=f.split('.');(S.drafts[form]||(S.drafts[form]={}))[key]=e.target.type==='checkbox'?e.target.checked:e.target.value;
   if(form==='set'){if(e.target.type==='checkbox'){if(e.type==='change')render()}else S.pending=true}
-  if(form==='sr'&&key==='shift'&&e.type==='change'){e.target.blur();render()}}
+  if(form==='sr'&&(key==='shift'||((key==='r420'||key==='cash')&&e.type==='change'))){if(key==='shift')e.target.blur();if(e.type==='change')render()}}
 document.addEventListener('input',e=>{const t=e.target;if(!t.matches)return;
   if(t.matches('[data-item]')){const d=S.drafts.inv;if(!d)return;const [i,k]=t.dataset.item.split('|');d.items[+i][k]=t.value;S.pending=true}
   else if(t.matches('[data-srrow]')){const [l,i,k]=t.dataset.srrow.split('|'),d=S.drafts.sr||(S.drafts.sr={}),a=d[l]||(d[l]=[]);(a[+i]||(a[+i]={}))[k]=t.value}
@@ -395,7 +395,7 @@ function renderTop(){
   ${S.ready&&!S.registering&&S.auth==='in'&&!APPTABS.includes(S.tab)?`<nav class="wrap tabs" aria-label="ניווט">${tabs.map(([k,n])=>`<button data-act="tab" data-t="${k}" ${S.tab===k?'aria-current="page"':''}>${n}</button>`).join('')}</nav>`:''}`;
 }
 function renderDrawer(){const el=$('#drawer');if(!S.menu||S.auth!=='in'){el.innerHTML='';return}
-  const items=S.registering?[]:S.station?[['front','קבלה','data-act="app-front"',true]]:[['shifts','סידור עבודה','data-act="app-shifts"',!APPTABS.includes(S.tab)],S.can.events&&['events','אירועים','href="events.html"',false],S.can.front&&['front','קבלה','data-act="app-front"',S.tab==='front'],S.can.brief&&['brief','בריף יומי','data-act="app-brief"',S.tab==='brief'],S.can.gm&&['gm','מנהל מלון','data-act="app-gm"',S.tab==='gm'],S.can.ceo&&['ceo','מבט מנכ״ל','data-act="app-ceo"',S.tab==='ceo'],S.can.maint&&['maint','אחזקה'+((S.can.gm||S.can.shifts||S.isOwner)&&openFaultsN()?` (${openFaultsN()} פתוחות)`:''),'data-act="app-maint"',S.tab==='maint'],S.can.stock&&['stock','מלאי'+((S.can.gm||S.can.shifts||S.isOwner)&&lowItems().length?` (${lowItems().length} במינימום)`:''),'data-act="app-stock"',S.tab==='stock'],S.can.mkt&&['mkt','סושיאל מדיה','data-act="app-mkt"',S.tab==='mkt'],S.can.exp&&['exp','הוצאות','data-act="app-exp"',S.tab==='exp'],S.can.perms&&['perms','הרשאות','data-act="app-perms"',S.tab==='perms']].filter(Boolean);
+  const items=S.registering?[]:S.station?[['front','קבלה','data-act="app-front"',true]]:[['shifts','סידור עבודה','data-act="app-shifts"',!APPTABS.includes(S.tab)],S.can.events&&['events','אירועים','href="events.html"',false],S.can.front&&['front','קבלה','data-act="app-front"',S.tab==='front'],S.can.brief&&['brief','בריף יומי','data-act="app-brief"',S.tab==='brief'],S.can.gm&&['gm','מנהל מלון','data-act="app-gm"',S.tab==='gm'],S.can.ceo&&['ceo','מבט מנכ״ל','data-act="app-ceo"',S.tab==='ceo'],S.can.fin&&['fin','כספים'+(finPendingAll()?` (${finPendingAll()})`:''),'data-act="app-fin"',S.tab==='fin'],S.can.maint&&['maint','אחזקה'+((S.can.gm||S.can.shifts||S.isOwner)&&openFaultsN()?` (${openFaultsN()} פתוחות)`:''),'data-act="app-maint"',S.tab==='maint'],S.can.stock&&['stock','מלאי'+((S.can.gm||S.can.shifts||S.isOwner)&&lowItems().length?` (${lowItems().length} במינימום)`:''),'data-act="app-stock"',S.tab==='stock'],S.can.mkt&&['mkt','סושיאל מדיה','data-act="app-mkt"',S.tab==='mkt'],S.can.exp&&['exp','הוצאות','data-act="app-exp"',S.tab==='exp'],S.can.perms&&['perms','הרשאות','data-act="app-perms"',S.tab==='perms']].filter(Boolean);
   el.innerHTML=`<div class="drawer-bg" data-act="menu-close"></div><nav class="drawer" aria-label="אפליקציות">
     <div class="drawer-h"><b>Seven Collection</b><button class="x" data-act="menu-close" aria-label="סגירה">×</button></div>
     <div class="drawer-who">${esc(S.meName||'')}${S.meName&&(S.email||S.phone)?'<br>':''}<bdi>${esc(S.email||S.phone||'')}</bdi></div>
@@ -419,7 +419,7 @@ function viewHTML(){
   if(!S.admin&&S.tab!=='mine'&&myPending().length){const b=`<div class="wrap" style="padding-top:12px"><div class="notice" style="display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap"><span>יש לך ${myPending().length} בקשות מהמנהל לשינוי משמרות</span><button class="btn sm pri" data-act="tab" data-t="mine">לצפייה ואישור</button></div></div>`;const v=viewInner();return b+v}
   return viewInner()}
 function viewInner(){
-  switch(S.tab){case 'sched':return vSched();case 'shifts':return vShifts();case 'staff':return vStaff();case 'costs':return vCosts();case 'settings':return vSettings();case 'perms':return S.can.perms?vPerms():'';case 'ceo':return S.can.ceo?vCeo():'';case 'mkt':return S.can.mkt?vMkt():'';case 'exp':return S.can.exp?vExp():'';case 'gm':return S.can.gm?vGm():'';case 'brief':return S.can.brief?vBrief():'';case 'front':return S.can.front?vFront():'';case 'maint':return S.can.maint?vMaint():'';case 'stock':return S.can.stock?vStock():'';
+  switch(S.tab){case 'sched':return vSched();case 'shifts':return vShifts();case 'staff':return vStaff();case 'costs':return vCosts();case 'settings':return vSettings();case 'perms':return S.can.perms?vPerms():'';case 'ceo':return S.can.ceo?vCeo():'';case 'mkt':return S.can.mkt?vMkt():'';case 'exp':return S.can.exp?vExp():'';case 'gm':return S.can.gm?vGm():'';case 'brief':return S.can.brief?vBrief():'';case 'front':return S.can.front?vFront():'';case 'maint':return S.can.maint?vMaint():'';case 'fin':return S.can.fin?vFin():'';case 'stock':return S.can.stock?vStock():'';
     case 'avail':return vAvail();case 'mine':return vMine();case 'daily':return vDailyEmp();case 'profile':return vProfile()}
   return '';
 }
@@ -1019,7 +1019,9 @@ const lowItems=()=>Object.entries(S.alertInv||{}).filter(([,x])=>isLow(x));
 function alertCount(){let n=myPending().length;
   if(S.can.gm||S.can.shifts||S.isOwner)n+=Object.values(S.alertPreqs||{}).filter(r=>r.status==='pending').length+lowItems().length;
   if(S.can.maint)n+=recurRooms(Object.values(S.alertFaultsAll||{})).length;
+  if(S.can.fin)n+=finPendingAll();
   return n}
+const finPendingAll=()=>Object.keys(S.alertFin||{}).reduce((t,h)=>t+finPendingN(h),0);
 // recurring fault: the same room had faults opened twice in 7 days or 3 times in 30 days
 function recurRooms(list){const now=Date.now(),D=864e5,by={};
   for(const f of list){const r=String(f.room||'').trim();if(!r||!f.openedAt||now-f.openedAt>30*D)continue;(by[f.hotel+'|'+r]||(by[f.hotel+'|'+r]=[])).push(f)}
@@ -1031,6 +1033,9 @@ function alertsSub(){if(S.live.alerts)return;S.live.alerts=true;
   if(S.can.gm||S.can.shifts||S.isOwner){const hs=scopeHs().slice(0,10);if(hs.length){S.db.collection('purchaseReqs').where('hotel','in',hs).where('status','==','pending').onSnapshot(q=>{S.alertPreqs=docsMap(q);alertTick()},()=>{});
     S.db.collection('inventory').where('hotel','in',hs).onSnapshot(q=>{S.alertInv=docsMap(q);alertTick()},()=>{});
   }}
+  // finance: shift reports waiting for deposit confirmation, per hotel (hotel == h and finStatus == pending)
+  if(S.can.fin){S.alertFin={};for(const h of scopeHs().slice(0,10))S.db.collection('shiftReports').where('hotel','==',h).where('finStatus','==','pending').onSnapshot(q=>{const prev=finPendingAll();S.alertFin={...S.alertFin,[h]:docsMap(q)};
+      if(S.finSeen&&finPendingAll()>prev)toast('דוח סוף משמרת חדש ממתין לאישור ההפקדה');S.finSeen=true;alertTick()},()=>{})}
   // faults (all statuses): open count for managers, recurring rooms for managers and maintenance staff
   if(S.can.maint){const hs=scopeHs().slice(0,10);if(hs.length)S.db.collection('faults').where('hotel','in',hs).onSnapshot(q=>{const all=docsMap(q);S.alertFaultsAll=all;S.alertFaults=Object.fromEntries(Object.entries(all).filter(([,f])=>f.status!=='done'));alertTick()},()=>{})}}
 function alertTick(){const n=alertCount(),prev=S.alertPrev??n;S.alertPrev=n;try{document.title=(n?`(${n}) `:'')+'Seven Collection'}catch(_){ }
@@ -1179,14 +1184,21 @@ async function srToDaily(h,date,vals){const path=schedPath(weekOf(date),h),upd={
 function srDefShift(){const hr=new Date().getHours();return hr>=5&&hr<11?'night':hr>=11&&hr<19?'morning':'evening'}
 // rows of rooms (out of order / open faults): [{room, note}]
 function srRowsHTML(l,title,ph){const a=dv('sr',l,[]);return `<div class="f"><span>${title}</span>${a.map((r,i)=>`<div class="row" style="align-items:flex-end;flex-wrap:nowrap"><label class="f" style="max-width:90px">מספר חדר<input type="text" inputmode="numeric" data-srrow="${l}|${i}|room" value="${esc(r.room||'')}"></label><label class="f" style="flex:3">פירוט<input type="text" data-srrow="${l}|${i}|note" value="${esc(r.note||'')}" placeholder="${ph}"></label><button type="button" class="btn sm ghost" data-act="sr-rm" data-l="${l}" data-i="${i}" aria-label="הסרה">×</button></div>`).join('')}<div><button type="button" class="btn sm" data-act="sr-add" data-l="${l}">+ הוספת חדר</button></div></div>`}
+// who can file a report: the hotel's active reception / duty staff (all active hotel staff if none)
+function srStaff(h){const all=Object.keys(S.emps).filter(u=>(S.emps[u].hotel||'main')===h&&isActive(u)&&!S.emps[u].manual);
+  const rec=all.filter(u=>(S.emps[u].depts||[]).some(d=>d==='reception'||d==='ops'));return (rec.length?rec:all).sort((a,b)=>empName(a).localeCompare(empName(b),'he'))}
+// gap between the 420 report and the cash deposited (null when one of them is missing)
+function srGap(a,b){a=String(a??'').trim();b=String(b??'').trim();if(a===''||b==='')return 0;return Math.round(((+a||0)-(+b||0))*100)/100}
 function srFormHTML(h){const g=(k,d)=>dv('sr',k,d),un=g('unusual','');
   return `<div class="card"><h3>דוח סיכום משמרת</h3><p class="muted" style="font-size:.85rem">ממלאים בסוף כל משמרת. אחרי השליחה הדוח עובר למנהל המלון בלבד, והסכומים לא מוצגים כאן.</p>
-  <div class="row"><label class="f">שם מלא<input type="text" id="sr_name" data-f="sr.name" value="${esc(g('name',''))}" autocomplete="off"></label>
+  <div class="row"><label class="f">מי ממלא את הדוח<select id="sr_uid" data-f="sr.uid"><option value="">בחרו את השם שלכם…</option>${srStaff(h).map(u=>`<option value="${u}" ${g('uid','')===u?'selected':''}>${esc(empName(u))}</option>`).join('')}</select></label>
   <label class="f">תאריך<input type="date" id="sr_date" data-f="sr.date" value="${esc(g('date',todayISO()))}"></label>
   <label class="f">משמרת<select id="sr_shift" data-f="sr.shift">${SR_SHIFTS.map(([k,n])=>`<option value="${k}" ${g('shift',srDefShift())===k?'selected':''}>${n}</option>`).join('')}</select></label></div>
   <div class="row"><label class="f">קרן קופה בסוף המשמרת (₪)<input type="number" min="0" step="any" inputmode="decimal" id="sr_float" data-f="sr.float" value="${esc(g('float',''))}"></label>
-  <label class="f">מזומן להפקדה (₪)<input type="number" min="0" step="any" inputmode="decimal" id="sr_cash" data-f="sr.cash" value="${esc(g('cash',''))}"></label>
+  <label class="f">מזומן לפי דוח 420 (₪)<input type="number" min="0" step="any" inputmode="decimal" id="sr_r420" data-f="sr.r420" value="${esc(g('r420',''))}"></label>
+  <label class="f">מזומן שהופקד (₪)<input type="number" min="0" step="any" inputmode="decimal" id="sr_cash" data-f="sr.cash" value="${esc(g('cash',''))}"></label>
   <label class="f">סליקה באשראי (₪)<input type="number" min="0" step="any" inputmode="decimal" id="sr_credit" data-f="sr.credit" value="${esc(g('credit',''))}"></label></div>
+  ${srGap(g('r420',''),g('cash',''))?`<label class="f" style="color:var(--bad)">יש פער של ${ils(Math.abs(srGap(g('r420',''),g('cash',''))))} בין דוח 420 למזומן שהופקד. הסבירו את הפער<textarea id="sr_gap" data-f="sr.gapNote" rows="2" placeholder="למשל: החזר ללקוח, טעות בקופה, עודף שנשאר">${esc(g('gapNote',''))}</textarea></label>`:''}
   ${g('shift',srDefShift())==='night'?`<div class="row">${isHostel(h)?`<label class="f">צ׳ק אין היום · דורמס<input type="number" min="0" inputmode="numeric" id="sr_cid" data-f="sr.cid" value="${esc(g('cid',''))}"></label><label class="f">צ׳ק אין היום · פרייבט<input type="number" min="0" inputmode="numeric" id="sr_ci" data-f="sr.ci" value="${esc(g('ci',''))}"></label>`:`<label class="f">כמה צ׳ק אין היום<input type="number" min="0" inputmode="numeric" id="sr_ci" data-f="sr.ci" value="${esc(g('ci',''))}"></label>`}<label class="f">כמה צ׳ק אאוט היום${isHostel(h)?' (פרייבט)':''}<input type="number" min="0" inputmode="numeric" id="sr_co" data-f="sr.co" value="${esc(g('co',''))}"></label></div><p class="muted" style="font-size:.82rem;margin:0">לפי ההזמנות. המספרים נכנסים גם ל-10days של התאריך בדוח.</p>`:''}
   ${g('shift',srDefShift())==='morning'?`<label class="f">כמה צ׳ק אאוט נשאר<input type="number" min="0" inputmode="numeric" id="sr_col" data-f="sr.coLeft" value="${esc(g('coLeft',''))}"></label>`:''}
   ${srRowsHTML('ooo','חדרים OOO (לא בשימוש)','סיבה: למשל נזילה, צבע, מזגן')}
@@ -1203,10 +1215,30 @@ function srListHTML(h,gm){const m=S.srMonth||todayISO().slice(0,7);srSub(h,m);co
   return `<div class="card"><div class="actions" style="justify-content:space-between;align-items:center"><h3 style="margin:0">דוחות סיכום משמרת</h3>${nav}</div>
   <div class="kpis">${kpi('דוחות',String(rows.length))}${kpi('מזומן להפקדה',ils(sum('cash')))}${kpi('סליקה באשראי',ils(sum('credit')))}${kpi('אירועים חריגים',String(unN),'',unN?'bad':'ok')}</div>
   ${rows.length?`<div class="plist">${rows.map(([id,r])=>`<div class="prow" style="flex-wrap:wrap${r.unusual?';border-color:var(--bad)':''}"><span class="who"><b>יום ${DAYS[dow(r.date)]} ${dm(r.date)} · ${SR_N[r.shift]||''} · ${esc(r.name||'')}</b>
-    <small>קרן קופה ${ils(+r.float||0)} · מזומן להפקדה ${ils(+r.cash||0)} · אשראי ${ils(+r.credit||0)}</small>
+    <small>קרן קופה ${ils(+r.float||0)}${r.r420!=null?` · לפי 420 ${ils(+r.r420||0)}`:''} · הופקד ${ils(+r.cash||0)} · אשראי ${ils(+r.credit||0)}</small>${r.gap?`<small style="color:var(--bad)">פער ${ils(r.gap)}: ${esc(r.gapNote||'')}</small>`:''}${finPill(r)}
     ${r.shift==='night'&&(r.ci!=null||r.co!=null||r.cid!=null)?`<small>${r.cid!=null?`צ׳ק אין דורמס ${+r.cid} · `:''}צ׳ק אין${r.cid!=null?' פרייבט':''} ${r.ci??'—'} · צ׳ק אאוט ${r.co??'—'}</small>`:''}${r.shift==='morning'&&r.coLeft!=null?`<small>צ׳ק אאוט שנשארו: ${+r.coLeft}</small>`:''}
     ${(r.ooo||[]).length?`<small>חדרים OOO: ${r.ooo.map(x=>`${esc(x.room)}${x.note?' ('+esc(x.note)+')':''}`).join(', ')}</small>`:''}${(r.faults||[]).length?`<small>תקלות פתוחות: ${r.faults.map(x=>`${esc(x.room)}${x.note?' ('+esc(x.note)+')':''}`).join(', ')}</small>`:''}${r.unusual?`<small style="color:var(--bad);white-space:pre-wrap">⚠ ${esc(r.details||'אירוע חריג')}</small>`:''}</span>
     <span class="actions">${r.unusual?'<span class="pill bad">חריג</span>':'<span class="pill ok">תקין</span>'}${boss?`<button class="btn sm ghost" data-act="sr-del" data-id="${id}" data-h="${h}">${S.confirm==='sr:'+id?'לחיצה נוספת תמחק':'מחיקה'}</button>`:''}</span></div>`).join('')}</div>`:'<p class="muted">אין דוחות בחודש הזה.</p>'}</div>`}
+/* ---------- finance: confirms each shift report's cash deposit (shiftReports.finStatus pending|ok|issue) ---------- */
+const FIN_ST={pending:'ממתין לאישור כספים',ok:'ההפקדה אושרה',issue:'נמצא פער בהפקדה'};
+function finPill(r){if(!r.finStatus)return '';return `<small><span class="pill ${r.finStatus==='ok'?'ok':r.finStatus==='issue'?'bad':'warn'}">${FIN_ST[r.finStatus]}</span>${r.finNote?' '+esc(r.finNote):''}</small>`}
+function finSub(h){const k='fin:'+h;S.finR=S.finR||{};if(!S.live[k]){S.live[k]=true;
+  S.db.collection('shiftReports').where('hotel','==',h).where('month','in',[todayISO().slice(0,7),addDays(todayISO().slice(0,7)+'-01',-1).slice(0,7)]).onSnapshot(q=>{S.finR[h]=docsMap(q);render()},e=>{S.finR[h]={__err:errMsg(mapErr(e))};render()})}return S.finR[h]}
+function vFin(){const hs=scopeHs();if(!hs.length)return wrap(emptyBox('אין מלונות בהרשאה',''));if(!hs.includes(S.hotel))S.hotel=hs[0];const h=S.hotel,R=finSub(h);
+  const chips=hs.length>1?`<div class="chips" style="gap:6px">${hs.map(x=>`<button class="dchip ${x===h?'':'off'}" style="--h:var(--brass)" data-act="gm-hotel" data-h="${x}">${esc(hotelName(x))}${finPendingN(x)?` (${finPendingN(x)})`:''}</button>`).join('')}</div>`:'';
+  const all=R&&!R.__err?Object.entries(R).sort(([,a],[,b])=>(b.createdAt||0)-(a.createdAt||0)):[],pend=all.filter(([,r])=>r.finStatus==='pending'),done=all.filter(([,r])=>r.finStatus&&r.finStatus!=='pending');
+  const issues=done.filter(([,r])=>r.finStatus==='issue').length,gaps=all.filter(([,r])=>r.gap).length;
+  const head=`<section class="head"><div class="head-t"><h1>כספים · ${esc(hotelName(h))}</h1></div>${chips}
+    <div class="kpis">${kpi('ממתינים לאישור',String(pend.length),'דוחות סוף משמרת',pend.length?'bad':'ok')}${kpi('פערים בדוח 420',String(gaps),'החודש והחודש הקודם',gaps?'bad':'ok')}${kpi('נמצא פער בהפקדה',String(issues),'',issues?'bad':'ok')}</div></section>`;
+  if(R&&R.__err)return wrap(head+`<div class="notice">לא הצלחתי לטעון: ${esc(R.__err)}</div>`);
+  const row=([id,r],act)=>`<div class="prow" style="flex-wrap:wrap${r.gap?';border-color:var(--bad)':''}"><span class="who"><b>יום ${DAYS[dow(r.date)]} ${dm(r.date)} · ${SR_N[r.shift]||''} · ${esc(r.name||'')}</b>
+    <small>לפי דוח 420: <b>${ils(+r.r420||0)}</b> · מזומן שהופקד: <b>${ils(+r.cash||0)}</b> · אשראי ${ils(+r.credit||0)} · קרן קופה ${ils(+r.float||0)}</small>
+    ${r.gap?`<small style="color:var(--bad)">פער ${ils(r.gap)} · הסבר העובד: ${esc(r.gapNote||'')}</small>`:''}${act?'':finPill(r)}</span>
+    ${act?`<span class="actions" style="flex-wrap:wrap"><button class="btn sm pri" data-act="fin-ok" data-id="${id}" data-h="${h}">ההפקדה תואמת ${ils(+r.cash||0)}</button>
+      ${S.finIssue===id?`<input type="text" id="fin_note" data-f="fin.note" placeholder="מה הפער? למשל הופקדו 1,800" style="width:auto;min-width:200px" value="${esc(dv('fin','note',''))}"><button class="btn sm danger" data-act="fin-issue" data-id="${id}" data-h="${h}">שמירת פער</button>`:`<button class="btn sm" data-act="fin-issue-open" data-id="${id}">יש פער</button>`}</span>`:''}</div>`;
+  return wrap(head+`<div class="card"><h3>דוחות שממתינים לאישור ההפקדה · ${pend.length}</h3><p class="muted" style="font-size:.85rem">לכל דוח סוף משמרת בודקים שהמזומן שהופקד בפועל הוא הסכום שנכתב בדוח.</p>${!R?'<p class="muted">טוען…</p>':pend.length?`<div class="plist">${pend.map(x=>row(x,true)).join('')}</div>`:'<p class="muted">אין דוחות שממתינים. 👍</p>'}</div>`+
+    (done.length?`<div class="card"><h3>נבדקו לאחרונה</h3><div class="plist">${done.slice(0,30).map(x=>row(x,false)).join('')}</div></div>`:''))}
+const finPendingN=h=>Object.values((S.alertFin||{})[h]||{}).filter(r=>r.finStatus==='pending').length;
 /* ---------- maintenance: faults/{id} {hotel, room, desc, status open|done, openedAt, openedBy, openedByName, due 'YYYY-MM-DD', doneAt, doneBy, fixNote, source} ---------- */
 function faultsSub(h){const k='faults:'+h;S.faults=S.faults||{};if(!S.live[k]){S.live[k]=true;
   S.db.collection('faults').where('hotel','==',h).onSnapshot(q=>{S.faults[h]=docsMap(q);render()},e=>{S.faults[h]={__err:errMsg(mapErr(e))};render()})}return S.faults[h]}
@@ -1506,9 +1538,9 @@ function roleHTML(u,e,isNew){if(!S.can.perms||isNew||e.manual||u===S.uid)return 
   return `<div class="sep"></div><h3>הרשאות</h3><p class="muted" style="font-size:.85rem">${r?esc(permSummary(r)):'עובד רגיל, בלי הרשאות ניהול.'}</p><div><button class="btn" data-act="perm-open" data-u="${u}">עריכת הרשאות</button></div>`}
 
 /* ---------- permissions page ---------- */
-const APPS=[['shifts','ניהול סידור עבודה','סידור, משמרות, עובדים, שכר ועלויות במלונות שנבחרו'],['events','אירועים','כל ההצעות, התפריטים והחוזים'],['perms','ניהול הרשאות','יכול לתת לאחרים רק הרשאות שיש לו בעצמו'],['front','קבלת המלון','רואה את סידור העבודה והאירועים של המלון ומזין את נתוני 10days'],['maint','אחזקה','עמוד התקלות של המלונות שנבחרו: פתיחה, תאריך תיקון וסגירה'],['brief','בריף יומי','נתוני 10days, האירועים ומי במשמרת, לכל יום במלונות שנבחרו'],['gm','מנהל מלון','עמוד מנהל מלון עם כל נתוני המלונות שנבחרו, אישור דרישות רכש. לא נספר בהגשת משמרות'],['ceo','מנכ״ל','מבט מנכ״ל: עלויות עובדים, הוצאות והכנסות לפי חודש. לא נספר בהגשת משמרות'],['dept','מנהל מחלקה','מסדר רק את המחלקות שנבחרו, בלי שכר ועלויות'],['mkt','סושיאל מדיה','דוחות שבועיים של הרשתות: השקעה, לידים והכנסות'],['exp','הוצאות','ספקים, חשבוניות ומעקב אחרי מחירים']];
+const APPS=[['shifts','ניהול סידור עבודה','סידור, משמרות, עובדים, שכר ועלויות במלונות שנבחרו'],['events','אירועים','כל ההצעות, התפריטים והחוזים'],['perms','ניהול הרשאות','יכול לתת לאחרים רק הרשאות שיש לו בעצמו'],['front','קבלת המלון','רואה את סידור העבודה והאירועים של המלון ומזין את נתוני 10days'],['maint','אחזקה','עמוד התקלות של המלונות שנבחרו: פתיחה, תאריך תיקון וסגירה'],['fin','כספים','מקבל התראה על כל דוח סוף משמרת ומאשר שהמזומן שהופקד הוא הסכום שנכתב'],['brief','בריף יומי','נתוני 10days, האירועים ומי במשמרת, לכל יום במלונות שנבחרו'],['gm','מנהל מלון','עמוד מנהל מלון עם כל נתוני המלונות שנבחרו, אישור דרישות רכש. לא נספר בהגשת משמרות'],['ceo','מנכ״ל','מבט מנכ״ל: עלויות עובדים, הוצאות והכנסות לפי חודש. לא נספר בהגשת משמרות'],['dept','מנהל מחלקה','מסדר רק את המחלקות שנבחרו, בלי שכר ועלויות'],['mkt','סושיאל מדיה','דוחות שבועיים של הרשתות: השקעה, לידים והכנסות'],['exp','הוצאות','ספקים, חשבוניות ומעקב אחרי מחירים']];
 const roleApps=r=>r?(r.apps||{shifts:true}):{};
-function myApps(){if(S.isOwner)return {shifts:true,events:true,perms:true,ceo:true,dept:true,mkt:true,exp:true,gm:true,brief:true,front:true,maint:true};const a={...roleApps(S.role)};if(a.shifts)a.dept=true;return a}
+function myApps(){if(S.isOwner)return {shifts:true,events:true,perms:true,ceo:true,dept:true,mkt:true,exp:true,gm:true,brief:true,front:true,maint:true,fin:true};const a={...roleApps(S.role)};if(a.shifts)a.dept=true;return a}
 const grantDepts=()=>S.isOwner||roleApps(S.role).shifts?DEPTS:DEPTS.filter(d=>((S.role&&S.role.depts)||[]).includes(d.k));
 const allHotelsP=()=>S.isOwner||!(S.role&&Array.isArray(S.role.hotels)&&S.role.hotels.length);
 function grantableHotels(){return allHotelsP()?hotelIds():hotelIds().filter(h=>S.role.hotels.includes(h))}
@@ -1517,7 +1549,7 @@ const grantExpHotels=()=>S.isOwner||(roleApps(S.role).exp&&!((S.role&&S.role.exp
 const expAllP=()=>S.isOwner||(roleApps(S.role).exp&&!((S.role&&S.role.expHotels)||[]).length);
 const peopleHotels=()=>grantableHotels().concat(allHotelsP()?[CHAIN]:[]);
 function permSummary(r){const a=roleApps(r),parts=APPS.filter(([k])=>a[k]).map(([k,n])=>k==='dept'?`${n}: ${(r.depts||[]).map(x=>DMAP[x]?.n||x).join(', ')}`:k==='exp'?`${n}: ${(r.expHotels||[]).length?r.expHotels.map(hotelName).join(', '):'כל המלונות'}`:n);if(!parts.length)return 'בלי הרשאות';
-  const hs=(r.hotels||[]);return parts.join(' · ')+(a.shifts||a.dept||a.gm||a.brief||a.front||a.maint?` · ${hs.length?hs.map(hotelName).join(', '):'כל המלונות'}`:'')}
+  const hs=(r.hotels||[]);return parts.join(' · ')+(a.shifts||a.dept||a.gm||a.brief||a.front||a.maint||a.fin?` · ${hs.length?hs.map(hotelName).join(', '):'כל המלונות'}`:'')}
 // hotels card (permissions page): names, join codes, add hotel — for shift managers, per hotel they manage
 function hotelsCardHTML(){if(!S.admin)return '';const hs=visibleHotels();
   return `<div class="card"><h3>מלונות וקודי הצטרפות</h3>
@@ -1558,7 +1590,7 @@ function vPerms(){
   let last=null;const rows=people.map(([u,e])=>{const h=e.hotel||'main',r=S.roles[u],a=roleApps(r);
     const sep=h!==last?`<div class="lh">${esc(hotelName(h))}</div>`:'';last=h;
     const chips=APPS.filter(([k])=>a[k]).map(([k,n])=>`<span class="pill ${k==='perms'?'brass':'ok'}">${n}</span>`).join('');
-    const hsTxt=a.shifts||a.dept||a.gm||a.brief||a.front||a.maint?`<span class="sub">${a.dept?esc((r.depts||[]).map(x=>DMAP[x]?.n||x).join(', '))+' · ':''}${(r.hotels||[]).length?r.hotels.map(x=>esc(hotelName(x))).join(', '):'כל המלונות'}</span>`:'';
+    const hsTxt=a.shifts||a.dept||a.gm||a.brief||a.front||a.maint||a.fin?`<span class="sub">${a.dept?esc((r.depts||[]).map(x=>DMAP[x]?.n||x).join(', '))+' · ':''}${(r.hotels||[]).length?r.hotels.map(x=>esc(hotelName(x))).join(', '):'כל המלונות'}</span>`:'';
     return sep+`<button class="li prow2" data-act="perm-open" data-u="${u}" ${u===S.uid?'disabled':''}>
       <div class="c1"><div class="n">${esc(e.name||'ללא שם')}${u===S.uid?' <span class="pill">זה אתה</span>':''}</div><div class="sub">${esc(e.title||'')}</div></div>
       <div class="c2 meta">${chips||'<span class="pill">עובד</span>'}</div><div class="c3">${hsTxt}</div><div></div></button>`}).join('');
@@ -1576,7 +1608,7 @@ function sheetPerm(){
   `<div class="plist">${APPS.map(([k,n,desc])=>`<label class="prow" style="cursor:${mine[k]?'pointer':'default'}"><span class="who"><b>${n}</b><small>${mine[k]?desc:'אין לך את ההרשאה הזו, ולכן אי אפשר לתת אותה'}</small></span><input type="checkbox" id="pa_${k}" data-act="perm-app" data-k="${k}" ${d.apps[k]?'checked':''} ${mine[k]&&!outside?'':'disabled'}></label>`).join('')}</div>
   ${d.apps.exp?`<div class="f"><span>הוצאות במלונות: <span class="muted">${expAllP()?'(בלי בחירה = כל המלונות)':'(לפחות מלון אחד)'}</span></span><div class="chips" style="gap:6px">${grantExpHotels().map(h=>`<button class="dchip ${d.expHotels.includes(h)?'':'off'}" style="--h:var(--brass);cursor:pointer" data-act="perm-exph" data-h="${h}" aria-pressed="${d.expHotels.includes(h)}">${esc(hotelName(h))}</button>`).join('')}</div></div>`:''}
   ${d.apps.dept?`<div class="f"><span>מנהל מחלקה של:</span><div class="chips" style="gap:6px">${grantDepts().map(x=>`<button class="dchip ${d.depts.includes(x.k)?'':'off'}" style="--h:${x.h};cursor:pointer" data-act="perm-dept" data-k="${x.k}" aria-pressed="${d.depts.includes(x.k)}">${x.n}</button>`).join('')}</div></div>`:''}
-  ${d.apps.shifts||d.apps.dept||d.apps.gm||d.apps.brief||d.apps.front||d.apps.maint?`<div class="f"><span>${d.apps.shifts?'מנהל סידור במלונות:':d.apps.gm?'מנהל המלונות:':(d.apps.brief||d.apps.front||d.apps.maint)&&!d.apps.dept?'במלונות:':'במלון:'} <span class="muted">${allHotelsP()&&!d.apps.dept?'(בלי בחירה = כל המלונות)':'(לפחות מלון אחד)'}</span></span><div class="chips" style="gap:6px">${hs.map(h=>`<button class="hchip" data-act="perm-hotel" data-h="${h}" aria-pressed="${d.hotels.includes(h)}" ${outside?'disabled':''}>${esc(hotelName(h))}</button>`).join('')}</div></div>`:''}
+  ${d.apps.shifts||d.apps.dept||d.apps.gm||d.apps.brief||d.apps.front||d.apps.maint||d.apps.fin?`<div class="f"><span>${d.apps.shifts?'מנהל סידור במלונות:':d.apps.gm?'מנהל המלונות:':(d.apps.brief||d.apps.front||d.apps.maint||d.apps.fin)&&!d.apps.dept?'במלונות:':'במלון:'} <span class="muted">${allHotelsP()&&!d.apps.dept?'(בלי בחירה = כל המלונות)':'(לפחות מלון אחד)'}</span></span><div class="chips" style="gap:6px">${hs.map(h=>`<button class="hchip" data-act="perm-hotel" data-h="${h}" aria-pressed="${d.hotels.includes(h)}" ${outside?'disabled':''}>${esc(hotelName(h))}</button>`).join('')}</div></div>`:''}
   <p class="muted" style="font-size:.82rem">השינוי נכנס לתוקף כשהאדם מרענן את האתר.</p>
   <div class="actions"><button class="btn pri" data-act="perm-save" ${outside?'disabled':''}>שמירה</button><button class="btn ghost" data-act="close">ביטול</button></div>`;
 }
@@ -1739,13 +1771,19 @@ const ACT={
   'fault-done':D=>{if(S.confirm!=='fd:'+D.id){S.confirm='fd:'+D.id;render();return}S.confirm=null;const f=((S.faults||{})[D.h]||{})[D.id];if(!f)return;
     const doc={...f,status:'done',doneAt:Date.now(),doneBy:S.uid};S.faults[D.h]={...S.faults[D.h],[D.id]:doc};save('faults/'+D.id,doc);render();toast('סומן שתוקן')},
   'fault-del':D=>{if(S.confirm!=='fx:'+D.id){S.confirm='fx:'+D.id;render();return}S.confirm=null;const c={...((S.faults||{})[D.h]||{})};delete c[D.id];S.faults[D.h]=c;save('faults/'+D.id,null);render();toast('התקלה נמחקה')},
+  'fin-ok':D=>{const r=((S.finR||{})[D.h]||{})[D.id];if(!r)return;const doc={...r,finStatus:'ok',finNote:'',finBy:S.uid,finAt:Date.now()};S.finR[D.h]={...S.finR[D.h],[D.id]:doc};save('shiftReports/'+D.id,doc);render();toast('ההפקדה אושרה')},
+  'fin-issue-open':D=>{S.finIssue=D.id;S.drafts.fin={note:''};render()},
+  'fin-issue':D=>{const r=((S.finR||{})[D.h]||{})[D.id];if(!r)return;const note=String(dv('fin','note','')).trim();if(!note){toast('צריך לכתוב מה הפער');return}
+    const doc={...r,finStatus:'issue',finNote:note,finBy:S.uid,finAt:Date.now()};S.finR[D.h]={...S.finR[D.h],[D.id]:doc};save('shiftReports/'+D.id,doc);S.finIssue=null;S.drafts.fin=null;render();toast('הפער נרשם, מנהל המלון יראה אותו')},
+  'app-fin':()=>{S.menu=false;setTab('fin')},
   'sr-add':D=>{const d=S.drafts.sr||(S.drafts.sr={});d[D.l]=[...(d[D.l]||[]),{room:'',note:''}];render()},
   'sr-rm':D=>{const d=S.drafts.sr||{};d[D.l]=(d[D.l]||[]).filter((_,i)=>i!==+D.i);render()},
   'sr-un':D=>{(S.drafts.sr||(S.drafts.sr={})).unusual=D.v;render()},
   'sr-month':D=>{const m=S.srMonth||todayISO().slice(0,7);let y=+m.slice(0,4),mo=+m.slice(5)+ +D.d;if(mo<1){mo=12;y--}if(mo>12){mo=1;y++}S.srMonth=y+'-'+String(mo).padStart(2,'0');render()},
-  'sr-save':D=>{const h=D.h,g=(k,d)=>dv('sr',k,d),name=String(g('name','')).trim(),date=String(g('date',todayISO())),un=g('unusual',''),det=String(g('details','')).trim();
-    if(!name){toast('צריך למלא שם מלא');return}if(!/^\d{4}-\d{2}-\d{2}$/.test(date)){toast('צריך לבחור תאריך');return}
-    if(['float','cash','credit'].some(k=>String(g(k,'')).trim()==='')){toast('צריך למלא קרן קופה, מזומן להפקדה וסליקה באשראי (אפשר 0)');return}
+  'sr-save':D=>{const h=D.h,g=(k,d)=>dv('sr',k,d),uid=String(g('uid','')),name=uid?empName(uid):'',date=String(g('date',todayISO())),un=g('unusual',''),det=String(g('details','')).trim();
+    if(!uid){toast('צריך לבחור מי ממלא את הדוח');return}if(!/^\d{4}-\d{2}-\d{2}$/.test(date)){toast('צריך לבחור תאריך');return}
+    if(['float','r420','cash','credit'].some(k=>String(g(k,'')).trim()==='')){toast('צריך למלא קרן קופה, מזומן לפי דוח 420, מזומן שהופקד וסליקה באשראי (אפשר 0)');return}
+    const gap=srGap(g('r420',''),g('cash','')),gapNote=String(g('gapNote','')).trim();if(gap&&!gapNote){toast('יש פער בין דוח 420 למזומן שהופקד. צריך להסביר אותו');return}
     if(!un){toast('צריך לסמן אם היו אירועים חריגים');return}if(un==='yes'&&!det){toast('צריך לפרט את האירועים החריגים');return}
     const shift=g('shift',srDefShift()),rows=l=>(g(l,[])||[]).map(x=>({room:String(x.room||'').trim(),note:String(x.note||'').trim()})).filter(x=>x.room||x.note);
     if([...rows('ooo'),...rows('faults')].some(x=>!x.room)){toast('צריך מספר חדר בכל שורה של חדרים או תקלות');return}
@@ -1755,7 +1793,7 @@ const ACT={
     if(shift==='morning'){extra.coLeft=num('coLeft');if(extra.coLeft==null){toast('במשמרת בוקר צריך למלא כמה צ׳ק אאוט נשאר');return}}
     faultsFromReport(h,extra.faults,name);
     if(shift==='night')srToDaily(h,date,hs?{cid:extra.cid,ci:extra.ci,co:extra.co}:{ci:extra.ci,co:extra.co});
-    const id='r'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),doc={...extra,hotel:h,month:date.slice(0,7),date,shift,name,float:+g('float',0)||0,cash:+g('cash',0)||0,credit:+g('credit',0)||0,unusual:un==='yes',details:un==='yes'?det:'',by:S.uid,createdAt:Date.now()};
+    const id='r'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),doc={...extra,hotel:h,month:date.slice(0,7),date,shift,name,empUid:uid,float:+g('float',0)||0,r420:+g('r420',0)||0,gap,gapNote:gap?gapNote:'',finStatus:'pending',cash:+g('cash',0)||0,credit:+g('credit',0)||0,unusual:un==='yes',details:un==='yes'?det:'',by:S.uid,createdAt:Date.now()};
     const k=h+'|'+doc.month;S.sreps=S.sreps||{};if(S.sreps[k]&&!S.sreps[k].__err)S.sreps[k]={...S.sreps[k],[id]:doc};save('shiftReports/'+id,doc);S.drafts.sr=null;S.srMonth=doc.month;render();toast('הדוח נשלח. תודה!')},
   'sr-del':D=>{if(S.confirm!=='sr:'+D.id){S.confirm='sr:'+D.id;render();return}S.confirm=null;for(const k in (S.sreps||{}))if(S.sreps[k][D.id]){const c={...S.sreps[k]};delete c[D.id];S.sreps[k]=c}save('shiftReports/'+D.id,null);render();toast('הדוח נמחק')},
   'preq-open':D=>{S.drafts.pq=null;S.sheet={type:'preq',id:D.id};render()},
@@ -1947,12 +1985,13 @@ async function start(u){
   S.deptOnly=S.can.dept;S.myDepts=S.deptOnly?((S.role&&S.role.depts)||[]):[];
   S.admin=S.can.shifts||S.deptOnly;S.can.stock=S.isOwner||S.can.shifts||S.deptOnly||S.can.gm;S.auth='in';
   // maintenance page: owner, shift managers, hotel managers, the maintenance department manager and the "maint" app
+  S.can.fin=S.isOwner||!!apps.fin;
   S.can.maint=S.isOwner||S.can.shifts||S.can.gm||!!apps.maint||(S.deptOnly&&S.myDepts.includes('maintenance'));
   // a manager limited to some hotels can only read those hotels' salaries, availability and settings (enforced in firestore.rules)
   S.scoped=!S.isOwner&&!!S.role&&Array.isArray(S.role.hotels)&&S.role.hotels.length>0;
   // shared reception account (one login for the desk, people change through the day): front desk page only
   S.station=!S.isOwner&&!!(S.role&&S.role.station);
-  if(S.station){S.can={...S.can,front:true,brief:false,stock:false,events:false,perms:false,maint:false};S.admin=false;S.deptOnly=false;S.myHotel=((S.role.hotels||[])[0])||'main';S.hotel=S.myHotel;S.meName=S.role.name||'קבלה';S.email=S.role.login||''}
+  if(S.station){S.can={...S.can,front:true,brief:false,stock:false,events:false,perms:false,maint:false,fin:false};S.admin=false;S.deptOnly=false;S.myHotel=((S.role.hotels||[])[0])||'main';S.hotel=S.myHotel;S.meName=S.role.name||'קבלה';S.email=S.role.login||''}
   else if(!S.role&&S.email.endsWith('@'+STATION_DOMAIN)){S.stationOff=true;S.tab='front';S.ready=true;render();return}
   else if(!S.admin){let me=null;try{const m=await db.doc('employees/'+u.uid).get();if(m.exists)me=m.data()}catch(_){ }
     if(!me){S.registering=true;S.ready=true;render();return}
@@ -1966,7 +2005,7 @@ async function start(u){
   catch(e){onErr(e)}
   S.week=openWeek();
   let t=null;try{t=localStorage.getItem('hs_tab')}catch(_){ }
-  const allowed=S.station?['front']:((S.admin?(S.deptOnly?['sched','shifts']:['sched','shifts','staff','costs','settings']):S.myHotel===CHAIN||S.myMgmt?['profile']:['avail','mine','daily','profile']).concat(S.can.perms?['perms']:[]).concat(S.can.ceo?['ceo']:[]).concat(S.can.mkt?['mkt']:[]).concat(S.can.exp?['exp']:[]).concat(S.can.gm?['gm']:[]).concat(S.can.stock?['stock']:[]).concat(S.can.brief?['brief']:[]).concat(S.can.front?['front']:[]).concat(S.can.maint?['maint']:[]));S.tab=allowed.includes(t)?t:allowed[0];
+  const allowed=S.station?['front']:((S.admin?(S.deptOnly?['sched','shifts']:['sched','shifts','staff','costs','settings']):S.myHotel===CHAIN||S.myMgmt?['profile']:['avail','mine','daily','profile']).concat(S.can.perms?['perms']:[]).concat(S.can.ceo?['ceo']:[]).concat(S.can.mkt?['mkt']:[]).concat(S.can.exp?['exp']:[]).concat(S.can.gm?['gm']:[]).concat(S.can.stock?['stock']:[]).concat(S.can.brief?['brief']:[]).concat(S.can.front?['front']:[]).concat(S.can.maint?['maint']:[]).concat(S.can.fin?['fin']:[]));S.tab=allowed.includes(t)?t:allowed[0];
   if(location.hash==='#perms'&&S.can.perms)S.tab='perms';
   if(location.hash==='#ceo'&&S.can.ceo)S.tab='ceo';
   if(location.hash==='#mkt'&&S.can.mkt)S.tab='mkt';
@@ -1975,6 +2014,7 @@ async function start(u){
   if(location.hash==='#brief'&&S.can.brief)S.tab='brief';
   if(location.hash==='#front'&&S.can.front)S.tab='front';
   if(location.hash==='#maint'&&S.can.maint)S.tab='maint';
+  if(location.hash==='#fin'&&S.can.fin)S.tab='fin';
   if(location.hash==='#stock'&&S.can.stock)S.tab='stock';
   db.collection('hotels').onSnapshot(q=>{S.hotels=docsMap(q);if(S.ready&&hotelIds().join(',')!==S.subKey)subWeek();render()},onErr);
   const afterSettings=()=>{if(!S.admin&&S.tab==='avail'&&S.week!==openWeek())setWeek(openWeek());else render()};

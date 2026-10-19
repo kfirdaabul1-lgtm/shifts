@@ -1,4 +1,4 @@
-name: Deploy push-notification functions
+name: Deploy notification functions
 on:
   push:
     branches: [main]
@@ -10,9 +10,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: { node-version: '20' }
+        with: { node-version: 20 }
       - name: Install
-        run: cd functions && npm install --no-audit --no-fund
+        run: cd functions && npm install --omit=dev
       - name: Deploy to Firebase
         env:
           KEY: ${{ secrets.FIREBASE_DEPLOY_KEY }}
@@ -20,4 +20,4 @@ jobs:
           if [ -z "$KEY" ]; then echo "Secret FIREBASE_DEPLOY_KEY is missing"; exit 1; fi
           echo "$KEY" > "$RUNNER_TEMP/key.json"
           export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/key.json"
-          npx --yes firebase-tools@13 deploy --only functions --project hotel-shifts --non-interactive --force
+          npx -y firebase-tools@13 deploy --only functions --project hotel-shifts --non-interactive --force

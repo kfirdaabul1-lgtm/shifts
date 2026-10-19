@@ -406,7 +406,7 @@ function pushOffered(){if(!S.uid)return false;if(isIOS()&&!isStandalone())return
 async function pushToken(){const reg=await navigator.serviceWorker.register('firebase-messaging-sw.js');await navigator.serviceWorker.ready;
   const opt={serviceWorkerRegistration:reg};if(CFG.vapidKey)opt.vapidKey=CFG.vapidKey;
   const tok=await firebase.messaging().getToken(opt);if(!tok)throw new Error('no token');
-  await fdb.doc('pushTokens/'+S.uid).set({uid:S.uid,owner:!!S.isOwner,name:S.meName||'',hotel:S.myHotel||S.hotel||'',station:!!S.station,updatedAt:Date.now(),tokens:{[tok]:{ua:navigator.userAgent.slice(0,120),at:Date.now(),ios:isIOS()}}},{merge:true});
+  await fdb.doc('pushTokens/'+S.uid).set({uid:S.uid,owner:!!S.isOwner,name:S.meName||'',hotel:S.myHotel||S.hotel||'',station:!!S.station,owner:!!S.isOwner,updatedAt:Date.now(),tokens:{[tok]:{ua:navigator.userAgent.slice(0,120),at:Date.now(),ios:isIOS()}}},{merge:true});
   try{localStorage.setItem('pushOk:'+S.uid,'1')}catch(_){ }return {tok,reg}}
 async function pushEnable(){
   if(isIOS()&&!isStandalone()){S.sheet={type:'iospush'};render();return}

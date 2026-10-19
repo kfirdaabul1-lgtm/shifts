@@ -1146,7 +1146,9 @@ function sheetPreq(){const h=S.hotel,id=S.sheet.id,x=((S.stockAll||{})[h]||{})[i
   <div class="actions"><button class="btn pri" data-act="preq-send">שליחה למנהל</button></div>`}
 /* ---------- daily brief: one hotel, one day (10days numbers, events, who's on shift) ---------- */
 function briefLoad(h,d){const B=S.briefData||(S.briefData={}),k=h+'|'+d;if(B[k])return B[k];B[k]={};const db=S.db,set=x=>{B[k]={...B[k],...x};render()};
-  db.collection('shifts').where('date','==',d).get().then(q=>set({shifts:Object.fromEntries(q.docs.map(x=>[x.id,x.data()]).filter(([,s])=>hotelOfShift(s)===h))})).catch(()=>set({shifts:{}}));
+  db.collection('shifts').where('date','==',d).onSnapshot(q=>{if(S.briefData[k])set({shifts:Object.fromEntries(q.docs.map(x=>[x.id,x.data()]).filter(([,s])=>hotelOfShift(s)===h))})},()=>set({shifts:{}}));
+  // changes approved after publishing (added / removed / extended shifts) are applied on top of the schedule, like in the schedule page
+  db.collection('requests').where('hotel','==',h).where('status','==','approved').onSnapshot(q=>{if(S.briefData[k])set({reqs:q.docs.map(x=>x.data()).filter(r=>r.week===weekOf(d))})},()=>set({reqs:[]}));
   db.doc(schedPath(weekOf(d),h)).onSnapshot(x=>{if(S.briefData[k])set({sched:x.exists?x.data():{}})},()=>set({sched:{}}));
   if(!S.live['bemps:'+h]){S.live['bemps:'+h]=true;db.collection('employees').where('hotel','==',h).onSnapshot(q=>{S.emps={...S.emps,...docsMap(q)};render()},()=>{})}
   subQuotes();
@@ -1160,7 +1162,10 @@ function vBrief(){const hs=scopeHs();if(!hs.length)return wrap(emptyBox('אין 
   if(!hs.includes(S.hotel))S.hotel=hs[0];const h=S.hotel,d=S.briefDate||(S.briefDate=todayISO()),B=briefLoad(h,d);
   const sched=B.sched||{},daily=(sched.daily||{})[d]||{},ready=B.shifts&&B.sched;
   const evs=(S.bQuotes||[]).filter(q=>q.status!=='declined'&&q.event&&q.event.date===d&&evForHotel(q,h)).sort((a,b)=>String(a.event.start||'').localeCompare(String(b.event.start||'')));
-  const crewMap={};for(const [id,s] of Object.entries(B.shifts||{})){if(!(+s.need))continue;const a=(sched.assign||{})[id]||[];for(const u of a){(crewMap[s.dept]||(crewMap[s.dept]=[])).push({name:empName(u),t:`${KMAP[s.kind]?.n||''} ${s.start}–${(sched.ext||{})[id]?.[u]||s.end}`,k:KORD[s.kind]})}}
+  const rq=B.reqs||[],rqExt={};for(const r of rq)if(r.type==='extend')(rqExt[r.shift]||(rqExt[r.shift]={}))[r.uid]=r.newEnd;
+  const crewMap={};for(const [id,s] of Object.entries(B.shifts||{})){if(!(+s.need))continue;let a=((sched.assign||{})[id]||[]).filter(u=>!rq.some(r=>r.type!=='extend'&&r.from===id&&r.uid===u));
+    for(const r of rq)if(r.type!=='extend'&&r.to===id&&!a.includes(r.uid))a=[...a,r.uid];
+    for(const u of a){(crewMap[s.dept]||(crewMap[s.dept]=[])).push({name:empName(u),t:`${KMAP[s.kind]?.n||''} ${s.start}–${rqExt[id]?.[u]||(sched.ext||{})[id]?.[u]||s.end}`,k:KORD[s.kind]})}}
   const crew=DEPTS.filter(x=>crewMap[x.k]).map(x=>[x.k,crewMap[x.k].sort((a,b)=>a.k-b.k)]);
   const chips=hs.length>1?`<div class="chips" style="gap:6px">${hs.map(x=>`<button class="dchip ${x===h?'':'off'}" style="--h:var(--brass)" data-act="gm-hotel" data-h="${x}">${esc(hotelName(x))}</button>`).join('')}</div>`:'';
   const nav=`<div class="actions" style="align-items:center"><button class="btn sm" data-act="brief-day" data-d="-1" aria-label="יום קודם">›</button><b>יום ${DAYS[dow(d)]} ${dm(d)}</b><button class="btn sm" data-act="brief-day" data-d="1" aria-label="יום הבא">‹</button>${d!==todayISO()?'<button class="btn sm ghost" data-act="brief-day" data-d="0">היום</button>':''}</div>`;

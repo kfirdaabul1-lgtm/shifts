@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#132033">
-<script src="i18n.js?v=202610191419"></script>
+<script src="i18n.js?v=202610191503"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1147,7 +1147,7 @@ function sheetPreq(){const h=S.hotel,id=S.sheet.id,x=((S.stockAll||{})[h]||{})[i
 /* ---------- daily brief: one hotel, one day (10days numbers, events, who's on shift) ---------- */
 function briefLoad(h,d){const B=S.briefData||(S.briefData={}),k=h+'|'+d;if(B[k])return B[k];B[k]={};const db=S.db,set=x=>{B[k]={...B[k],...x};render()};
   db.collection('shifts').where('date','==',d).get().then(q=>set({shifts:Object.fromEntries(q.docs.map(x=>[x.id,x.data()]).filter(([,s])=>hotelOfShift(s)===h))})).catch(()=>set({shifts:{}}));
-  db.doc(schedPath(weekOf(d),h)).get().then(x=>set({sched:x.exists?x.data():{}})).catch(()=>set({sched:{}}));
+  db.doc(schedPath(weekOf(d),h)).onSnapshot(x=>{if(S.briefData[k])set({sched:x.exists?x.data():{}})},()=>set({sched:{}}));
   if(!S.live['bemps:'+h]){S.live['bemps:'+h]=true;db.collection('employees').where('hotel','==',h).onSnapshot(q=>{S.emps={...S.emps,...docsMap(q)};render()},()=>{})}
   subQuotes();
   return B[k]}
@@ -1186,6 +1186,13 @@ function quoteSpaces(q){const e=q.event||{},v=EV_SPACES[e.venue]?e.venue:'sola',
 // a hotel without spaces has no events (e.g. the hostel)
 const evForHotel=(q,h,stAll)=>{const sp=hotelSpaces(h,stAll);return sp.length>0&&quoteSpaces(q).some(x=>sp.includes(x))};
 const spaceLabel=q=>quoteSpaces(q).map(x=>x.split('|')[1]).join(' + ');
+// reception: write only the given 10days cells (field paths), so nothing else on the schedule doc changes; null clears a cell
+async function frontDailyWrite(h,cells,quiet){const byWeek={};for(const [d,o] of Object.entries(cells)){const w=weekOf(d);(byWeek[w]||(byWeek[w]={}))[d]=o}
+  let ok=true;for(const [w,days] of Object.entries(byWeek)){const path=schedPath(w,h),upd={updatedAt:Date.now()};
+    for(const [d,o] of Object.entries(days))for(const [k,v] of Object.entries(o))upd['daily.'+d+'.'+k]=v==null?firebase.firestore.FieldValue.delete():v;
+    try{await fdb.doc(path).update(upd)}catch(e){try{const snap=await fdb.doc(path).get();if(snap.exists)throw e;const dd={};for(const [d,o] of Object.entries(days)){dd[d]={};for(const [k,v] of Object.entries(o))if(v!=null)dd[d][k]=v}
+        await fdb.doc(path).set({assign:{},published:false,daily:dd,updatedAt:Date.now()})}catch(_){ok=false}}}
+  if(!ok)toast('השמירה נכשלה. בדקו את החיבור ונסו שוב.');else if(!quiet)toast('10days נשלח ✓');return ok}
 function frontSaveDaily(h,daily){const cur=S.scheds[h]||{assign:{},published:false},doc={...cur,daily,updatedAt:Date.now()};delete doc.id;S.scheds[h]=doc;save(schedPath(S.week,h),doc)}
 function vFront(){const hs=scopeHs();if(!hs.length)return wrap(emptyBox('אין מלונות בהרשאה','בעל המערכת יכול להוסיף לך מלון בעמוד ההרשאות.'));
   if(!hs.includes(S.hotel))S.hotel=hs[0];const h=S.hotel,w=S.week;
@@ -1195,7 +1202,7 @@ function vFront(){const hs=scopeHs();if(!hs.length)return wrap(emptyBox('אין 
   const chips=hs.length>1?`<div class="chips" style="gap:6px">${hs.map(x=>`<button class="dchip ${x===h?'':'off'}" style="--h:var(--brass)" data-act="gm-hotel" data-h="${x}">${esc(hotelName(x))}</button>`).join('')}</div>`:'';
   const nav=`<div class="actions" style="align-items:center"><button class="btn sm" data-act="week" data-d="-7" aria-label="שבוע קודם">›</button><b class="mono">${weekLabel(w)}</b><button class="btn sm" data-act="week" data-d="7" aria-label="שבוע הבא">‹</button></div>`;
   const head=`<section class="head"><div class="head-t"><h1>קבלה · ${esc(hotelName(h))}</h1>${nav}</div>${chips}</section>`;
-  const daily=`<div class="card"><h3>10days</h3><p class="muted" style="font-size:.85rem">מקלידים לכל יום כמה צ׳ק אין, צ׳ק אאוט, ארוחות בוקר, ארוחות ערב ורפרש. כל שינוי נשמר מיד.</p>${dailyTable(true)}</div>`;
+  const daily=`<div class="card"><h3>10days</h3><p class="muted" style="font-size:.85rem">מקלידים לכל יום כמה צ׳ק אין, צ׳ק אאוט, ארוחות בוקר, ארוחות ערב ורפרש, ולוחצים "שליחה". הנתונים עוברים לבריף היומי ולמנהלים.</p>${dailyTable(true)}<div class="actions" style="margin-top:10px"><button class="btn pri" data-act="daily-send">שליחה</button></div></div>`;
   const evs=(S.bQuotes||[]).filter(q=>q.status!=='declined'&&q.event&&q.event.date>=w&&q.event.date<=addDays(w,6)&&evForHotel(q,h)).sort((a,b)=>String(a.event.date+(a.event.start||'')).localeCompare(String(b.event.date+(b.event.start||''))));
   const evCard=`<div class="card"><h3>אירועים השבוע · ${evs.length}</h3>${S.bQuotes===null?'<p class="muted">אין לך גישה לאירועים.</p>':evs.length?`<div class="plist">${evs.map(q=>`<div class="prow"><span class="who"><b>יום ${DAYS[dow(q.event.date)]} ${dm(q.event.date)} · ${esc(q.event.start||'')}${q.event.end?'–'+esc(q.event.end):''} · ${esc(q.client?.name||'ללא שם')}</b><small>${esc(EV_VENUE[q.event.venue]||'')}${' · '+esc(spaceLabel(q))} · ${esc(q.event.type||'')} · ${+q.event.guests||0} אורחים</small></span>${q.kind==='group'?'<span class="pill" style="background:#2a6fbf;color:#fff">קבוצת מלון</span>':q.status==='approved'?'<span class="pill ok">סגור</span>':'<span class="pill">טנטטיב</span>'}</div>`).join('')}</div>`:'<p class="muted">אין אירועים השבוע.</p>'}</div>`;
   const sh=weekShifts(),depts=DEPTS.filter(d=>sh.some(([,s])=>s.dept===d.k));
@@ -1483,7 +1490,7 @@ function vDailyEmp(){const d=S.sched.daily||{},has=Object.keys(d).length;
 document.addEventListener('change',e=>{const t=e.target;if(!t.matches||!t.matches('[data-fdue]'))return;const h=t.dataset.h,id=t.dataset.fdue,f=((S.faults||{})[h]||{})[id];if(!f)return;
   const doc={...f,due:t.value||''};S.faults[h]={...S.faults[h],[id]:doc};save('faults/'+id,doc);t.blur();render();toast('תאריך התיקון עודכן')});
 document.addEventListener('change',e=>{const t=e.target;if(!t.matches||!t.matches('[data-daily]'))return;const [d,k]=t.dataset.daily.split('|'),v=t.value===''?null:Math.max(0,Math.round(+t.value));
-  const daily={...(S.sched.daily||{})};daily[d]={...(daily[d]||{})};if(v===null)delete daily[d][k];else daily[d][k]=v;if(S.admin){S.sched={...S.sched,daily};saveSched()}else frontSaveDaily(S.hotel,daily)});
+  const daily={...(S.sched.daily||{})};daily[d]={...(daily[d]||{})};if(v===null)delete daily[d][k];else daily[d][k]=v;if(S.admin){S.sched={...S.sched,daily};saveSched()}else{S.sched={...S.sched,daily};frontDailyWrite(S.hotel,{[d]:{[k]:v}})}});
 function remindList(){const w=openWeek();return Object.keys(S.emps).filter(u=>inRoster(u)&&!S.avail[u]?.sub?.[w]).sort((a,b)=>empName(a).localeCompare(empName(b),'he'))}
 function remindMsg(u){const dl=cfg().deadline;return `היי ${empName(u)}, עוד לא הגשת זמינות ב${hotelName(S.hotel)} לשבוע ${weekLabel(openWeek())}${dl?`. צריך להגיש עד ${dl}`:''}. נא להיכנס ולסמן את המשמרות שאפשר: ${appLink()}`}
 function remindGroupMsg(){const l=remindList(),dl=cfg().deadline;return `תזכורת: עוד לא הגישו זמינות לשבוע ${weekLabel(openWeek())}: ${l.map(empName).join(', ')}.${dl?` צריך להגיש עד ${dl}.`:''}\n${appLink()}`}
@@ -1784,6 +1791,9 @@ const ACT={
     S.settingsAll[h]={...(S.settingsAll[h]||{}),spaces:sp,venues:[...new Set(sp.map(x=>x.split('|')[0]))]};save('settings/'+h,S.settingsAll[h]);render()},
   'brief-day':D=>{S.briefDate=+D.d?addDays(S.briefDate||todayISO(),+D.d):todayISO();render()},
   'app-stock':()=>{S.menu=false;setTab('stock')},
+  'daily-send':async()=>{const cells={};document.querySelectorAll('[data-daily]').forEach(el=>{const [d,k]=el.dataset.daily.split('|');const v=el.value===''?null:Math.max(0,Math.round(+el.value));(cells[d]||(cells[d]={}))[k]=v});
+    if(!Object.keys(cells).length)return;const daily={...(S.sched.daily||{})};for(const [d,o] of Object.entries(cells)){daily[d]={...(daily[d]||{})};for(const [k,v] of Object.entries(o)){if(v==null)delete daily[d][k];else daily[d][k]=v}}
+    S.sched={...S.sched,daily};if(S.admin){saveSched();toast('10days נשלח ✓')}else await frontDailyWrite(S.hotel,cells);render()},
   'gm-hotel':D=>setHotel(D.h),
   'gm-month':D=>{S.gmM=monAdd(S.gmM||todayISO().slice(0,7),+D.d);render()},
   'stock-d':D=>{S.stockF.d=D.k;render()},

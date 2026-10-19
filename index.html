@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#132033">
-<script src="i18n.js?v=202610190716"></script>
+<script src="i18n.js?v=202610191115"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -617,7 +617,7 @@ function vSettings(){
     <div class="actions"><button class="btn pri" data-act="savesettings">שמירת ההגדרות</button></div></section>`;
   const gen=`<div class="card"><h3>כללי</h3>
     <div class="row"><label class="f">שעות מנוחה מינימום בין משמרות<input type="number" id="set_rest" min="0" max="24" data-f="set.restHours" value="${esc(dv('set','restHours',c.restHours))}"></label></div>
-    <p class="muted" style="font-size:.82rem">שמות המלונות, קודי ההצטרפות, חללי האירועים של כל מלון והוספת מלון נמצאים בעמוד <button class="linkbtn" data-act="app-perms">הרשאות</button>.</p></div>`+(S.isOwner?backupHTML()+importHTML():'');
+    <p class="muted" style="font-size:.82rem">כל ההגדרות הכלליות (שמות המלונות, קודי הצטרפות, חללי אירועים, עמדות קבלה, גיבוי וייבוא) נמצאות בעמוד <button class="linkbtn" data-act="app-perms">הרשאות</button>. כאן רק הגדרות המשמרות.</p></div>`;
   const cards=DEPTS.map(dp=>{const br=dv('set',dp.k+'_br',breakDept(S.hotel,dp.k));return `<section class="card" style="--h:${dp.h}"><div class="dept-h" style="justify-content:space-between"><span style="display:flex;align-items:center;gap:10px"><span class="sw"></span><h2>${dp.n}</h2></span><label class="check" style="font-size:.85rem"><input type="checkbox" id="set_${dp.k}_br" data-f="set.${dp.k}_br" ${br?'checked':''}> יורדת הפסקה</label></div>
     <div class="trows"><div class="trow th"><span>משמרת</span><span>התחלה</span><span>סיום</span><span class="hrs">משך</span></div>
     ${KINDS.map(k=>{const t=timesFor(dp.k,k.k),key=`${dp.k}_${k.k}`,on=dv('set',key+'_on',kindsFor(dp.k).includes(k.k)),a=dv('set',key+'_s',t.s),b=dv('set',key+'_e',t.e);
@@ -1483,7 +1483,7 @@ function joinCodeHTML(){const c={...cfg(),joinCode:validCode()};
 // full backup (owner): every collection to one JSON file in the same format the import reads
 const BACKUP_COLLS=['hotels','settings','employees','mgr','avail','shifts','schedule','requests','roles','joinCodes','config','menus','contracts','quotes','campaigns','suppliers','invoices','expcfg','inventory','purchaseReqs','shiftReports','faults'];
 const lastBackup=()=>{try{return +localStorage.getItem('scLastBackup')||0}catch(_){return 0}};
-function backupHTML(){const lb=lastBackup();return `<div class="card"><h3>גיבוי</h3><p class="muted" style="font-size:.85rem">מוריד קובץ אחד עם כל הנתונים במערכת: עובדים, שכר, סידורים, אירועים, חשבוניות, מלאי, תקלות ודוחות. שומרים אותו במקום בטוח (מחשב, Google Drive). אפשר לשחזר ממנו דרך "ייבוא נתונים" למטה. כשעובר שבוע מהגיבוי האחרון, האתר מזכיר לך.</p>
+function backupHTML(){const lb=lastBackup();return `<div class="card"><h3>גיבוי</h3><p class="muted" style="font-size:.85rem">מוריד קובץ אחד עם כל הנתונים במערכת: עובדים, שכר, סידורים, אירועים, חשבוניות, מלאי, תקלות ודוחות. שומרים אותו במקום בטוח (מחשב, Google Drive). אפשר לשחזר ממנו דרך "ייבוא נתונים" שמתחת. כשעובר שבוע מהגיבוי האחרון, האתר מזכיר לך.</p>
   <p style="font-size:.9rem">${lb?`גיבוי אחרון מהמכשיר הזה: <b>${new Date(lb).toLocaleDateString('he-IL')}</b>`:'עוד לא נעשה גיבוי מהמכשיר הזה.'}</p>
   <label class="check"><input type="checkbox" id="bk_img" ${dv('bk','img',false)?'checked':''} data-f="bk.img"> כולל צילומי החשבוניות (קובץ גדול יותר)</label>
   <div><button class="btn pri" data-act="backup-now">הורדת גיבוי מלא</button></div></div>`}
@@ -1546,7 +1546,8 @@ function vPerms(){
   const head=`<section class="head"><div class="head-t"><h1>הרשאות</h1><div class="meta"><span class="pill">${people.length} אנשים</span></div></div>
     <p class="lede">לכל אחד מסמנים מה הוא רואה: ניהול סידור עבודה (באילו מלונות), הצעות מחיר וניהול הרשאות. מי שבלי סימון הוא עובד רגיל: רואה רק את הזמינות והמשמרות שלו. כדי שמישהו יופיע כאן, הוא צריך להירשם פעם אחת עם קוד ההצטרפות של המלון.</p>
     ${S.isOwner?'':'<p class="muted" style="font-size:.85rem">אפשר לתת רק הרשאות ומלונות שיש לך בעצמך.</p>'}</section>`;
-  const hc=hotelsCardHTML()+stationsCardHTML();
+  // general settings live on this page (not in the shift Settings tab)
+  const hc=hotelsCardHTML()+stationsCardHTML()+(S.isOwner?backupHTML()+importHTML():'');
   if(!people.length)return wrap(head+hc+emptyBox('עוד אין אנשים רשומים','שולחים לעובדים את הקישור וקוד ההצטרפות של המלון שלהם מהכרטיס למעלה. אחרי שהם נרשמים, הם מופיעים כאן.'));
   let last=null;const rows=people.map(([u,e])=>{const h=e.hotel||'main',r=S.roles[u],a=roleApps(r);
     const sep=h!==last?`<div class="lh">${esc(hotelName(h))}</div>`:'';last=h;

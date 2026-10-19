@@ -1198,7 +1198,7 @@ async function frontDailyWrite(h,cells,quiet){const byWeek={};for(const [d,o] of
     if(!err){try{const snap=await fdb.doc(path).get({source:'server'}),dl=(snap.exists&&snap.data().daily)||{};
       for(const [d,o] of Object.entries(days))for(const [k,v] of Object.entries(o))if((dl[d]||{})[k]!==(v==null?undefined:v))err={code:'not-saved'}}catch(e3){err=e3}}
     if(err){ok=false;console.warn('10days',path,err)}}
-  if(!ok)toast('השמירה נכשלה. בדקו את החיבור ונסו שוב.');else if(!quiet)toast('10days נשלח ✓');return ok}
+  if(!ok)toast('השמירה נכשלה. בדקו את החיבור ונסו שוב.');else if(!quiet)toast(`10days נשלח ✓ · ${hotelName(h)} · ${Object.keys(byWeek).map(weekLabel).join(', ')}`);return ok}
 function frontSaveDaily(h,daily){const cur=S.scheds[h]||{assign:{},published:false},doc={...cur,daily,updatedAt:Date.now()};delete doc.id;S.scheds[h]=doc;save(schedPath(S.week,h),doc)}
 function vFront(){const hs=scopeHs();if(!hs.length)return wrap(emptyBox('אין מלונות בהרשאה','בעל המערכת יכול להוסיף לך מלון בעמוד ההרשאות.'));
   if(!hs.includes(S.hotel))S.hotel=hs[0];const h=S.hotel,w=S.week;
@@ -1490,8 +1490,8 @@ const isHostel=h=>{const v=(S.settingsAll[h]||{}).dorms;return typeof v==='boole
 const DAILY_HOSTEL=[['cid','צ׳ק אין דורמס'],['ci','צ׳ק אין פרייבט'],['co','צ׳ק אאוט (פרייבט בלבד)'],['bf','ארוחת בוקר'],['dn','ארוחת ערב'],['rf','רפרש']];
 const dailyRows=h=>isHostel(h)?DAILY_HOSTEL:DAILY;
 function dailyTable(edit){const d=S.sched.daily||{},dates=weekDates(S.week),DAILY=dailyRows(S.hotel);
-  return `<div class="tbl"><table class="grid"><thead><tr><th></th>${dates.map(x=>`<th class="${dow(x)===6?'sat':''}"><span>${DAYS_S[dow(x)]}</span><small>${dm(x)}</small></th>`).join('')}</tr></thead><tbody>
-  ${DAILY.map(([k,n])=>`<tr><th class="kind"><b>${n}</b></th>${dates.map(x=>{const v=d[x]?.[k];return `<td>${edit?`<input type="number" min="0" inputmode="numeric" class="dly" data-daily="${x}|${k}" value="${v??''}" aria-label="${n} ${dm(x)}" style="width:100%;min-width:52px;text-align:center">`:`<div class="cell" style="min-height:40px;justify-content:center;align-items:center;padding:6px;cursor:default"><b class="mono">${v??'—'}</b></div>`}</td>`}).join('')}</tr>`).join('')}</tbody></table></div>`}
+  return `<div class="tbl"><table class="grid"><thead><tr><th></th>${dates.map(x=>`<th class="${dow(x)===6?'sat':''}"${x===todayISO()?' style="background:var(--brass);color:#fff"':''}><span>${x===todayISO()?'היום':DAYS_S[dow(x)]}</span><small>${dm(x)}</small></th>`).join('')}</tr></thead><tbody>
+  ${DAILY.map(([k,n])=>`<tr><th class="kind"><b>${n}</b></th>${dates.map(x=>{const v=d[x]?.[k];return `<td${x===todayISO()?' style="background:color-mix(in srgb,var(--brass) 12%,transparent)"':''}>${edit?`<input type="number" min="0" inputmode="numeric" class="dly" data-daily="${x}|${k}" value="${v??''}" aria-label="${n} ${dm(x)}" style="width:100%;min-width:52px;text-align:center">`:`<div class="cell" style="min-height:40px;justify-content:center;align-items:center;padding:6px;cursor:default"><b class="mono">${v??'—'}</b></div>`}</td>`}).join('')}</tr>`).join('')}</tbody></table></div>`}
 function dailyCardHTML(){return `<div class="card"><h3>10days · ${esc(hotelName(S.hotel))}</h3><p class="muted" style="font-size:.85rem">כמה צ׳ק אין, צ׳ק אאוט, ארוחות בוקר, ארוחות ערב ורפרש בכל יום. כל שינוי נשמר מיד, והעובדים רואים את זה בלשונית 10days.</p>${dailyTable(true)}</div>`}
 function vDailyEmp(){const d=S.sched.daily||{},has=Object.keys(d).length;
   return wrap(`<section class="head"><h1>10days · ${weekLabel(S.week)}</h1><p class="lede">${esc(hotelName(S.hotel))}: צ׳ק אין, צ׳ק אאוט, ארוחות ורפרש לכל יום בשבוע.</p></section>`+(has?dailyTable(false):emptyBox('עוד אין נתונים לשבוע הזה','המנהל מעדכן את המספרים. אפשר לעבור בין שבועות בחיצים למעלה.')))}
@@ -1792,7 +1792,7 @@ const ACT={
   'app-exp':()=>{S.menu=false;setTab('exp')},
   'app-gm':()=>{S.menu=false;setTab('gm')},
   'app-brief':()=>{S.menu=false;setTab('brief')},
-  'app-front':()=>{S.menu=false;setTab('front')},
+  'app-front':()=>{S.menu=false;const cw=weekOf(todayISO());if(S.week!==cw){S.tab='front';setWeek(cw)}setTab('front')},
   'app-maint':()=>{S.menu=false;setTab('maint')},
   'notif-on':()=>{try{Notification.requestPermission().then(p=>{toast(p==='granted'?'ההתראות הופעלו. תקבל התראה כשתגיע בקשה חדשה או כשפריט במלאי מגיע לרף המינימום, כל עוד האתר פתוח.':'ההתראות לא הופעלו');render()})}catch(_){toast('הדפדפן הזה לא תומך בהתראות')}},
   'hotel-space':D=>{const h=D.h,cur=hotelSpaces(h),k=D.v,sp=cur.includes(k)?cur.filter(x=>x!==k):[...cur,k];
@@ -2087,6 +2087,8 @@ async function start(u){
   if(location.hash==='#maint'&&S.can.maint)S.tab='maint';
   if(location.hash==='#fin'&&S.can.fin)S.tab='fin';
   if(location.hash==='#stock'&&S.can.stock)S.tab='stock';
+  // the reception page always opens on the current week (today's 10days)
+  if(S.tab==='front')S.week=weekOf(todayISO());
   db.collection('hotels').onSnapshot(q=>{S.hotels=docsMap(q);if(S.ready&&hotelIds().join(',')!==S.subKey)subWeek();render()},onErr);
   const afterSettings=()=>{if(!S.admin&&S.tab==='avail'&&S.week!==openWeek())setWeek(openWeek());else render()};
   if(setIds()===null)db.collection('settings').onSnapshot(q=>{S.settingsAll=docsMap(q);afterSettings()},onErr);

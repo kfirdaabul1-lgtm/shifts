@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#132033">
-<script src="i18n.js?v=202610191550"></script>
+<script src="i18n.js?v=202610191649"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1149,7 +1149,7 @@ function briefLoad(h,d){const B=S.briefData||(S.briefData={}),k=h+'|'+d;if(B[k])
   db.collection('shifts').where('date','==',d).onSnapshot(q=>{if(S.briefData[k])set({shifts:Object.fromEntries(q.docs.map(x=>[x.id,x.data()]).filter(([,s])=>hotelOfShift(s)===h))})},()=>set({shifts:{}}));
   // changes approved after publishing (added / removed / extended shifts) are applied on top of the schedule, like in the schedule page
   db.collection('requests').where('hotel','==',h).where('status','==','approved').onSnapshot(q=>{if(S.briefData[k])set({reqs:q.docs.map(x=>x.data()).filter(r=>r.week===weekOf(d))})},()=>set({reqs:[]}));
-  db.doc(schedPath(weekOf(d),h)).onSnapshot(x=>{if(S.briefData[k])set({sched:x.exists?x.data():{}})},()=>set({sched:{}}));
+  db.doc(schedPath(weekOf(d),h)).onSnapshot(x=>{if(S.briefData[k])set({sched:x.exists?x.data():{},schedExists:!!x.exists,schedErr:''})},e=>set({sched:{},schedErr:String(e&&(e.code||e.message)||'error')}));
   if(!S.live['bemps:'+h]){S.live['bemps:'+h]=true;db.collection('employees').where('hotel','==',h).onSnapshot(q=>{S.emps={...S.emps,...docsMap(q)};render()},()=>{})}
   subQuotes();
   return B[k]}
@@ -1174,7 +1174,9 @@ function vBrief(){const hs=scopeHs();if(!hs.length)return wrap(emptyBox('אין 
   const DAILY=dailyRows(h);const upd=sched.updatedAt?new Date(sched.updatedAt):null;
   const nums=`<div class="card"><div class="actions" style="justify-content:space-between;align-items:center"><h3 style="margin:0">10days</h3><button class="btn sm ghost" data-act="brief-refresh">רענון</button></div>${DAILY.some(([k])=>daily[k]!=null)?`<div class="kpis">${DAILY.map(([k,n])=>kpi(n,daily[k]!=null?String(daily[k]):'—')).join('')}</div>`:'<p class="muted">עוד לא הוזנו נתונים ליום הזה.</p>'}${upd?`<p class="muted" style="font-size:.8rem;margin:6px 0 0">עודכן לאחרונה: ${upd.getDate()}.${upd.getMonth()+1} ${String(upd.getHours()).padStart(2,'0')}:${String(upd.getMinutes()).padStart(2,'0')}</p>`:''}</div>`;
   const evCard=`<div class="card"><h3>אירועים היום · ${evs.length}</h3>${S.bQuotes===null?'<p class="muted">אין לך גישה לאירועים.</p>':evs.length?`<div class="plist">${evs.map(q=>`<div class="prow"><span class="who"><b class="mono" style="font-family:inherit">${esc(q.event.start||'')}${q.event.end?'–'+esc(q.event.end):''} · ${esc(q.client?.name||'ללא שם')}</b><small>${esc(EV_VENUE[q.event.venue]||'')}${' · '+esc(spaceLabel(q))} · ${esc(q.event.type||'')} · ${+q.event.guests||0} אורחים</small></span>${q.kind==='group'?'<span class="pill" style="background:#2a6fbf;color:#fff">קבוצת מלון</span>':q.status==='approved'?'<span class="pill ok">סגור</span>':'<span class="pill">טנטטיב</span>'}</div>`).join('')}</div>`:'<p class="muted">אין אירועים היום.</p>'}</div>`;
-  const crewCard=`<div class="card"><h3>במשמרת היום</h3>${!sched.published?'<p class="muted" style="font-size:.85rem">הסידור לשבוע הזה עוד לא פורסם, מוצג השיבוץ הנוכחי.</p>':''}${crew.length?crew.map(([k,l])=>`<div style="margin-bottom:8px"><b style="color:hsl(${DMAP[k].h} 45% 38%)">${DMAP[k].n}</b><div class="muted" style="font-size:.9rem">${l.map(x=>`${esc(x.name)} <span class="mono">(${esc(x.t)})</span>`).join(' · ')}</div></div>`).join(''):'<p class="muted">אין שיבוצים ליום הזה.</p>'}</div>`;
+  const nShifts=Object.values(B.shifts||{}).filter(x=>+x.need).length;
+  const why=B.schedErr?`<p class="notice" style="font-size:.85rem">לא הצלחתי לקרוא את הסידור של ${esc(hotelName(h))}: ${esc(B.schedErr)}</p>`:!B.schedExists||!Object.values(sched.assign||{}).some(x=>x&&x.length)?`<p class="notice" style="font-size:.85rem">אין עדיין שיבוצים שמורים ל${esc(hotelName(h))} לשבוע ${weekLabel(weekOf(d))}. הסידור שרואים בעמוד הסידור הוא כנראה של שבוע אחר: עוברים לשבוע הזה, משבצים, והבריף יתעדכן.</p>`:!nShifts?`<p class="notice" style="font-size:.85rem">לא נפתחו משמרות ל${esc(hotelName(h))} ביום הזה.</p>`:'';
+  const crewCard=`<div class="card"><h3>במשמרת היום</h3>${why}${!sched.published&&B.schedExists?'<p class="muted" style="font-size:.85rem">הסידור לשבוע הזה עוד לא פורסם, מוצג השיבוץ הנוכחי.</p>':''}${crew.length?crew.map(([k,l])=>`<div style="margin-bottom:8px"><b style="color:hsl(${DMAP[k].h} 45% 38%)">${DMAP[k].n}</b><div class="muted" style="font-size:.9rem">${l.map(x=>`${esc(x.name)} <span class="mono">(${esc(x.t)})</span>`).join(' · ')}</div></div>`).join(''):'<p class="muted">אין שיבוצים ליום הזה.</p>'}</div>`;
   const wa=`https://wa.me/?text=${encodeURIComponent(briefText(h,d,daily,evs,crew))}`;
   return wrap(head+`<div class="setgrid">${nums}${evCard}${crewCard}</div><div class="actions"><a class="btn brass" href="${wa}" target="_blank" rel="noopener">שליחת הבריף בוואטסאפ</a></div>`);
 }

@@ -1921,6 +1921,10 @@ async function migrateHotelFields(){
     for(const d of m.docs){const x=d.data(),h=home[d.id]||x.hotel||'main';if(x.hotel!==h)save('mgr/'+d.id,{...x,hotel:h})}
     for(const d of a.docs){const x=d.data(),h=home[d.id]||x.hotel||'main';if(x.hotel!==h)save('avail/'+d.id,{...x,hotel:h})}
     for(const d of sh.docs){const x=d.data();if(!x.hotel)save('shifts/'+d.id,{...x,hotel:'main'})}
+    // roles follow the person's registered hotel (chain staff = all hotels)
+    const rs=await S.db.collection('roles').get();
+    for(const d of rs.docs){const r=d.data(),h=home[d.id];if(r.station||!h)continue;const hs=h===CHAIN?[]:[h],ex=(r.apps||{}).exp?hs.slice():[];
+      if(JSON.stringify(r.hotels||[])!==JSON.stringify(hs)||JSON.stringify(r.expHotels||[])!==JSON.stringify(ex))save('roles/'+d.id,{...r,hotels:hs,expHotels:ex})}
   }catch(_){ }
 }
 const docsMap=q=>Object.fromEntries(q.docs.map(d=>[d.id,d.data()]));
@@ -2019,6 +2023,9 @@ async function start(u){
   S.uid=u.uid;S.meName=u.displayName||'';S.email=String(u.email||'').toLowerCase();S.phone=u.phoneNumber||'';
   S.isOwner=!!(S.email&&u.emailVerified&&S.email===String(CFG.ownerEmail||'').trim().toLowerCase());
   try{const r=await db.doc('roles/'+u.uid).get();if(r.exists)S.role=r.data()}catch(_){ }
+  // permissions apply only to the hotel the person is registered in (chain staff = all hotels), also for roles saved before that rule
+  if(S.role&&!S.isOwner&&!S.role.station){try{const m=await db.doc('employees/'+u.uid).get();const hh=m.exists?(m.data().hotel||'main'):null;
+    if(hh){const hs=hh===CHAIN?[]:[hh];S.role={...S.role,hotels:hs,expHotels:(S.role.apps||{}).exp?hs.slice():[]}}}catch(_){ }}
   // what this person may use: managing shifts, the quotes app, managing permissions (set in the permissions page)
   const apps=S.role?(S.role.apps||{shifts:true}):{};
   S.can={shifts:S.isOwner||!!apps.shifts,events:S.isOwner||!!apps.events,perms:S.isOwner||!!apps.perms,ceo:S.isOwner||!!apps.ceo,mkt:S.isOwner||!!apps.mkt,exp:S.isOwner||!!apps.exp,gm:S.isOwner||!!apps.gm,brief:S.isOwner||!!apps.brief||!!apps.gm,front:S.isOwner||!!apps.front,dept:!S.isOwner&&!apps.shifts&&!!apps.dept};

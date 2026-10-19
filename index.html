@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#132033">
-<script src="i18n.js?v=202610191530"></script>
+<script src="i18n.js?v=202610191550"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1300,26 +1300,26 @@ function faultsSub(h){const k='faults:'+h;S.faults=S.faults||{};if(!S.live[k]){S
 const faultsOf=h=>{const f=(S.faults||{})[h];return f&&!f.__err?Object.entries(f):[]};
 const openFaultsN=()=>Object.values(S.alertFaults||{}).length;
 function ageText(ms){const m=Math.max(0,Math.floor((Date.now()-ms)/60000)),d=Math.floor(m/1440),hh=Math.floor((m%1440)/60);
-  return d?`${d} ${d===1?'יום':'ימים'}${hh?` ו-${hh} ${hh===1?'שעה':'שעות'}`:''}`:hh?`${hh} ${hh===1?'שעה':'שעות'}`:'פחות משעה'}
-const faultLate=f=>f.status!=='done'&&f.due&&f.due<todayISO();
+  return d?`${d} ${d===1?'יום':'ימים'}${hh?`, ${hh} ${hh===1?'שעה':'שעות'}`:''}`:hh?`${hh} ${hh===1?'שעה':'שעות'}`:'פחות משעה'}
+// no fix dates any more: only how long a fault has been open
+const faultLate=f=>false;
 const maintBoss=h=>S.isOwner||(S.can.shifts&&scopeHs().includes(h))||(S.can.gm&&scopeHs().includes(h));
-function faultRowHTML(id,f,h,full){const rec=f.room&&recurRooms(faultsOf(h).map(([,x])=>x)).some(x=>x.room===String(f.room).trim()),late=faultLate(f),dueTxt=f.due?`${f.due===todayISO()?'היום':'עד '+dm(f.due)}`:'עוד לא נקבע';
+function faultRowHTML(id,f,h,full){const rec=f.room&&recurRooms(faultsOf(h).map(([,x])=>x)).some(x=>x.room===String(f.room).trim()),late=false;
   return `<div class="prow" style="flex-wrap:wrap${late?';border-color:var(--bad)':''}"><span class="who"><b>${f.room?`חדר ${esc(f.room)} · `:''}${esc(f.desc||'')}${rec?' <span class="pill bad">תקלה חוזרת</span>':''}</b>
-    <small>פתוחה ${ageText(f.openedAt||Date.now())} · נפתחה ${new Date(f.openedAt||0).toLocaleDateString('he-IL')}${f.openedByName?' · '+esc(f.openedByName):''}${f.source==='report'?' · מדוח משמרת':''}</small>
-    <small style="${late?'color:var(--bad);font-weight:600':''}">תיקון: ${dueTxt}${late?' · באיחור':''}</small></span>
-    ${full?`<span class="actions"><input type="date" data-fdue="${id}" data-h="${h}" value="${esc(f.due||'')}" style="width:auto" aria-label="תאריך תיקון" title="תאריך תיקון"><button class="btn sm pri" data-act="fault-done" data-id="${id}" data-h="${h}">${S.confirm==='fd:'+id?'לחיצה נוספת תסגור':'תוקן'}</button>${maintBoss(h)?`<button class="btn sm ghost" data-act="fault-del" data-id="${id}" data-h="${h}">${S.confirm==='fx:'+id?'לחיצה נוספת תמחק':'מחיקה'}</button>`:''}</span>`:`<span class="pill ${late?'bad':'warn'}">${late?'באיחור':'פתוחה'}</span>`}</div>`}
+    <small><b style="color:var(--bad)">פתוחה ${ageText(f.openedAt||Date.now())}</b> · נפתחה ${new Date(f.openedAt||0).toLocaleDateString('he-IL')}${f.openedByName?' · '+esc(f.openedByName):''}${f.source==='report'?' · מדוח משמרת':''}</small>
+</span>
+    ${full?`<span class="actions"><button class="btn sm pri" data-act="fault-done" data-id="${id}" data-h="${h}">${S.confirm==='fd:'+id?'לחיצה נוספת תסגור':'תוקן'}</button>${maintBoss(h)?`<button class="btn sm ghost" data-act="fault-del" data-id="${id}" data-h="${h}">${S.confirm==='fx:'+id?'לחיצה נוספת תמחק':'מחיקה'}</button>`:''}</span>`:`<span class="pill warn">פתוחה ${ageText(f.openedAt||Date.now())}</span>`}</div>`}
 function vMaint(){const hs=scopeHs();if(!hs.length)return wrap(emptyBox('אין מלונות בהרשאה',''));if(!hs.includes(S.hotel))S.hotel=hs[0];const h=S.hotel,F=faultsSub(h);
   const chips=hs.length>1?`<div class="chips" style="gap:6px">${hs.map(x=>`<button class="dchip ${x===h?'':'off'}" style="--h:var(--brass)" data-act="gm-hotel" data-h="${x}">${esc(hotelName(x))}</button>`).join('')}</div>`:'';
   const all=faultsOf(h),open=all.filter(([,f])=>f.status!=='done').sort(([,a],[,b])=>(a.openedAt||0)-(b.openedAt||0)),late=open.filter(([,f])=>faultLate(f));
   const month=todayISO().slice(0,7),done=all.filter(([,f])=>f.status==='done').sort(([,a],[,b])=>(b.doneAt||0)-(a.doneAt||0)),doneM=done.filter(([,f])=>new Date(f.doneAt||0).toISOString().slice(0,7)===month);
   const avg=doneM.length?doneM.reduce((t,[,f])=>t+((f.doneAt||0)-(f.openedAt||0)),0)/doneM.length:0;
   const head=`<section class="head"><div class="head-t"><h1>אחזקה · ${esc(hotelName(h))}</h1></div>${chips}
-    <div class="kpis">${kpi('תקלות פתוחות',String(open.length),'',open.length?'bad':'ok')}${kpi('באיחור',String(late.length),'עבר תאריך התיקון',late.length?'bad':'ok')}${kpi('תוקנו החודש',String(doneM.length),doneM.length?'זמן תיקון ממוצע: '+ageText(Date.now()-avg):'')}</div></section>`;
+    <div class="kpis">${kpi('תקלות פתוחות',String(open.length),'',open.length?'bad':'ok')}${kpi('הכי ותיקה',open.length?ageText(Math.min(...open.map(([,f])=>f.openedAt||Date.now()))):'—',open.length?'התקלה שפתוחה הכי הרבה זמן':'')}${kpi('תוקנו החודש',String(doneM.length),doneM.length?'זמן תיקון ממוצע: '+ageText(Date.now()-avg):'')}</div></section>`;
   if(F&&F.__err)return wrap(head+`<div class="notice">לא הצלחתי לטעון: ${esc(F.__err)}</div>`);
   const g=(k,d)=>dv('flt',k,d);
   const form=`<div class="card"><h3>תקלה חדשה</h3><div class="row"><label class="f" style="max-width:140px">חדר / מקום<input type="text" id="fl_room" data-f="flt.room" value="${esc(g('room',''))}" placeholder="למשל 204, לובי"></label>
-    <label class="f" style="flex:3">מה התקלה<input type="text" id="fl_desc" data-f="flt.desc" value="${esc(g('desc',''))}" placeholder="למשל מזגן לא מקרר"></label>
-    <label class="f" style="max-width:170px">מתי אמורה להיות מתוקנת<input type="date" id="fl_due" data-f="flt.due" value="${esc(g('due',addDays(todayISO(),1)))}"></label></div>
+    <label class="f" style="flex:3">מה התקלה<input type="text" id="fl_desc" data-f="flt.desc" value="${esc(g('desc',''))}" placeholder="למשל מזגן לא מקרר"></label></div>
     <div><button class="btn pri" data-act="fault-add" data-h="${h}">פתיחת תקלה</button></div></div>`;
   const list=`<div class="card"><h3>תקלות פתוחות · ${open.length}</h3>${!F?'<p class="muted">טוען…</p>':open.length?`<div class="plist">${open.map(([id,f])=>faultRowHTML(id,f,h,true)).join('')}</div>`:'<p class="muted">אין תקלות פתוחות 🎉</p>'}</div>`;
   const closed=done.length?`<div class="card"><h3>תוקנו לאחרונה</h3><div class="plist">${done.slice(0,20).map(([,f])=>`<div class="prow"><span class="who"><b>${f.room?`חדר ${esc(f.room)} · `:''}${esc(f.desc||'')}</b><small>תוקנה ${new Date(f.doneAt||0).toLocaleDateString('he-IL')} · אחרי ${ageText(Date.now()-((f.doneAt||0)-(f.openedAt||0)))}${f.fixNote?' · '+esc(f.fixNote):''}</small></span><span class="pill ok">תוקנה</span></div>`).join('')}</div></div>`:'';
@@ -1829,8 +1829,8 @@ const ACT={
     if(!canFiles)window.open('https://drive.google.com/drive/my-drive','_blank');backupNow('drive')},
   'backup-share':async()=>{const f=S.bkFile;if(!f)return;try{await navigator.share({files:[f],title:f.name});S.bkFile=null;render();toast('נשלח. ודאו שהקובץ נשמר בדרייב.')}catch(e){if(e&&e.name==='AbortError')return;toast('השיתוף נכשל. נסו "הורדת גיבוי מלא" והעלו ידנית.')}},
   'backup-later':()=>{try{localStorage.setItem('scBackupSnooze',String(Date.now()+864e5))}catch(_){ }S.bkSnooze=true;render()},
-  'fault-add':D=>{const h=D.h,g=(k,d)=>dv('flt',k,d),room=String(g('room','')).trim(),desc=String(g('desc','')).trim(),due=String(g('due',addDays(todayISO(),1)));
-    if(!desc){toast('צריך לכתוב מה התקלה');return}const id='f'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),doc={hotel:h,room,desc,status:'open',openedAt:Date.now(),openedBy:S.uid,openedByName:S.meName||empName(S.uid)||'',due:/^\d{4}-\d{2}-\d{2}$/.test(due)?due:'',source:'manual'};
+  'fault-add':D=>{const h=D.h,g=(k,d)=>dv('flt',k,d),room=String(g('room','')).trim(),desc=String(g('desc','')).trim();
+    if(!desc){toast('צריך לכתוב מה התקלה');return}const id='f'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),doc={hotel:h,room,desc,status:'open',openedAt:Date.now(),openedBy:S.uid,openedByName:S.meName||empName(S.uid)||'',source:'manual'};
     S.faults[h]={...(S.faults[h]||{}),[id]:doc};save('faults/'+id,doc);S.drafts.flt=null;render();toast('התקלה נפתחה')},
   'fault-done':D=>{if(S.confirm!=='fd:'+D.id){S.confirm='fd:'+D.id;render();return}S.confirm=null;const f=((S.faults||{})[D.h]||{})[D.id];if(!f)return;
     const doc={...f,status:'done',doneAt:Date.now(),doneBy:S.uid};S.faults[D.h]={...S.faults[D.h],[D.id]:doc};save('faults/'+D.id,doc);render();toast('סומן שתוקן')},

@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#132033">
-<script src="i18n.js?v=202610190119"></script>
+<script src="i18n.js?v=202610190716"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -413,6 +413,8 @@ function viewHTML(){
   if(!S.ready)return wrap('<p class="muted">טוען את הסידור…</p>');
   if(S.stationOff)return msg('משתמש הקבלה הזה בוטל','פנו למנהל לקבלת משתמש חדש.')+wrap('<div><button class="btn" data-act="logout">יציאה</button></div>');
   if(S.registering)return vRegister();
+  if(S.isOwner&&S.ready&&Date.now()-lastBackup()>7*864e5&&!S.bkSnooze){let sn=0;try{sn=+localStorage.getItem('scBackupSnooze')||0}catch(_){ }
+    if(Date.now()>sn){const b=`<div class="wrap" style="padding-top:12px"><div class="notice" style="display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap"><span>💾 ${lastBackup()?'עבר יותר משבוע מהגיבוי האחרון.':'עוד לא נעשה גיבוי של הנתונים.'} מומלץ להוריד גיבוי.</span><span class="actions"><button class="btn sm pri" data-act="backup-now">הורדת גיבוי עכשיו</button><button class="btn sm ghost" data-act="backup-later">מחר</button></span></div></div>`;return b+viewInner()}}
   if(S.station)S.tab='front';else if(!S.admin&&S.empsLoaded&&!S.emps[S.uid]&&S.tab!=='profile')S.tab='profile';
   if(!S.admin&&S.tab!=='mine'&&myPending().length){const b=`<div class="wrap" style="padding-top:12px"><div class="notice" style="display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap"><span>יש לך ${myPending().length} בקשות מהמנהל לשינוי משמרות</span><button class="btn sm pri" data-act="tab" data-t="mine">לצפייה ואישור</button></div></div>`;const v=viewInner();return b+v}
   return viewInner()}
@@ -615,7 +617,7 @@ function vSettings(){
     <div class="actions"><button class="btn pri" data-act="savesettings">שמירת ההגדרות</button></div></section>`;
   const gen=`<div class="card"><h3>כללי</h3>
     <div class="row"><label class="f">שעות מנוחה מינימום בין משמרות<input type="number" id="set_rest" min="0" max="24" data-f="set.restHours" value="${esc(dv('set','restHours',c.restHours))}"></label></div>
-    <p class="muted" style="font-size:.82rem">שמות המלונות, קודי ההצטרפות, חללי האירועים של כל מלון והוספת מלון נמצאים בעמוד <button class="linkbtn" data-act="app-perms">הרשאות</button>.</p></div>`+(S.isOwner?importHTML():'');
+    <p class="muted" style="font-size:.82rem">שמות המלונות, קודי ההצטרפות, חללי האירועים של כל מלון והוספת מלון נמצאים בעמוד <button class="linkbtn" data-act="app-perms">הרשאות</button>.</p></div>`+(S.isOwner?backupHTML()+importHTML():'');
   const cards=DEPTS.map(dp=>{const br=dv('set',dp.k+'_br',breakDept(S.hotel,dp.k));return `<section class="card" style="--h:${dp.h}"><div class="dept-h" style="justify-content:space-between"><span style="display:flex;align-items:center;gap:10px"><span class="sw"></span><h2>${dp.n}</h2></span><label class="check" style="font-size:.85rem"><input type="checkbox" id="set_${dp.k}_br" data-f="set.${dp.k}_br" ${br?'checked':''}> יורדת הפסקה</label></div>
     <div class="trows"><div class="trow th"><span>משמרת</span><span>התחלה</span><span>סיום</span><span class="hrs">משך</span></div>
     ${KINDS.map(k=>{const t=timesFor(dp.k,k.k),key=`${dp.k}_${k.k}`,on=dv('set',key+'_on',kindsFor(dp.k).includes(k.k)),a=dv('set',key+'_s',t.s),b=dv('set',key+'_e',t.e);
@@ -1478,6 +1480,20 @@ function joinCodeHTML(){const c={...cfg(),joinCode:validCode()};
   return `<div class="sep"></div><h3>קוד הצטרפות לעובדים</h3>
   <p class="muted" style="font-size:.85rem">עובד חדש נכנס לאפליקציה, מתחבר ומקליד את הקוד, וכך הוא משויך ל${esc(hotelName(S.hotel))}. אפשר להחליף קוד בכל זמן, והקוד הישן מפסיק לעבוד.</p>
   <div class="actions" style="align-items:center">${c.joinCode?`<b class="code">${esc(c.joinCode)}</b>`:'<span class="muted">עוד אין קוד</span>'}<button class="btn" data-act="join-new">${c.joinCode?'החלפת קוד':'יצירת קוד'}</button></div>`}
+// full backup (owner): every collection to one JSON file in the same format the import reads
+const BACKUP_COLLS=['hotels','settings','employees','mgr','avail','shifts','schedule','requests','roles','joinCodes','config','menus','contracts','quotes','campaigns','suppliers','invoices','expcfg','inventory','purchaseReqs','shiftReports','faults'];
+const lastBackup=()=>{try{return +localStorage.getItem('scLastBackup')||0}catch(_){return 0}};
+function backupHTML(){const lb=lastBackup();return `<div class="card"><h3>גיבוי</h3><p class="muted" style="font-size:.85rem">מוריד קובץ אחד עם כל הנתונים במערכת: עובדים, שכר, סידורים, אירועים, חשבוניות, מלאי, תקלות ודוחות. שומרים אותו במקום בטוח (מחשב, Google Drive). אפשר לשחזר ממנו דרך "ייבוא נתונים" למטה. כשעובר שבוע מהגיבוי האחרון, האתר מזכיר לך.</p>
+  <p style="font-size:.9rem">${lb?`גיבוי אחרון מהמכשיר הזה: <b>${new Date(lb).toLocaleDateString('he-IL')}</b>`:'עוד לא נעשה גיבוי מהמכשיר הזה.'}</p>
+  <label class="check"><input type="checkbox" id="bk_img" ${dv('bk','img',false)?'checked':''} data-f="bk.img"> כולל צילומי החשבוניות (קובץ גדול יותר)</label>
+  <div><button class="btn pri" data-act="backup-now">הורדת גיבוי מלא</button></div></div>`}
+async function backupNow(){if(!S.isOwner)return;if(S.backingUp)return;S.backingUp=true;toast('מכין גיבוי… זה יכול לקחת כמה שניות');
+  const out={exportedAt:new Date().toISOString(),by:S.email,collections:{}},cols=BACKUP_COLLS.concat(dv('bk','img',false)?['invoiceImgs']:[]);let n=0;
+  try{for(const c of cols){const q=await fdb.collection(c).get();out.collections[c]=q.docs.map(d=>({id:d.id,data:d.data()}));n+=q.size;
+      if(c==='quotes')for(const d of q.docs){try{const v=await fdb.collection('quotes/'+d.id+'/versions').get();if(v.size){out.collections['quotes/'+d.id+'/versions']=v.docs.map(x=>({id:x.id,data:x.data()}));n+=v.size}}catch(_){ }}}
+    const blob=new Blob([JSON.stringify(out)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='seven-backup-'+todayISO()+'.json';document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1500);
+    try{localStorage.setItem('scLastBackup',String(Date.now()))}catch(_){ }toast(`הגיבוי ירד: ${n} רשומות. שמרו את הקובץ במקום בטוח.`)}
+  catch(e){toast('הגיבוי נכשל: '+errMsg(mapErr(e)))}S.backingUp=false;render()}
 function importHTML(){return `<div class="card"><h3>ייבוא נתונים</h3><p class="muted" style="font-size:.85rem">מעביר לכאן נתונים מהגרסה הקודמת: import-data.json לסידור העבודה, ו-events-import.json להצעות המחיר. בוחרים קובץ ולוחצים ייבוא, קובץ אחד בכל פעם. רשומה שכבר קיימת עם אותו מזהה תוחלף.</p>
   <div class="actions" style="align-items:center"><input type="file" id="imp_file" accept=".json,application/json"><button class="btn pri" data-act="import">ייבוא</button></div></div>`}
 function roleHTML(u,e,isNew){if(!S.can.perms||isNew||e.manual||u===S.uid)return '';const r=S.roles[u];
@@ -1705,6 +1721,8 @@ const ACT={
     try{await navigator.clipboard.writeText(orderText(h,{name:sp?.name||''},lines));toast('ההזמנה הועתקה')}catch(_){toast('ההעתקה נכשלה')}},
   'order-done':D=>{const h=D.h,items=(S.stockAll||{})[h]||{},lines=Object.entries((S.preqAll||{})[h]||{}).filter(([,r])=>r.status==='approved'&&(r.supplier||items[r.itemId]?.supplier||'')===D.s);
     for(const [rid,r] of lines){const doc={...r,status:'ordered',orderedAt:Date.now(),handledBy:S.uid};S.preqAll[h]={...S.preqAll[h],[rid]:doc};save('purchaseReqs/'+rid,doc)}render();toast(`סומן שהוזמן · ${lines.length} פריטים`)},
+  'backup-now':()=>backupNow(),
+  'backup-later':()=>{try{localStorage.setItem('scBackupSnooze',String(Date.now()+864e5))}catch(_){ }S.bkSnooze=true;render()},
   'fault-add':D=>{const h=D.h,g=(k,d)=>dv('flt',k,d),room=String(g('room','')).trim(),desc=String(g('desc','')).trim(),due=String(g('due',addDays(todayISO(),1)));
     if(!desc){toast('צריך לכתוב מה התקלה');return}const id='f'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),doc={hotel:h,room,desc,status:'open',openedAt:Date.now(),openedBy:S.uid,openedByName:S.meName||empName(S.uid)||'',due:/^\d{4}-\d{2}-\d{2}$/.test(due)?due:'',source:'manual'};
     S.faults[h]={...(S.faults[h]||{}),[id]:doc};save('faults/'+id,doc);S.drafts.flt=null;render();toast('התקלה נפתחה')},
@@ -1900,7 +1918,7 @@ Object.assign(ACT,{
   import:async()=>{const f=$('#imp_file')&&$('#imp_file').files&&$('#imp_file').files[0];if(!f){toast('בחרו קודם את הקובץ');return}
     let j;try{j=JSON.parse(await f.text())}catch(_){toast('הקובץ לא תקין');return}
     const cols=j&&j.collections;if(!cols){toast('זה לא נראה כמו קובץ ייבוא');return}
-    const base=['settings','hotels','employees','mgr','avail','shifts','schedule','config','menus','contracts','quotes'];
+    const base=[...BACKUP_COLLS,'invoiceImgs'];
     const allowed=[...base,...Object.keys(cols).filter(c=>/^quotes\/[A-Za-z0-9_-]+\/versions$/.test(c))];let n=0,batch=fdb.batch(),inBatch=0;
     try{for(const c of allowed)for(const row of (cols[c]||[])){if(!row||!row.id||!row.data||typeof row.data!=='object')continue;
         batch.set(fdb.collection(c).doc(String(row.id)),row.data);n++;if(++inBatch>=400){await batch.commit();batch=fdb.batch();inBatch=0}}

@@ -260,7 +260,7 @@ service cloud.firestore {
         || (gmRole() && (roleHotels().size() == 0 || resource.data.hotel in roleHotels()))
         || (frontIn(resource.data.hotel) && resource.data.status == 'approved')
         || (isEmployee() && resource.data.hotel == myHotel() && resource.data.status == 'approved'));
-      allow create: if hotelStaff(request.resource.data.hotel) && request.resource.data.status == 'pending';
+      allow create: if isOwner() || (hotelStaff(request.resource.data.hotel) && request.resource.data.status == 'pending');
       allow update: if (hotelStaff(resource.data.hotel) && hotelStaff(request.resource.data.hotel))
         || (signedIn() && resource.data.uid == request.auth.uid && resource.data.status == 'pending'
             && request.resource.data.status in ['approved', 'declined']
@@ -309,8 +309,8 @@ service cloud.firestore {
     }
     match /purchaseReqs/{id} {
       allow read: if stockIn(resource.data.hotel, resource.data.dept);
-      allow create: if stockIn(request.resource.data.hotel, request.resource.data.dept)
-        && request.resource.data.status == 'pending' && request.resource.data.by == request.auth.uid;
+      allow create: if isOwner() || (stockIn(request.resource.data.hotel, request.resource.data.dept)
+        && request.resource.data.status == 'pending' && request.resource.data.by == request.auth.uid);
       // מנהל המלון / הסידור מאשר; מנהל המחלקה רק מבטל או מסמן שהתקבל
       allow update: if manages(resource.data.hotel) || gmIn(resource.data.hotel)
         || (stockIn(resource.data.hotel, resource.data.dept) && request.resource.data.status in ['received', 'canceled']
@@ -322,8 +322,8 @@ service cloud.firestore {
     // הקבלה רק ממלאת ושולחת (לא רואה דוחות וסכומים); מנהל המלון ומנהל הסידור רואים, מתקנים ומוחקים; מנכ״ל רואה (הכנסות קבלה)
     match /shiftReports/{id} {
       allow read: if manages(resource.data.hotel) || gmIn(resource.data.hotel) || canCeo();
-      allow create: if (frontIn(request.resource.data.hotel) || manages(request.resource.data.hotel) || gmIn(request.resource.data.hotel))
-        && request.resource.data.by == request.auth.uid;
+      allow create: if isOwner() || ((frontIn(request.resource.data.hotel) || manages(request.resource.data.hotel) || gmIn(request.resource.data.hotel))
+        && request.resource.data.by == request.auth.uid);
       allow update, delete: if manages(resource.data.hotel) || gmIn(resource.data.hotel);
     }
 
@@ -331,8 +331,8 @@ service cloud.firestore {
     // אחזקה ומנהלים רואים ומעדכנים; הקבלה פותחת תקלות (מדוח משמרת) ורואה אותן; מחיקה רק למנהלים
     match /faults/{id} {
       allow read: if maintIn(resource.data.hotel) || frontIn(resource.data.hotel);
-      allow create: if (maintIn(request.resource.data.hotel) || frontIn(request.resource.data.hotel))
-        && request.resource.data.status == 'open' && request.resource.data.openedBy == request.auth.uid;
+      allow create: if isOwner() || ((maintIn(request.resource.data.hotel) || frontIn(request.resource.data.hotel))
+        && request.resource.data.status == 'open' && request.resource.data.openedBy == request.auth.uid);
       allow update: if maintIn(resource.data.hotel) && maintIn(request.resource.data.hotel);
       allow delete: if manages(resource.data.hotel) || gmIn(resource.data.hotel);
     }

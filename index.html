@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#132033">
-<script src="i18n.js?v=202610191146"></script>
+<script src="i18n.js?v=202610191154"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1603,7 +1603,7 @@ function sheetPerm(){
   // moving someone between hotels needs shift-manager rights over both hotels
   const canMove=S.can.shifts&&moveHs.includes(e.hotel||'main')&&moveHs.length>1,curH=d.hotel||e.hotel||'main';
   return sheetHead(esc(e.name||'עובד'),`${esc(hotelName(e.hotel||'main'))}${e.title?' · '+esc(e.title):''}`)+
-  (canMove?`<label class="f">מלון<select id="pm_hotel">${moveHs.map(h=>`<option value="${h}" ${h===curH?'selected':''}>${esc(hotelName(h))}</option>`).join('')}</select></label>${curH!==(e.hotel||'main')?`<div class="notice">${esc(e.name||'העובד')} יעבור מ${esc(hotelName(e.hotel||'main'))} ל${esc(hotelName(curH))}. הוא יראה את המשמרות והצוות של המלון החדש, והשכר שלו יירשם שם. שיבוצים שכבר נקבעו במלון הקודם נשארים.</div>`:''}`:'')+
+  (canMove?`<label class="f">מלון<select id="pm_hotel">${moveHs.map(h=>`<option value="${h}" ${h===curH?'selected':''}>${esc(hotelName(h))}</option>`).join('')}</select></label>${curH!==(e.hotel||'main')?`<div class="notice">${esc(e.name||'העובד')} יעבור מ${esc(hotelName(e.hotel||'main'))} ל${esc(hotelName(curH))}. ${curH===CHAIN?'עובד רשת לא נספר בסידור העבודה ובנוכחות, וההרשאות שלו חלות על כל המלונות.':'הוא יראה את המשמרות והצוות של המלון החדש, והשכר שלו יירשם שם.'} שיבוצים שכבר נקבעו במלון הקודם נשארים.</div>`:''}`:'')+
   (outside?'<div class="notice">לאדם הזה יש הרשאה לכל המלונות, ורק מי שמנהל את כל המלונות יכול לשנות אותה.</div>':'')+
   `<div class="plist">${APPS.map(([k,n,desc])=>`<label class="prow" style="cursor:${mine[k]?'pointer':'default'}"><span class="who"><b>${n}</b><small>${mine[k]?desc:'אין לך את ההרשאה הזו, ולכן אי אפשר לתת אותה'}</small></span><input type="checkbox" id="pa_${k}" data-act="perm-app" data-k="${k}" ${d.apps[k]?'checked':''} ${mine[k]&&!outside?'':'disabled'}></label>`).join('')}</div>
   ${d.apps.dept?`<div class="f"><span>מנהל מחלקה של:</span><div class="chips" style="gap:6px">${grantDepts().map(x=>`<button class="dchip ${d.depts.includes(x.k)?'':'off'}" style="--h:${x.h};cursor:pointer" data-act="perm-dept" data-k="${x.k}" aria-pressed="${d.depts.includes(x.k)}">${x.n}</button>`).join('')}</div></div>`:''}
@@ -1853,10 +1853,10 @@ const ACT={
   'perm-save':()=>{const u=S.sheet.id,d=S.drafts.perm,e=S.emps[u];if(!d||!e)return;const mine=myApps();
     const apps={};for(const [k] of APPS)if(d.apps[k]&&mine[k])apps[k]=true;
     // permissions always apply to the hotel the person is registered in (chain staff = all hotels)
-    const th=(d.hotel&&S.can.shifts&&grantableHotels().includes(d.hotel))?d.hotel:(e.hotel||'main'),hotels=th===CHAIN?[]:[th];
+    const th=(d.hotel&&S.can.shifts&&peopleHotels().includes(d.hotel))?d.hotel:(e.hotel||'main'),hotels=th===CHAIN?[]:[th];
     if(th===CHAIN?!allHotelsP():!grantableHotels().includes(th)){toast('אין לך הרשאה למלון של העובד הזה');return}
     let moved='';const from=e.hotel||'main';
-    if(d.hotel&&d.hotel!==from&&S.can.shifts&&grantableHotels().includes(d.hotel)){const to=d.hotel;moved=to;
+    if(d.hotel&&d.hotel!==from&&S.can.shifts&&peopleHotels().includes(d.hotel)){const to=d.hotel;moved=to;
       S.emps[u]={...e,hotel:to};save('employees/'+u,S.emps[u]);
       if(S.mgr[u]){S.mgr[u]={...S.mgr[u],hotel:to};save('mgr/'+u,S.mgr[u])}
       if(S.avail[u]){S.avail[u]={...S.avail[u],hotel:to};save('avail/'+u,S.avail[u])}}

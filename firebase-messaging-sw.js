@@ -10,6 +10,8 @@ messaging.onBackgroundMessage(function (payload) {
   // messages that carry a "notification" block are shown by the SDK itself
   if (payload.notification) return;
   const d = payload.data || {};
+  // the server can send the number of unread items; it shows on the app icon
+  if (d.badge && self.navigator && self.navigator.setAppBadge) { try { const n = +d.badge || 0; n ? self.navigator.setAppBadge(n) : self.navigator.clearAppBadge(); } catch (e) {} }
   return self.registration.showNotification(d.title || 'Seven Collection', {
     body: d.body || '', icon: 'icon-192.png', badge: 'icon-192.png', dir: 'rtl', lang: 'he',
     tag: d.tag || undefined, data: { url: d.url || './' }

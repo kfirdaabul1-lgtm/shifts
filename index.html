@@ -1118,6 +1118,8 @@ function alertsSub(){if(S.live.alerts)return;S.live.alerts=true;
   // faults (all statuses): open count for managers, recurring rooms for managers and maintenance staff
   if(S.can.maint){const hs=scopeHs().slice(0,10);if(hs.length)S.db.collection('faults').where('hotel','in',hs).onSnapshot(q=>{const all=docsMap(q);S.alertFaultsAll=all;S.alertFaults=Object.fromEntries(Object.entries(all).filter(([,f])=>f.status!=='done'));alertTick()},()=>{})}}
 function alertTick(){const n=alertCount(),prev=S.alertPrev??n;S.alertPrev=n;try{document.title=(n?`(${n}) `:'')+'Seven Collection'}catch(_){ }
+  // red badge with the number on the app icon (installed app on the home screen / desktop)
+  try{if(navigator.setAppBadge){n?navigator.setAppBadge(n).catch(()=>{}):navigator.clearAppBadge().catch(()=>{})}}catch(_){ }
   // items that just reached their minimum get their own notification (first load only records what is already low)
   // a room that just became a recurring-fault room gets its own notification
   if(S.can.maint&&S.alertFaultsAll){const rr=recurRooms(Object.values(S.alertFaultsAll)),firstR=!S.recSeen,freshR=rr.filter(x=>!(S.recSeen||new Set()).has(x.key));S.recSeen=new Set(rr.map(x=>x.key));

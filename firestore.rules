@@ -76,6 +76,12 @@ service cloud.firestore {
     function deptMgr(h) { return hasRole() && roleApp('dept') && h in roleHotels(); }
     function deptManages(h, d) { return manages(h) || (deptMgr(h) && d in roleDepts()); }
     function hotelStaff(h) { return manages(h) || deptMgr(h); }
+    // a department manager may add/edit/delete manual employees (id m_…, manual: true) of their hotel, only in their own departments, never management staff
+    function deptManualOk(uid, d) {
+      return uid.matches('m_.*') && d.get('manual', false) == true && deptMgr(hotelOf(d))
+        && d.get('depts', []) is list && d.get('depts', []).size() > 0 && d.get('depts', []).hasOnly(roleDepts())
+        && d.get('mgmt', '') == '';
+    }
     // עובדי רשת (hotel = 'chain') עובדים בכל המלונות: כל מנהל סידור או מנהל מחלקה רואה את הזמינות שלהם
     function shiftsRole() { return canShifts() || (hasRole() && roleApp('dept')); }
     // מנהל מלון: רואה את כל נתוני המלונות שלו (roleHotels, ריק = כולם) ומאשר דרישות רכש
@@ -190,7 +196,7 @@ service cloud.firestore {
         || (isEmployee() && hotelOf(resource.data) == myHotel()));
       allow list: if seesHotel(resource.data.hotel) || (isEmployee() && resource.data.hotel == myHotel());
       // הרשמה עצמית רק עם קוד הצטרפות תקף, למלון של הקוד
-      allow create: if manages(hotelOf(request.resource.data)) || (
+      allow create: if manages(hotelOf(request.resource.data)) || deptManualOk(uid, request.resource.data) || (
         signedIn() && request.auth.uid == uid
         && request.resource.data.joinCode is string
         && exists(/databases/$(database)/documents/joinCodes/$(request.resource.data.joinCode))
@@ -198,9 +204,10 @@ service cloud.firestore {
       );
       // עובד מעדכן רק שם, טלפון, תפקיד, משמרות רצויות ומחלקות
       allow update: if (manages(hotelOf(resource.data)) && manages(hotelOf(request.resource.data)))
+        || (deptManualOk(uid, resource.data) && deptManualOk(uid, request.resource.data))
         || (signedIn() && request.auth.uid == uid
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'phone', 'title', 'want', 'depts']));
-      allow delete: if manages(hotelOf(resource.data));
+      allow delete: if manages(hotelOf(resource.data)) || deptManualOk(uid, resource.data);
     }
 
     match /avail/{uid} {
@@ -209,10 +216,12 @@ service cloud.firestore {
       allow list: if shiftsAllHotels() || (shiftsRole() && (resource.data.hotel in roleHotels() || resource.data.hotel == 'chain'))
         || (gmRole() && (roleHotels().size() == 0 || resource.data.hotel in roleHotels()));
       allow create: if (signedIn() && request.auth.uid == uid && isEmployee() && request.resource.data.hotel == myHotel())
-        || manages(hotelOf(request.resource.data));
+        || manages(hotelOf(request.resource.data)) || (uid.matches('m_.*') && deptMgr(hotelOf(request.resource.data)));
       allow update: if (signedIn() && request.auth.uid == uid && isEmployee() && request.resource.data.hotel == myHotel())
-        || (manages(hotelOf(resource.data)) && manages(hotelOf(request.resource.data)));
-      allow delete: if (signedIn() && request.auth.uid == uid) || manages(hotelOf(resource.data));
+        || (manages(hotelOf(resource.data)) && manages(hotelOf(request.resource.data)))
+        || (uid.matches('m_.*') && deptMgr(hotelOf(resource.data)) && deptMgr(hotelOf(request.resource.data)));
+      allow delete: if (signedIn() && request.auth.uid == uid) || manages(hotelOf(resource.data))
+        || (uid.matches('m_.*') && deptMgr(hotelOf(resource.data)));
     }
 
     // שכר: רק מנהלי סידור (של המלונות שלהם) ומבט מנכ״ל (קריאה בלבד). מנהל מחלקה לא רואה שכר.

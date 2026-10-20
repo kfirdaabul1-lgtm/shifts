@@ -163,3 +163,26 @@ exports.onHkAssign = trig('hk/{id}').onWrite(async (ch) => {
     return sendTo([u], { title: rooms.length > 1 ? `יש לך ${rooms.length} חדרים לסדר` : 'יש לך חדר לסדר', body: `${hn ? hn + ': ' : ''}חדר ${txt}`, hash: '#hk', tag: 'hk-' + u + '-' + a.date });
   }));
 });
+
+// ---------- housekeeping: clean rooms with no booking become VI the next day ----------
+// Every night just after midnight (Israel time): a room that ended the day VC (or VI) and was not occupied / reserved
+// (occ not oc or res) starts the new day as VI. The client does the same if this didn't run (flag `carried`).
+const ilDate = (d) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem' }).format(d);
+async function hkCarry(h, today, yday) {
+  const ys = await db.doc('hk/' + h + '__' + yday).get(); if (!ys.exists) return 0;
+  const ref = db.doc('hk/' + h + '__' + today), ts = await ref.get(), td = ts.exists ? ts.data() : {};
+  if (td.carried) return 0;
+  const y = ys.data() || {}, yc = y.clean || {}, yo = y.occ || {}, cur = td.clean || {}, now = Date.now();
+  const o = { hotel: h, date: today, carried: true, updatedAt: now, clean: {}, cleanBy: {}, cleanAt: {} };
+  let n = 0;
+  for (const [r, c] of Object.entries(yc)) {
+    if ((c === 'vc' || c === 'vi') && yo[r] !== 'oc' && yo[r] !== 'res' && !cur[r]) { o.clean[r] = 'vi'; o.cleanBy[r] = 'אוטומטי'; o.cleanAt[r] = now; n++; }
+  }
+  await ref.set(o, { merge: true });
+  return n;
+}
+exports.hkNightly = functions.region(REGION).pubsub.schedule('1 0 * * *').timeZone('Asia/Jerusalem').onRun(async () => {
+  const today = ilDate(new Date()), yday = ilDate(new Date(Date.now() - 12 * 3600 * 1000));
+  const hs = await db.collection('hotels').get();
+  for (const d of hs.docs) { try { const n = await hkCarry(d.id, today, yday); if (n) console.log('hk carry', d.id, n); } catch (e) { console.error('hk carry', d.id, e); } }
+});

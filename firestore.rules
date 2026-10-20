@@ -76,10 +76,10 @@ service cloud.firestore {
     function deptMgr(h) { return hasRole() && roleApp('dept') && h in roleHotels(); }
     function deptManages(h, d) { return manages(h) || (deptMgr(h) && d in roleDepts()); }
     function hotelStaff(h) { return manages(h) || deptMgr(h); }
-    // a department manager may add/edit/delete manual employees (id m_…, manual: true) of their hotel, only in their own departments, never management staff
+    // department and hotel managers may add/edit/delete manual employees (id m_…, manual: true) of their hotel, any department, never management staff
     function deptManualOk(uid, d) {
-      return uid.matches('m_.*') && d.get('manual', false) == true && deptMgr(hotelOf(d))
-        && d.get('depts', []) is list && d.get('depts', []).size() > 0 && d.get('depts', []).hasOnly(roleDepts())
+      return uid.matches('m_.*') && d.get('manual', false) == true && (deptMgr(hotelOf(d)) || gmIn(hotelOf(d)))
+        && d.get('depts', []) is list && d.get('depts', []).size() > 0
         && d.get('mgmt', '') == '';
     }
     // עובדי רשת (hotel = 'chain') עובדים בכל המלונות: כל מנהל סידור או מנהל מחלקה רואה את הזמינות שלהם
@@ -221,7 +221,7 @@ service cloud.firestore {
         || (manages(hotelOf(resource.data)) && manages(hotelOf(request.resource.data)))
         || (uid.matches('m_.*') && deptMgr(hotelOf(resource.data)) && deptMgr(hotelOf(request.resource.data)));
       allow delete: if (signedIn() && request.auth.uid == uid) || manages(hotelOf(resource.data))
-        || (uid.matches('m_.*') && deptMgr(hotelOf(resource.data)));
+        || (uid.matches('m_.*') && (deptMgr(hotelOf(resource.data)) || gmIn(hotelOf(resource.data))));
     }
 
     // שכר: רק מנהלי סידור (של המלונות שלהם) ומבט מנכ״ל (קריאה בלבד). מנהל מחלקה לא רואה שכר.

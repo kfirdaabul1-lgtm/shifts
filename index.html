@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202610201620"></script>
+<script src="i18n.js?v=202610201630"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1106,7 +1106,7 @@ function vGm(){const hs=scopeHs();if(!hs.length)return wrap(emptyBox('אין מ�
   faultsSub(h);const fo=faultsOf(h).filter(([,f])=>f.status!=='done').sort(([,a],[,b])=>(a.openedAt||0)-(b.openedAt||0)),fl=fo.filter(([,f])=>faultLate(f)).length;
   const faultsCard=`<div class="card" style="${fl?'border-color:var(--bad)':''}"><div class="actions" style="justify-content:space-between;align-items:center"><h3 style="margin:0">תקלות פתוחות · ${fo.length}${fl?` <span class="pill bad">${fl} באיחור</span>`:''}</h3><button class="btn sm" data-act="app-maint">לעמוד האחזקה</button></div>
     ${fo.length?`<div class="plist">${fo.slice(0,12).map(([id,f])=>faultRowHTML(id,f,h,false)).join('')}</div>`:'<p class="muted">אין תקלות פתוחות.</p>'}</div>`;
-  return wrap(head+reqCard+recurCardHTML(faultsOf(h).map(([,f])=>f))+faultsCard+`<div class="setgrid">${sched10}${events}${stock}</div>`+srListHTML(h,true));
+  return wrap(head+reqCard+recurCardHTML(faultsOf(h).map(([,f])=>f))+faultsCard+`<div class="setgrid">${sched10}${events}${stock}</div>`+srListHTML(h,true)+(S.empLite&&!S.deptOnly?deptEmpCardHTML():''));
 }
 /* ---------- in-app alerts: badge on the menu, page title count, and a phone/browser notification while the site is open ---------- */
 // an item reached its minimum: quantity at or below the minimum set for it
@@ -1555,24 +1555,24 @@ function sheetSwap(){const id=S.sheet.id,s=S.shifts[id];if(!s)return '';const h=
 function reqsEmpHTML(){const ps=myPending();if(!ps.length)return '';
   return `<div class="card" style="border-color:var(--brass)"><h3>בקשות מהמנהל</h3><div class="plist">${ps.map(([rid,r])=>`<div class="prow" style="flex-wrap:wrap"><span class="who"><b>${esc(reqText(r,true))}</b>${r.note?`<small>"${esc(r.note)}"</small>`:''}</span><span class="actions"><button class="btn sm pri" data-act="rq-yes" data-r="${rid}">אישור</button><button class="btn sm" data-act="rq-no" data-r="${rid}">דחייה</button></span></div>`).join('')}</div></div>`}
 // department managers add and edit manual employees (people who don't use the app) in their own departments; no pay, no hotel change
-const deptHotel=()=>((S.role&&S.role.hotels)||[])[0]||S.myHotel||S.hotel;
-const deptCanEmp=u=>{const e=S.emps[u];if(!e)return true;return !!e.manual&&(e.hotel||'main')===deptHotel()&&(e.depts||[]).length>0&&(e.depts||[]).every(k=>S.myDepts.includes(k))};
-function deptEmpCardHTML(){const l=Object.entries(S.emps).filter(([u,e])=>e.manual&&(e.hotel||'main')===deptHotel()&&(e.depts||[]).some(k=>S.myDepts.includes(k))).sort((a,b)=>String(a[1].name).localeCompare(String(b[1].name),'he'));
-  return `<div class="card"><div class="actions" style="justify-content:space-between;align-items:center"><h3 style="margin:0">עובדים ידניים במחלקה</h3><button class="btn sm pri" data-act="emp-new">+ עובד ידני חדש</button></div>
-  <p class="muted" style="font-size:.85rem">לעובד שלא נכנס לאפליקציה. מוסיפים אותו כאן, מסמנים לו זמינות ואפשר לשבץ אותו. את השכר מגדיר מנהל המלון.</p>
+const deptHotel=()=>S.deptOnly?(((S.role&&S.role.hotels)||[])[0]||S.myHotel||S.hotel):S.hotel;
+const deptCanEmp=u=>{const e=S.emps[u];if(!e)return true;return !!e.manual&&!e.mgmt&&(e.hotel||'main')===deptHotel()};
+function deptEmpCardHTML(){const l=Object.entries(S.emps).filter(([u,e])=>e.manual&&(e.hotel||'main')===deptHotel()).sort((a,b)=>String(a[1].name).localeCompare(String(b[1].name),'he'));
+  return `<div class="card"><div class="actions" style="justify-content:space-between;align-items:center"><h3 style="margin:0">עובדים ידניים${S.deptOnly?'':' ב'+esc(hotelName(deptHotel()))}</h3><button class="btn sm pri" data-act="emp-new">+ עובד ידני חדש</button></div>
+  <p class="muted" style="font-size:.85rem">${S.deptOnly?'לעובד שלא נכנס לאפליקציה. מוסיפים אותו כאן, מסמנים לו זמינות ואפשר לשבץ אותו. את השכר מגדיר מנהל המלון.':'לעובד שלא נכנס לאפליקציה. מוסיפים אותו כאן, ומנהל הסידור מסמן לו זמינות, משבץ אותו ומגדיר שכר.'}</p>
   ${l.length?`<div class="plist">${l.map(([u,e])=>`<div class="prow"><span class="who"><b>${esc(e.name||'')}</b><small>${(e.depts||[]).map(k=>DMAP[k]?.n||k).join(', ')}${e.phone?' · '+esc(e.phone):''}</small></span>${deptCanEmp(u)?`<button class="btn sm" data-act="emp-open" data-u="${u}">עריכה</button>`:''}</div>`).join('')}</div>`:'<p class="muted">עוד אין עובדים ידניים.</p>'}</div>`}
 function sheetEmpDept(){const u=S.sheet.id,e=S.emps[u]||{},isNew=!S.emps[u];
-  if(!deptCanEmp(u))return sheetHead(esc(e.name||'עובד'),'')+'<p class="muted">אפשר לערוך רק עובדים ידניים מהמחלקות שלך.</p>';
+  if(!deptCanEmp(u))return sheetHead(esc(e.name||'עובד'),'')+'<p class="muted">אפשר לערוך רק עובדים ידניים של המלון.</p>';
   const depts=dv('emp','depts',e.depts||[]);
   return sheetHead(isNew?'עובד ידני חדש':esc(e.name||'עובד'),isNew?'לעובד שלא נכנס לאפליקציה. את הזמינות שלו מסמנים כאן.':'נוסף ידנית')+
   `<div class="row"><label class="f">שם מלא<input type="text" id="e_name" data-f="emp.name" value="${esc(dv('emp','name',e.name||''))}"></label><label class="f">טלפון<input type="tel" id="e_phone" dir="ltr" data-f="emp.phone" value="${esc(dv('emp','phone',e.phone||''))}"></label></div>
   <label class="f">תפקיד<input type="text" id="e_title" data-f="emp.title" value="${esc(dv('emp','title',e.title||''))}"></label>
-  <div class="f"><span>מחלקות</span><div class="chips" style="gap:6px">${myDEPTS().map(d=>`<button class="dchip ${depts.includes(d.k)?'':'off'}" style="--h:${d.h};cursor:pointer" data-act="emp-dept" data-k="${d.k}" aria-pressed="${depts.includes(d.k)}">${d.n}</button>`).join('')}</div></div>
-  <p class="muted" style="font-size:.82rem;margin:0">השכר ושאר פרטי ההעסקה נקבעים אצל מנהל המלון.</p>
+  <div class="f"><span>מחלקות</span><div class="chips" style="gap:6px">${DEPTS.map(d=>`<button class="dchip ${depts.includes(d.k)?'':'off'}" style="--h:${d.h};cursor:pointer" data-act="emp-dept" data-k="${d.k}" aria-pressed="${depts.includes(d.k)}">${d.n}</button>`).join('')}</div></div>
+  <p class="muted" style="font-size:.82rem;margin:0">${S.deptOnly?'השכר ושאר פרטי ההעסקה נקבעים אצל מנהל המלון.':'השכר והזמינות נקבעים אצל מנהל הסידור.'}</p>
   <div class="actions"><button class="btn pri" data-act="emp-save">שמירה</button>${isNew?'':`<button class="btn ${S.confirm==='del'?'danger':'ghost'}" data-act="emp-del">${S.confirm==='del'?'לחיצה נוספת תמחק את העובד':'מחיקת עובד'}</button>`}</div>
-  ${!isNew?`<div class="sep"></div><h3>זמינות לשבוע ${weekLabel(S.week)}</h3>${slotsHTML(u,S.week,false,'av-t')}`:''}`}
+  ${!isNew&&S.deptOnly?`<div class="sep"></div><h3>זמינות לשבוע ${weekLabel(S.week)}</h3>${slotsHTML(u,S.week,false,'av-t')}`:''}`}
 function sheetEmp(){
-  if(S.deptOnly)return sheetEmpDept();
+  if(S.empLite)return sheetEmpDept();
   const u=S.sheet.id,e=S.emps[u]||{},m=S.mgr[u]||{},isNew=!S.emps[u];
   const depts=dv('emp','depts',e.depts||[]),pt=dv('emp','payType',m.payType||'hourly');
   const manual=e.manual||isNew;
@@ -1912,16 +1912,16 @@ const ACT={
   savesettings:()=>saveAllSettings(),
   savecost:()=>{const c=cfg(),d=S.drafts.cost||{};saveSettings({overhead:+(d.overhead??c.overhead)||0,shabbatPct:+(d.shabbatPct??c.shabbatPct)||0,preferGlobal:!!(d.preferGlobal??c.preferGlobal)});S.drafts.cost=null;render();toast('החישוב עודכן')},
   'emp-open':D=>{S.drafts.emp=null;S.confirm=null;S.sheet={type:'emp',id:D.u};render()},
-  'emp-new':()=>{S.drafts.emp={depts:S.dept!=='all'?[S.dept]:(S.deptOnly&&S.myDepts.length===1?[S.myDepts[0]]:[])};S.sheet={type:'emp',id:'m_'+Math.random().toString(36).slice(2,10)};render()},
+  'emp-new':()=>{S.drafts.emp={depts:S.dept!=='all'&&S.tab!=='gm'?[S.dept]:(S.deptOnly&&S.myDepts.length===1?[S.myDepts[0]]:[])};S.sheet={type:'emp',id:'m_'+Math.random().toString(36).slice(2,10)};render()},
   'emp-dept':D=>{const e=S.emps[S.sheet.id]||{};const cur=dv('emp','depts',e.depts||[]);(S.drafts.emp||(S.drafts.emp={})).depts=cur.includes(D.k)?cur.filter(k=>k!==D.k):[...cur,D.k];render()},
   'emp-pay':D=>{(S.drafts.emp||(S.drafts.emp={})).payType=D.v;render()},
   'emp-unit':D=>{(S.drafts.emp||(S.drafts.emp={})).volUnit=D.v;render()},
   'emp-save':()=>{const u=S.sheet.id,e=S.emps[u]||{},m=S.mgr[u]||{},d=S.drafts.emp||{};
-    if(S.deptOnly){if(!deptCanEmp(u)){toast('אפשר לערוך רק עובדים ידניים מהמחלקות שלך');return}
+    if(S.empLite){if(!deptCanEmp(u)){toast('אפשר לערוך רק עובדים ידניים של המלון');return}
       const name=String(d.name??e.name??'').trim();if(!name){toast('צריך למלא שם');return}
-      const depts=(d.depts??e.depts??[]).filter(k=>S.myDepts.includes(k));if(!depts.length){toast('צריך לבחור לפחות מחלקה אחת');return}
+      const depts=(d.depts??e.depts??[]).filter(k=>DMAP[k]);if(!depts.length){toast('צריך לבחור לפחות מחלקה אחת');return}
       const emp={...e,name,phone:String(d.phone??e.phone??'').trim(),title:String(d.title??e.title??'').trim(),depts,mgmt:e.mgmt||'',hotel:deptHotel(),manual:true,createdAt:e.createdAt||Date.now(),createdBy:e.createdBy||S.uid};
-      const wasNew=!S.emps[u];S.emps[u]=emp;save('employees/'+u,emp);S.drafts.emp=null;if(!wasNew)S.sheet=null;render();toast(wasNew?'העובד נוסף. אפשר לסמן לו זמינות למטה.':'נשמר');return}
+      const wasNew=!S.emps[u];S.emps[u]=emp;save('employees/'+u,emp);S.drafts.emp=null;if(!wasNew||!S.deptOnly)S.sheet=null;render();toast(wasNew?(S.deptOnly?'העובד נוסף. אפשר לסמן לו זמינות למטה.':'העובד נוסף'):'נשמר');return}
     if(isChain(u)&&!allHotelsP()){toast('רק מי שמנהל את כל המלונות יכול לערוך עובד רשת');return}
     const name=String(d.name??e.name??'').trim();if(!name){toast('צריך למלא שם');return}
     const emp={...e,name,phone:String(d.phone??e.phone??'').trim(),title:String(d.title??e.title??'').trim(),depts:d.depts??e.depts??[],mgmt:d.mgmt??e.mgmt??'',hotel:d.hotel??e.hotel??S.hotel,manual:e.manual??!S.emps[u],createdAt:e.createdAt||Date.now()};
@@ -1934,8 +1934,8 @@ const ACT={
       // permissions follow the person's hotel (chain staff = all hotels)
       const r=S.roles[u];if(r&&!r.station&&S.can.perms){const hs=emp.hotel===CHAIN?[]:[emp.hotel];const nr={...r,hotels:hs,expHotels:roleApps(r).exp?hs.slice():[],updatedBy:S.uid,updatedAt:Date.now()};S.roles[u]=nr;save('roles/'+u,nr)}}
     const wasNew=!e.name;S.drafts.emp=null;if(!wasNew||!emp.manual)S.sheet=null;render();toast(wasNew?'העובד נוסף. אפשר לסמן לו זמינות למטה.':'נשמר')},
-  'emp-del':()=>{if(S.confirm!=='del'){S.confirm='del';render();return}const u=S.sheet.id;if(S.deptOnly&&!deptCanEmp(u))return;S.confirm=null;S.sheet=null;
-    delete S.emps[u];delete S.avail[u];save('employees/'+u,null);if(!S.deptOnly){delete S.mgr[u];save('mgr/'+u,null)}save('avail/'+u,null);render();toast('העובד נמחק')},
+  'emp-del':()=>{if(S.confirm!=='del'){S.confirm='del';render();return}const u=S.sheet.id;if(S.empLite&&!deptCanEmp(u))return;S.confirm=null;S.sheet=null;
+    delete S.emps[u];delete S.avail[u];save('employees/'+u,null);if(!S.empLite){delete S.mgr[u];save('mgr/'+u,null)}save('avail/'+u,null);render();toast('העובד נמחק')},
   'av-t':D=>toggleAvail(D.u,D.id),
   'day-all':D=>{const u=D.u;if(u===S.uid&&!S.admin&&availLocked())return;
     const cur=S.avail[u]||{},slots={...(cur.slots||{})},ids=myShiftsFor(u,S.week).filter(([,s])=>s.date===D.d).map(([id])=>id);
@@ -2242,6 +2242,8 @@ async function start(u){
   S.can={shifts:S.isOwner||!!apps.shifts,events:S.isOwner||!!apps.events,perms:S.isOwner||!!apps.perms,ceo:S.isOwner||!!apps.ceo,mkt:S.isOwner||!!apps.mkt,exp:S.isOwner||!!apps.exp,gm:S.isOwner||!!apps.gm,brief:S.isOwner||!!apps.brief||!!apps.gm,front:S.isOwner||!!apps.front,dept:!S.isOwner&&!apps.shifts&&!!apps.dept};
   // department manager: schedules only their departments, never sees pay
   S.deptOnly=S.can.dept;S.myDepts=S.deptOnly?((S.role&&S.role.depts)||[]):[];
+  // department and hotel managers (without the shifts app) add manual employees to any department of their hotel, without pay
+  S.empLite=!S.isOwner&&!S.can.shifts&&(S.deptOnly||S.can.gm);
   S.admin=S.can.shifts||S.deptOnly;S.can.stock=S.isOwner||S.can.shifts||S.deptOnly||S.can.gm;S.auth='in';
   // maintenance page: owner, shift managers, hotel managers, the maintenance department manager and the "maint" app
   S.can.fin=S.isOwner||!!apps.fin;

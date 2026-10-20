@@ -147,3 +147,19 @@ exports.mirrorShiftReport = trig('shiftReports/{id}').onWrite(async (ch, ctx) =>
   for (const k of PUB_KEYS) if (r[k] !== undefined) out[k] = r[k];
   await ref.set(out);
 });
+
+// ---------- housekeeping: a worker assigned to rooms gets a push ----------
+exports.onHkAssign = trig('hk/{id}').onWrite(async (ch) => {
+  if (!ch.after.exists) return;
+  const b = (ch.before.exists && ch.before.data().asg) || {}, a = ch.after.data() || {}, asg = a.asg || {};
+  const vip = a.vip || {}, bk = a.bk || {}, clean = a.clean || {};
+  const per = {};
+  for (const [room, uid] of Object.entries(asg)) if (uid && b[room] !== uid) (per[uid] = per[uid] || []).push(room);
+  const uids = Object.keys(per); if (!uids.length) return;
+  const hn = await hotelName(a.hotel);
+  await Promise.all(uids.map((u) => {
+    const rooms = per[u].sort((x, y) => String(x).localeCompare(String(y), 'he', { numeric: true }));
+    const txt = rooms.map((r) => r + (vip[r] ? ' VIP' : '') + (bk[r] ? ' Booking' : '') + (clean[r] === 'vd' ? ' (VD)' : '')).join(', ');
+    return sendTo([u], { title: rooms.length > 1 ? `יש לך ${rooms.length} חדרים לסדר` : 'יש לך חדר לסדר', body: `${hn ? hn + ': ' : ''}חדר ${txt}`, hash: '#hk', tag: 'hk-' + u + '-' + a.date });
+  }));
+});

@@ -371,11 +371,15 @@ service cloud.firestore {
         || (isEmployee() && myHotel() == h
             && 'housekeeping' in get(/databases/$(database)/documents/employees/$(request.auth.uid)).data.get('depts', []));
     }
+    // מנהל מחלקת משק: גם משבץ חדרים לעובדים
+    function hkLeadIn(h) { return hkFullIn(h) || (deptMgr(h) && 'housekeeping' in roleDepts()); }
     match /hk/{id} {
       allow read: if signedIn() && hkWorkIn(id.split('__')[0]);
       allow create: if request.resource.data.hotel == id.split('__')[0] && (hkFullIn(request.resource.data.hotel)
+        || (hkLeadIn(request.resource.data.hotel) && request.resource.data.keys().hasOnly(['hotel', 'date', 'clean', 'cleanBy', 'cleanAt', 'asg', 'asgName', 'asgAt', 'updatedAt']))
         || (hkWorkIn(request.resource.data.hotel) && request.resource.data.keys().hasOnly(['hotel', 'date', 'clean', 'cleanBy', 'cleanAt', 'updatedAt'])));
       allow update: if request.resource.data.hotel == resource.data.hotel && (hkFullIn(resource.data.hotel)
+        || (hkLeadIn(resource.data.hotel) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['clean', 'cleanBy', 'cleanAt', 'asg', 'asgName', 'asgAt', 'updatedAt']))
         || (hkWorkIn(resource.data.hotel) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['clean', 'cleanBy', 'cleanAt', 'updatedAt'])));
       allow delete: if manages(resource.data.hotel) || gmIn(resource.data.hotel);
     }

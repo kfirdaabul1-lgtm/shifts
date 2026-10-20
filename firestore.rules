@@ -354,6 +354,12 @@ service cloud.firestore {
       allow delete: if manages(resource.data.hotel) || gmIn(resource.data.hotel);
     }
 
+    // דוחות משמרת בלי סכומים (עותק שהשרת כותב): הקבלה רואה את הדוחות של המלון שלה לצורך חפיפה
+    match /shiftReportsPub/{id} {
+      allow read: if frontIn(resource.data.hotel) || manages(resource.data.hotel) || gmIn(resource.data.hotel) || canCeo() || finIn(resource.data.hotel);
+      allow write: if isOwner();
+    }
+
     // ---------- אחזקה: תקלות ----------
     // אחזקה ומנהלים רואים ומעדכנים; הקבלה פותחת תקלות (מדוח משמרת) ורואה אותן; מחיקה רק למנהלים
     match /faults/{id} {

@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202610201630"></script>
+<script src="i18n.js?v=202610201645"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1287,13 +1287,16 @@ function vFront(){const hs=scopeHs();if(!hs.length)return wrap(emptyBox('אין 
   const sched=`<h2 style="margin-top:8px">סידור העבודה</h2>${S.sched.published?'':'<p class="muted" style="font-size:.85rem">הסידור לשבוע הזה עוד לא פורסם, מוצג השיבוץ הנוכחי.</p>'}`+
     (depts.length?depts.map(d=>`<section class="dept" style="--h:${d.h}"><div class="dept-h"><span class="sw"></span><h2>${d.n}</h2></div>${deptTable(d.k,'view')}</section>`).join(''):emptyBox('אין משמרות לשבוע הזה',''));
   // the reception fills the report but never sees past reports (cash amounts are for managers only)
-  return wrap(head+daily+srFormHTML(h)+(srBoss(h)?srListHTML(h,false):'')+evCard+sched);
+  return wrap(head+daily+srFormHTML(h)+(srBoss(h)?srListHTML(h,false):srListHTML(h,false,true))+evCard+sched);
 }
 /* ---------- reception shift report: shiftReports/{id} {hotel, month, date, shift, name, float, cash, credit, unusual, details, by, createdAt} ---------- */
 const SR_SHIFTS=[['morning','בוקר'],['evening','ערב'],['night','לילה']];const SR_N={...Object.fromEntries(SR_SHIFTS),noon:'צהריים'};
 const srBoss=h=>S.isOwner||(S.can.shifts&&scopeHs().includes(h))||(S.can.gm&&scopeHs().includes(h));
 // income from a shift report: cash per report 420 (old reports without it: the cash deposited) + card
 const srIncome=r=>(r.r420!=null&&r.r420!==''?(+r.r420||0):(+r.cash||0))+(+r.credit||0);
+// reception: the same reports without money (shiftReportsPub, mirrored by the mirrorShiftReport function)
+function srPubSub(h,m){const k='srp:'+h+'|'+m;S.srepsPub=S.srepsPub||{};if(S.live[k])return;S.live[k]=true;
+  S.db.collection('shiftReportsPub').where('hotel','==',h).where('month','==',m).onSnapshot(q=>{S.srepsPub[h+'|'+m]=docsMap(q);render()},e=>{S.srepsPub[h+'|'+m]={__err:errMsg(mapErr(e))};render()})}
 function srSub(h,m){const k='sr:'+h+'|'+m;S.sreps=S.sreps||{};if(S.live[k])return S.sreps[h+'|'+m];S.live[k]=true;
   S.db.collection('shiftReports').where('hotel','==',h).where('month','==',m).onSnapshot(q=>{S.sreps[h+'|'+m]=docsMap(q);render()},e=>{S.sreps[h+'|'+m]={__err:errMsg(mapErr(e))};render()});return null}
 // night report numbers go into that date's 10days (schedule doc of its week): only the daily field changes
@@ -1328,30 +1331,30 @@ function srFormHTML(h){const g=(k,d)=>dv('sr',k,d),un=g('unusual','');
   <div class="f"><span>היו אירועים חריגים במשמרת?</span><div class="chips" style="gap:6px"><button type="button" class="hchip" data-act="sr-un" data-v="no" aria-pressed="${un==='no'}">לא</button><button type="button" class="hchip" data-act="sr-un" data-v="yes" aria-pressed="${un==='yes'}">כן</button></div></div>
   ${un==='yes'?`<label class="f">פירוט האירועים החריגים<textarea id="sr_det" data-f="sr.details" rows="4" placeholder="מה קרה, באיזו שעה, מי היה מעורב ומה נעשה">${esc(g('details',''))}</textarea></label>`:''}
   <div><button class="btn pri" data-act="sr-save" data-h="${h}">שליחת הדוח</button></div></div>`}
-function srListHTML(h,gm){const m=S.srMonth||todayISO().slice(0,7);srSub(h,m);const d=(S.sreps||{})[h+'|'+m];
+function srListHTML(h,gm,pub){const m=S.srMonth||todayISO().slice(0,7);if(pub)srPubSub(h,m);else srSub(h,m);const d=((pub?S.srepsPub:S.sreps)||{})[h+'|'+m];
   const nav=`<div class="actions" style="align-items:center"><button class="btn sm" data-act="sr-month" data-d="-1" aria-label="חודש קודם">›</button><b>${HE_MON[+m.slice(5)-1]} ${m.slice(0,4)}</b><button class="btn sm" data-act="sr-month" data-d="1" aria-label="חודש הבא">‹</button></div>`;
   if(!d)return `<div class="card"><h3>דוחות סיכום משמרת</h3>${nav}<p class="muted">טוען…</p></div>`;
   if(d.__err)return `<div class="card"><h3>דוחות סיכום משמרת</h3><p class="muted">אין גישה לדוחות.</p></div>`;
   const ord={night:-1,morning:0,noon:1,evening:2},rows=Object.entries(d).sort(([,a],[,b])=>String(b.date).localeCompare(String(a.date))||ord[b.shift]-ord[a.shift]);
-  const sum=k=>rows.reduce((t,[,r])=>t+(+r[k]||0),0),unN=rows.filter(([,r])=>r.unusual).length,boss=srBoss(h);
+  const sum=k=>rows.reduce((t,[,r])=>t+(+r[k]||0),0),unN=rows.filter(([,r])=>r.unusual).length,boss=!pub&&srBoss(h);
   return `<div class="card"><div class="actions" style="justify-content:space-between;align-items:center"><h3 style="margin:0">דוחות סיכום משמרת</h3>${nav}</div>
-  <div class="kpis">${kpi('דוחות',String(rows.length))}${kpi('מזומן להפקדה',ils(sum('cash')))}${kpi('סליקה באשראי',ils(sum('credit')))}${kpi('אירועים חריגים',String(unN),'',unN?'bad':'ok')}</div>
+  ${pub?'<p class="muted" style="font-size:.85rem;margin:0">דוחות המשמרות הקודמות, לחפיפה. בלי סכומי הקופה.</p>':''}<div class="kpis">${kpi('דוחות',String(rows.length))}${pub?'':kpi('מזומן להפקדה',ils(sum('cash')))+kpi('סליקה באשראי',ils(sum('credit')))}${kpi('אירועים חריגים',String(unN),'',unN?'bad':'ok')}</div>
   ${rows.length?`<div class="plist">${rows.map(([id,r])=>`<div class="prow srrow" style="flex-wrap:wrap${r.unusual?';border-color:var(--bad)':''}"><span class="who" data-act="sr-view" data-id="${id}" data-h="${h}" role="button" tabindex="0" title="פתיחת הדוח במסך מלא"><b>יום ${DAYS[dow(r.date)]} ${dm(r.date)} · ${SR_N[r.shift]||''} · ${esc(r.name||'')}</b>
-    <small>קרן קופה ${ils(+r.float||0)}${r.r420!=null?` · לפי 420 ${ils(+r.r420||0)}`:''} · הופקד ${ils(+r.cash||0)} · אשראי ${ils(+r.credit||0)}</small>${r.gap?`<small style="color:var(--bad)">פער ${ils(r.gap)}: ${esc(r.gapNote||'')}</small>`:''}${finPill(r)}
+    ${pub?'':`<small>קרן קופה ${ils(+r.float||0)}${r.r420!=null?` · לפי 420 ${ils(+r.r420||0)}`:''} · הופקד ${ils(+r.cash||0)} · אשראי ${ils(+r.credit||0)}</small>${r.gap?`<small style="color:var(--bad)">פער ${ils(r.gap)}: ${esc(r.gapNote||'')}</small>`:''}${finPill(r)}`}
     ${r.shift==='night'&&(r.ci!=null||r.co!=null||r.cid!=null)?`<small>${r.cid!=null?`צ׳ק אין דורמס ${+r.cid} · `:''}צ׳ק אין${r.cid!=null?' פרייבט':''} ${r.ci??'—'} · צ׳ק אאוט ${r.co??'—'}</small>`:''}${r.shift==='morning'&&r.coLeft!=null?`<small>צ׳ק אאוט שנשארו: ${+r.coLeft}</small>`:''}${r.ciLeft!=null?`<small>צ׳ק אין שנשארו להיום: ${+r.ciLeft}</small>`:''}${r.booking!=null?`<small>הודעות בוקינג: ${+r.booking}</small>`:''}
     ${(r.ooo||[]).length?`<small>חדרים OOO: ${r.ooo.map(x=>`${esc(x.room)}${x.note?' ('+esc(x.note)+')':''}`).join(', ')}</small>`:''}${(r.faults||[]).length?`<small>תקלות פתוחות: ${r.faults.map(x=>`${esc(x.room)}${x.note?' ('+esc(x.note)+')':''}`).join(', ')}</small>`:''}${(r.lost||[]).length?`<small>אבדות ומציאות: ${r.lost.map(x=>`${esc(x.room)}${x.note?' ('+esc(x.note)+')':''}`).join(', ')}</small>`:''}${r.unusual?`<small style="color:var(--bad);white-space:pre-wrap">⚠ ${esc(r.details||'אירוע חריג')}</small>`:''}</span>
     <span class="actions"><button class="btn sm" data-act="sr-view" data-id="${id}" data-h="${h}">פתיחה</button>${r.unusual?'<span class="pill bad">חריג</span>':'<span class="pill ok">תקין</span>'}${boss?`<button class="btn sm ghost" data-act="sr-del" data-id="${id}" data-h="${h}">${S.confirm==='sr:'+id?'לחיצה נוספת תמחק':'מחיקה'}</button>`:''}</span></div>`).join('')}</div>`:'<p class="muted">אין דוחות בחודש הזה.</p>'}</div>`}
 /* ---------- finance: confirms each shift report's cash deposit (shiftReports.finStatus pending|ok|issue) ---------- */
 const FIN_ST={pending:'ממתין לאישור כספים',ok:'ההפקדה אושרה',issue:'נמצא פער בהפקדה'};
-function srFind(id){for(const k in (S.sreps||{})){const r=S.sreps[k]&&S.sreps[k][id];if(r)return r}for(const k in (S.finReps||{})){const r=S.finReps[k]&&S.finReps[k][id];if(r)return r}return null}
+function srFind(id){for(const k in (S.sreps||{})){const r=S.sreps[k]&&S.sreps[k][id];if(r)return r}for(const k in (S.srepsPub||{})){const r=S.srepsPub[k]&&S.srepsPub[k][id];if(r)return {...r,__pub:true}}for(const k in (S.finReps||{})){const r=S.finReps[k]&&S.finReps[k][id];if(r)return r}return null}
 function sheetSrView(){const r=srFind(S.sheet.id);if(!r)return sheetHead('דוח סיכום משמרת','')+'<p class="muted">הדוח לא נמצא.</p>';
   const row=(l,v,cls)=>`<div class="srv-row${cls?' '+cls:''}"><span>${l}</span><b>${v}</b></div>`,n=v=>v==null||v===''?'—':String(+v);
   const list=(t,l)=>`<div class="srv-sec"><h3>${t}</h3>${(l||[]).length?`<ul>${l.map(x=>`<li><b>חדר ${esc(x.room)}</b>${x.note?' · '+esc(x.note):''}</li>`).join('')}</ul>`:'<p class="muted">אין</p>'}</div>`;
   const when=r.createdAt?new Date(r.createdAt).toLocaleString('he-IL',{dateStyle:'short',timeStyle:'short'}):'';
   return sheetHead(`דוח סיכום משמרת ${SR_N[r.shift]||''}`,`${esc(hotelName(r.hotel))} · יום ${DAYS[dow(r.date)]} ${dm(r.date)} · ${esc(r.name||'')}${when?' · נשלח '+when:''}`)+`
-  <div class="srv-top">${r.unusual?'<span class="pill bad">היו אירועים חריגים</span>':'<span class="pill ok">משמרת תקינה</span>'}${finPill(r)}</div>
+  <div class="srv-top">${r.unusual?'<span class="pill bad">היו אירועים חריגים</span>':'<span class="pill ok">משמרת תקינה</span>'}${r.__pub?'':finPill(r)}</div>
   <div class="srv-grid">
-    <div class="srv-sec"><h3>קופה</h3>${row('קרן קופה',ils(+r.float||0))}${r.r420!=null?row('מזומן לפי דוח 420',ils(+r.r420||0)):''}${row('מזומן שהופקד',ils(+r.cash||0))}${row('סליקה באשראי',ils(+r.credit||0))}${r.gap?row('פער',ils(r.gap),'bad')+`<p class="srv-note bad">${esc(r.gapNote||'')}</p>`:''}</div>
+    ${r.__pub?'':`<div class="srv-sec"><h3>קופה</h3>${row('קרן קופה',ils(+r.float||0))}${r.r420!=null?row('מזומן לפי דוח 420',ils(+r.r420||0)):''}${row('מזומן שהופקד',ils(+r.cash||0))}${row('סליקה באשראי',ils(+r.credit||0))}${r.gap?row('פער',ils(r.gap),'bad')+`<p class="srv-note bad">${esc(r.gapNote||'')}</p>`:''}</div>`}
     <div class="srv-sec"><h3>מספרים</h3>${r.booking!=null?row('הודעות בוקינג',n(r.booking)):''}${r.ciLeft!=null?row('צ׳ק אין שנשארו להיום',n(r.ciLeft)):''}${r.coLeft!=null?row('צ׳ק אאוט שנשארו',n(r.coLeft)):''}${r.cid!=null?row('צ׳ק אין דורמס',n(r.cid)):''}${r.ci!=null?row('צ׳ק אין'+(r.cid!=null?' פרייבט':''),n(r.ci)):''}${r.co!=null?row('צ׳ק אאוט',n(r.co)):''}</div>
     ${list('חדרים OOO',r.ooo)}${list('תקלות פתוחות',r.faults)}${list('אבדות ומציאות',r.lost)}
   </div>
@@ -2125,6 +2128,12 @@ document.addEventListener('click',e=>{const t=e.target.closest('[data-act]');if(
 
 /* ---------- boot ---------- */
 // Owner only: make sure every record carries the hotel it belongs to, so the security rules can scope managers per hotel.
+// one-time copy of existing shift reports to shiftReportsPub (new ones are mirrored by the server)
+const SR_PUB=['hotel','month','date','shift','name','empUid','ooo','faults','lost','booking','ciLeft','coLeft','ci','co','cid','unusual','details','createdAt','by'];
+async function srPubBackfill(){try{if(localStorage.getItem('srPubDone')==='1')return}catch(_){ }
+  try{const [q,p]=await Promise.all([fdb.collection('shiftReports').get(),fdb.collection('shiftReportsPub').get()]);const have=new Set(p.docs.map(d=>d.id));let b=fdb.batch(),n=0;
+    for(const d of q.docs){if(have.has(d.id))continue;const r=d.data(),o={};SR_PUB.forEach(k=>{if(r[k]!==undefined)o[k]=r[k]});b.set(fdb.doc('shiftReportsPub/'+d.id),o);if(++n%400===0){await b.commit();b=fdb.batch()}}
+    if(n%400)await b.commit();try{localStorage.setItem('srPubDone','1')}catch(_){ }}catch(e){console.warn('srPub backfill',e)}}
 async function migrateHotelFields(){
   try{const [e,m,a,sh]=await Promise.all(['employees','mgr','avail','shifts'].map(c=>S.db.collection(c).get()));
     const home={};
@@ -2294,7 +2303,7 @@ async function start(u){
   if(S.admin){if(!S.deptOnly)scopedQ('mgr').onSnapshot(q=>{S.mgr=docsMap(q);render()},onErr);availQ().onSnapshot(q=>{S.avail=docsMap(q);render()},onErr)}
   else{db.doc('avail/'+S.uid).onSnapshot(s=>{if(s.exists)S.avail[S.uid]=s.data();render()},onErr)}
   if(S.can.perms)db.collection('roles').onSnapshot(q=>{S.roles=docsMap(q);render()},onErr);
-  if(S.isOwner)migrateHotelFields();
+  if(S.isOwner){migrateHotelFields();setTimeout(srPubBackfill,4000)}
   if(S.admin){const hs=visibleHotels().slice(0,30);db.collection('requests').where('hotel','in',hs).onSnapshot(q=>{S.reqs=docsMap(q);S.reqVer++;alertTick()},onErr)}
   else{let own={},hot={},peer={};const mix=()=>{S.reqs={...hot,...peer,...own};S.reqVer++;alertTick()};
     db.collection('requests').where('uid','==',S.uid).onSnapshot(q=>{own=docsMap(q);mix()},onErr);

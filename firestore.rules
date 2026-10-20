@@ -433,6 +433,10 @@ service cloud.firestore {
     match /backupcfg/{id} {
       allow read, write: if isOwner();
     }
+    // Meta (Facebook/Instagram) connection: system-user token, owner only; the functions (admin) read it and write status
+    match /metacfg/{id} {
+      allow read, write: if isOwner();
+    }
     match /pushTokens/{uid} {
       allow read, write: if signedIn() && (request.auth.uid == uid || isOwner());
     }

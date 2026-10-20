@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202610202230"></script>
+<script src="i18n.js?v=202610202300"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -891,7 +891,7 @@ function vMkt(){liveColl('camps','campaigns');
       ${weeks.map(w=>{const x=sum(all.filter(([,c])=>campWeek(c)===w));return `<tr><td class="mono">${weekLabel(w)}</td><td class="num">${x.n}</td><td class="num">${ils(x.sp)}</td><td class="num">${x.ld}</td><td class="num">${x.ld?ils(x.sp/x.ld):'—'}</td><td class="num">${ils(x.rv)}</td><td class="num">${x.sp?'×'+(x.rv/x.sp).toFixed(1):'—'}</td><td><button class="btn sm" data-act="mkt-go" data-w="${w}">פתיחה</button></td></tr>`}).join('')}</tbody></table></div></div>`:emptyBox('עוד אין דוחות','לוחצים "דוח שבועי" ומזינים את נתוני השבוע.')))}
   const k=`<div class="kpis">${kpi('הושקע השבוע',ils(A.sp),`${A.n} דוחות${chg(A.sp,P.sp)}`)}${kpi('לידים',String(A.ld),(A.ld?`${ils(A.sp/A.ld)} לליד`:'')+chg(A.ld,P.ld))}${kpi('הכנסות ממרכז ההזמנות',ils(A.rv),(A.sp?`החזר ×${(A.rv/A.sp).toFixed(1)}`:'')+chg(A.rv,P.rv))}${kpi('רווח השבוע',ils(A.rv-A.sp),'הכנסות פחות השקעה',A.rv-A.sp<0?'bad':'')}</div>`;
   const list=wk.length?`<div class="card"><h3>דוחות השבוע</h3><div class="scroll-x"><table class="plain"><thead><tr><th>קמפיין</th><th>פלטפורמה</th><th>מופנה ל</th><th class="num">הושקע</th><th class="num">לידים</th><th class="num">עלות לליד</th><th class="num">הכנסות</th><th class="num">החזר</th><th></th></tr></thead><tbody>
-    ${wk.sort(([,a],[,b])=>String(a.name).localeCompare(String(b.name),'he')).map(([id,c])=>`<tr><td><b>${esc(c.name||'')}</b>${c.notes?`<div class="muted" style="font-size:.8rem">${esc(c.notes)}</div>`:''}</td><td>${PLMAP[c.platform]||esc(c.platform||'')}</td><td>${esc(c.target||'')}</td><td class="num">${ils(c.spend)}</td><td class="num">${+c.leads||0}</td><td class="num">${+c.leads?ils(c.spend/c.leads):'—'}</td><td class="num">${ils(c.revenue)}</td><td class="num">${+c.spend?'×'+((+c.revenue||0)/c.spend).toFixed(1):'—'}</td><td><button class="btn sm" data-act="camp-open" data-id="${id}">עריכה</button></td></tr>`).join('')}</tbody></table></div></div>`
+    ${wk.sort(([,a],[,b])=>String(a.name).localeCompare(String(b.name),'he')).map(([id,c])=>`<tr><td><b>${esc(c.name||'')}</b>${c.auto==='meta'?` <span class="pill" title="נכנס אוטומטית מ-Meta">Meta אוטומטי</span><div class="muted" style="font-size:.8rem">${(+c.impressions||0).toLocaleString('he-IL')} חשיפות · ${(+c.clicks||0).toLocaleString('he-IL')} קליקים${+c.msgs?` · ${c.msgs} שיחות`:''}</div>`:''}${c.notes?`<div class="muted" style="font-size:.8rem">${esc(c.notes)}</div>`:''}</td><td>${PLMAP[c.platform]||esc(c.platform||'')}</td><td>${esc(c.target||'')}</td><td class="num">${ils(c.spend)}</td><td class="num">${+c.leads||0}</td><td class="num">${+c.leads?ils(c.spend/c.leads):'—'}</td><td class="num">${ils(c.revenue)}</td><td class="num">${+c.spend?'×'+((+c.revenue||0)/c.spend).toFixed(1):'—'}</td><td><button class="btn sm" data-act="camp-open" data-id="${id}">עריכה</button></td></tr>`).join('')}</tbody></table></div></div>`
     :emptyBox('אין דוחות לשבוע הזה','לוחצים "דוח שבועי" ומזינים לכל קמפיין או פלטפורמה כמה הושקע, כמה לידים נכנסו וכמה הכנסות הגיעו השבוע.');
   return wrap(head+`<div class="card" style="padding-block:10px">${nav}</div>`+k+list);
 }
@@ -1927,7 +1927,7 @@ function vProfile(){
 /* ---------- sheets ---------- */
 function renderSheet(){
   const el=$('#sheet');if(!S.sheet){el.hidden=true;el.innerHTML='';return}
-  let h='';if(S.sheet.type==='perm')h=sheetPerm();else if(S.sheet.type==='cell')h=sheetCell();else if(S.sheet.type==='emp')h=sheetEmp();else if(S.sheet.type==='send')h=sheetSend();else if(S.sheet.type==='remind')h=sheetRemind();else if(S.sheet.type==='camp')h=sheetCamp();else if(S.sheet.type==='sup')h=sheetSup();else if(S.sheet.type==='inv')h=sheetInv();else if(S.sheet.type==='stock')h=sheetStock();else if(S.sheet.type==='preq')h=sheetPreq();else if(S.sheet.type==='swap')h=sheetSwap();else if(S.sheet.type==='iospush')h=sheetIosPush();else if(S.sheet.type==='pushask')h=sheetPushAsk();else if(S.sheet.type==='srview')h=sheetSrView();else if(S.sheet.type==='bkauto')h=sheetBkAuto();else if(S.sheet.type==='hk')h=sheetHk();else if(S.sheet.type==='lead')h=sheetLead();else if(S.sheet.type==='client')h=sheetClient();else if(S.sheet.type==='hkooo')h=sheetHkOoo();
+  let h='';if(S.sheet.type==='perm')h=sheetPerm();else if(S.sheet.type==='cell')h=sheetCell();else if(S.sheet.type==='emp')h=sheetEmp();else if(S.sheet.type==='send')h=sheetSend();else if(S.sheet.type==='remind')h=sheetRemind();else if(S.sheet.type==='camp')h=sheetCamp();else if(S.sheet.type==='sup')h=sheetSup();else if(S.sheet.type==='inv')h=sheetInv();else if(S.sheet.type==='stock')h=sheetStock();else if(S.sheet.type==='preq')h=sheetPreq();else if(S.sheet.type==='swap')h=sheetSwap();else if(S.sheet.type==='iospush')h=sheetIosPush();else if(S.sheet.type==='pushask')h=sheetPushAsk();else if(S.sheet.type==='srview')h=sheetSrView();else if(S.sheet.type==='bkauto')h=sheetBkAuto();else if(S.sheet.type==='metahelp')h=sheetMetaHelp();else if(S.sheet.type==='hk')h=sheetHk();else if(S.sheet.type==='lead')h=sheetLead();else if(S.sheet.type==='client')h=sheetClient();else if(S.sheet.type==='hkooo')h=sheetHkOoo();
   if(!h){S.sheet=null;el.hidden=true;return}
   el.innerHTML=`<div class="panel${S.sheet.type==='srview'?' big':''}" role="dialog" aria-modal="true">${h}</div>`;el.hidden=false;
 }
@@ -2141,6 +2141,35 @@ function setup() {
   backup();
 }
 `}
+/* ---------- Meta (Facebook / Instagram) connection: metacfg/main {token, adAccount, syncReq, status} — owner only; functions metaPoll/onMetaCfg do the work ---------- */
+function metaCfgLoad(){if(!S.isOwner||S.metaLive)return;S.metaLive=true;
+  fdb.doc('metacfg/main').onSnapshot(d=>{S.metaCfg=d.exists?d.data():null;render()},()=>{S.metaCfg=null;render()})}
+function metaCfgHTML(){metaCfgLoad();const c=S.metaCfg;if(c===undefined)return `<div class="card"><h3>חיבור Meta (פייסבוק ואינסטגרם)</h3><p class="muted">טוען…</p></div>`;
+  const st=(c&&c.status)||{},has=!!(c&&c.token),when=t=>t?new Date(t).toLocaleString('he-IL',{dateStyle:'short',timeStyle:'short'}):'';
+  const stat=!has?'<p class="muted" style="font-size:.9rem">עוד לא מחובר.</p>':!st.at?'<div class="notice">נשמר. בודק את החיבור… (עד דקה)</div>'
+    :st.err?`<div class="notice bad">החיבור נכשל: ${esc(st.err)}</div>`
+    :`<p style="font-size:.9rem;line-height:1.8;margin:6px 0">✅ מחובר${st.user?` כ-<b>${esc(st.user)}</b>`:''} · בדיקה אחרונה ${when(st.at)}<br>
+      דפים: ${(st.pages||[]).length?esc((st.pages||[]).join(', ')):'<span class="muted">אין דפים משויכים</span>'} · טפסי לידים: ${+st.forms||0}<br>
+      לידים שנכנסו מ-Meta: <b>${+st.leadsTotal||0}</b> · קמפיינים בחודש האחרון: <b>${+st.campaigns||0}</b></p>
+      ${st.leadErr?`<div class="notice bad">לידים: ${esc(st.leadErr)}</div>`:''}${st.insErr?`<div class="notice bad">נתוני מודעות: ${esc(st.insErr)}</div>`:''}`;
+  const d=S.drafts.meta||{};
+  return `<div class="card"><h3>חיבור Meta (פייסבוק ואינסטגרם)</h3><p class="muted" style="font-size:.85rem">לידים מטפסי המודעות נכנסים לבד ל"לידים ומכירות" (בדיקה כל 15 דקות) עם שם הקמפיין, ומי שמטפל באירועים מקבל התראה. נתוני המודעות (הוצאה, חשיפות, קליקים, לידים) נכנסים לבד לדוחות השבועיים בסושיאל מדיה.</p>
+  ${stat}
+  <label class="f">מפתח גישה של משתמש המערכת (Token)<input type="password" dir="ltr" autocomplete="off" data-f="meta.token" value="${esc(d.token??'')}" placeholder="${has?'שמור. מדביקים רק כדי להחליף':'EAA…'}"></label>
+  <label class="f">מספר חשבון המודעות (Ad account ID)<input type="text" dir="ltr" inputmode="numeric" data-f="meta.adAccount" value="${esc(d.adAccount??(c&&c.adAccount)??'')}" placeholder="למשל 1234567890"></label>
+  <div class="actions"><button class="btn pri" data-act="meta-save">שמירה וחיבור</button>${has?`<button class="btn" data-act="meta-sync">סנכרון עכשיו</button><button class="btn ghost" data-act="meta-off">${S.confirm==='metaoff'?'לחיצה נוספת תנתק':'ניתוק'}</button>`:''}<button class="btn ghost" data-act="meta-help">איך משיגים את המפתח?</button></div></div>`}
+function sheetMetaHelp(){return sheetHead('חיבור Meta · הוראות','הגדרה חד־פעמית, בערך 15 דקות, עדיף ממחשב.')+`
+  <ol style="padding-inline-start:20px;line-height:1.9;margin:0">
+   <li>נכנסים ל-<a href="https://business.facebook.com/settings" target="_blank" rel="noopener"><b>business.facebook.com/settings</b></a> (הגדרות העסק) עם החשבון שמנהל את הדף ואת חשבון המודעות.</li>
+   <li><b>אפליקציה:</b> בתפריט <b>Accounts ← Apps ← Add ← Create a new app</b>. סוג: <b>Business</b>, שם: Seven Collection. בתוך האפליקציה מוסיפים את המוצר <b>Marketing API</b>.</li>
+   <li><b>משתמש מערכת:</b> <b>Users ← System users ← Add</b>. שם: Seven Collection, תפקיד: <b>Admin</b>.</li>
+   <li>על משתמש המערכת: <b>Assign assets</b> ומשייכים לו את <b>הדפים</b> (Pages, שליטה מלאה), את <b>חשבון המודעות</b> (Ad account) ואת <b>האפליקציה</b>.</li>
+   <li>לוחצים <b>Generate new token</b>, בוחרים את האפליקציה, תוקף: <b>Never</b>, ומסמנים את ההרשאות:<br><span dir="ltr" class="mono" style="font-size:.8rem">ads_read, leads_retrieval, pages_show_list, pages_read_engagement, pages_manage_metadata, pages_manage_ads, business_management</span></li>
+   <li>מעתיקים את המפתח (מתחיל ב-EAA) ומדביקים אותו כאן בכרטיס "חיבור Meta".</li>
+   <li><b>מספר חשבון המודעות:</b> <b>Accounts ← Ad accounts</b>, המספר שמופיע מתחת לשם. מדביקים בשדה השני ולוחצים <b>שמירה וחיבור</b>.</li>
+  </ol>
+  <p class="muted" style="font-size:.82rem">אם מופיעה שגיאה על גישה ללידים: <b>Integrations ← Leads access</b> ומאשרים שם את משתמש המערכת או את האפליקציה.<br>המפתח נשמר רק אצלך (רק בעל המערכת רואה אותו). לא שולחים אותו לאף אחד, גם לא אליי. אם הוא דלף, מוחקים אותו במשתמש המערכת ומפיקים חדש.</p>
+  <div class="actions"><button class="btn pri" data-act="close">הבנתי</button></div>`}
 function autoBackupHTML(){bkCfgLoad();const c=S.bkCfg;if(c===undefined)return `<div class="card"><h3>גיבוי אוטומטי לגוגל דרייב</h3><p class="muted">טוען…</p></div>`;
   const has=!!(c&&c.key),last=c&&c.lastAt;
   return `<div class="card"><h3>גיבוי אוטומטי לגוגל דרייב</h3><p class="muted" style="font-size:.85rem">פעם ביום, ב-3 בלילה, נשמר קובץ גיבוי מלא בתיקייה "Seven Collection גיבויים" בגוגל דרייב שלך. נשמרים 30 הימים האחרונים. ההגדרה נעשית פעם אחת (בערך 3 דקות, עדיף ממחשב).</p>
@@ -2163,7 +2192,7 @@ function backupHTML(){const lb=lastBackup();return `<div class="card"><h3>גיב
   <p style="font-size:.9rem">${lb?`גיבוי אחרון מהמכשיר הזה: <b>${new Date(lb).toLocaleDateString('he-IL')}</b>`:'עוד לא נעשה גיבוי מהמכשיר הזה.'}</p>
   <label class="check"><input type="checkbox" id="bk_img" ${dv('bk','img',false)?'checked':''} data-f="bk.img"> כולל צילומי החשבוניות (קובץ גדול יותר)</label>
   <div class="actions"><button class="btn pri" data-act="backup-now">הורדת גיבוי מלא</button><button class="btn" data-act="backup-drive">שיתוף לגוגל דרייב</button></div>
-  ${S.bkFile?`<div class="notice" style="display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-top:8px"><span>הגיבוי מוכן. לוחצים "שיתוף" ובוחרים Drive.</span><button class="btn sm pri" data-act="backup-share">שיתוף</button></div>`:''}</div>`+autoBackupHTML()}
+  ${S.bkFile?`<div class="notice" style="display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-top:8px"><span>הגיבוי מוכן. לוחצים "שיתוף" ובוחרים Drive.</span><button class="btn sm pri" data-act="backup-share">שיתוף</button></div>`:''}</div>`+autoBackupHTML()+metaCfgHTML()}
 async function backupNow(mode){if(!S.isOwner)return;if(S.backingUp)return;S.backingUp=true;toast('מכין גיבוי… זה יכול לקחת כמה שניות');
   const out={exportedAt:new Date().toISOString(),by:S.email,collections:{}},cols=BACKUP_COLLS.concat(dv('bk','img',false)?['invoiceImgs']:[]);let n=0;
   try{for(const c of cols){const q=await fdb.collection(c).get();out.collections[c]=q.docs.map(d=>({id:d.id,data:d.data()}));n+=q.size;
@@ -2395,7 +2424,7 @@ const ACT={
   'mkt-go':D=>{S.mktW=D.w;S.mktF.view='week';render();window.scrollTo(0,0)},
   'camp-save':()=>{const id=S.sheet.id,c=(S.camps||{})[id]||{},g=k=>dv('camp',k,c[k]??''),name=String(g('name')).trim();if(!name){toast('צריך לרשום שם קמפיין');return}
     const wd=String(g('week')||c.start||S.mktW||todayISO());if(!/^\d{4}-\d{2}-\d{2}$/.test(wd)){toast('צריך לבחור שבוע');return}const week=weekOf(wd);
-    const doc={name,platform:String(g('platform')||'meta'),target:String(g('target')).trim(),week,start:week,end:addDays(week,6),spend:+g('spend')||0,leads:Math.round(+g('leads')||0),revenue:+g('revenue')||0,notes:String(g('notes')).trim(),createdBy:c.createdBy||S.uid,createdAt:c.createdAt||Date.now(),updatedBy:S.uid,updatedAt:Date.now()};
+    const doc={...c,name,platform:String(g('platform')||'meta'),target:String(g('target')).trim(),week,start:week,end:addDays(week,6),spend:+g('spend')||0,leads:Math.round(+g('leads')||0),revenue:+g('revenue')||0,notes:String(g('notes')).trim(),createdBy:c.createdBy||S.uid,createdAt:c.createdAt||Date.now(),updatedBy:S.uid,updatedAt:Date.now()};
     S.camps={...S.camps,[id]:doc};save('campaigns/'+id,doc);S.sheet=null;S.drafts.camp=null;S.mktW=week;render();toast('הדוח נשמר')},
   'camp-del':()=>{if(S.confirm!=='camp-del'){S.confirm='camp-del';render();return}const id=S.sheet.id;S.confirm=null;const c={...S.camps};delete c[id];S.camps=c;save('campaigns/'+id,null);S.sheet=null;render();toast('הדוח נמחק')},
   'app-exp':()=>{S.menu=false;setTab('exp')},
@@ -2469,6 +2498,12 @@ const ACT={
   'order-done':D=>{const h=D.h,items=(S.stockAll||{})[h]||{},lines=Object.entries((S.preqAll||{})[h]||{}).filter(([,r])=>r.status==='approved'&&(r.supplier||items[r.itemId]?.supplier||'')===D.s);
     for(const [rid,r] of lines){const doc={...r,status:'ordered',orderedAt:Date.now(),handledBy:S.uid};S.preqAll[h]={...S.preqAll[h],[rid]:doc};save('purchaseReqs/'+rid,doc)}render();toast(`סומן שהוזמן · ${lines.length} פריטים`)},
   'backup-now':()=>backupNow(),
+  'meta-help':()=>{S.sheet={type:'metahelp'};render()},
+  'meta-save':async()=>{const d=S.drafts.meta||{},c=S.metaCfg||{},token=String(d.token??'').trim()||c.token||'',acc=String(d.adAccount??c.adAccount??'').replace(/^act_/i,'').replace(/\D/g,'');
+    if(!token){toast('צריך להדביק את המפתח');return}if(!/^EA/.test(token)&&!c.token){toast('המפתח אמור להתחיל ב-EAA');return}
+    try{await fdb.doc('metacfg/main').set({token,adAccount:acc,syncReq:Date.now(),by:S.uid,status:{}},{merge:true});S.drafts.meta=null;render();toast('נשמר. החיבור נבדק עכשיו')}catch(e){toast('לא הצלחתי לשמור: '+errMsg(mapErr(e)))}},
+  'meta-sync':async()=>{try{await fdb.doc('metacfg/main').set({syncReq:Date.now()},{merge:true});toast('מסנכרן… התוצאה תופיע כאן תוך דקה')}catch(e){toast('לא הצלחתי: '+errMsg(mapErr(e)))}},
+  'meta-off':async()=>{if(S.confirm!=='metaoff'){S.confirm='metaoff';render();return}S.confirm=null;try{await fdb.doc('metacfg/main').delete();toast('Meta נותק')}catch(e){toast('לא הצלחתי: '+errMsg(mapErr(e)))}},
   'bk-auto':async()=>{if(!(S.bkCfg&&S.bkCfg.key)){const key=bkKey();try{await fdb.doc('backupcfg/main').set({key,createdAt:Date.now(),by:S.uid},{merge:true});S.bkCfg={...(S.bkCfg||{}),key}}catch(e){toast('לא הצלחתי לשמור: '+errMsg(mapErr(e)));return}}S.sheet={type:'bkauto'};render()},
   'bk-rekey':async()=>{if(S.confirm!=='bkrekey'){S.confirm='bkrekey';render();return}S.confirm=null;const key=bkKey();try{await fdb.doc('backupcfg/main').set({key,createdAt:Date.now(),by:S.uid},{merge:true});S.bkCfg={...(S.bkCfg||{}),key};S.sheet={type:'bkauto'};render();toast('המפתח הוחלף. המפתח הישן כבר לא עובד, צריך להדביק את הקוד החדש בסקריפט')}catch(e){toast('לא הצלחתי לשמור: '+errMsg(mapErr(e)))}},
   'bk-copy':async()=>{const t=bkScript(S.bkCfg.key);try{await navigator.clipboard.writeText(t);toast('הקוד הועתק')}catch(_){const ta=$('#bk_code');if(ta){ta.focus();ta.select()}toast('סמנו את הקוד והעתיקו ידנית')}},

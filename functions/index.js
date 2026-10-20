@@ -116,7 +116,7 @@ exports.onStock = trig('inventory/{id}').onWrite(async (ch) => {
 // A small Google Apps Script in the owner's own Drive calls this once a day with the key stored in backupcfg/main
 // (only the owner can read or change it) and saves the JSON it gets into a Drive folder. Same format as the
 // "גיבוי" button on the Permissions page, so the Import card can restore it. Invoice images are left out (size).
-const BACKUP_COLLS = ['hotels', 'settings', 'employees', 'mgr', 'avail', 'shifts', 'schedule', 'requests', 'roles', 'joinCodes', 'config', 'menus', 'contracts', 'quotes', 'campaigns', 'suppliers', 'invoices', 'expcfg', 'inventory', 'purchaseReqs', 'shiftReports', 'faults', 'hk', 'hkcfg', 'hkLog', 'hkComplaints'];
+const BACKUP_COLLS = ['hotels', 'settings', 'employees', 'mgr', 'avail', 'shifts', 'schedule', 'requests', 'roles', 'joinCodes', 'config', 'menus', 'contracts', 'quotes', 'campaigns', 'suppliers', 'invoices', 'expcfg', 'inventory', 'purchaseReqs', 'shiftReports', 'faults', 'hk', 'hkcfg', 'hkLog', 'hkComplaints', 'leads', 'tasks', 'clients'];
 const plain = (v) => {
   if (v instanceof admin.firestore.Timestamp) return { seconds: v.seconds, nanoseconds: v.nanoseconds };
   if (Array.isArray(v)) return v.map(plain);
@@ -235,4 +235,121 @@ exports.crmMorning = functions.region(REGION).pubsub.schedule('30 8 * * *').time
     if (x.leads) parts.push(`${x.leads} לידים לחזור אליהם`);
     return sendTo([u], { title: 'בוקר טוב · מה מחכה לך היום', body: parts.join(' · '), hash: '#leads', tag: 'crm-' + today });
   }));
+});
+
+// ---------- Meta (Facebook / Instagram): ad numbers → campaigns, lead-form leads → leads ----------
+// metacfg/main {token (system-user token, owner only), adAccount, syncReq, leadsAt (unix secs), insAt, status:{...}}
+// every 15 min: new leads from the pages' lead forms; every 3 h (and on "סנכרון עכשיו"): last 35 days of campaign numbers by week
+const GRAPH = 'https://graph.facebook.com/v23.0/';
+async function graph(path, token, params = {}) {
+  const u = new URL(path.startsWith('http') ? path : GRAPH + path);
+  if (!path.startsWith('http')) { for (const [k, v] of Object.entries(params)) u.searchParams.set(k, typeof v === 'string' ? v : JSON.stringify(v)); u.searchParams.set('access_token', token); }
+  const r = await fetch(u.toString()); const j = await r.json().catch(() => ({}));
+  if (!r.ok || j.error) throw new Error((j.error && j.error.message) || ('HTTP ' + r.status));
+  return j;
+}
+async function graphAll(path, token, params, max = 20) {
+  let j = await graph(path, token, params), out = j.data || [];
+  for (let i = 0; i < max && j.paging && j.paging.next; i++) { j = await graph(j.paging.next, token); out = out.concat(j.data || []); }
+  return out;
+}
+const isoAdd = (iso, n) => { const d = new Date(iso + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+const weekOfISO = (iso) => isoAdd(iso, -new Date(iso + 'T12:00:00Z').getUTCDay());
+const actVal = (acts, types) => { for (const t of types) { const a = (acts || []).find((x) => x.action_type === t); if (a) return Math.round(+a.value || 0); } return 0; };
+async function metaInsights(cfg) {
+  const acc = String(cfg.adAccount || '').replace(/^act_/, '').trim(); if (!acc) return { campaigns: 0 };
+  const until = ilDate(new Date()), since = weekOfISO(isoAdd(until, -35));
+  const rows = await graphAll('act_' + acc + '/insights', cfg.token, { level: 'campaign', time_increment: '1', time_range: { since, until }, fields: 'campaign_id,campaign_name,spend,impressions,clicks,actions', limit: '500' });
+  const by = {};
+  rows.forEach((r) => {
+    const w = weekOfISO(r.date_start), k = r.campaign_id + '_' + w;
+    const x = by[k] = by[k] || { name: r.campaign_name, metaId: r.campaign_id, week: w, spend: 0, impressions: 0, clicks: 0, leads: 0, msgs: 0 };
+    x.name = r.campaign_name || x.name; x.spend += +r.spend || 0; x.impressions += +r.impressions || 0; x.clicks += +r.clicks || 0;
+    x.leads += actVal(r.actions, ['lead', 'onsite_conversion.lead_grouped']);
+    x.msgs += actVal(r.actions, ['onsite_conversion.messaging_conversation_started_7d']);
+  });
+  const b = db.batch(); let n = 0;
+  for (const [k, x] of Object.entries(by)) {
+    if (!x.spend && !x.leads && !x.impressions) continue;
+    b.set(db.doc('campaigns/meta_' + k), { name: x.name, platform: 'meta', target: 'Meta Ads', week: x.week, start: x.week, end: isoAdd(x.week, 6), spend: Math.round(x.spend * 100) / 100, leads: x.leads, msgs: x.msgs, impressions: x.impressions, clicks: x.clicks, auto: 'meta', metaId: x.metaId, updatedAt: Date.now() }, { merge: true });
+    n++;
+  }
+  if (n) await b.commit();
+  return { campaigns: new Set(Object.values(by).map((x) => x.metaId)).size, reports: n };
+}
+// lead form answers → our lead fields; anything we don't recognise goes to notes
+function metaLeadDoc(m, form, pageName) {
+  const f = {}; (m.field_data || []).forEach((x) => { f[x.name] = (x.values || []).join(', '); });
+  const pick = (re) => { const k = Object.keys(f).find((n) => re.test(n)); if (!k) return ''; const v = f[k]; delete f[k]; return v; };
+  let name = pick(/^(full_?name|name|שם מלא|שם)$/i);
+  if (!name) { const a = pick(/^first_?name$/i), z = pick(/^last_?name$/i); name = (a + ' ' + z).trim(); }
+  const type = pick(/^(event_?type|type)$|סוג/i);
+  let phone = pick(/phone|טלפון|נייד/i); phone = phone.replace(/[\s-]/g, '').replace(/^\+?972/, '0');
+  const email = pick(/e-?mail|מייל|דוא/i), company = pick(/company|חברה|ארגון/i);
+  let date = pick(/date|תאריך/i), guests = pick(/guest|people|attend|אורח|משתתפ|כמות|מספר/i);
+  const notes = [];
+  const di = date.match(/(\d{4})-(\d{1,2})-(\d{1,2})/) || null, dl = date.match(/(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})/) || null;
+  let dISO = '';
+  if (di) dISO = `${di[1]}-${di[2].padStart(2, '0')}-${di[3].padStart(2, '0')}`;
+  else if (dl) dISO = `${dl[3].length === 2 ? '20' + dl[3] : dl[3]}-${dl[2].padStart(2, '0')}-${dl[1].padStart(2, '0')}`;
+  if (date && !dISO) notes.push('תאריך: ' + date);
+  const g = parseInt(String(guests).replace(/[^\d]/g, ''), 10); if (guests && !g) notes.push('אורחים: ' + guests);
+  Object.entries(f).forEach(([k, v]) => notes.push(k.replace(/_/g, ' ') + ': ' + v));
+  const now = Date.now(), plat = String(m.platform || '').toLowerCase() === 'ig' ? 'instagram' : 'facebook';
+  return {
+    name: name || 'ליד מ-' + (plat === 'instagram' ? 'אינסטגרם' : 'פייסבוק'), phone, email, company, type, date: dISO, guests: g || 0, venue: '',
+    source: plat, campaign: m.campaign_name || '', stage: 'new', owner: '', ownerName: '', nextAt: ilDate(new Date()), value: 0, notes: notes.join('\n'), lostReason: '',
+    acts: [{ at: now, by: 'meta', byName: 'Meta', kind: 'note', text: `נכנס אוטומטית מטופס "${form.name || ''}"${pageName ? ' · ' + pageName : ''}${m.ad_name ? ' · מודעה: ' + m.ad_name : ''}` }],
+    metaLeadId: m.id, metaForm: form.id, createdAt: m.created_time ? Date.parse(m.created_time) || now : now, createdBy: 'meta', updatedAt: now,
+  };
+}
+async function eventsPeople() {
+  const out = new Set(), rs = await db.collection('roles').get();
+  rs.forEach((d) => { const r = d.data() || {}; if (!r.station && r.apps && r.apps.events) out.add(d.id); });
+  const own = await db.collection('pushTokens').where('owner', '==', true).get(); own.forEach((d) => out.add(d.id));
+  return [...out];
+}
+async function metaLeads(cfg) {
+  const since = cfg.leadsAt || Math.floor(Date.now() / 1000) - 30 * 86400, started = Math.floor(Date.now() / 1000);
+  const pages = await graphAll('me/accounts', cfg.token, { fields: 'id,name,access_token', limit: '100' });
+  let forms = 0; const fresh = [];
+  for (const p of pages) {
+    const pt = p.access_token || cfg.token;
+    let fl = []; try { fl = await graphAll(p.id + '/leadgen_forms', pt, { fields: 'id,name', limit: '100' }); } catch (e) { continue; }
+    forms += fl.length;
+    for (const form of fl) {
+      const ls = await graphAll(form.id + '/leads', pt, { fields: 'id,created_time,field_data,campaign_name,ad_name,platform', filtering: [{ field: 'time_created', operator: 'GREATER_THAN', value: since - 600 }], limit: '100' });
+      for (const m of ls) {
+        const ref = db.doc('leads/meta_' + m.id);
+        try { const doc = metaLeadDoc(m, form, p.name); await ref.create(doc); fresh.push(doc); } catch (e) { /* already in */ }
+      }
+    }
+  }
+  if (fresh.length) {
+    const who = await eventsPeople();
+    await sendTo(who, { title: fresh.length === 1 ? 'ליד חדש מ-Meta' : `${fresh.length} לידים חדשים מ-Meta`, body: fresh.slice(0, 3).map((l) => l.name + (l.campaign ? ' · ' + l.campaign : '')).join(' | '), hash: '#leads', tag: 'meta-leads' });
+  }
+  return { pages: pages.map((p) => p.name), forms, newLeads: fresh.length, leadsAt: started };
+}
+async function metaRun(full) {
+  const ref = db.doc('metacfg/main'), s = await ref.get(); if (!s.exists) return;
+  const cfg = s.data() || {}; if (!cfg.token) return;
+  const st = { ...(cfg.status || {}), at: Date.now(), ok: true, err: '', leadErr: '', insErr: '' }, up = {};
+  try { const me = await graph('me', cfg.token, { fields: 'id,name' }); st.user = me.name || me.id; }
+  catch (e) { st.ok = false; st.err = String(e.message || e); await ref.set({ status: st }, { merge: true }); return; }
+  try { const r = await metaLeads(cfg); st.pages = r.pages; st.forms = r.forms; st.newLeads = r.newLeads; st.leadsTotal = (cfg.status && cfg.status.leadsTotal || 0) + r.newLeads; up.leadsAt = r.leadsAt; }
+  catch (e) { st.leadErr = String(e.message || e); }
+  if (full || !cfg.insAt || Date.now() - cfg.insAt > 3 * 3600e3) {
+    try { const r = await metaInsights(cfg); st.campaigns = r.campaigns; st.reports = r.reports; up.insAt = Date.now(); }
+    catch (e) { st.insErr = String(e.message || e); up.insAt = Date.now(); }
+  }
+  st.ok = !st.leadErr && !st.insErr;
+  await ref.set({ ...up, status: st }, { merge: true });
+}
+exports.metaPoll = functions.region(REGION).runWith({ timeoutSeconds: 300 }).pubsub.schedule('every 15 minutes').onRun(() => metaRun(false));
+exports.onMetaCfg = functions.region(REGION).runWith({ timeoutSeconds: 300 }).firestore.document('metacfg/main').onWrite(async (ch) => {
+  const a = ch.before.exists ? ch.before.data() : {}, b = ch.after.exists ? ch.after.data() : null;
+  if (!b || !b.token) return;
+  if (a.token === b.token && a.adAccount === b.adAccount && a.syncReq === b.syncReq) return; // our own status writes
+  return metaRun(true);
 });

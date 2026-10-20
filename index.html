@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202610202300"></script>
+<script src="i18n.js?v=202610202320"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1542,7 +1542,8 @@ function srFormHTML(h){const g=(k,d)=>dv('sr',k,d),un=g('unusual','');
   ${srGap(g('r420',''),g('cash',''))?`<label class="f" style="color:var(--bad)">יש פער של ${ils(Math.abs(srGap(g('r420',''),g('cash',''))))} בין דוח 420 למזומן שהופקד. הסבירו את הפער<textarea id="sr_gap" data-f="sr.gapNote" rows="2" placeholder="למשל: החזר ללקוח, טעות בקופה, עודף שנשאר">${esc(g('gapNote',''))}</textarea></label>`:''}
   ${g('shift',srDefShift())==='night'?`<div class="row">${isHostel(h)?`<label class="f">צ׳ק אין היום · דורמס<input type="number" min="0" inputmode="numeric" id="sr_cid" data-f="sr.cid" value="${esc(g('cid',''))}"></label><label class="f">צ׳ק אין היום · פרייבט<input type="number" min="0" inputmode="numeric" id="sr_ci" data-f="sr.ci" value="${esc(g('ci',''))}"></label>`:`<label class="f">כמה צ׳ק אין היום<input type="number" min="0" inputmode="numeric" id="sr_ci" data-f="sr.ci" value="${esc(g('ci',''))}"></label>`}<label class="f">כמה צ׳ק אאוט היום${isHostel(h)?' (פרייבט)':''}<input type="number" min="0" inputmode="numeric" id="sr_co" data-f="sr.co" value="${esc(g('co',''))}"></label></div><p class="muted" style="font-size:.82rem;margin:0">לפי ההזמנות. המספרים נכנסים גם ל-10days של התאריך בדוח.</p>`:''}
   ${g('shift',srDefShift())!=='night'?`<div class="row">${g('shift',srDefShift())==='morning'?`<label class="f">כמה צ׳ק אאוט נשאר<input type="number" min="0" inputmode="numeric" id="sr_col" data-f="sr.coLeft" value="${esc(g('coLeft',''))}"></label>`:''}<label class="f">כמה צ׳ק אין נשארו להיום<input type="number" min="0" inputmode="numeric" id="sr_cil" data-f="sr.ciLeft" value="${esc(g('ciLeft',''))}"></label></div>`:''}
-  <label class="f">הודעות בוקינג (מספר)<input type="number" min="0" inputmode="numeric" id="sr_bk" data-f="sr.booking" value="${esc(g('booking',''))}" placeholder="כמה הודעות בוקינג היו במשמרת"></label>
+  <div class="row"><label class="f">הודעות בוקינג שלא נענו (מספר)<input type="number" min="0" inputmode="numeric" id="sr_bk" data-f="sr.booking" value="${esc(g('booking',''))}" placeholder="כמה הודעות בוקינג לא נענו"></label>
+  <label class="f">פניות פתוחות ארסונה (מספר)<input type="number" min="0" inputmode="numeric" id="sr_ars" data-f="sr.arsona" value="${esc(g('arsona',''))}" placeholder="כמה פניות פתוחות בארסונה"></label></div>
   ${srRowsHTML('ooo','חדרים OOO (לא בשימוש)','סיבה: למשל נזילה, צבע, מזגן')}
   ${srRowsHTML('faults','תקלות פתוחות','מה התקלה')}
   ${srRowsHTML('lost','אבדות ומציאות','תיאור הפריט')}
@@ -1560,7 +1561,7 @@ function srListHTML(h,gm,pub){const m=S.srMonth||todayISO().slice(0,7);if(pub)sr
   ${pub?'<p class="muted" style="font-size:.85rem;margin:0">דוחות המשמרות הקודמות, לחפיפה. בלי סכומי הקופה.</p>':''}<div class="kpis">${kpi('דוחות',String(rows.length))}${pub?'':kpi('מזומן להפקדה',ils(sum('cash')))+kpi('סליקה באשראי',ils(sum('credit')))}${kpi('אירועים חריגים',String(unN),'',unN?'bad':'ok')}</div>
   ${rows.length?`<div class="plist">${rows.map(([id,r])=>`<div class="prow srrow" style="flex-wrap:wrap${r.unusual?';border-color:var(--bad)':''}"><span class="who" data-act="sr-view" data-id="${id}" data-h="${h}" role="button" tabindex="0" title="פתיחת הדוח במסך מלא"><b>יום ${DAYS[dow(r.date)]} ${dm(r.date)} · ${SR_N[r.shift]||''} · ${esc(r.name||'')}</b>
     ${pub?'':`<small>קרן קופה ${ils(+r.float||0)}${r.r420!=null?` · לפי 420 ${ils(+r.r420||0)}`:''} · הופקד ${ils(+r.cash||0)} · אשראי ${ils(+r.credit||0)}</small>${r.gap?`<small style="color:var(--bad)">פער ${ils(r.gap)}: ${esc(r.gapNote||'')}</small>`:''}${finPill(r)}`}
-    ${r.shift==='night'&&(r.ci!=null||r.co!=null||r.cid!=null)?`<small>${r.cid!=null?`צ׳ק אין דורמס ${+r.cid} · `:''}צ׳ק אין${r.cid!=null?' פרייבט':''} ${r.ci??'—'} · צ׳ק אאוט ${r.co??'—'}</small>`:''}${r.shift==='morning'&&r.coLeft!=null?`<small>צ׳ק אאוט שנשארו: ${+r.coLeft}</small>`:''}${r.ciLeft!=null?`<small>צ׳ק אין שנשארו להיום: ${+r.ciLeft}</small>`:''}${r.booking!=null?`<small>הודעות בוקינג: ${+r.booking}</small>`:''}
+    ${r.shift==='night'&&(r.ci!=null||r.co!=null||r.cid!=null)?`<small>${r.cid!=null?`צ׳ק אין דורמס ${+r.cid} · `:''}צ׳ק אין${r.cid!=null?' פרייבט':''} ${r.ci??'—'} · צ׳ק אאוט ${r.co??'—'}</small>`:''}${r.shift==='morning'&&r.coLeft!=null?`<small>צ׳ק אאוט שנשארו: ${+r.coLeft}</small>`:''}${r.ciLeft!=null?`<small>צ׳ק אין שנשארו להיום: ${+r.ciLeft}</small>`:''}${r.booking!=null?`<small>הודעות בוקינג שלא נענו: ${+r.booking}</small>`:''}${r.arsona!=null?`<small>פניות פתוחות ארסונה: ${+r.arsona}</small>`:''}
     ${(r.ooo||[]).length?`<small>חדרים OOO: ${r.ooo.map(x=>`${esc(x.room)}${x.note?' ('+esc(x.note)+')':''}`).join(', ')}</small>`:''}${(r.faults||[]).length?`<small>תקלות פתוחות: ${r.faults.map(x=>`${esc(x.room)}${x.note?' ('+esc(x.note)+')':''}`).join(', ')}</small>`:''}${(r.lost||[]).length?`<small>אבדות ומציאות: ${r.lost.map(x=>`${esc(x.room)}${x.note?' ('+esc(x.note)+')':''}`).join(', ')}</small>`:''}${(r.cmp||[]).length?`<small style="color:var(--warn)">תלונות אורחים: ${r.cmp.map(x=>`${esc(x.room)}${x.note?' ('+esc(x.note)+')':''}`).join(', ')}</small>`:''}${r.unusual?`<small style="color:var(--bad);white-space:pre-wrap">⚠ ${esc(r.details||'אירוע חריג')}</small>`:''}</span>
     <span class="actions"><button class="btn sm" data-act="sr-view" data-id="${id}" data-h="${h}">פתיחה</button>${r.unusual?'<span class="pill bad">חריג</span>':'<span class="pill ok">תקין</span>'}${boss?`<button class="btn sm ghost" data-act="sr-del" data-id="${id}" data-h="${h}">${S.confirm==='sr:'+id?'לחיצה נוספת תמחק':'מחיקה'}</button>`:''}</span></div>`).join('')}</div>`:'<p class="muted">אין דוחות בחודש הזה.</p>'}</div>`}
 /* ---------- finance: confirms each shift report's cash deposit (shiftReports.finStatus pending|ok|issue) ---------- */
@@ -1574,7 +1575,7 @@ function sheetSrView(){const r=srFind(S.sheet.id);if(!r)return sheetHead('דוח
   <div class="srv-top">${r.unusual?'<span class="pill bad">היו אירועים חריגים</span>':'<span class="pill ok">משמרת תקינה</span>'}${r.__pub?'':finPill(r)}</div>
   <div class="srv-grid">
     ${r.__pub?'':`<div class="srv-sec"><h3>קופה</h3>${row('קרן קופה',ils(+r.float||0))}${r.r420!=null?row('מזומן לפי דוח 420',ils(+r.r420||0)):''}${row('מזומן שהופקד',ils(+r.cash||0))}${row('סליקה באשראי',ils(+r.credit||0))}${r.gap?row('פער',ils(r.gap),'bad')+`<p class="srv-note bad">${esc(r.gapNote||'')}</p>`:''}</div>`}
-    <div class="srv-sec"><h3>מספרים</h3>${r.booking!=null?row('הודעות בוקינג',n(r.booking)):''}${r.ciLeft!=null?row('צ׳ק אין שנשארו להיום',n(r.ciLeft)):''}${r.coLeft!=null?row('צ׳ק אאוט שנשארו',n(r.coLeft)):''}${r.cid!=null?row('צ׳ק אין דורמס',n(r.cid)):''}${r.ci!=null?row('צ׳ק אין'+(r.cid!=null?' פרייבט':''),n(r.ci)):''}${r.co!=null?row('צ׳ק אאוט',n(r.co)):''}</div>
+    <div class="srv-sec"><h3>מספרים</h3>${r.booking!=null?row('הודעות בוקינג שלא נענו',n(r.booking)):''}${r.arsona!=null?row('פניות פתוחות ארסונה',n(r.arsona)):''}${r.ciLeft!=null?row('צ׳ק אין שנשארו להיום',n(r.ciLeft)):''}${r.coLeft!=null?row('צ׳ק אאוט שנשארו',n(r.coLeft)):''}${r.cid!=null?row('צ׳ק אין דורמס',n(r.cid)):''}${r.ci!=null?row('צ׳ק אין'+(r.cid!=null?' פרייבט':''),n(r.ci)):''}${r.co!=null?row('צ׳ק אאוט',n(r.co)):''}</div>
     ${list('חדרים OOO',r.ooo)}${list('תקלות פתוחות',r.faults)}${list('אבדות ומציאות',r.lost)}${(r.cmp||[]).length?list('תלונות אורחים על חדר',r.cmp):''}
   </div>
   ${r.unusual?`<div class="srv-sec srv-bad"><h3>⚠ אירועים חריגים</h3><p style="white-space:pre-wrap;margin:0">${esc(r.details||'')}</p></div>`:''}
@@ -2535,8 +2536,9 @@ const ACT={
     const shift=g('shift',srDefShift()),rows=l=>(g(l,[])||[]).map(x=>({room:String(x.room||'').trim(),note:String(x.note||'').trim()})).filter(x=>x.room||x.note);
     if([...rows('ooo'),...rows('faults'),...rows('lost'),...rows('cmp')].some(x=>!x.room)){toast('צריך מספר חדר בכל שורה של חדרים, תקלות או אבדות');return}
     const num=k=>{const v=String(g(k,'')).trim();return v===''?null:Math.max(0,Math.round(+v)||0)},hs=isHostel(h);
-    const extra={ooo:rows('ooo'),faults:rows('faults'),lost:rows('lost'),cmp:rows('cmp'),booking:num('booking')};
-    if(extra.booking==null){toast('צריך למלא כמה הודעות בוקינג היו (אפשר 0)');return}
+    const extra={ooo:rows('ooo'),faults:rows('faults'),lost:rows('lost'),cmp:rows('cmp'),booking:num('booking'),arsona:num('arsona')};
+    if(extra.booking==null){toast('צריך למלא כמה הודעות בוקינג לא נענו (אפשר 0)');return}
+    if(extra.arsona==null){toast('צריך למלא כמה פניות פתוחות יש בארסונה (אפשר 0)');return}
     if(shift!=='night'){extra.ciLeft=num('ciLeft');if(extra.ciLeft==null){toast('צריך למלא כמה צ׳ק אין נשארו להיום');return}}
     if(shift==='night'){extra.ci=num('ci');extra.co=num('co');if(hs)extra.cid=num('cid');if(extra.ci==null||extra.co==null||(hs&&extra.cid==null)){toast('במשמרת לילה צריך למלא כמה צ׳ק אין וכמה צ׳ק אאוט היום');return}}
     if(shift==='morning'){extra.coLeft=num('coLeft');if(extra.coLeft==null){toast('במשמרת בוקר צריך למלא כמה צ׳ק אאוט נשאר');return}}
@@ -2629,7 +2631,7 @@ document.addEventListener('click',e=>{const t=e.target.closest('[data-act]');if(
 /* ---------- boot ---------- */
 // Owner only: make sure every record carries the hotel it belongs to, so the security rules can scope managers per hotel.
 // one-time copy of existing shift reports to shiftReportsPub (new ones are mirrored by the server)
-const SR_PUB=['hotel','month','date','shift','name','empUid','ooo','faults','lost','cmp','booking','ciLeft','coLeft','ci','co','cid','unusual','details','createdAt','by'];
+const SR_PUB=['hotel','month','date','shift','name','empUid','ooo','faults','lost','cmp','booking','arsona','ciLeft','coLeft','ci','co','cid','unusual','details','createdAt','by'];
 async function srPubBackfill(){try{if(localStorage.getItem('srPubDone')==='1')return}catch(_){ }
   try{const [q,p]=await Promise.all([fdb.collection('shiftReports').get(),fdb.collection('shiftReportsPub').get()]);const have=new Set(p.docs.map(d=>d.id));let b=fdb.batch(),n=0;
     for(const d of q.docs){if(have.has(d.id))continue;const r=d.data(),o={};SR_PUB.forEach(k=>{if(r[k]!==undefined)o[k]=r[k]});b.set(fdb.doc('shiftReportsPub/'+d.id),o);if(++n%400===0){await b.commit();b=fdb.batch()}}

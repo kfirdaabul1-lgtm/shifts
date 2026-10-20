@@ -146,7 +146,7 @@ exports.driveBackup = functions.region(REGION).runWith({ timeoutSeconds: 300, me
 // ---------- shift reports without money, for the reception desk ----------
 // Reception sees earlier shift reports of its hotel (handover), but not the amounts. Firestore rules can't hide fields,
 // so every report is mirrored to shiftReportsPub/{id} without the cash/credit fields; deleting the report deletes the copy.
-const PUB_KEYS = ['hotel', 'month', 'date', 'shift', 'name', 'empUid', 'ooo', 'faults', 'lost', 'cmp', 'booking', 'ciLeft', 'coLeft', 'ci', 'co', 'cid', 'unusual', 'details', 'createdAt', 'by'];
+const PUB_KEYS = ['hotel', 'month', 'date', 'shift', 'name', 'empUid', 'ooo', 'faults', 'lost', 'cmp', 'booking', 'arsona', 'ciLeft', 'coLeft', 'ci', 'co', 'cid', 'unusual', 'details', 'createdAt', 'by'];
 exports.mirrorShiftReport = trig('shiftReports/{id}').onWrite(async (ch, ctx) => {
   const ref = db.doc('shiftReportsPub/' + ctx.params.id);
   if (!ch.after.exists) { await ref.delete().catch(() => {}); return; }

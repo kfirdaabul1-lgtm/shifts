@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202610202050"></script>
+<script src="i18n.js?v=202610202100"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -201,7 +201,7 @@ table.plain th.num{text-align:end}
 .hk-vc{background:#1D734A;color:#fff;border-color:#1D734A}.hk-vi{background:#FACC15;color:#3b2f00;border-color:#EAB308}.hk-vd{background:#C2410C;color:#fff;border-color:#C2410C}.hk-ooo{background:#3F3F46;color:#fff;border-color:#3F3F46}
 .hk-room.hk-vc .hk-o,.hk-room.hk-vd .hk-o,.hk-room.hk-ooo .hk-o{background:rgba(255,255,255,.9);color:#111}
 .hk-o-oc{background:#1E40AF!important;color:#fff!important}.hk-o-res{background:#7C3AED!important;color:#fff!important}.hk-o-co{background:#0E7490!important;color:#fff!important}.hk-o-empty{background:var(--sunk)!important;color:var(--ink)!important}
-.hk-p.hk-o-oc,.hk-p.hk-o-res,.hk-p.hk-o-co{border-color:transparent}.hk-fl{position:absolute;top:3px;inset-inline-end:4px;display:flex;gap:2px}.hk-f{font-size:.6rem;font-weight:800;padding:0 4px;border-radius:5px;line-height:1.5}.hk-f.big{font-size:.85rem;padding:3px 8px}.hk-vip{background:#BE185D!important;color:#fff!important;border-color:#BE185D!important}.hk-bk{background:#0A2463!important;color:#fff!important;border-color:#0A2463!important}.hk-a{font-size:.62rem;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;opacity:.9}.hk-mine{box-shadow:0 0 0 3px var(--brass)}.hk-n{display:inline-block;min-width:18px;padding:0 5px;border-radius:9px;background:var(--sunk);color:var(--ink);font-size:.75rem;margin-inline-start:4px}.hk-minecard{border-color:var(--brass)}.hk-cfg{border-top:1px dashed var(--line);padding-top:10px;margin-top:10px}
+.hk-p.hk-o-oc,.hk-p.hk-o-res,.hk-p.hk-o-co{border-color:transparent}.hk-fl{display:flex;flex-wrap:wrap;gap:2px;justify-content:center}.hk-pax{background:#065F46!important;color:#fff!important;border-color:#065F46!important}.hk-twin{background:#9A3412!important;color:#fff!important;border-color:#9A3412!important}.hk-cot{background:#FDE2E4!important;color:#7f1d1d!important;border-color:#F9A8B4!important}.hk-f{font-size:.6rem;font-weight:800;padding:0 4px;border-radius:5px;line-height:1.5}.hk-f.big{font-size:.85rem;padding:3px 8px}.hk-vip{background:#BE185D!important;color:#fff!important;border-color:#BE185D!important}.hk-bk{background:#0A2463!important;color:#fff!important;border-color:#0A2463!important}.hk-a{font-size:.62rem;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;opacity:.9}.hk-mine{box-shadow:0 0 0 3px var(--brass)}.hk-n{display:inline-block;min-width:18px;padding:0 5px;border-radius:9px;background:var(--sunk);color:var(--ink);font-size:.75rem;margin-inline-start:4px}.hk-minecard{border-color:var(--brass)}.hk-cfg{border-top:1px dashed var(--line);padding-top:10px;margin-top:10px}
 .panel.big{width:min(1000px,100%);max-height:96vh;font-size:1.06rem}
 @media (min-width:720px){.panel.big{width:min(1000px,94vw);min-height:70vh}}
 .srv-top{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
@@ -1397,6 +1397,8 @@ const finPendingN=h=>Object.values((S.alertFin||{})[h]||{}).filter(r=>r.finStatu
    An assigned worker gets a push (functions onHkAssign). */
 const HK_CLEAN=[['vc','VC','חדר נקי'],['vi','VI','נקי מאתמול'],['vd','VD','חדר מלוכלך'],['ooo','OOO','תקלה תחזוקתית']];
 const HK_OCC=[['oc','OC','תפוס'],['co','C/O','צ׳ק אאוט'],['res','RES','הזמנה'],['empty','ריק','ריק']];
+// guest marks and room set-up, set by reception: VIP, Booking, twin beds, baby cot; pax = 3 or 4 guests
+const HK_FLAGS=['vip','bk','twin','cot'];
 const HK_CN=Object.fromEntries(HK_CLEAN.map(x=>[x[0],x])),HK_ON=Object.fromEntries(HK_OCC.map(x=>[x[0],x]));
 function hkPreset(h){const n=String(hotelName(h)||'').toLowerCase();
   if(/סיז|seas/.test(n))return {rooms:'101-119 -113 -117\n201-219 -213 -217\n301-314 -313\n401-403'};
@@ -1436,14 +1438,15 @@ function hkCrew(h,d){const B=briefLoad(h,d),sched=B.sched||{},rq=B.reqs||[],on={
   return {on:by(Object.keys(on)).map(u=>({u,t:on[u]})),others:by(others)}}
 // one write per tap: merge only this room's fields (works whether today's doc exists or not)
 function hkSet(h,room,kind,val){const d=todayISO(),D=(S.hkDays||{})[h+'|'+d]||{},FV=firebase.firestore.FieldValue,now=Date.now(),who=S.meName||S.email||'';
-  if((kind==='occ'||kind==='vip'||kind==='bk')&&!hkFull(h)){toast('רק הקבלה מעדכנת את מצב ההזמנה ואת סימון האורחים');return}
+  if((kind==='occ'||HK_FLAGS.includes(kind)||kind==='pax')&&!hkFull(h)){toast('רק הקבלה מעדכנת את מצב ההזמנה ואת סימון האורחים');return}
   if(kind==='asg'&&!hkLead(h)){toast('אין לך הרשאה לשבץ חדרים');return}
-  if(kind==='vip'||kind==='bk')val=(D[kind]||{})[room]?'':true;
+  if(HK_FLAGS.includes(kind))val=(D[kind]||{})[room]?'':true;
+  if(kind==='pax'){val=+val||'';if((D.pax||{})[room]===val)val=''}
   const del=!val,X=v=>del?FV.delete():v,o={hotel:h,date:d,updatedAt:now};
   if(kind==='clean')Object.assign(o,{clean:{[room]:X(val)},cleanBy:{[room]:X(who)},cleanAt:{[room]:X(now)}});
   else if(kind==='occ')Object.assign(o,{occ:{[room]:X(val)},occBy:{[room]:X(who)},occAt:{[room]:X(now)}});
   else if(kind==='asg')Object.assign(o,{asg:{[room]:X(val)},asgName:{[room]:X(empName(val))},asgAt:{[room]:X(now)}});
-  else o[kind]={[room]:X(true)};
+  else o[kind]={[room]:X(kind==='pax'?val:true)};
   // show it right away; the live listener confirms
   const loc={...D};loc[kind]={...(D[kind]||{})};if(del)delete loc[kind][room];else loc[kind][room]=val;if(kind==='asg'){loc.asgName={...(D.asgName||{})};if(del)delete loc.asgName[room];else loc.asgName[room]=empName(val)}
   S.hkDays[h+'|'+d]=loc;render();
@@ -1451,8 +1454,8 @@ function hkSet(h,room,kind,val){const d=todayISO(),D=(S.hkDays||{})[h+'|'+d]||{}
 const hkFirst=n=>String(n||'').trim().split(/\s+/)[0]||'';
 function hkTile(h,r,D){const c=(D.clean||{})[r],o=(D.occ||{})[r],a=(D.asg||{})[r],cl=c?HK_CN[c]:null,oc=o?HK_ON[o]:null,f=S.hkF||{};
   if(f.c&&(f.c==='none'?c:c!==f.c))return '';if(f.o&&(f.o==='none'?o:o!==f.o))return '';
-  if(f.g==='vip'&&!(D.vip||{})[r])return '';if(f.g==='bk'&&!(D.bk||{})[r])return '';if(f.g==='mine'&&a!==S.uid)return '';if(f.g==='noasg'&&a)return '';
-  const flags=((D.vip||{})[r]?'<span class="hk-f hk-vip">VIP</span>':'')+((D.bk||{})[r]?'<span class="hk-f hk-bk">B</span>':'');
+  if(['vip','bk','twin','cot'].includes(f.g)&&!(D[f.g]||{})[r])return '';if((f.g==='p3'||f.g==='p4')&&+(D.pax||{})[r]!==+f.g.slice(1))return '';if(f.g==='mine'&&a!==S.uid)return '';if(f.g==='noasg'&&a)return '';
+  const flags=((D.vip||{})[r]?'<span class="hk-f hk-vip">VIP</span>':'')+((D.bk||{})[r]?'<span class="hk-f hk-bk">B</span>':'')+((D.pax||{})[r]?`<span class="hk-f hk-pax">${+D.pax[r]}</span>`:'')+((D.twin||{})[r]?'<span class="hk-f hk-twin">TW</span>':'')+((D.cot||{})[r]?'<span class="hk-f hk-cot">👶</span>':'');
   return `<button class="hk-room hk-${c||'none'}${a===S.uid?' hk-mine':''}" data-act="hk-room" data-r="${esc(r)}" data-h="${h}" aria-label="חדר ${esc(r)}"><b>${esc(r)}</b><span class="hk-c">${cl?cl[1]:'—'}</span>${oc?`<span class="hk-o hk-o-${o}">${oc[1]}</span>`:''}${flags?`<span class="hk-fl">${flags}</span>`:''}${a?`<span class="hk-a">${esc(hkFirst((D.asgName||{})[r]||empName(a)))}</span>`:''}</button>`}
 function vHk(){const hs=hkHotels();if(!hs.length)return wrap(emptyBox('אין מלונות בהרשאה',''));
   if(!hs.includes(S.hkH))S.hkH=hs.includes(S.hotel)?S.hotel:hs[0];const h=S.hkH,d=todayISO(),D=hkSub(h,d)||null,full=hkFull(h),lead=hkLead(h);
@@ -1468,7 +1471,7 @@ function vHk(){const hs=hkHotels();if(!hs.length)return wrap(emptyBox('אין מ
   const mine=all.filter(r=>(D.asg||{})[r]===S.uid),nV=all.filter(r=>(D.vip||{})[r]).length,nB=all.filter(r=>(D.bk||{})[r]).length,nA=all.filter(r=>!(D.asg||{})[r]).length;
   const kpis=`<div class="card"><h3>מצב ניקיון ותחזוקה</h3><div class="hk-ks">${HK_CLEAN.map(([v,c,n])=>kc(v,`${c} · ${n}`,'hk-'+v)).join('')}${kc('none','ללא סטטוס','hk-none')}</div>
     <h3 style="margin-top:12px">מצב הזמנה</h3><div class="hk-ks">${HK_OCC.map(([v,c,n])=>ko(v,v==='empty'?'ריק':`${c} · ${n}`)).join('')}${ko('none','לא עודכן')}</div>
-    <h3 style="margin-top:12px">אורחים ושיבוץ</h3><div class="hk-ks">${kg('vip','VIP · אורח חשוב',nV)}${kg('bk','Booking',nB)}${mine.length?kg('mine','החדרים שלי',mine.length):''}${lead?kg('noasg','לא משובצים',nA):''}</div>
+    <h3 style="margin-top:12px">אורחים ושיבוץ</h3><div class="hk-ks">${kg('vip','VIP · אורח חשוב',nV)}${kg('bk','Booking',nB)}${kg('p3','3 אורחים',all.filter(r=>+(D.pax||{})[r]===3).length)}${kg('p4','4 אורחים',all.filter(r=>+(D.pax||{})[r]===4).length)}${kg('twin','Twin',all.filter(r=>(D.twin||{})[r]).length)}${kg('cot','Baby cot',all.filter(r=>(D.cot||{})[r]).length)}${mine.length?kg('mine','החדרים שלי',mine.length):''}${lead?kg('noasg','לא משובצים',nA):''}</div>
     ${f.c||f.o||f.g?'<div class="actions" style="margin-top:8px"><button class="btn sm ghost" data-act="hk-f" data-m="x">הצגת כל החדרים</button></div>':''}</div>`;
   const myCard=mine.length?`<div class="card hk-minecard"><h3>החדרים שלי היום · ${mine.length}</h3><div class="hk-grid">${mine.map(r=>hkTile(h,r,{...D})).join('')}</div><p class="muted" style="font-size:.82rem;margin:6px 0 0">מסיימים חדר? לוחצים עליו ומסמנים VC.</p></div>`:'';
   const p=S.hkPaint||'';
@@ -1481,29 +1484,31 @@ function vHk(){const hs=hkHotels();if(!hs.length)return wrap(emptyBox('אין מ
   const paint=`<div class="card hk-paint"><h3 style="margin:0 0 4px">עדכון מהיר</h3><p class="muted" style="font-size:.85rem;margin:0 0 8px">${p?'לוחצים על החדרים כדי לסמן אותם. לחיצה נוספת על הכפתור מפסיקה.':'בוחרים סטטוס ואז לוחצים על חדרים כדי לסמן כמה בבת אחת. בלי בחירה, לחיצה על חדר פותחת אותו.'}</p>
     <div class="hk-ks">${HK_CLEAN.map(([v,c])=>`<button class="hk-p hk-${v} ${p==='clean:'+v?'on':''}" data-act="hk-paint" data-v="clean:${v}">${c}</button>`).join('')}<button class="hk-p ${p==='clean:'?'on':''}" data-act="hk-paint" data-v="clean:">ניקוי ✕</button>
     ${full?`<span class="hk-sep"></span>${HK_OCC.map(([v,c])=>`<button class="hk-p hk-o-${v} ${p==='occ:'+v?'on':''}" data-act="hk-paint" data-v="occ:${v}">${c}</button>`).join('')}<button class="hk-p ${p==='occ:'?'on':''}" data-act="hk-paint" data-v="occ:">הזמנה ✕</button>
-    <span class="hk-sep"></span><button class="hk-p hk-vip ${p==='vip:1'?'on':''}" data-act="hk-paint" data-v="vip:1">VIP</button><button class="hk-p hk-bk ${p==='bk:1'?'on':''}" data-act="hk-paint" data-v="bk:1">Booking</button>`:''}</div>
-    ${full?'<p class="muted" style="font-size:.8rem;margin:6px 0 0">VIP ו-Booking: לחיצה על חדר מסמנת, ולחיצה נוספת מורידה את הסימון.</p>':''}</div>`;
+    <span class="hk-sep"></span><button class="hk-p hk-vip ${p==='vip:1'?'on':''}" data-act="hk-paint" data-v="vip:1">VIP</button><button class="hk-p hk-bk ${p==='bk:1'?'on':''}" data-act="hk-paint" data-v="bk:1">Booking</button>
+    <span class="hk-sep"></span><button class="hk-p hk-pax ${p==='pax:3'?'on':''}" data-act="hk-paint" data-v="pax:3">3</button><button class="hk-p hk-pax ${p==='pax:4'?'on':''}" data-act="hk-paint" data-v="pax:4">4</button><button class="hk-p hk-twin ${p==='twin:1'?'on':''}" data-act="hk-paint" data-v="twin:1">Twin</button><button class="hk-p hk-cot ${p==='cot:1'?'on':''}" data-act="hk-paint" data-v="cot:1">👶 Baby cot</button>`:''}</div>
+    ${full?'<p class="muted" style="font-size:.8rem;margin:6px 0 0">VIP, Booking, 3, 4, Twin ו-Baby cot: לחיצה על חדר מסמנת, ולחיצה נוספת מורידה את הסימון.</p>':''}</div>`;
   const floors={};R.rooms.forEach(r=>{const fl=r.length>2?r.slice(0,r.length-2):'0';(floors[fl]=floors[fl]||[]).push(r)});
   const grid=Object.entries(floors).sort((a,b)=>+a[0]-+b[0]).map(([fl,rs])=>{const t=rs.map(r=>hkTile(h,r,D)).join('');return t?`<div class="hk-floor"><h4>קומה ${esc(fl)}</h4><div class="hk-grid">${t}</div></div>`:''}).join('');
   const dg=R.dorms.map(r=>{const t=R.bedsOf[r].map(b=>hkTile(h,b,D)).join('');return t?`<div class="hk-floor"><h4>${p&&R.beds?`<button class="btn sm ghost" data-act="hk-droom" data-r="${esc(r)}" data-h="${h}">חדר ${esc(r)} · סימון כל המיטות</button>`:`חדר ${esc(r)}`}</h4><div class="hk-grid">${t}</div></div>`:''}).join('');
   const rooms=`<div class="card">${R.dorms.length?'<h3>חדרים פרטיים</h3>':''}${grid||'<p class="muted">אין חדרים בסינון הזה.</p>'}${R.dorms.length?`<h3 style="margin-top:14px">חדרי דורמס${R.beds?` · ${R.beds} מיטות בחדר, כל מיטה בנפרד`:''}</h3>${dg||'<p class="muted">אין חדרים בסינון הזה.</p>'}`:''}</div>`;
   const staff=Object.entries(S.emps||{}).filter(([,e])=>(e.hotel||'main')===h&&(e.depts||[]).includes('housekeeping')&&!e.mgmt).map(([,e])=>esc(e.name||'')).filter(Boolean).sort((a,b)=>a.localeCompare(b,'he'));
   const staffCard=!lead&&staff.length?`<div class="card"><h3>צוות משק</h3><p style="margin:0">${staff.join(' · ')}</p></div>`:'';
-  const legend=`<p class="muted" style="font-size:.82rem">${HK_CLEAN.map(([,c,n])=>`<b>${c}</b> ${n}`).join(' · ')} · ${HK_OCC.map(([v,c,n])=>v==='empty'?'<b>ריק</b> אין הזמנה':`<b>${c}</b> ${n}`).join(' · ')} · <b>VIP</b> אורח חשוב · <b>B</b> אורח Booking${full?'':' · מצב ההזמנה מתעדכן על ידי הקבלה'}</p>`;
+  const legend=`<p class="muted" style="font-size:.82rem">${HK_CLEAN.map(([,c,n])=>`<b>${c}</b> ${n}`).join(' · ')} · ${HK_OCC.map(([v,c,n])=>v==='empty'?'<b>ריק</b> אין הזמנה':`<b>${c}</b> ${n}`).join(' · ')} · <b>VIP</b> אורח חשוב · <b>B</b> אורח Booking · <b>3</b>/<b>4</b> אורחים · <b>TW</b> Twin · <b>👶</b> Baby cot${full?'':' · מצב ההזמנה מתעדכן על ידי הקבלה'}</p>`;
   return wrap(head+myCard+kpis+crewCard+paint+rooms+legend+staffCard)}
 function sheetHk(){const {h,r}=S.sheet,d=todayISO(),D=(S.hkDays||{})[h+'|'+d]||{},c=(D.clean||{})[r],o=(D.occ||{})[r],a=(D.asg||{})[r],full=hkFull(h),lead=hkLead(h),R=hkRooms(h),dorm=!!R.bedOf[r]&&!R.rooms.includes(r),bedNo=dorm&&R.beds?r.slice(R.bedOf[r].length):'';
-  const t=x=>x?new Date(x).toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'}):'',vip=!!(D.vip||{})[r],bk=!!(D.bk||{})[r];
+  const t=x=>x?new Date(x).toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'}):'',vip=!!(D.vip||{})[r],bk=!!(D.bk||{})[r],pax=+(D.pax||{})[r]||0,tw=!!(D.twin||{})[r],cot=!!(D.cot||{})[r];
   let asgHTML='';
   if(lead){const C=hkCrew(h,d),opts=C.on.map(x=>x.u).concat(C.others);if(a&&!opts.includes(a))opts.unshift(a);
     asgHTML=`<label class="f">שיבוץ לעובד משק<select data-hkasg="1">${['<option value="">ללא שיבוץ</option>'].concat(opts.map(u=>`<option value="${u}" ${u===a?'selected':''}>${esc(empName(u))}${C.on.some(x=>x.u===u)?' · במשמרת':''}</option>`)).join('')}</select></label>`}
   else if(a)asgHTML=`<p style="margin:0">משובץ ל: <b>${esc((D.asgName||{})[r]||empName(a))}</b></p>`;
   return sheetHead(bedNo?`מיטה ${esc(r)}`:`חדר ${esc(r)}${dorm?' · דורמס':''}`,esc(hotelName(h))+(bedNo?` · דורמס ${esc(R.bedOf[r])}, מיטה ${esc(bedNo)}`:''))+`
-  ${vip||bk?`<div class="hk-ks">${vip?'<span class="hk-f hk-vip big">VIP · אורח חשוב</span>':''}${bk?'<span class="hk-f hk-bk big">אורח Booking</span>':''}</div>`:''}
+  ${vip||bk||pax||tw||cot?`<div class="hk-ks">${vip?'<span class="hk-f hk-vip big">VIP · אורח חשוב</span>':''}${bk?'<span class="hk-f hk-bk big">אורח Booking</span>':''}${pax?`<span class="hk-f hk-pax big">${pax} אורחים</span>`:''}${tw?'<span class="hk-f hk-twin big">Twin · מיטות נפרדות</span>':''}${cot?'<span class="hk-f hk-cot big">👶 Baby cot</span>':''}</div>`:''}
   <div class="f"><span>מצב ניקיון / תחזוקה</span><div class="hk-ks">${HK_CLEAN.map(([v,cc,n])=>`<button class="hk-p hk-${v} ${c===v?'on':''}" data-act="hk-set" data-k="clean" data-v="${v}"><b>${cc}</b> ${n}</button>`).join('')}${c?'<button class="hk-p" data-act="hk-set" data-k="clean" data-v="">ניקוי ✕</button>':''}</div>
   ${c&&(D.cleanBy||{})[r]?`<small class="muted">עודכן ע״י ${esc(D.cleanBy[r])} ב-${t((D.cleanAt||{})[r])}</small>`:''}</div>
   <div class="f"><span>מצב הזמנה</span>${full?`<div class="hk-ks">${HK_OCC.map(([v,cc,n])=>`<button class="hk-p hk-o-${v} ${o===v?'on':''}" data-act="hk-set" data-k="occ" data-v="${v}"><b>${cc}</b>${v==='empty'?'':' '+n}</button>`).join('')}${o?'<button class="hk-p" data-act="hk-set" data-k="occ" data-v="">ניקוי ✕</button>':''}</div>`:`<p style="margin:0"><b>${o?HK_ON[o][1]:'לא עודכן'}</b> <span class="muted">· הקבלה מעדכנת</span></p>`}
   ${o&&(D.occBy||{})[r]?`<small class="muted">עודכן ע״י ${esc(D.occBy[r])} ב-${t((D.occAt||{})[r])}</small>`:''}</div>
-  ${full?`<div class="f"><span>סימון אורח</span><div class="hk-ks"><button class="hk-p hk-vip ${vip?'on':''}" data-act="hk-set" data-k="vip" data-v="1">${vip?'✓ ':''}VIP · אורח חשוב</button><button class="hk-p hk-bk ${bk?'on':''}" data-act="hk-set" data-k="bk" data-v="1">${bk?'✓ ':''}אורח Booking</button></div></div>`:''}
+  ${full?`<div class="f"><span>סימון אורח</span><div class="hk-ks"><button class="hk-p hk-vip ${vip?'on':''}" data-act="hk-set" data-k="vip" data-v="1">${vip?'✓ ':''}VIP · אורח חשוב</button><button class="hk-p hk-bk ${bk?'on':''}" data-act="hk-set" data-k="bk" data-v="1">${bk?'✓ ':''}אורח Booking</button></div></div>
+  <div class="f"><span>הכנת החדר</span><div class="hk-ks"><button class="hk-p hk-pax ${pax===3?'on':''}" data-act="hk-set" data-k="pax" data-v="3">${pax===3?'✓ ':''}3 אורחים</button><button class="hk-p hk-pax ${pax===4?'on':''}" data-act="hk-set" data-k="pax" data-v="4">${pax===4?'✓ ':''}4 אורחים</button><button class="hk-p hk-twin ${tw?'on':''}" data-act="hk-set" data-k="twin" data-v="1">${tw?'✓ ':''}Twin</button><button class="hk-p hk-cot ${cot?'on':''}" data-act="hk-set" data-k="cot" data-v="1">${cot?'✓ ':''}👶 Baby cot</button></div></div>`:''}
   ${asgHTML}
   ${c==='ooo'?'<p class="muted" style="font-size:.85rem;margin:0">יש בעיה בחדר? כדאי לפתוח תקלה בעמוד האחזקה כדי שיטפלו בה.</p>':''}
   <div class="actions"><button class="btn pri" data-act="close">סגירה</button></div>`}
@@ -2117,7 +2122,7 @@ const ACT={
   'hk-f':D=>{const f={...(S.hkF||{})};if(D.m==='x'){S.hkF={};render();return}f[D.m]=f[D.m]===D.v?'':D.v;S.hkF=f;render()},
   'hk-paint':D=>{S.hkPaint=S.hkPaint===D.v?'':D.v;render()},
   'hk-more':()=>{S.hkMore=!S.hkMore;render()},
-  'hk-droom':D=>{const p=S.hkPaint;if(!p)return;const [k,v]=p.split(':'),R=hkRooms(D.h);(R.bedsOf[D.r]||[]).forEach(b=>{if(k==='vip'||k==='bk'){const cur=!!((((S.hkDays||{})[D.h+'|'+todayISO()]||{})[k]||{})[b]);if(cur)return}hkSet(D.h,b,k,v)})},
+  'hk-droom':D=>{const p=S.hkPaint;if(!p)return;const [k,v]=p.split(':'),R=hkRooms(D.h);(R.bedsOf[D.r]||[]).forEach(b=>{if(HK_FLAGS.includes(k)||k==='pax'){const cur=((((S.hkDays||{})[D.h+'|'+todayISO()]||{})[k]||{})[b]);if(k==='pax'?+cur===+v:!!cur)return}hkSet(D.h,b,k,v)})},
   'hk-room':D=>{const p=S.hkPaint;if(p){const [k,v]=p.split(':');hkSet(D.h,D.r,k,v);return}S.sheet={type:'hk',h:D.h,r:D.r};render()},
   'hk-set':D=>{hkSet(S.sheet.h,S.sheet.r,D.k,D.v)},
   'hk-cfg-save':D=>{const h=D.h,v=k=>{const el=document.querySelector(`[data-hkc="${h}|${k}"]`);return el?el.value:''};const o={hotel:h,rooms:v('rooms').trim(),dorms:v('dorms').trim(),beds:Math.max(0,+v('beds')||0),updatedAt:Date.now()};

@@ -399,7 +399,8 @@ service cloud.firestore {
     // אחזקה ומנהלים רואים ומעדכנים; הקבלה פותחת תקלות (מדוח משמרת) ורואה אותן; מחיקה רק למנהלים
     match /faults/{id} {
       allow read: if maintIn(resource.data.hotel) || frontIn(resource.data.hotel);
-      allow create: if isOwner() || ((maintIn(request.resource.data.hotel) || frontIn(request.resource.data.hotel))
+      allow create: if isOwner() || ((maintIn(request.resource.data.hotel) || frontIn(request.resource.data.hotel)
+          || (request.resource.data.get('source', '') == 'hk' && hkWorkIn(request.resource.data.hotel)))
         && request.resource.data.status == 'open' && request.resource.data.openedBy == request.auth.uid);
       allow update: if maintIn(resource.data.hotel) && maintIn(request.resource.data.hotel);
       allow delete: if manages(resource.data.hotel) || gmIn(resource.data.hotel);

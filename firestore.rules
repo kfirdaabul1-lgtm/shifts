@@ -376,18 +376,25 @@ service cloud.firestore {
     match /hk/{id} {
       allow read: if signedIn() && hkWorkIn(id.split('__')[0]);
       allow create: if request.resource.data.hotel == id.split('__')[0] && (hkFullIn(request.resource.data.hotel)
-        || (hkLeadIn(request.resource.data.hotel) && request.resource.data.keys().hasOnly(['hotel', 'date', 'carried', 'lastBy', 'clean', 'cleanBy', 'cleanAt', 'start', 'done', 'asg', 'asgName', 'asgAt', 'updatedAt']))
-        || (hkWorkIn(request.resource.data.hotel) && request.resource.data.keys().hasOnly(['hotel', 'date', 'carried', 'lastBy', 'clean', 'cleanBy', 'cleanAt', 'start', 'done', 'updatedAt'])));
+        || (hkLeadIn(request.resource.data.hotel) && request.resource.data.keys().hasOnly(['hotel', 'date', 'carried', 'lastBy', 'clean', 'cleanBy', 'cleanAt', 'start', 'done', 'doneBy', 'asg', 'asgName', 'asgAt', 'updatedAt']))
+        || (hkWorkIn(request.resource.data.hotel) && request.resource.data.keys().hasOnly(['hotel', 'date', 'carried', 'lastBy', 'clean', 'cleanBy', 'cleanAt', 'start', 'done', 'doneBy', 'updatedAt'])));
       allow update: if request.resource.data.hotel == resource.data.hotel && (hkFullIn(resource.data.hotel)
-        || (hkLeadIn(resource.data.hotel) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['carried', 'lastBy', 'clean', 'cleanBy', 'cleanAt', 'start', 'done', 'asg', 'asgName', 'asgAt', 'updatedAt']))
-        || (hkWorkIn(resource.data.hotel) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['carried', 'lastBy', 'clean', 'cleanBy', 'cleanAt', 'start', 'done', 'updatedAt'])));
+        || (hkLeadIn(resource.data.hotel) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['carried', 'lastBy', 'clean', 'cleanBy', 'cleanAt', 'start', 'done', 'doneBy', 'asg', 'asgName', 'asgAt', 'updatedAt']))
+        || (hkWorkIn(resource.data.hotel) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['carried', 'lastBy', 'clean', 'cleanBy', 'cleanAt', 'start', 'done', 'doneBy', 'updatedAt'])));
       allow delete: if manages(resource.data.hotel) || gmIn(resource.data.hotel);
     }
     // זמני ניקיון (התחלה–סיום) לכל חדר: העובד כותב את שלו, רק מנהלים קוראים (ממוצע לעובד)
     match /hkLog/{id} {
       allow read: if manages(resource.data.hotel) || gmIn(resource.data.hotel) || canCeo();
-      allow create, update: if hkWorkIn(request.resource.data.hotel) && request.resource.data.uid == request.auth.uid;
+      allow create, update: if isOwner() || (hkWorkIn(request.resource.data.hotel) && request.resource.data.uid == request.auth.uid);
       allow delete: if manages(resource.data.hotel) || gmIn(resource.data.hotel);
+    }
+    // תלונות אורחים על חדר (מדוח סיכום משמרת), נרשמות על המנקה: הקבלה כותבת, רק מנהלים קוראים
+    match /hkComplaints/{id} {
+      allow read: if manages(resource.data.hotel) || gmIn(resource.data.hotel) || canCeo();
+      allow create: if isOwner() || ((frontIn(request.resource.data.hotel) || manages(request.resource.data.hotel) || gmIn(request.resource.data.hotel))
+        && request.resource.data.by == request.auth.uid);
+      allow update, delete: if manages(resource.data.hotel) || gmIn(resource.data.hotel);
     }
     // רשימת החדרים של כל מלון
     match /hkcfg/{h} {

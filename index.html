@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202610200110"></script>
+<script src="i18n.js?v=202610201510"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1497,7 +1497,7 @@ function vProfile(){
 /* ---------- sheets ---------- */
 function renderSheet(){
   const el=$('#sheet');if(!S.sheet){el.hidden=true;el.innerHTML='';return}
-  let h='';if(S.sheet.type==='perm')h=sheetPerm();else if(S.sheet.type==='cell')h=sheetCell();else if(S.sheet.type==='emp')h=sheetEmp();else if(S.sheet.type==='send')h=sheetSend();else if(S.sheet.type==='remind')h=sheetRemind();else if(S.sheet.type==='camp')h=sheetCamp();else if(S.sheet.type==='sup')h=sheetSup();else if(S.sheet.type==='inv')h=sheetInv();else if(S.sheet.type==='stock')h=sheetStock();else if(S.sheet.type==='preq')h=sheetPreq();else if(S.sheet.type==='swap')h=sheetSwap();else if(S.sheet.type==='iospush')h=sheetIosPush();else if(S.sheet.type==='pushask')h=sheetPushAsk();else if(S.sheet.type==='srview')h=sheetSrView();
+  let h='';if(S.sheet.type==='perm')h=sheetPerm();else if(S.sheet.type==='cell')h=sheetCell();else if(S.sheet.type==='emp')h=sheetEmp();else if(S.sheet.type==='send')h=sheetSend();else if(S.sheet.type==='remind')h=sheetRemind();else if(S.sheet.type==='camp')h=sheetCamp();else if(S.sheet.type==='sup')h=sheetSup();else if(S.sheet.type==='inv')h=sheetInv();else if(S.sheet.type==='stock')h=sheetStock();else if(S.sheet.type==='preq')h=sheetPreq();else if(S.sheet.type==='swap')h=sheetSwap();else if(S.sheet.type==='iospush')h=sheetIosPush();else if(S.sheet.type==='pushask')h=sheetPushAsk();else if(S.sheet.type==='srview')h=sheetSrView();else if(S.sheet.type==='bkauto')h=sheetBkAuto();
   if(!h){S.sheet=null;el.hidden=true;return}
   el.innerHTML=`<div class="panel${S.sheet.type==='srview'?' big':''}" role="dialog" aria-modal="true">${h}</div>`;el.hidden=false;
 }
@@ -1665,12 +1665,57 @@ function joinCodeHTML(){const c={...cfg(),joinCode:validCode()};
   <div class="actions" style="align-items:center">${c.joinCode?`<b class="code">${esc(c.joinCode)}</b>`:'<span class="muted">עוד אין קוד</span>'}<button class="btn" data-act="join-new">${c.joinCode?'החלפת קוד':'יצירת קוד'}</button></div>`}
 // full backup (owner): every collection to one JSON file in the same format the import reads
 const BACKUP_COLLS=['hotels','settings','employees','mgr','avail','shifts','schedule','requests','roles','joinCodes','config','menus','contracts','quotes','campaigns','suppliers','invoices','expcfg','inventory','purchaseReqs','shiftReports','faults'];
-const lastBackup=()=>{try{return +localStorage.getItem('scLastBackup')||0}catch(_){return 0}};
+const lastBackup=()=>{let l=0;try{l=+localStorage.getItem('scLastBackup')||0}catch(_){ }bkCfgLoad();return Math.max(l,+(S.bkCfg&&S.bkCfg.lastAt)||0)};
+// daily automatic backup to the owner's Google Drive: an Apps Script in their Drive calls the driveBackup function with the key in backupcfg/main
+const BK_FN='https://europe-west1-'+((CFG.firebase&&CFG.firebase.projectId)||'hotel-shifts')+'.cloudfunctions.net/driveBackup';
+function bkCfgLoad(force){if(!S.isOwner||(S.bkCfg!==undefined&&!force)||S.bkCfgLoading)return;S.bkCfgLoading=true;
+  fdb.doc('backupcfg/main').get().then(d=>{S.bkCfg=d.exists?d.data():null}).catch(()=>{S.bkCfg=null}).finally(()=>{S.bkCfgLoading=false;render()})}
+function bkKey(){const a=new Uint8Array(24);crypto.getRandomValues(a);return Array.from(a,b=>b.toString(16).padStart(2,'0')).join('')}
+function bkScript(key){return `// Seven Collection – גיבוי יומי אוטומטי לגוגל דרייב
+const URL_ = '${BK_FN}?key=${key}';
+const FOLDER = 'Seven Collection גיבויים';
+const KEEP_DAYS = 30;
+
+function backup() {
+  const r = UrlFetchApp.fetch(URL_, {muteHttpExceptions: true});
+  if (r.getResponseCode() !== 200) throw new Error('הגיבוי נכשל: ' + r.getResponseCode() + ' ' + r.getContentText().slice(0, 200));
+  const it = DriveApp.getFoldersByName(FOLDER);
+  const folder = it.hasNext() ? it.next() : DriveApp.createFolder(FOLDER);
+  const name = 'seven-backup-' + Utilities.formatDate(new Date(), 'Asia/Jerusalem', 'yyyy-MM-dd') + '.json';
+  folder.createFile(Utilities.newBlob(r.getContent(), 'application/json', name));
+  const old = Date.now() - KEEP_DAYS * 864e5, files = folder.getFiles();
+  while (files.hasNext()) { const f = files.next(); if (f.getDateCreated().getTime() < old) f.setTrashed(true); }
+}
+
+function setup() {
+  ScriptApp.getProjectTriggers().forEach(t => ScriptApp.deleteTrigger(t));
+  ScriptApp.newTrigger('backup').timeBased().everyDays(1).atHour(3).create();
+  backup();
+}
+`}
+function autoBackupHTML(){bkCfgLoad();const c=S.bkCfg;if(c===undefined)return `<div class="card"><h3>גיבוי אוטומטי לגוגל דרייב</h3><p class="muted">טוען…</p></div>`;
+  const has=!!(c&&c.key),last=c&&c.lastAt;
+  return `<div class="card"><h3>גיבוי אוטומטי לגוגל דרייב</h3><p class="muted" style="font-size:.85rem">פעם ביום, ב-3 בלילה, נשמר קובץ גיבוי מלא בתיקייה "Seven Collection גיבויים" בגוגל דרייב שלך. נשמרים 30 הימים האחרונים. ההגדרה נעשית פעם אחת (בערך 3 דקות, עדיף ממחשב).</p>
+  <p style="font-size:.9rem">${last?`גיבוי אוטומטי אחרון: <b>${new Date(last).toLocaleString('he-IL',{dateStyle:'short',timeStyle:'short'})}</b>${c.lastCount?` · ${c.lastCount} רשומות`:''}`:has?'הוגדר, עוד לא רץ גיבוי אוטומטי.':'עוד לא הוגדר.'}</p>
+  <div class="actions"><button class="btn ${has?'':'pri'}" data-act="bk-auto">${has?'הוראות וקוד ההתקנה':'הגדרת גיבוי אוטומטי'}</button>${has?`<button class="btn ghost" data-act="bk-rekey">${S.confirm==='bkrekey'?'לחיצה נוספת תחליף את המפתח':'החלפת מפתח'}</button>`:''}</div></div>`}
+function sheetBkAuto(){const k=S.bkCfg&&S.bkCfg.key;if(!k)return sheetHead('גיבוי אוטומטי לגוגל דרייב','')+'<p class="muted">טוען…</p>';
+  return sheetHead('גיבוי אוטומטי לגוגל דרייב','הגדרה חד־פעמית. עדיף ממחשב.')+`
+  <ol style="padding-inline-start:20px;line-height:1.9;margin:0">
+   <li>לוחצים <b>העתקת הקוד</b> כאן למטה.</li>
+   <li>פותחים את <a href="https://script.google.com/home/projects/create" target="_blank" rel="noopener"><b>script.google.com</b></a> עם חשבון הגוגל שבו רוצים את הגיבויים. נפתח פרויקט חדש.</li>
+   <li>מוחקים את כל מה שכתוב שם, מדביקים את הקוד (Ctrl+V) ולוחצים על אייקון השמירה 💾.</li>
+   <li>למעלה, ליד כפתור <b>Run</b>, בוחרים בתיבה את <b>setup</b> ולוחצים <b>Run</b>.</li>
+   <li>גוגל מבקש אישור: <b>Review permissions</b> ← בוחרים את החשבון ← <b>Advanced</b> ← <b>Go to … (unsafe)</b> ← <b>Allow</b>. זה הסקריפט שלך, וזה בטוח.</li>
+   <li>אחרי כמה שניות נוצרת בדרייב התיקייה <b>Seven Collection גיבויים</b> עם הגיבוי הראשון, ומעכשיו זה קורה לבד כל לילה.</li>
+  </ol>
+  <p class="muted" style="font-size:.82rem;margin:0">הקוד מכיל מפתח סודי שמאפשר להוריד את כל הנתונים, כולל שכר. לא שולחים אותו לאף אחד. אם הוא דלף, לוחצים "החלפת מפתח" ומתקינים שוב.</p>
+  <textarea readonly id="bk_code" dir="ltr" style="width:100%;min-height:150px;font:12px/1.4 ui-monospace,monospace">${esc(bkScript(k))}</textarea>
+  <div class="actions"><button class="btn pri" data-act="bk-copy">העתקת הקוד</button><button class="btn" data-act="close">סגירה</button></div>`}
 function backupHTML(){const lb=lastBackup();return `<div class="card"><h3>גיבוי</h3><p class="muted" style="font-size:.85rem">מוריד קובץ אחד עם כל הנתונים במערכת: עובדים, שכר, סידורים, אירועים, חשבוניות, מלאי, תקלות ודוחות. שומרים אותו במקום בטוח (מחשב, Google Drive). אפשר לשחזר ממנו דרך "ייבוא נתונים" שמתחת. כשעובר שבוע מהגיבוי האחרון, האתר מזכיר לך.</p>
   <p style="font-size:.9rem">${lb?`גיבוי אחרון מהמכשיר הזה: <b>${new Date(lb).toLocaleDateString('he-IL')}</b>`:'עוד לא נעשה גיבוי מהמכשיר הזה.'}</p>
   <label class="check"><input type="checkbox" id="bk_img" ${dv('bk','img',false)?'checked':''} data-f="bk.img"> כולל צילומי החשבוניות (קובץ גדול יותר)</label>
   <div class="actions"><button class="btn pri" data-act="backup-now">הורדת גיבוי מלא</button><button class="btn" data-act="backup-drive">שיתוף לגוגל דרייב</button></div>
-  ${S.bkFile?`<div class="notice" style="display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-top:8px"><span>הגיבוי מוכן. לוחצים "שיתוף" ובוחרים Drive.</span><button class="btn sm pri" data-act="backup-share">שיתוף</button></div>`:''}</div>`}
+  ${S.bkFile?`<div class="notice" style="display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-top:8px"><span>הגיבוי מוכן. לוחצים "שיתוף" ובוחרים Drive.</span><button class="btn sm pri" data-act="backup-share">שיתוף</button></div>`:''}</div>`+autoBackupHTML()}
 async function backupNow(mode){if(!S.isOwner)return;if(S.backingUp)return;S.backingUp=true;toast('מכין גיבוי… זה יכול לקחת כמה שניות');
   const out={exportedAt:new Date().toISOString(),by:S.email,collections:{}},cols=BACKUP_COLLS.concat(dv('bk','img',false)?['invoiceImgs']:[]);let n=0;
   try{for(const c of cols){const q=await fdb.collection(c).get();out.collections[c]=q.docs.map(d=>({id:d.id,data:d.data()}));n+=q.size;
@@ -1933,6 +1978,10 @@ const ACT={
   'order-done':D=>{const h=D.h,items=(S.stockAll||{})[h]||{},lines=Object.entries((S.preqAll||{})[h]||{}).filter(([,r])=>r.status==='approved'&&(r.supplier||items[r.itemId]?.supplier||'')===D.s);
     for(const [rid,r] of lines){const doc={...r,status:'ordered',orderedAt:Date.now(),handledBy:S.uid};S.preqAll[h]={...S.preqAll[h],[rid]:doc};save('purchaseReqs/'+rid,doc)}render();toast(`סומן שהוזמן · ${lines.length} פריטים`)},
   'backup-now':()=>backupNow(),
+  'bk-auto':async()=>{if(!(S.bkCfg&&S.bkCfg.key)){const key=bkKey();try{await fdb.doc('backupcfg/main').set({key,createdAt:Date.now(),by:S.uid},{merge:true});S.bkCfg={...(S.bkCfg||{}),key}}catch(e){toast('לא הצלחתי לשמור: '+errMsg(mapErr(e)));return}}S.sheet={type:'bkauto'};render()},
+  'bk-rekey':async()=>{if(S.confirm!=='bkrekey'){S.confirm='bkrekey';render();return}S.confirm=null;const key=bkKey();try{await fdb.doc('backupcfg/main').set({key,createdAt:Date.now(),by:S.uid},{merge:true});S.bkCfg={...(S.bkCfg||{}),key};S.sheet={type:'bkauto'};render();toast('המפתח הוחלף. המפתח הישן כבר לא עובד, צריך להדביק את הקוד החדש בסקריפט')}catch(e){toast('לא הצלחתי לשמור: '+errMsg(mapErr(e)))}},
+  'bk-copy':async()=>{const t=bkScript(S.bkCfg.key);try{await navigator.clipboard.writeText(t);toast('הקוד הועתק')}catch(_){const ta=$('#bk_code');if(ta){ta.focus();ta.select()}toast('סמנו את הקוד והעתיקו ידנית')}},
+
   'backup-drive':()=>{let canFiles=false;try{canFiles=!!(navigator.canShare&&navigator.canShare({files:[new File(['{}'],'t.json',{type:'application/json'})]}))}catch(_){ }
     if(!canFiles)window.open('https://drive.google.com/drive/my-drive','_blank');backupNow('drive')},
   'backup-share':async()=>{const f=S.bkFile;if(!f)return;try{await navigator.share({files:[f],title:f.name});S.bkFile=null;render();toast('נשלח. ודאו שהקובץ נשמר בדרייב.')}catch(e){if(e&&e.name==='AbortError')return;toast('השיתוף נכשל. נסו "הורדת גיבוי מלא" והעלו ידנית.')}},

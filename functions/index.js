@@ -104,3 +104,34 @@ exports.onStock = trig('inventory/{id}').onWrite(async (ch) => {
   if (!low(a) || low(b)) return;
   return sendTo(await roleHolders(a.hotel, ['gm', 'shifts'], a.dept), { title: 'פריט הגיע למינימום', body: `${a.name || ''} · נשארו ${+a.qty || 0}${a.unit ? ' ' + a.unit : ''} (מינימום ${+a.min})`, hash: '#stock', tag: 'st-' + ch.after.id });
 });
+
+// ---------- daily backup to the owner's Google Drive ----------
+// A small Google Apps Script in the owner's own Drive calls this once a day with the key stored in backupcfg/main
+// (only the owner can read or change it) and saves the JSON it gets into a Drive folder. Same format as the
+// "גיבוי" button on the Permissions page, so the Import card can restore it. Invoice images are left out (size).
+const BACKUP_COLLS = ['hotels', 'settings', 'employees', 'mgr', 'avail', 'shifts', 'schedule', 'requests', 'roles', 'joinCodes', 'config', 'menus', 'contracts', 'quotes', 'campaigns', 'suppliers', 'invoices', 'expcfg', 'inventory', 'purchaseReqs', 'shiftReports', 'faults'];
+const plain = (v) => {
+  if (v instanceof admin.firestore.Timestamp) return { seconds: v.seconds, nanoseconds: v.nanoseconds };
+  if (Array.isArray(v)) return v.map(plain);
+  if (v && typeof v === 'object') { const o = {}; for (const k of Object.keys(v)) o[k] = plain(v[k]); return o; }
+  return v;
+};
+exports.driveBackup = functions.region(REGION).runWith({ timeoutSeconds: 300, memory: '512MB' }).https.onRequest(async (req, res) => {
+  try {
+    const cfg = await db.doc('backupcfg/main').get(), key = cfg.exists ? String(cfg.data().key || '') : '';
+    const got = String(req.query.key || req.get('x-backup-key') || '');
+    if (!key || key.length < 24 || got !== key) { res.status(403).send('forbidden'); return; }
+    const out = { exportedAt: new Date().toISOString(), by: 'auto-drive', collections: {} };
+    let n = 0;
+    for (const c of BACKUP_COLLS) {
+      const q = await db.collection(c).get();
+      out.collections[c] = q.docs.map((d) => ({ id: d.id, data: plain(d.data()) })); n += q.size;
+      if (c === 'quotes') for (const d of q.docs) {
+        const v = await d.ref.collection('versions').get();
+        if (v.size) { out.collections['quotes/' + d.id + '/versions'] = v.docs.map((x) => ({ id: x.id, data: plain(x.data()) })); n += v.size; }
+      }
+    }
+    await db.doc('backupcfg/main').set({ lastAt: Date.now(), lastCount: n }, { merge: true });
+    res.set('Content-Type', 'application/json; charset=utf-8').status(200).send(JSON.stringify(out));
+  } catch (e) { console.error('backup', e); res.status(500).send('error'); }
+});

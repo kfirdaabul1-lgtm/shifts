@@ -357,6 +357,10 @@ service cloud.firestore {
 
     // ---------- התראות לטלפון ----------
     // כל מכשיר שומר את הכתובת שלו לקבלת התראות; רק בעל החשבון (ובעל המערכת) רואה ומשנה. השליחה עצמה מהשרת.
+    // daily Drive backup: the secret key the Apps Script sends (only the owner sees it); the function writes lastAt
+    match /backupcfg/{id} {
+      allow read, write: if isOwner();
+    }
     match /pushTokens/{uid} {
       allow read, write: if signedIn() && (request.auth.uid == uid || isOwner());
     }

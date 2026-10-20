@@ -91,8 +91,15 @@ exports.onPurchaseReq = trig('purchaseReqs/{id}').onCreate(async (snap) => {
 });
 
 // ---------- new fault → maintenance + hotel managers ----------
+// reception desk accounts (roles with station: true) of a hotel
+async function stationsOf(hotel) {
+  const rs = await db.collection('roles').where('station', '==', true).get();
+  return rs.docs.filter((d) => (d.data().hotels || []).includes(hotel)).map((d) => d.id);
+}
 exports.onFault = trig('faults/{id}').onCreate(async (snap) => {
   const f = snap.data() || {};
+  const st = (await stationsOf(f.hotel)).filter((u) => u !== f.openedBy);
+  if (st.length) await sendTo(st, { title: 'נפתחה תקלה', body: `${f.room ? 'חדר ' + f.room + ' · ' : ''}${f.desc || ''}${f.openedByName ? ' · ' + f.openedByName : ''}`, hash: '#front', tag: 'ft-' + snap.id });
   return sendTo(await roleHolders(f.hotel, ['maint', 'gm', 'shifts'], 'maintenance'), { title: 'תקלה חדשה', body: `${f.room ? 'חדר ' + f.room + ' · ' : ''}${f.desc || ''} · ${await hotelName(f.hotel)}`, hash: '#maint', tag: 'ft-' + snap.id });
 });
 
@@ -185,4 +192,25 @@ exports.hkNightly = functions.region(REGION).pubsub.schedule('1 0 * * *').timeZo
   const today = ilDate(new Date()), yday = ilDate(new Date(Date.now() - 12 * 3600 * 1000));
   const hs = await db.collection('hotels').get();
   for (const d of hs.docs) { try { const n = await hkCarry(d.id, today, yday); if (n) console.log('hk carry', d.id, n); } catch (e) { console.error('hk carry', d.id, e); } }
+});
+
+// maintenance: a fault fixed → the hotel's reception desk
+exports.onFaultDone = trig('faults/{id}').onUpdate(async (ch) => {
+  const b = ch.before.data() || {}, a = ch.after.data() || {};
+  if (a.status !== 'done' || b.status === 'done') return;
+  const st = await stationsOf(a.hotel); if (!st.length) return;
+  return sendTo(st, { title: 'תקלה תוקנה ✓', body: `${a.room ? 'חדר ' + a.room + ' · ' : ''}${a.desc || ''}`, hash: '#front', tag: 'ft-' + ch.after.id });
+});
+
+// housekeeping: every cleaning update (status or "started cleaning") → the hotel's reception desk, except its own changes
+const HK_TXT = { vc: 'VC · חדר נקי', vi: 'VI · נקי מאתמול', vd: 'VD · חדר מלוכלך', ooo: 'OOO · תקלה תחזוקתית' };
+exports.onHkUpdate = trig('hk/{id}').onWrite(async (ch) => {
+  if (!ch.after.exists) return;
+  const b = ch.before.exists ? ch.before.data() : {}, a = ch.after.data() || {};
+  const st = (await stationsOf(a.hotel)).filter((u) => u !== a.lastBy); if (!st.length) return;
+  const lines = [], bc = b.clean || {}, ac = a.clean || {}, bs = b.start || {}, as = a.start || {}, who = a.cleanBy || {};
+  for (const [r, v] of Object.entries(ac)) if (bc[r] !== v && (who[r] || '') !== 'אוטומטי') lines.push(`חדר ${r}: ${HK_TXT[v] || v}${who[r] ? ' · ' + who[r] : ''}`);
+  for (const [r, v] of Object.entries(as)) if (bs[r] !== v && !(ac[r] && bc[r] !== ac[r])) lines.push(`חדר ${r}: התחיל ניקיון${(a.asgName || {})[r] ? ' · ' + a.asgName[r] : ''}`);
+  if (!lines.length) return;
+  return sendTo(st, { title: 'עדכון משק', body: lines.slice(0, 6).join('\n'), hash: '#hk', tag: 'hku-' + a.hotel + '-' + (lines.length === 1 ? lines[0].split(':')[0] : Date.now()) });
 });

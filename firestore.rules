@@ -306,6 +306,13 @@ service cloud.firestore {
       match /versions/{v} { allow read, write: if canEvents(); }
     }
 
+    // ---------- לידים ומכירות (CRM לאירועים) ----------
+    // אנשי האירועים מנהלים; סושיאל מדיה קורא, כדי לראות כמה לידים ואירועים הביא כל קמפיין
+    match /leads/{id} {
+      allow read: if canEvents() || canMkt();
+      allow write: if canEvents();
+    }
+
     // ---------- שיווק ----------
     match /campaigns/{id} { allow read, write: if canMkt(); }
 

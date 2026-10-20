@@ -1,4 +1,4 @@
-<!doctype html><html lang="he" dir="rtl"><head><meta name="theme-color" content="#1f5f6b"><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style><script src="i18n.js?v=202610202145"></script></head><body>
+<!doctype html><html lang="he" dir="rtl"><head><meta name="theme-color" content="#1f5f6b"><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style><script src="i18n.js?v=202610202200"></script></head><body>
 <style>
 .evtop{background:var(--surface);border-bottom:1px solid var(--line)}
 .evtop-in{max-width:1240px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:10px;padding-block:6px;padding-left:max(10px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
@@ -1046,6 +1046,15 @@ let cur=null;
 function lsGet(k,f){try{const v=localStorage.getItem(k);return v?JSON.parse(v):f}catch(e){return f}}
 function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
 
+// a lead from the leads page (index.html) opens here as a new quote: sc_leadPrefill in localStorage, used once within 10 minutes
+let leadPrefillDone=false;
+function leadPrefill(){if(leadPrefillDone)return;leadPrefillDone=true;let p=null;try{p=JSON.parse(localStorage.getItem('sc_leadPrefill')||'null');localStorage.removeItem('sc_leadPrefill')}catch(_){p=null}
+  if(!p||!p.leadId||Date.now()-(+p.ts||0)>6e5)return;
+  cur=blankQuote();viewingVer=null;qkOpen=false;cur.leadId=p.leadId;
+  Object.assign(cur.client,{name:p.name||'',phone:p.phone||'',email:p.email||'',company:p.company||''});
+  if(p.type)cur.event.type=p.type;if(p.date)cur.event.date=p.date;if(+p.guests)cur.event.guests=+p.guests;
+  if(p.venue&&VENUES.some(v=>v.id===p.venue)){cur.event.venue=p.venue;const v=VENUES.find(x=>x.id===p.venue);cur.event.areas=[];cur.event.area=''}
+  autoContract();fillForm();showTab('new');window.scrollTo(0,0);toast('נפתחה הצעה חדשה עם פרטי הליד')}
 function blankQuote(){
   return {id:null,num:null,status:'draft',createdAt:today(),updatedAt:null,
     client:{name:'',company:'',phone:'',email:''},
@@ -2160,8 +2169,8 @@ $('#syncState').textContent='';
     contracts=s.docs.map(d=>structuredClone(d.data()));
     if(!cur.id&&autoContract())fillContract();refresh();
     if(!$('#tab-contracts').hidden)renderContracts();
-    seedState.contracts=true;seedMenus();
-  },()=>{seedState.contracts=true;seedMenus()});
+    seedState.contracts=true;seedMenus();leadPrefill();
+  },()=>{seedState.contracts=true;seedMenus();leadPrefill()});
 })();
 </script>
 <script>

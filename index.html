@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202610202145"></script>
+<script src="i18n.js?v=202610202200"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -193,6 +193,11 @@ table.plain th.num{text-align:end}
 .panel{background:var(--surface);width:min(580px,100%);max-height:90vh;overflow:auto;border-radius:16px 16px 0 0;padding:18px max(18px,env(safe-area-inset-right,0px)) calc(22px + env(safe-area-inset-bottom,0px)) max(18px,env(safe-area-inset-left,0px));display:flex;flex-direction:column;gap:14px}
 @media (min-width:720px){.sheet{align-items:center}.panel{border-radius:16px}}
 body:has(.sheet:not([hidden])) .lang-toggle{display:none!important}
+.lead-pipe{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(220px,1fr);gap:10px;overflow-x:auto;padding-bottom:8px}
+.lead-col{background:var(--sunk);border-radius:12px;padding:8px;display:flex;flex-direction:column;gap:8px;min-height:120px}.lead-col-h{display:flex;justify-content:space-between;align-items:center;padding:2px 4px}
+.lead-col.lead-won{background:var(--ok-bg)}.lead-col.lead-lost{background:var(--bad-bg)}
+.lead-card{display:flex;flex-direction:column;align-items:flex-start;gap:3px;text-align:start;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:inherit;cursor:pointer;width:100%}
+.lead-card.late{border-color:var(--warn);box-shadow:0 0 0 2px var(--warn-bg)}.lead-card small{font-size:.8rem}.lead-tags{display:flex;flex-wrap:wrap;gap:4px}.lead-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px}.bad-t{color:var(--bad)}
 .hk-ks{display:flex;flex-wrap:wrap;gap:6px}.hk-sep{width:1px;background:var(--line);margin:0 4px}
 .hk-k{display:flex;flex-direction:column;align-items:flex-start;gap:2px;min-width:96px;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font:inherit;cursor:pointer}.hk-k span{font-size:.78rem;color:var(--muted)}.hk-k b{font-size:1.25rem}.hk-k.on{outline:3px solid var(--ink);outline-offset:1px}.hk-k.hk-vc span,.hk-k.hk-vd span,.hk-k.hk-ooo span{color:#fff;opacity:.9}.hk-k.hk-vi span{color:#3b2f00}
 .hk-p{padding:8px 12px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:inherit;font-weight:600;cursor:pointer;min-height:40px}.hk-p.on{outline:3px solid var(--ink);outline-offset:1px}
@@ -295,7 +300,7 @@ const KORD={m:0,d:1,s1:2,s2:3,e:4,n:5};
 const DEF_TIMES={m:{s:'07:00',e:'15:00'},d:{s:'10:00',e:'18:00'},e:{s:'15:00',e:'23:00'},n:{s:'23:00',e:'07:00'},s1:{s:'07:00',e:'11:00'},s2:{s:'17:00',e:'21:00'}};
 const DAYS=['ראשון','שני','שלישי','רביעי','חמישי','שישי','שבת'];
 const DAYS_S=['א׳','ב׳','ג׳','ד׳','ה׳','ו׳','ש׳'];
-const ICO={"hk":`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 18v-7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v7"/><path d="M3 14h18"/><path d="M7 9V6h4v3"/><path d="M3 18v2M21 18v2"/></svg>`,"fin":`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/></svg>`,"maint":`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z"/></svg>`,"front":`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 18h16M6 18a6 6 0 0 1 12 0M12 9V7M10 7h4"/></svg>`,"brief":`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>`,"gm":`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21h18M5 21V7l7-4 7 4v14"/><path d="M9 21v-5h6v5M9 10h.01M15 10h.01"/></svg>`,"stock":`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 8l-9-5-9 5v8l9 5 9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/></svg>`,"mkt":`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11v2a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg>`,"exp":`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6M9 16h3"/></svg>`,"ceo":`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>`,"shifts": `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>`, "events": `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 13h7M9 17h5"/></svg>`, "perms": `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M12 3l7 3v5c0 5-3 8-7 10-4-2-7-5-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg>`, "out": `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10"/></svg>`};
+const ICO={"leads":`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4h18l-7 8v6l-4 2v-8z"/></svg>`,"hk":`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 18v-7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v7"/><path d="M3 14h18"/><path d="M7 9V6h4v3"/><path d="M3 18v2M21 18v2"/></svg>`,"fin":`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/></svg>`,"maint":`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z"/></svg>`,"front":`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 18h16M6 18a6 6 0 0 1 12 0M12 9V7M10 7h4"/></svg>`,"brief":`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>`,"gm":`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21h18M5 21V7l7-4 7 4v14"/><path d="M9 21v-5h6v5M9 10h.01M15 10h.01"/></svg>`,"stock":`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 8l-9-5-9 5v8l9 5 9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/></svg>`,"mkt":`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11v2a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg>`,"exp":`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6M9 16h3"/></svg>`,"ceo":`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>`,"shifts": `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>`, "events": `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 13h7M9 17h5"/></svg>`, "perms": `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M12 3l7 3v5c0 5-3 8-7 10-4-2-7-5-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg>`, "out": `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10"/></svg>`};
 const BELL='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 17h16"/><path d="M6 17a6 6 0 0 1 12 0"/><path d="M12 8V6"/><path d="M10 6h4"/><path d="M3 20h18"/></svg>';
 
 /* dates */
@@ -328,7 +333,7 @@ function timesFor(dept,kind){const c=cfg(),t=(c.deptTimes||{})[dept]?.[kind];ret
 function kindsFor(dept){const k=(cfg().deptKinds||{})[dept];return Array.isArray(k)&&k.length?k:['m','e','n']}
 const hrsOf=(a,b)=>{a=toMin(a);b=toMin(b);if(b<=a)b+=1440;return (b-a)/60};
 const openWeek=()=>cfg().openWeek||addDays(weekOf(todayISO()),7);
-const APPTABS=['perms','ceo','mkt','exp','gm','stock','brief','front','maint','fin','hk'];
+const APPTABS=['perms','ceo','mkt','exp','gm','stock','brief','front','maint','fin','hk','leads'];
 const deptOk=k=>!S.deptOnly||S.myDepts.includes(k);
 const myDEPTS=()=>DEPTS.filter(d=>deptOk(d.k));
 const isActive=u=>S.mgr[u]?.active!==false;
@@ -405,6 +410,9 @@ document.addEventListener('change',e=>{const t=e.target;if(!t.matches)return;
   if(t.matches('[data-inv]')){const d=S.drafts.inv;if(!d)return;d[t.dataset.inv]=t.type==='checkbox'?t.checked:t.value;if(t.tagName==='SELECT'||t.type==='checkbox'||t.type==='date'){t.blur();render()}return}
   if(t.matches('[data-expf]')){S.expF[t.dataset.expf]=t.value;t.blur();render();return}
   if(t.id==='inv_img'&&t.files&&t.files[0]){const d=S.drafts.inv;toast('מעבד את הצילום…');compressImage(t.files[0]).then(u=>{S.invImg={id:d.id,data:u,changed:true};render()}).catch(()=>toast('לא הצלחתי לקרוא את התמונה'))}});
+document.addEventListener('change',e=>{const t=e.target;if(t.matches('[data-leadf]')&&t.tagName==='SELECT'){S.leadF[t.dataset.leadf]=t.value;t.blur();render()}
+  else if(t.matches('[data-leadq]')&&S.sheet&&S.sheet.type==='lead'&&t.value){const id=S.sheet.id,q=(S.lquotes||{})[t.value];const up={quoteId:t.value,quoteNum:(q&&q.num)||null,updatedAt:Date.now()};S.leads[id]={...S.leads[id],...up};fdb.doc('leads/'+id).set(up,{merge:true});t.blur();render();toast('ההצעה חוברה לליד')}});
+document.addEventListener('input',e=>{const t=e.target;if(t.matches('[data-leadf]')&&t.tagName==='INPUT'){S.leadF.q=t.value;clearTimeout(S.leadQT);S.leadQT=setTimeout(()=>{const el=document.activeElement,pos=el&&el.selectionStart;S.pending=false;renderTop();$('#main').innerHTML=viewHTML();const n=$('[data-leadf=q]');if(n){n.focus();try{n.setSelectionRange(pos,pos)}catch(_){ }}},250)}});
 document.addEventListener('change',e=>{if(e.target.matches('[data-hkhist]')){S.hkHistD=e.target.value||todayISO();e.target.blur();render()}});
 document.addEventListener('change',e=>{if(e.target.matches('[data-hkasg]')&&S.sheet&&S.sheet.type==='hk'){hkSet(S.sheet.h,S.sheet.r,'asg',e.target.value);e.target.blur()}});
 document.addEventListener('change',e=>{if(e.target.matches('[data-mktf]')){S.mktF[e.target.dataset.mktf]=e.target.value;e.target.blur();render()}});
@@ -467,7 +475,7 @@ function renderTop(){
   ${S.ready&&!S.registering&&S.auth==='in'&&!APPTABS.includes(S.tab)?`<nav class="wrap tabs" aria-label="ניווט">${tabs.map(([k,n])=>`<button data-act="tab" data-t="${k}" ${S.tab===k?'aria-current="page"':''}>${n}</button>`).join('')}</nav>`:''}`;
 }
 function renderDrawer(){const el=$('#drawer');if(!S.menu||S.auth!=='in'){el.innerHTML='';return}
-  const items=S.registering?[]:S.station?[['front','קבלה','data-act="app-front"',S.tab==='front'],['hk','משק','data-act="app-hk"',S.tab==='hk']]:[['shifts','סידור עבודה','data-act="app-shifts"',!APPTABS.includes(S.tab)],S.can.events&&['events','אירועים','href="events.html"',false],S.can.front&&['front','קבלה','data-act="app-front"',S.tab==='front'],S.can.brief&&['brief','בריף יומי','data-act="app-brief"',S.tab==='brief'],S.can.gm&&['gm','מנהל מלון','data-act="app-gm"',S.tab==='gm'],S.can.ceo&&['ceo','מבט מנכ״ל','data-act="app-ceo"',S.tab==='ceo'],S.can.fin&&['fin','כספים'+(finPendingAll()?` (${finPendingAll()})`:''),'data-act="app-fin"',S.tab==='fin'],S.can.hk&&['hk','משק','data-act="app-hk"',S.tab==='hk'],S.can.maint&&['maint','אחזקה'+((S.can.gm||S.can.shifts||S.isOwner)&&openFaultsN()?` (${openFaultsN()} פתוחות)`:''),'data-act="app-maint"',S.tab==='maint'],S.can.stock&&['stock','מלאי'+((S.can.gm||S.can.shifts||S.isOwner)&&lowItems().length?` (${lowItems().length} במינימום)`:''),'data-act="app-stock"',S.tab==='stock'],S.can.mkt&&['mkt','סושיאל מדיה','data-act="app-mkt"',S.tab==='mkt'],S.can.exp&&['exp','הוצאות','data-act="app-exp"',S.tab==='exp'],S.can.perms&&['perms','הרשאות','data-act="app-perms"',S.tab==='perms']].filter(Boolean);
+  const items=S.registering?[]:S.station?[['front','קבלה','data-act="app-front"',S.tab==='front'],['hk','משק','data-act="app-hk"',S.tab==='hk']]:[['shifts','סידור עבודה','data-act="app-shifts"',!APPTABS.includes(S.tab)],S.can.events&&['events','אירועים','href="events.html"',false],S.can.events&&['leads','לידים ומכירות','data-act="app-leads"',S.tab==='leads'],S.can.front&&['front','קבלה','data-act="app-front"',S.tab==='front'],S.can.brief&&['brief','בריף יומי','data-act="app-brief"',S.tab==='brief'],S.can.gm&&['gm','מנהל מלון','data-act="app-gm"',S.tab==='gm'],S.can.ceo&&['ceo','מבט מנכ״ל','data-act="app-ceo"',S.tab==='ceo'],S.can.fin&&['fin','כספים'+(finPendingAll()?` (${finPendingAll()})`:''),'data-act="app-fin"',S.tab==='fin'],S.can.hk&&['hk','משק','data-act="app-hk"',S.tab==='hk'],S.can.maint&&['maint','אחזקה'+((S.can.gm||S.can.shifts||S.isOwner)&&openFaultsN()?` (${openFaultsN()} פתוחות)`:''),'data-act="app-maint"',S.tab==='maint'],S.can.stock&&['stock','מלאי'+((S.can.gm||S.can.shifts||S.isOwner)&&lowItems().length?` (${lowItems().length} במינימום)`:''),'data-act="app-stock"',S.tab==='stock'],S.can.mkt&&['mkt','סושיאל מדיה','data-act="app-mkt"',S.tab==='mkt'],S.can.exp&&['exp','הוצאות','data-act="app-exp"',S.tab==='exp'],S.can.perms&&['perms','הרשאות','data-act="app-perms"',S.tab==='perms']].filter(Boolean);
   el.innerHTML=`<div class="drawer-bg" data-act="menu-close"></div><nav class="drawer" aria-label="אפליקציות">
     <div class="drawer-h"><b>Seven Collection</b><button class="x" data-act="menu-close" aria-label="סגירה">×</button></div>
     <div class="drawer-who">${esc(S.meName||'')}${S.meName&&(S.email||S.phone)?'<br>':''}<bdi>${esc(S.email||S.phone||'')}</bdi></div>
@@ -491,7 +499,7 @@ function viewHTML(){
   if(!S.admin&&S.tab!=='mine'&&myPending().length){const b=`<div class="wrap" style="padding-top:12px"><div class="notice" style="display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap"><span>יש לך ${myPending().length} בקשות מהמנהל לשינוי משמרות</span><button class="btn sm pri" data-act="tab" data-t="mine">לצפייה ואישור</button></div></div>`;const v=viewInner();return b+v}
   return viewInner()}
 function viewInner(){
-  switch(S.tab){case 'sched':return vSched();case 'shifts':return vShifts();case 'staff':return vStaff();case 'costs':return vCosts();case 'settings':return vSettings();case 'perms':return S.can.perms?vPerms():'';case 'ceo':return S.can.ceo?vCeo():'';case 'mkt':return S.can.mkt?vMkt():'';case 'exp':return S.can.exp?vExp():'';case 'gm':return S.can.gm?vGm():'';case 'brief':return S.can.brief?vBrief():'';case 'front':return S.can.front?vFront():'';case 'maint':return S.can.maint?vMaint():'';case 'hk':return S.can.hk?vHk():'';case 'fin':return S.can.fin?vFin():'';case 'stock':return S.can.stock?vStock():'';
+  switch(S.tab){case 'sched':return vSched();case 'shifts':return vShifts();case 'staff':return vStaff();case 'costs':return vCosts();case 'settings':return vSettings();case 'perms':return S.can.perms?vPerms():'';case 'ceo':return S.can.ceo?vCeo():'';case 'mkt':return S.can.mkt?vMkt():'';case 'exp':return S.can.exp?vExp():'';case 'gm':return S.can.gm?vGm():'';case 'brief':return S.can.brief?vBrief():'';case 'front':return S.can.front?vFront():'';case 'maint':return S.can.maint?vMaint():'';case 'hk':return S.can.hk?vHk():'';case 'leads':return S.can.events?vLeads():'';case 'fin':return S.can.fin?vFin():'';case 'stock':return S.can.stock?vStock():'';
     case 'avail':return vAvail();case 'mine':return vMine();case 'daily':return vDailyEmp();case 'profile':return vProfile()}
   return '';
 }
@@ -868,12 +876,13 @@ function vMkt(){liveColl('camps','campaigns');
   const sum=list=>{const sp=list.reduce((a,[,c])=>a+(+c.spend||0),0),ld=list.reduce((a,[,c])=>a+(+c.leads||0),0),rv=list.reduce((a,[,c])=>a+(+c.revenue||0),0);return {sp,ld,rv,n:list.length}};
   const wk=all.filter(([,c])=>campWeek(c)===W),pw=all.filter(([,c])=>campWeek(c)===addDays(W,-7)),A=sum(wk),P=sum(pw);
   const chg=(a,b)=>b?` · ${a>=b?'▲':'▼'} ${Math.abs(Math.round((a-b)/b*100))}% משבוע קודם`:'';
-  const tabs=`<div class="chips" style="gap:6px;margin-top:8px"><button class="dchip ${f.view==='week'?'':'off'}" data-act="mkt-view" data-v="week">דוח שבועי</button><button class="dchip ${f.view==='year'?'':'off'}" data-act="mkt-view" data-v="year">סיכום לפי שבועות</button>
+  const tabs=`<div class="chips" style="gap:6px;margin-top:8px"><button class="dchip ${f.view==='week'?'':'off'}" data-act="mkt-view" data-v="week">דוח שבועי</button><button class="dchip ${f.view==='year'?'':'off'}" data-act="mkt-view" data-v="year">סיכום לפי שבועות</button><button class="dchip ${f.view==='leads'?'':'off'}" data-act="mkt-view" data-v="leads">מהקמפיין לאירוע</button>
     <select data-mktf="pl" style="width:auto"><option value="all">כל הפלטפורמות</option>${PLATFORMS.map(([k,n])=>`<option value="${k}" ${f.pl===k?'selected':''}>${n}</option>`).join('')}</select></div>`;
   const nav=`<div class="actions" style="align-items:center"><button class="btn sm" data-act="mkt-week" data-d="-7" aria-label="שבוע קודם">›</button><b class="mono">${weekLabel(W)}</b><button class="btn sm" data-act="mkt-week" data-d="7" aria-label="שבוע הבא">‹</button></div>`;
   const head=`<section class="head"><div class="head-t"><h1>סושיאל מדיה · דוחות שבועיים</h1><button class="btn pri" data-act="camp-new">+ דוח שבועי</button></div>${tabs}</section>`;
   if(S.campsErr)return wrap(head+`<div class="notice">לא הצלחתי לטעון: ${esc(S.campsErr)}</div>`);
   if(!S.campsReady)return wrap(head+'<p class="muted">טוען…</p>');
+  if(f.view==='leads')return wrap(head+mktLeadsHTML());
   if(f.view==='year'){const weeks=[...new Set(all.map(([,c])=>campWeek(c)))].sort().reverse();
     return wrap(head+(weeks.length?`<div class="card"><h3>לפי שבועות</h3><div class="scroll-x"><table class="plain"><thead><tr><th>שבוע</th><th class="num">דוחות</th><th class="num">הושקע</th><th class="num">לידים</th><th class="num">עלות לליד</th><th class="num">הכנסות</th><th class="num">החזר</th><th></th></tr></thead><tbody>
       ${weeks.map(w=>{const x=sum(all.filter(([,c])=>campWeek(c)===w));return `<tr><td class="mono">${weekLabel(w)}</td><td class="num">${x.n}</td><td class="num">${ils(x.sp)}</td><td class="num">${x.ld}</td><td class="num">${x.ld?ils(x.sp/x.ld):'—'}</td><td class="num">${ils(x.rv)}</td><td class="num">${x.sp?'×'+(x.rv/x.sp).toFixed(1):'—'}</td><td><button class="btn sm" data-act="mkt-go" data-w="${w}">פתיחה</button></td></tr>`}).join('')}</tbody></table></div></div>`:emptyBox('עוד אין דוחות','לוחצים "דוח שבועי" ומזינים את נתוני השבוע.')))}
@@ -893,6 +902,109 @@ function sheetCamp(){const id=S.sheet.id,c=(S.camps||{})[id]||{},g=k=>dv('camp',
   <label class="f">כמה כסף הכניס השבוע דרך מרכז ההזמנות (₪)<input type="number" min="0" id="cp_rv" data-f="camp.revenue" value="${esc(g('revenue'))}" inputmode="decimal"></label>
   <label class="f">הערות<input type="text" id="cp_nt" data-f="camp.notes" value="${esc(g('notes'))}"></label>
   <div class="actions"><button class="btn pri" data-act="camp-save">שמירה</button>${S.camps?.[id]?(S.confirm==='camp-del'?'<button class="btn danger" data-act="camp-del">לחיצה נוספת תמחק</button>':'<button class="btn ghost" data-act="camp-del">מחיקה</button>'):''}</div>`}
+/* ---------- leads & sales pipeline (CRM for events) ----------
+   leads/{id} {name, phone, email, company, type, date, guests, venue, source, campaign, stage, owner, ownerName, nextAt 'YYYY-MM-DD',
+     value, notes, acts:[{at, by, byName, kind, text}], quoteId, quoteNum, lostReason, wonAt, wonValue, createdAt, createdBy, updatedAt}
+   Stages follow the linked quote automatically (quote.leadId, or the same phone): sent → quote, approved → won, declined → lost.
+   "יצירת הצעת מחיר" hands the lead to events.html through localStorage (sc_leadPrefill) and the saved quote keeps leadId. */
+const LEAD_STAGES=[['new','ליד חדש'],['contacted','נוצר קשר'],['meeting','פגישה / סיור'],['quote','נשלחה הצעה'],['won','נסגר'],['lost','לא נסגר']];
+const LSTG=Object.fromEntries(LEAD_STAGES),LSTG_I=Object.fromEntries(LEAD_STAGES.map(([k],i)=>[k,i]));
+const LEAD_SRC=[['instagram','אינסטגרם'],['facebook','פייסבוק'],['google','גוגל'],['tiktok','טיקטוק'],['website','אתר'],['whatsapp','וואטסאפ'],['phone','טלפון'],['email','מייל'],['referral','המלצה'],['returning','לקוח חוזר'],['walkin','הגיע למקום'],['other','אחר']];
+const LSRC=Object.fromEntries(LEAD_SRC);
+const LEAD_ACTS=[['call','שיחה'],['whatsapp','וואטסאפ'],['email','מייל'],['meeting','פגישה / סיור'],['note','הערה']];
+const LACT=Object.fromEntries(LEAD_ACTS);
+const LEAD_LOST=['מחיר','תאריך תפוס','בחרו מקום אחר','לא ענו','האירוע בוטל','אחר'];
+const qTime=q=>typeof q.createdAt==='number'?q.createdAt:(Date.parse(q.createdAt||'')||0);
+const leadTel=p=>String(p||'').replace(/\D/g,'').replace(/^972/,'0').slice(-9);
+const leadOpen=l=>l.stage!=='won'&&l.stage!=='lost';
+const leadLate=l=>leadOpen(l)&&l.nextAt&&l.nextAt<=todayISO();
+function leadsSub(){liveColl('leads','leads');if(S.can.events)liveColl('lquotes','quotes')}
+// the quote that belongs to a lead: quote.leadId, the lead's quoteId, or the same phone number
+function leadQuote(id,l){const Q=S.lquotes||{};if(l.quoteId&&Q[l.quoteId])return [l.quoteId,Q[l.quoteId]];
+  const byLead=Object.entries(Q).find(([,q])=>q.leadId===id&&q.kind!=='group');if(byLead)return byLead;
+  const t=leadTel(l.phone);if(t.length<9)return null;
+  const m=Object.entries(Q).filter(([,q])=>q.kind!=='group'&&leadTel(q.client&&q.client.phone)===t&&qTime(q)>=(l.createdAt||0)-864e5*3).sort(([,a],[,b])=>qTime(b)-qTime(a));return m[0]||null}
+const quoteVal=q=>quoteNet(q,(S.lcfg&&S.lcfg.vat)||18);
+// keep stages in step with the quotes (events users only; writes only what changed)
+function leadsSync(){if(!S.can.events||!S.lquotesReady||!S.leadsReady)return;const now=Date.now();
+  for(const [id,l] of Object.entries(S.leads||{})){const lq=leadQuote(id,l);if(!lq)continue;const [qid,q]=lq,up={};
+    if(l.quoteId!==qid){up.quoteId=qid;up.quoteNum=q.num||null}
+    const st=q.status==='approved'?'won':q.status==='declined'?'lost':(q.status==='sent'&&LSTG_I[l.stage]<LSTG_I.quote)?'quote':null;
+    if(st&&st!==l.stage&&!(l.stage==='lost'&&st!=='won')){up.stage=st;if(st==='won')up.wonAt=now}
+    if(q.status==='approved'){const v=Math.round(quoteVal(q));if(v!==l.wonValue)up.wonValue=v}
+    if(Object.keys(up).length){up.updatedAt=now;S.leads[id]={...l,...up};fdb.doc('leads/'+id).set(up,{merge:true}).catch(()=>{})}}}
+function leadSave(){const id=S.sheet.id,l=(S.leads||{})[id]||{},d=S.drafts.lead||{},isNew=!(S.leads||{})[id],v=k=>d[k]!==undefined?d[k]:l[k];
+  const name=String(v('name')||'').trim();if(!name){toast('צריך למלא שם');return}
+  const own=leadOwners(),owner=v('owner')||S.uid,now=Date.now(),stage=v('stage')||'new';
+  const o={name,phone:String(v('phone')||'').trim(),email:String(v('email')||'').trim(),company:String(v('company')||'').trim(),type:String(v('type')||'').trim(),date:v('date')||'',guests:+v('guests')||0,venue:v('venue')||'',
+    source:v('source')||'',campaign:String(v('campaign')||'').trim(),stage,owner,ownerName:own[owner]||l.ownerName||'',nextAt:v('nextAt')||'',value:+v('value')||0,notes:String(v('notes')||''),lostReason:stage==='lost'?(v('lostReason')||''):'',updatedAt:now};
+  if(stage==='won'&&l.stage!=='won')o.wonAt=now;
+  if(isNew){o.createdAt=now;o.createdBy=S.uid;o.acts=[]}
+  S.leads[id]={...l,...o};S.drafts.lead=null;fdb.doc('leads/'+id).set(o,{merge:true}).then(()=>toast(isNew?'הליד נשמר':'נשמר'),e=>toast('השמירה נכשלה: '+errMsg(mapErr(e))));
+  if(isNew)render();else{S.sheet=null;render()}}
+function leadOwners(){const o={};o[S.uid]=S.meName||'אני';for(const [u,r] of Object.entries(S.roles||{}))if(roleApps(r).events&&S.emps[u])o[u]=empName(u);
+  for(const l of Object.values(S.leads||{}))if(l.owner&&!o[l.owner])o[l.owner]=l.ownerName||'';return o}
+function leadCard(id,l){const late=leadLate(l),lq=leadQuote(id,l),q=lq&&lq[1];
+  return `<button class="lead-card${late?' late':''}" data-act="lead-open" data-id="${id}"><b>${esc(l.name||'ללא שם')}</b>
+    <small>${esc([l.type,l.date?dm(l.date):'',+l.guests?l.guests+' אורחים':''].filter(Boolean).join(' · '))}</small>
+    <span class="lead-tags">${l.source?`<span class="pill">${esc(LSRC[l.source]||l.source)}</span>`:''}${l.campaign?`<span class="pill">${esc(l.campaign)}</span>`:''}${q?`<span class="pill ${q.status==='approved'?'ok':''}">הצעה #${esc(q.num||'')}</span>`:''}</span>
+    <small class="${late?'bad-t':'muted'}">${l.nextAt&&leadOpen(l)?`${late?'⚠ ':''}לחזור: ${dm(l.nextAt)}`:''}${l.ownerName?` · ${esc(l.ownerName)}`:''}</small>
+    ${l.stage==='won'&&l.wonValue?`<small><b>${ils(l.wonValue)}</b></small>`:+l.value?`<small class="muted">${ils(l.value)} צפוי</small>`:''}</button>`}
+function vLeads(){leadsSub();leadsSync();const f=S.leadF||(S.leadF={view:'pipe',own:'all',src:'all',q:''});
+  const head=`<section class="head"><div class="head-t"><h1>לידים ומכירות</h1><button class="btn pri" data-act="lead-new">+ ליד חדש</button></div>
+    <div class="chips" style="gap:6px;margin-top:8px"><button class="dchip ${f.view==='pipe'?'':'off'}" data-act="lead-view" data-v="pipe">פייפליין</button><button class="dchip ${f.view==='list'?'':'off'}" data-act="lead-view" data-v="list">רשימה</button>
+    <select data-leadf="own" style="width:auto"><option value="all">כל המטפלים</option><option value="me" ${f.own==='me'?'selected':''}>רק שלי</option></select>
+    <select data-leadf="src" style="width:auto"><option value="all">כל המקורות</option>${LEAD_SRC.map(([k,n])=>`<option value="${k}" ${f.src===k?'selected':''}>${n}</option>`).join('')}</select>
+    <input type="search" data-leadf="q" value="${esc(f.q||'')}" placeholder="חיפוש לפי שם, טלפון או חברה" style="max-width:240px"></div></section>`;
+  if(S.leadsErr)return wrap(head+`<div class="notice">לא הצלחתי לטעון: ${esc(S.leadsErr)}</div>`);
+  if(!S.leadsReady)return wrap(head+'<p class="muted">טוען…</p>');
+  const q=String(f.q||'').trim().toLowerCase(),qt=leadTel(q);
+  let all=Object.entries(S.leads||{}).filter(([,l])=>(f.own!=='me'||l.owner===S.uid)&&(f.src==='all'||l.source===f.src)&&(!q||[l.name,l.company,l.email].some(x=>String(x||'').toLowerCase().includes(q))||(qt.length>=4&&leadTel(l.phone).includes(qt))));
+  all.sort(([,a],[,b])=>(b.updatedAt||b.createdAt||0)-(a.updatedAt||a.createdAt||0));
+  const M=todayISO().slice(0,7),mon=t=>t&&new Date(t).toISOString().slice(0,7)===M;
+  const open=all.filter(([,l])=>leadOpen(l)),late=open.filter(([,l])=>leadLate(l)),wonM=all.filter(([,l])=>l.stage==='won'&&mon(l.wonAt||l.updatedAt)),newM=all.filter(([,l])=>mon(l.createdAt));
+  const won=all.filter(([,l])=>l.stage==='won').length,lost=all.filter(([,l])=>l.stage==='lost').length;
+  const k=`<div class="kpis">${kpi('לידים פתוחים',String(open.length),`${newM.length} חדשים החודש`)}${kpi('לחזור היום',String(late.length),late.length?'כולל באיחור':'אין',late.length?'bad':'ok')}${kpi('נסגרו החודש',String(wonM.length),ils(wonM.reduce((a,[,l])=>a+(+l.wonValue||0),0))+' לפני מע״מ')}${kpi('אחוז סגירה',won+lost?Math.round(won/(won+lost)*100)+'%':'—',`${won} נסגרו · ${lost} לא נסגרו`)}</div>`;
+  const today=late.length?`<div class="card" style="border-color:var(--warn)"><h3>לחזור היום · ${late.length}</h3><div class="lead-row">${late.sort(([,a],[,b])=>String(a.nextAt).localeCompare(String(b.nextAt))).map(([id,l])=>leadCard(id,l)).join('')}</div></div>`:'';
+  if(!Object.keys(S.leads||{}).length)return wrap(head+k+emptyBox('עוד אין לידים','כל פנייה של לקוח לאירוע נרשמת כאן כליד: מאיפה הגיע, מי מטפל ומתי לחזור אליו. כשנשלחת לו הצעה ונסגרת, הליד מתעדכן לבד.','<button class="btn pri" data-act="lead-new">+ ליד ראשון</button>'));
+  let body;
+  if(f.view==='list')body=`<div class="card"><div class="scroll-x"><table class="plain"><thead><tr><th>ליד</th><th>שלב</th><th>מקור</th><th>אירוע</th><th>לחזור</th><th>מטפל</th><th class="num">סכום</th></tr></thead><tbody>${all.map(([id,l])=>`<tr data-act="lead-open" data-id="${id}" style="cursor:pointer"><td><b>${esc(l.name||'')}</b>${l.company?`<div class="muted" style="font-size:.8rem">${esc(l.company)}</div>`:''}</td><td><span class="pill ${l.stage==='won'?'ok':l.stage==='lost'?'bad':''}">${LSTG[l.stage]||''}</span></td><td>${esc(LSRC[l.source]||'')}${l.campaign?`<div class="muted" style="font-size:.8rem">${esc(l.campaign)}</div>`:''}</td><td>${esc([l.type,l.date?dm(l.date):''].filter(Boolean).join(' · '))}</td><td class="${leadLate(l)?'bad-t':''}">${l.nextAt&&leadOpen(l)?dm(l.nextAt):''}</td><td>${esc(l.ownerName||'')}</td><td class="num">${l.stage==='won'?ils(l.wonValue||0):+l.value?ils(l.value):''}</td></tr>`).join('')}</tbody></table></div></div>`;
+  else body=`<div class="lead-pipe">${LEAD_STAGES.map(([s,n])=>{const L=all.filter(([,l])=>(l.stage||'new')===s),sum=L.reduce((a,[,l])=>a+(s==='won'?(+l.wonValue||0):(+l.value||0)),0);
+    return `<section class="lead-col lead-${s}"><div class="lead-col-h"><b>${n}</b><span class="muted">${L.length}${sum?' · '+ils(sum):''}</span></div>${L.slice(0,60).map(([id,l])=>leadCard(id,l)).join('')||'<p class="muted" style="font-size:.85rem;margin:6px 0">אין</p>'}</section>`}).join('')}</div>`;
+  return wrap(head+k+today+body)}
+function leadCamps(){const s=new Set();for(const c of Object.values(S.camps||{}))if(c.name)s.add(String(c.name).trim());for(const l of Object.values(S.leads||{}))if(l.campaign)s.add(l.campaign);return [...s].sort((a,b)=>a.localeCompare(b,'he'))}
+function sheetLead(){const id=S.sheet.id,l=(S.leads||{})[id]||{},isNew=!(S.leads||{})[id],g=(k,d='')=>dv('lead',k,l[k]??d);liveColl('camps','campaigns');
+  const st=g('stage','new'),own=leadOwners(),lq=isNew?null:leadQuote(id,l),q=lq&&lq[1],camps=leadCamps(),tel=leadTel(l.phone);
+  const acts=(l.acts||[]).slice().sort((a,b)=>(b.at||0)-(a.at||0));
+  const qOpts=Object.entries(S.lquotes||{}).filter(([,x])=>x.kind!=='group').sort(([,a],[,b])=>qTime(b)-qTime(a)).slice(0,80);
+  return sheetHead(isNew?'ליד חדש':esc(l.name||'ליד'),isNew?'פנייה של לקוח לאירוע':`${LSTG[l.stage]||''}${l.createdAt?' · נפתח '+new Date(l.createdAt).toLocaleDateString('he-IL'):''}`)+`
+  ${!isNew&&tel.length>=9?`<div class="actions"><a class="btn sm" href="tel:${esc(l.phone)}">📞 חיוג</a><a class="btn sm" href="https://wa.me/972${tel}" target="_blank" rel="noopener">וואטסאפ</a>${l.email?`<a class="btn sm" href="mailto:${esc(l.email)}">מייל</a>`:''}</div>`:''}
+  <div class="f"><span>שלב</span><div class="chips" style="gap:6px">${LEAD_STAGES.map(([k,n])=>`<button class="dchip ${st===k?'':'off'}" style="--h:${k==='won'?150:k==='lost'?5:210}" data-act="lead-stage" data-v="${k}">${n}</button>`).join('')}</div></div>
+  ${st==='lost'?`<label class="f">למה לא נסגר<select data-f="lead.lostReason"><option value="">בחירה…</option>${LEAD_LOST.map(x=>`<option ${g('lostReason')===x?'selected':''}>${x}</option>`).join('')}</select></label>`:''}
+  <div class="row"><label class="f">שם מלא<input type="text" data-f="lead.name" value="${esc(g('name'))}"></label><label class="f">טלפון<input type="tel" dir="ltr" data-f="lead.phone" value="${esc(g('phone'))}"></label></div>
+  <div class="row"><label class="f">אימייל<input type="email" dir="ltr" data-f="lead.email" value="${esc(g('email'))}"></label><label class="f">חברה<input type="text" data-f="lead.company" value="${esc(g('company'))}"></label></div>
+  <div class="row"><label class="f">סוג אירוע<input type="text" list="lead-types" data-f="lead.type" value="${esc(g('type'))}" placeholder="אירוע חברה, חתונה…"><datalist id="lead-types">${['אירוע חברה','חתונה','בר / בת מצווה','יום הולדת','אירוע פרטי','השקה','כנס'].map(x=>`<option value="${x}">`).join('')}</datalist></label><label class="f">תאריך מבוקש<input type="date" data-f="lead.date" value="${esc(g('date'))}"></label><label class="f" style="max-width:110px">אורחים<input type="number" min="0" data-f="lead.guests" value="${esc(g('guests'))}"></label></div>
+  <div class="row"><label class="f">מקום<select data-f="lead.venue"><option value="">עוד לא ידוע</option>${Object.entries(EV_VENUE).map(([k,n])=>`<option value="${k}" ${g('venue')===k?'selected':''}>${esc(n)}</option>`).join('')}</select></label><label class="f">סכום צפוי (₪, לפני מע״מ)<input type="number" min="0" data-f="lead.value" value="${esc(g('value'))}"></label></div>
+  <div class="row"><label class="f">מאיפה הגיע<select data-f="lead.source"><option value="">בחירה…</option>${LEAD_SRC.map(([k,n])=>`<option value="${k}" ${g('source')===k?'selected':''}>${n}</option>`).join('')}</select></label>
+  <label class="f">קמפיין<input type="text" list="lead-camps" data-f="lead.campaign" value="${esc(g('campaign'))}" placeholder="שם הקמפיין בסושיאל"><datalist id="lead-camps">${camps.map(x=>`<option value="${esc(x)}">`).join('')}</datalist></label></div>
+  <div class="row"><label class="f">מטפל/ת<select data-f="lead.owner">${Object.entries(own).map(([u,n])=>`<option value="${u}" ${(g('owner')||S.uid)===u?'selected':''}>${esc(n)}</option>`).join('')}</select></label><label class="f">לחזור ללקוח בתאריך<input type="date" data-f="lead.nextAt" value="${esc(g('nextAt'))}"></label></div>
+  <label class="f">הערות<textarea rows="2" data-f="lead.notes">${esc(g('notes'))}</textarea></label>
+  <div class="actions"><button class="btn pri" data-act="lead-save">שמירה</button>${isNew?'':`<button class="btn" data-act="lead-quote">${q?'פתיחת אפליקציית האירועים':'יצירת הצעת מחיר'}</button><button class="btn ghost" data-act="lead-del">${S.confirm==='lead-del'?'לחיצה נוספת תמחק':'מחיקה'}</button>`}</div>
+  ${isNew?'':`<div class="sep"></div><h3>הצעת מחיר</h3>${q?`<p style="margin:0"><b>הצעה #${esc(q.num||'')}</b> · ${esc({draft:'טיוטה',sent:'נשלחה',approved:'אושרה',declined:'נדחתה'}[q.status]||'')} · ${ils(quoteVal(q))} לפני מע״מ</p><p class="muted" style="font-size:.82rem;margin:4px 0 0">השלב של הליד מתעדכן לבד לפי ההצעה.</p>`:'<p class="muted" style="margin:0">עוד אין הצעה. "יצירת הצעת מחיר" פותחת הצעה חדשה עם פרטי הליד. הצעה עם אותו טלפון מתחברת לבד.</p>'}
+  ${S.can.events&&qOpts.length?`<label class="f" style="margin-top:8px">חיבור להצעה קיימת<select data-leadq="1"><option value="">${l.quoteId?'שינוי…':'בחירה…'}</option>${qOpts.map(([qid,x])=>`<option value="${qid}" ${l.quoteId===qid?'selected':''}>#${esc(x.num||'')} · ${esc((x.client&&x.client.name)||'')} · ${x.event&&x.event.date?dm(x.event.date):''}</option>`).join('')}</select></label>`:''}
+  <div class="sep"></div><h3>פעילות</h3>
+  <div class="row" style="align-items:flex-end"><label class="f" style="max-width:140px">סוג<select id="la_kind">${LEAD_ACTS.map(([k,n])=>`<option value="${k}">${n}</option>`).join('')}</select></label><label class="f" style="flex:3">מה היה<input type="text" id="la_text" placeholder="למשל: דיברנו, מחכה לאישור תקציב"></label><button class="btn" data-act="lead-act">הוספה</button></div>
+  ${acts.length?`<div class="plist">${acts.map(a=>`<div class="prow"><span class="who"><b>${esc(LACT[a.kind]||'')}</b> ${esc(a.text||'')}<small class="muted">${new Date(a.at).toLocaleString('he-IL',{dateStyle:'short',timeStyle:'short'})} · ${esc(a.byName||'')}</small></span></div>`).join('')}</div>`:'<p class="muted" style="margin:0">עוד אין פעילות.</p>'}`}`}
+// social media: what the campaigns really brought, from the leads that name them
+function mktLeadsHTML(){leadsSub();if(!S.leadsReady)return '<p class="muted">טוען לידים…</p>';if(S.leadsErr)return `<div class="notice">אין גישה ללידים: ${esc(S.leadsErr)}</div>`;
+  const by={},spend={};for(const c of Object.values(S.camps||{})){const n=String(c.name||'').trim();if(n)spend[n]=(spend[n]||0)+(+c.spend||0)}
+  for(const l of Object.values(S.leads||{})){const n=l.campaign||(l.source?'· '+(LSRC[l.source]||l.source):'· ללא מקור');const x=by[n]||(by[n]={n:0,won:0,lost:0,rev:0,open:0});x.n++;if(l.stage==='won'){x.won++;x.rev+=+l.wonValue||0}else if(l.stage==='lost')x.lost++;else x.open++}
+  for(const n of Object.keys(spend))if(!by[n])by[n]={n:0,won:0,lost:0,rev:0,open:0};
+  const rows=Object.entries(by).sort((a,b)=>b[1].rev-a[1].rev||b[1].n-a[1].n);
+  const T=rows.reduce((t,[k,x])=>({n:t.n+x.n,won:t.won+x.won,rev:t.rev+x.rev,sp:t.sp+(spend[k]||0)}),{n:0,won:0,rev:0,sp:0});
+  return `<div class="kpis">${kpi('לידים במערכת',String(T.n))}${kpi('נסגרו לאירוע',String(T.won),T.n?Math.round(T.won/T.n*100)+'% מהלידים':'')}${kpi('הכנסות מאירועים שנסגרו',ils(T.rev),'לפני מע״מ')}${kpi('החזר על ההשקעה',T.sp?'×'+(T.rev/T.sp).toFixed(1):'—',T.sp?`הושקעו ${ils(T.sp)}`:'')}</div>
+  <div class="card"><h3>מהקמפיין לאירוע</h3><p class="muted" style="font-size:.85rem;margin:0 0 8px">לפי הקמפיין שנרשם בכל ליד בעמוד הלידים. ההשקעה מסוכמת מכל הדוחות השבועיים של אותו קמפיין. שורות עם · הן לידים בלי קמפיין, לפי המקור.</p>
+  ${rows.length?`<div class="scroll-x"><table class="plain"><thead><tr><th>קמפיין / מקור</th><th class="num">לידים</th><th class="num">פתוחים</th><th class="num">נסגרו</th><th class="num">אחוז סגירה</th><th class="num">הכנסות</th><th class="num">הושקע</th><th class="num">עלות לאירוע</th><th class="num">החזר</th></tr></thead><tbody>${rows.map(([k,x])=>{const sp=spend[k]||0;return `<tr><td><b>${esc(k)}</b></td><td class="num">${x.n}</td><td class="num">${x.open}</td><td class="num">${x.won}</td><td class="num">${x.won+x.lost?Math.round(x.won/(x.won+x.lost)*100)+'%':'—'}</td><td class="num">${ils(x.rev)}</td><td class="num">${sp?ils(sp):'—'}</td><td class="num">${sp&&x.won?ils(sp/x.won):'—'}</td><td class="num">${sp?'×'+(x.rev/sp).toFixed(1):'—'}</td></tr>`}).join('')}</tbody></table></div>`:'<p class="muted">עוד אין לידים. כשנרשמים לידים עם שם קמפיין, כאן רואים כמה כל קמפיין באמת הכניס.</p>'}</div>`}
 /* ---------- expenses: suppliers, invoices (with photo and line items), price tracking, accounting e-mail per hotel ---------- */
 // collections: suppliers/{id}, invoices/{id}, invoiceImgs/{id} {data}, expcfg/main {acct:{hotel:email}}
 const r2=n=>Math.round((+n||0)*100)/100;
@@ -1722,7 +1834,7 @@ function vProfile(){
 /* ---------- sheets ---------- */
 function renderSheet(){
   const el=$('#sheet');if(!S.sheet){el.hidden=true;el.innerHTML='';return}
-  let h='';if(S.sheet.type==='perm')h=sheetPerm();else if(S.sheet.type==='cell')h=sheetCell();else if(S.sheet.type==='emp')h=sheetEmp();else if(S.sheet.type==='send')h=sheetSend();else if(S.sheet.type==='remind')h=sheetRemind();else if(S.sheet.type==='camp')h=sheetCamp();else if(S.sheet.type==='sup')h=sheetSup();else if(S.sheet.type==='inv')h=sheetInv();else if(S.sheet.type==='stock')h=sheetStock();else if(S.sheet.type==='preq')h=sheetPreq();else if(S.sheet.type==='swap')h=sheetSwap();else if(S.sheet.type==='iospush')h=sheetIosPush();else if(S.sheet.type==='pushask')h=sheetPushAsk();else if(S.sheet.type==='srview')h=sheetSrView();else if(S.sheet.type==='bkauto')h=sheetBkAuto();else if(S.sheet.type==='hk')h=sheetHk();else if(S.sheet.type==='hkooo')h=sheetHkOoo();
+  let h='';if(S.sheet.type==='perm')h=sheetPerm();else if(S.sheet.type==='cell')h=sheetCell();else if(S.sheet.type==='emp')h=sheetEmp();else if(S.sheet.type==='send')h=sheetSend();else if(S.sheet.type==='remind')h=sheetRemind();else if(S.sheet.type==='camp')h=sheetCamp();else if(S.sheet.type==='sup')h=sheetSup();else if(S.sheet.type==='inv')h=sheetInv();else if(S.sheet.type==='stock')h=sheetStock();else if(S.sheet.type==='preq')h=sheetPreq();else if(S.sheet.type==='swap')h=sheetSwap();else if(S.sheet.type==='iospush')h=sheetIosPush();else if(S.sheet.type==='pushask')h=sheetPushAsk();else if(S.sheet.type==='srview')h=sheetSrView();else if(S.sheet.type==='bkauto')h=sheetBkAuto();else if(S.sheet.type==='hk')h=sheetHk();else if(S.sheet.type==='lead')h=sheetLead();else if(S.sheet.type==='hkooo')h=sheetHkOoo();
   if(!h){S.sheet=null;el.hidden=true;return}
   el.innerHTML=`<div class="panel${S.sheet.type==='srview'?' big':''}" role="dialog" aria-modal="true">${h}</div>`;el.hidden=false;
 }
@@ -1907,7 +2019,7 @@ function joinCodeHTML(){const c={...cfg(),joinCode:validCode()};
   <p class="muted" style="font-size:.85rem">עובד חדש נכנס לאפליקציה, מתחבר ומקליד את הקוד, וכך הוא משויך ל${esc(hotelName(S.hotel))}. אפשר להחליף קוד בכל זמן, והקוד הישן מפסיק לעבוד.</p>
   <div class="actions" style="align-items:center">${c.joinCode?`<b class="code">${esc(c.joinCode)}</b>`:'<span class="muted">עוד אין קוד</span>'}<button class="btn" data-act="join-new">${c.joinCode?'החלפת קוד':'יצירת קוד'}</button></div>`}
 // full backup (owner): every collection to one JSON file in the same format the import reads
-const BACKUP_COLLS=['hotels','settings','employees','mgr','avail','shifts','schedule','requests','roles','joinCodes','config','menus','contracts','quotes','campaigns','suppliers','invoices','expcfg','inventory','purchaseReqs','shiftReports','faults','hk','hkcfg','hkLog','hkComplaints'];
+const BACKUP_COLLS=['hotels','settings','employees','mgr','avail','shifts','schedule','requests','roles','joinCodes','config','menus','contracts','quotes','campaigns','suppliers','invoices','expcfg','inventory','purchaseReqs','shiftReports','faults','hk','hkcfg','hkLog','hkComplaints','leads'];
 const lastBackup=()=>{let l=0;try{l=+localStorage.getItem('scLastBackup')||0}catch(_){ }bkCfgLoad();return Math.max(l,+(S.bkCfg&&S.bkCfg.lastAt)||0)};
 // daily automatic backup to the owner's Google Drive: an Apps Script in their Drive calls the driveBackup function with the key in backupcfg/main
 const BK_FN='https://europe-west1-'+((CFG.firebase&&CFG.firebase.projectId)||'hotel-shifts')+'.cloudfunctions.net/driveBackup';
@@ -2198,6 +2310,19 @@ const ACT={
   'app-brief':()=>{S.menu=false;setTab('brief')},
   'app-front':()=>{S.menu=false;const cw=weekOf(todayISO());if(S.week!==cw){S.tab='front';setWeek(cw)}setTab('front')},
   'app-maint':()=>{S.menu=false;setTab('maint')},
+  'app-leads':()=>{S.menu=false;setTab('leads')},
+  'lead-new':()=>{S.drafts.lead={stage:'new',owner:S.uid};S.confirm=null;S.sheet={type:'lead',id:'l'+Date.now().toString(36)+Math.random().toString(36).slice(2,6)};render()},
+  'lead-open':D=>{S.drafts.lead=null;S.confirm=null;S.sheet={type:'lead',id:D.id};render()},
+  'lead-view':D=>{S.leadF.view=D.v;render()},
+  'lead-stage':D=>{(S.drafts.lead||(S.drafts.lead={})).stage=D.v;render()},
+  'lead-save':()=>leadSave(),
+  'lead-del':()=>{if(S.confirm!=='lead-del'){S.confirm='lead-del';render();return}const id=S.sheet.id;S.confirm=null;S.sheet=null;delete S.leads[id];fdb.doc('leads/'+id).delete().then(()=>toast('הליד נמחק'),e=>toast('המחיקה נכשלה: '+errMsg(mapErr(e))));render()},
+  'lead-act':()=>{const id=S.sheet.id,l=(S.leads||{})[id];if(!l){toast('קודם שומרים את הליד');return}const t=String(($('#la_text')||{}).value||'').trim();if(!t){toast('צריך לכתוב מה היה');return}
+    const a={at:Date.now(),by:S.uid,byName:S.meName||'',kind:($('#la_kind')||{}).value||'note',text:t},up={acts:[...(l.acts||[]),a],updatedAt:Date.now()};
+    if(l.stage==='new'&&a.kind!=='note')up.stage='contacted';S.leads[id]={...l,...up};fdb.doc('leads/'+id).set(up,{merge:true}).catch(e=>toast('השמירה נכשלה: '+errMsg(mapErr(e))));render();toast('נרשם')},
+  'lead-quote':()=>{const id=S.sheet.id,l=(S.leads||{})[id]||{},lq=leadQuote(id,l);
+    if(!lq)try{localStorage.setItem('sc_leadPrefill',JSON.stringify({leadId:id,name:l.name||'',phone:l.phone||'',email:l.email||'',company:l.company||'',type:l.type||'',date:l.date||'',guests:+l.guests||0,venue:l.venue||'',ts:Date.now()}))}catch(_){ }
+    location.href='events.html'+(lq?'':'#new')},
   'app-hk':()=>{S.menu=false;S.hkPaint='';setTab('hk')},
   'hk-hotel':D=>{S.hkH=D.h;S.hkF={};render()},
   'hk-f':D=>{const f={...(S.hkF||{})};if(D.m==='x'){S.hkF={};render();return}f[D.m]=f[D.m]===D.v?'':D.v;S.hkF=f;render()},
@@ -2517,7 +2642,7 @@ async function start(u){
   catch(e){onErr(e)}
   S.week=openWeek();
   let t=null;try{t=localStorage.getItem('hs_tab')}catch(_){ }
-  const allowed=S.station?['front','hk']:((S.admin?(S.deptOnly?['sched','shifts']:['sched','shifts','staff','costs','settings']):S.myHotel===CHAIN||S.myMgmt?['profile']:['avail','mine','profile']).concat(S.can.perms?['perms']:[]).concat(S.can.ceo?['ceo']:[]).concat(S.can.mkt?['mkt']:[]).concat(S.can.exp?['exp']:[]).concat(S.can.gm?['gm']:[]).concat(S.can.stock?['stock']:[]).concat(S.can.brief?['brief']:[]).concat(S.can.front?['front']:[]).concat(S.can.maint?['maint']:[]).concat(S.can.fin?['fin']:[]).concat(S.can.hk&&!S.station?['hk']:[]));S.tab=allowed.includes(t)?t:allowed[0];
+  const allowed=S.station?['front','hk']:((S.admin?(S.deptOnly?['sched','shifts']:['sched','shifts','staff','costs','settings']):S.myHotel===CHAIN||S.myMgmt?['profile']:['avail','mine','profile']).concat(S.can.perms?['perms']:[]).concat(S.can.ceo?['ceo']:[]).concat(S.can.mkt?['mkt']:[]).concat(S.can.exp?['exp']:[]).concat(S.can.gm?['gm']:[]).concat(S.can.stock?['stock']:[]).concat(S.can.brief?['brief']:[]).concat(S.can.front?['front']:[]).concat(S.can.maint?['maint']:[]).concat(S.can.fin?['fin']:[]).concat(S.can.hk&&!S.station?['hk']:[]).concat(S.can.events?['leads']:[]));S.tab=allowed.includes(t)?t:allowed[0];
   if(location.hash==='#perms'&&S.can.perms)S.tab='perms';
   if(location.hash==='#ceo'&&S.can.ceo)S.tab='ceo';
   if(location.hash==='#mkt'&&S.can.mkt)S.tab='mkt';
@@ -2527,6 +2652,7 @@ async function start(u){
   if(location.hash==='#front'&&S.can.front)S.tab='front';
   if(location.hash==='#maint'&&S.can.maint)S.tab='maint';
   if(location.hash==='#hk'&&S.can.hk)S.tab='hk';
+  if(location.hash==='#leads'&&S.can.events)S.tab='leads';
   if(location.hash==='#fin'&&S.can.fin)S.tab='fin';
   if(location.hash==='#stock'&&S.can.stock)S.tab='stock';
   // the reception page always opens on the current week (today's 10days)

@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202610202100"></script>
+<script src="i18n.js?v=202610202115"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -201,7 +201,7 @@ table.plain th.num{text-align:end}
 .hk-vc{background:#1D734A;color:#fff;border-color:#1D734A}.hk-vi{background:#FACC15;color:#3b2f00;border-color:#EAB308}.hk-vd{background:#C2410C;color:#fff;border-color:#C2410C}.hk-ooo{background:#3F3F46;color:#fff;border-color:#3F3F46}
 .hk-room.hk-vc .hk-o,.hk-room.hk-vd .hk-o,.hk-room.hk-ooo .hk-o{background:rgba(255,255,255,.9);color:#111}
 .hk-o-oc{background:#1E40AF!important;color:#fff!important}.hk-o-res{background:#7C3AED!important;color:#fff!important}.hk-o-co{background:#0E7490!important;color:#fff!important}.hk-o-empty{background:var(--sunk)!important;color:var(--ink)!important}
-.hk-p.hk-o-oc,.hk-p.hk-o-res,.hk-p.hk-o-co{border-color:transparent}.hk-fl{display:flex;flex-wrap:wrap;gap:2px;justify-content:center}.hk-pax{background:#065F46!important;color:#fff!important;border-color:#065F46!important}.hk-twin{background:#9A3412!important;color:#fff!important;border-color:#9A3412!important}.hk-cot{background:#FDE2E4!important;color:#7f1d1d!important;border-color:#F9A8B4!important}.hk-f{font-size:.6rem;font-weight:800;padding:0 4px;border-radius:5px;line-height:1.5}.hk-f.big{font-size:.85rem;padding:3px 8px}.hk-vip{background:#BE185D!important;color:#fff!important;border-color:#BE185D!important}.hk-bk{background:#0A2463!important;color:#fff!important;border-color:#0A2463!important}.hk-a{font-size:.62rem;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;opacity:.9}.hk-mine{box-shadow:0 0 0 3px var(--brass)}.hk-n{display:inline-block;min-width:18px;padding:0 5px;border-radius:9px;background:var(--sunk);color:var(--ink);font-size:.75rem;margin-inline-start:4px}.hk-minecard{border-color:var(--brass)}.hk-cfg{border-top:1px dashed var(--line);padding-top:10px;margin-top:10px}
+.hk-p.hk-o-oc,.hk-p.hk-o-res,.hk-p.hk-o-co{border-color:transparent}.hk-fl{display:flex;flex-wrap:wrap;gap:2px;justify-content:center}.hk-pax{background:#065F46!important;color:#fff!important;border-color:#065F46!important}.hk-twin{background:#9A3412!important;color:#fff!important;border-color:#9A3412!important}.hk-cot{background:#FDE2E4!important;color:#7f1d1d!important;border-color:#F9A8B4!important}.hk-f{font-size:.6rem;font-weight:800;padding:0 4px;border-radius:5px;line-height:1.5}.hk-f.big{font-size:.85rem;padding:3px 8px}.hk-vip{background:#BE185D!important;color:#fff!important;border-color:#BE185D!important}.hk-bk{background:#0A2463!important;color:#fff!important;border-color:#0A2463!important}.hk-a{font-size:.62rem;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;opacity:.9}.hk-mine{box-shadow:0 0 0 3px var(--brass)}.hk-n{display:inline-block;min-width:18px;padding:0 5px;border-radius:9px;background:var(--sunk);color:var(--ink);font-size:.75rem;margin-inline-start:4px}.hk-minecard{border-color:var(--brass)}.hk-jobs{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px}.hk-job{border:1px solid var(--line);border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:8px;background:var(--surface)}.hk-job.busy{border-color:var(--warn);box-shadow:0 0 0 2px var(--warn-bg)}.hk-job.done{opacity:.7}.hk-job-h{display:flex;justify-content:space-between;align-items:center;gap:8px}.hk-job-h b{font-size:1.4rem}.hk-st{font-size:.8rem;font-weight:700;padding:3px 8px;border-radius:8px;border:1px solid var(--line)}.hk-st.hk-none{background:var(--sunk);color:var(--muted)}.hk-job .btn{min-height:44px}.hk-cfg{border-top:1px dashed var(--line);padding-top:10px;margin-top:10px}
 .panel.big{width:min(1000px,100%);max-height:96vh;font-size:1.06rem}
 @media (min-width:720px){.panel.big{width:min(1000px,94vw);min-height:70vh}}
 .srv-top{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
@@ -746,7 +746,7 @@ function vStaff(){
       <div class="c3 sub">${pl?esc(pl):'<span class="pill warn">חסר שכר</span>'}${p?`<br>השבוע: ${p.shifts} משמרות · ${ils(p.cost)}`:''}${minFor(u)||empMaxW(u,S.week)!==null?`<br>${minFor(u)?`מינימום ${minFor(u)}`:''}${minFor(u)&&empMaxW(u,S.week)!==null?' · ':''}${empMaxW(u,S.week)!==null?`ביקש/ה עד ${empMaxW(u,S.week)} השבוע`:''}${minFor(u)&&loadOf(u)<minFor(u)?' <span class="pill warn">מתחת למינימום</span>':''}`:''}</div>
       <div class="meta">${S.mgr[u]?.payType==='volunteer'?'<span class="pill brass">מתנדב</span>':''}${!isActive(u)?'<span class="pill">לא פעיל</span>':e.manual?'<span class="pill">ידני</span>':''}${sub?'<span class="pill ok">הגיש זמינות</span>':'<span class="pill">טרם הגיש</span>'}</div>
     </button>`}).join('');
-  return wrap(head+deptFilter()+(ids.length?`<div class="list">${rows}</div>`:emptyBox('אין עובדים במחלקה הזו','')));
+  return wrap(head+deptFilter()+(ids.length?`<div class="list">${rows}</div>`:emptyBox('אין עובדים במחלקה הזו',''))+(S.dept==='all'||S.dept==='housekeeping'?hkTimesHTML(S.hotel):''));
 }
 
 /* ---------- manager: costs ---------- */
@@ -1117,7 +1117,7 @@ function vGm(){const hs=scopeHs();if(!hs.length)return wrap(emptyBox('אין מ�
   faultsSub(h);const fo=faultsOf(h).filter(([,f])=>f.status!=='done').sort(([,a],[,b])=>(a.openedAt||0)-(b.openedAt||0)),fl=fo.filter(([,f])=>faultLate(f)).length;
   const faultsCard=`<div class="card" style="${fl?'border-color:var(--bad)':''}"><div class="actions" style="justify-content:space-between;align-items:center"><h3 style="margin:0">תקלות פתוחות · ${fo.length}${fl?` <span class="pill bad">${fl} באיחור</span>`:''}</h3><button class="btn sm" data-act="app-maint">לעמוד האחזקה</button></div>
     ${fo.length?`<div class="plist">${fo.slice(0,12).map(([id,f])=>faultRowHTML(id,f,h,false)).join('')}</div>`:'<p class="muted">אין תקלות פתוחות.</p>'}</div>`;
-  return wrap(head+reqCard+recurCardHTML(faultsOf(h).map(([,f])=>f))+faultsCard+`<div class="setgrid">${sched10}${events}${stock}</div>`+srListHTML(h,true)+(S.empLite&&!S.deptOnly?deptEmpCardHTML():''));
+  return wrap(head+reqCard+recurCardHTML(faultsOf(h).map(([,f])=>f))+faultsCard+`<div class="setgrid">${sched10}${events}${stock}</div>`+srListHTML(h,true)+hkTimesHTML(h)+(S.empLite&&!S.deptOnly?deptEmpCardHTML():''));
 }
 /* ---------- in-app alerts: badge on the menu, page title count, and a phone/browser notification while the site is open ---------- */
 // an item reached its minimum: quantity at or below the minimum set for it
@@ -1464,6 +1464,7 @@ function vHk(){const hs=hkHotels();if(!hs.length)return wrap(emptyBox('אין מ
   if(!D)return wrap(head+'<p class="muted">טוען…</p>');if(D.__err)return wrap(head+`<div class="notice">לא הצלחתי לטעון את החדרים: ${esc(D.__err)}</div>`);
   const R=hkRooms(h),all=R.units;
   if(!all.length)return wrap(head+emptyBox('עוד לא הוגדרו חדרים למלון הזה','בעל המערכת מגדיר את רשימת החדרים בעמוד ההרשאות, בכרטיס המלונות.'));
+  if(!lead&&!S.hkBoard)return wrap(head+hkWorkerHTML(h,D,R)+'<div class="actions"><button class="btn ghost" data-act="hk-board">הצגת לוח כל החדרים</button></div>');
   const cnt=(m,v)=>all.filter(r=>v==='none'?!(D[m]||{})[r]:(D[m]||{})[r]===v).length,f=S.hkF||{};
   const kc=(v,lab,cls)=>`<button class="hk-k ${cls||''} ${f.c===v?'on':''}" data-act="hk-f" data-m="c" data-v="${v}"><span>${lab}</span><b>${cnt('clean',v)}</b></button>`;
   const ko=(v,lab)=>`<button class="hk-k ${f.o===v?'on':''}" data-act="hk-f" data-m="o" data-v="${v}"><span>${lab}</span><b>${cnt('occ',v)}</b></button>`;
@@ -1494,7 +1495,8 @@ function vHk(){const hs=hkHotels();if(!hs.length)return wrap(emptyBox('אין מ
   const staff=Object.entries(S.emps||{}).filter(([,e])=>(e.hotel||'main')===h&&(e.depts||[]).includes('housekeeping')&&!e.mgmt).map(([,e])=>esc(e.name||'')).filter(Boolean).sort((a,b)=>a.localeCompare(b,'he'));
   const staffCard=!lead&&staff.length?`<div class="card"><h3>צוות משק</h3><p style="margin:0">${staff.join(' · ')}</p></div>`:'';
   const legend=`<p class="muted" style="font-size:.82rem">${HK_CLEAN.map(([,c,n])=>`<b>${c}</b> ${n}`).join(' · ')} · ${HK_OCC.map(([v,c,n])=>v==='empty'?'<b>ריק</b> אין הזמנה':`<b>${c}</b> ${n}`).join(' · ')} · <b>VIP</b> אורח חשוב · <b>B</b> אורח Booking · <b>3</b>/<b>4</b> אורחים · <b>TW</b> Twin · <b>👶</b> Baby cot${full?'':' · מצב ההזמנה מתעדכן על ידי הקבלה'}</p>`;
-  return wrap(head+myCard+kpis+crewCard+paint+rooms+legend+staffCard)}
+  const back=!lead?'<div class="actions"><button class="btn" data-act="hk-board">חזרה לחדרים שלי</button></div>':'';
+  return wrap(head+back+myCard+kpis+crewCard+paint+rooms+legend+staffCard)}
 function sheetHk(){const {h,r}=S.sheet,d=todayISO(),D=(S.hkDays||{})[h+'|'+d]||{},c=(D.clean||{})[r],o=(D.occ||{})[r],a=(D.asg||{})[r],full=hkFull(h),lead=hkLead(h),R=hkRooms(h),dorm=!!R.bedOf[r]&&!R.rooms.includes(r),bedNo=dorm&&R.beds?r.slice(R.bedOf[r].length):'';
   const t=x=>x?new Date(x).toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'}):'',vip=!!(D.vip||{})[r],bk=!!(D.bk||{})[r],pax=+(D.pax||{})[r]||0,tw=!!(D.twin||{})[r],cot=!!(D.cot||{})[r];
   let asgHTML='';
@@ -1512,6 +1514,35 @@ function sheetHk(){const {h,r}=S.sheet,d=todayISO(),D=(S.hkDays||{})[h+'|'+d]||{
   ${asgHTML}
   ${c==='ooo'?'<p class="muted" style="font-size:.85rem;margin:0">יש בעיה בחדר? כדאי לפתוח תקלה בעמוד האחזקה כדי שיטפלו בה.</p>':''}
   <div class="actions"><button class="btn pri" data-act="close">סגירה</button></div>`}
+// ---------- housekeeping worker view: my rooms, "started" and "done" ----------
+// start/done times are kept per room in the day doc (start, done); finishing also writes hkLog/{hotel}__{date}__{room}
+// {hotel, month, date, room, uid, name, start, end, mins} so managers see the average cleaning time per worker (workers don't see it)
+function hkStart(h,room){const d=todayISO(),D=(S.hkDays||{})[h+'|'+d]||{},now=Date.now();
+  S.hkDays[h+'|'+d]={...D,start:{...(D.start||{}),[room]:now}};render();
+  fdb.doc('hk/'+hkDocId(h,d)).set({hotel:h,date:d,updatedAt:now,start:{[room]:now}},{merge:true}).then(()=>toast(`חדר ${room}: התחלת ניקיון`),e=>{toast('השמירה נכשלה: '+errMsg(mapErr(e)));S.hkDays[h+'|'+d]=D;render()})}
+function hkDone(h,room){const d=todayISO(),D=(S.hkDays||{})[h+'|'+d]||{},now=Date.now(),who=S.meName||S.email||'',st=(D.start||{})[room];
+  S.hkDays[h+'|'+d]={...D,clean:{...(D.clean||{}),[room]:'vc'},done:{...(D.done||{}),[room]:now}};render();
+  fdb.doc('hk/'+hkDocId(h,d)).set({hotel:h,date:d,updatedAt:now,clean:{[room]:'vc'},cleanBy:{[room]:who},cleanAt:{[room]:now},done:{[room]:now}},{merge:true})
+    .then(()=>toast(`חדר ${room} נקי ✓`),e=>{toast('השמירה נכשלה: '+errMsg(mapErr(e)));S.hkDays[h+'|'+d]=D;render()});
+  if(st&&now>st)fdb.doc('hkLog/'+hkDocId(h,d)+'__'+room).set({hotel:h,month:d.slice(0,7),date:d,room,uid:S.uid,name:who,start:st,end:now,mins:Math.round((now-st)/60000)}).catch(()=>{})}
+function hkWorkerHTML(h,D,R){const d=todayISO(),mine=R.units.filter(r=>(D.asg||{})[r]===S.uid);
+  const left=mine.filter(r=>!(D.done||{})[r]&&(D.clean||{})[r]!=='vc'),done=mine.filter(r=>!left.includes(r));
+  const card=r=>{const c=(D.clean||{})[r],o=(D.occ||{})[r],st=(D.start||{})[r],fin=(D.done||{})[r]||c==='vc',bed=R.bedOf[r]&&R.beds&&!R.rooms.includes(r);
+    const tags=[(D.vip||{})[r]&&'<span class="hk-f hk-vip big">VIP</span>',(D.bk||{})[r]&&'<span class="hk-f hk-bk big">Booking</span>',(D.pax||{})[r]&&`<span class="hk-f hk-pax big">${+D.pax[r]} אורחים</span>`,(D.twin||{})[r]&&'<span class="hk-f hk-twin big">Twin</span>',(D.cot||{})[r]&&'<span class="hk-f hk-cot big">👶 Baby cot</span>',o&&`<span class="hk-f hk-o-${o} big">${HK_ON[o][1]}${o==='empty'?'':' · '+HK_ON[o][2]}</span>`].filter(Boolean).join('');
+    return `<div class="hk-job ${fin?'done':st?'busy':''}"><div class="hk-job-h"><b>${bed?'מיטה':'חדר'} ${esc(r)}</b><span class="hk-st hk-${c||'none'}">${c?HK_CN[c][1]+' · '+HK_CN[c][2]:'ללא סטטוס'}</span></div>
+      ${tags?`<div class="hk-ks">${tags}</div>`:''}
+      <div class="actions">${fin?'<span class="pill ok">נוקה ✓</span>':st?`<span class="pill warn">בניקיון</span><button class="btn pri" data-act="hk-done" data-h="${h}" data-r="${esc(r)}">סיימתי, החדר נקי</button>`:`<button class="btn pri" data-act="hk-start" data-h="${h}" data-r="${esc(r)}">התחלתי לנקות</button><button class="btn ghost" data-act="hk-done" data-h="${h}" data-r="${esc(r)}">החדר כבר נקי</button>`}
+      ${fin?'':`<button class="btn sm ghost" data-act="hk-ooo" data-h="${h}" data-r="${esc(r)}">יש תקלה (OOO)</button>`}</div></div>`};
+  return `<div class="card hk-minecard"><h3>החדרים שלי היום</h3>${mine.length?`<p class="muted" style="margin:0 0 8px">נשארו ${left.length} מתוך ${mine.length}. מתחילים חדר? לוחצים "התחלתי לנקות", ובסוף "סיימתי".</p>
+    <div class="hk-jobs">${left.map(card).join('')}</div>${done.length?`<h4 style="margin:14px 0 6px">נוקו היום · ${done.length}</h4><div class="hk-jobs">${done.map(card).join('')}</div>`:''}`:'<p class="muted">עוד לא שובצו לך חדרים היום. כשישבצו לך חדר תקבל/י התראה.</p>'}</div>`}
+// managers: average cleaning time per worker over this month and last month
+function hkLogSub(h,m){const k='hkl:'+h+'|'+m;S.hkLogs=S.hkLogs||{};if(!S.live[k]){S.live[k]=true;
+  fdb.collection('hkLog').where('hotel','==',h).where('month','==',m).onSnapshot(q=>{S.hkLogs[h+'|'+m]=docsMap(q);render()},e=>{S.hkLogs[h+'|'+m]={__err:1};render()})}return S.hkLogs[h+'|'+m]}
+function hkTimesHTML(h){const m=todayISO().slice(0,7),pm=monAdd(m,-1),a=hkLogSub(h,m),b=hkLogSub(h,pm);if(!a||!b)return '';if(a.__err||b.__err)return '';
+  const by={};for(const L of [...Object.values(a),...Object.values(b)]){if(!(L.mins>=1&&L.mins<=240))continue;const x=by[L.uid]||(by[L.uid]={n:0,t:0,nm:0,tm:0,name:L.name});x.n++;x.t+=L.mins;if(L.month===m){x.nm++;x.tm+=L.mins}}
+  const rows=Object.entries(by).sort((x,y)=>x[1].t/x[1].n-y[1].t/y[1].n);
+  return `<div class="card"><h3>זמן ממוצע לניקיון חדר</h3><p class="muted" style="font-size:.85rem;margin:0 0 8px">${esc(hotelName(h))} · לפי "התחלתי" ו"סיימתי" של עובדי המשק, החודש והחודש הקודם. העובדים לא רואים את הנתון הזה.</p>
+  ${rows.length?`<div class="tbl"><table class="grid"><thead><tr><th>עובד/ת</th><th>חדרים</th><th>ממוצע</th><th>החודש</th></tr></thead><tbody>${rows.map(([u,x])=>`<tr><td>${esc(S.emps[u]?empName(u):x.name||'')}</td><td class="mono">${x.n}</td><td class="mono"><b>${Math.round(x.t/x.n)} דק׳</b></td><td class="mono">${x.nm?Math.round(x.tm/x.nm)+' דק׳':'—'}</td></tr>`).join('')}</tbody></table></div>`:'<p class="muted">עוד אין חדרים שנוקו עם התחלה וסיום.</p>'}</div>`}
 // owner: room lists per hotel, on the Permissions page
 function hkCfgHTML(){if(!S.isOwner)return '';const hs=hotelIds();hs.forEach(h=>hkSub(h,todayISO()));
   return `<div class="card"><h3>חדרי המלונות (עמוד משק)</h3><p class="muted" style="font-size:.85rem">כותבים טווחים ומספרים, ומינוס לפני חדר שלא קיים. לדוגמה: <bdi dir="ltr">101-119 -113 -117</bdi>. שורה לכל קומה.</p>
@@ -2122,6 +2153,10 @@ const ACT={
   'hk-f':D=>{const f={...(S.hkF||{})};if(D.m==='x'){S.hkF={};render();return}f[D.m]=f[D.m]===D.v?'':D.v;S.hkF=f;render()},
   'hk-paint':D=>{S.hkPaint=S.hkPaint===D.v?'':D.v;render()},
   'hk-more':()=>{S.hkMore=!S.hkMore;render()},
+  'hk-board':()=>{S.hkBoard=!S.hkBoard;S.hkPaint='';render();window.scrollTo(0,0)},
+  'hk-start':D=>hkStart(D.h,D.r),
+  'hk-done':D=>hkDone(D.h,D.r),
+  'hk-ooo':D=>{hkSet(D.h,D.r,'clean','ooo');toast(`חדר ${D.r} סומן OOO. כדאי לדווח על התקלה לאחזקה`)},
   'hk-droom':D=>{const p=S.hkPaint;if(!p)return;const [k,v]=p.split(':'),R=hkRooms(D.h);(R.bedsOf[D.r]||[]).forEach(b=>{if(HK_FLAGS.includes(k)||k==='pax'){const cur=((((S.hkDays||{})[D.h+'|'+todayISO()]||{})[k]||{})[b]);if(k==='pax'?+cur===+v:!!cur)return}hkSet(D.h,b,k,v)})},
   'hk-room':D=>{const p=S.hkPaint;if(p){const [k,v]=p.split(':');hkSet(D.h,D.r,k,v);return}S.sheet={type:'hk',h:D.h,r:D.r};render()},
   'hk-set':D=>{hkSet(S.sheet.h,S.sheet.r,D.k,D.v)},

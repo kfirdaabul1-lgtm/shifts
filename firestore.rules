@@ -376,11 +376,17 @@ service cloud.firestore {
     match /hk/{id} {
       allow read: if signedIn() && hkWorkIn(id.split('__')[0]);
       allow create: if request.resource.data.hotel == id.split('__')[0] && (hkFullIn(request.resource.data.hotel)
-        || (hkLeadIn(request.resource.data.hotel) && request.resource.data.keys().hasOnly(['hotel', 'date', 'clean', 'cleanBy', 'cleanAt', 'asg', 'asgName', 'asgAt', 'updatedAt']))
-        || (hkWorkIn(request.resource.data.hotel) && request.resource.data.keys().hasOnly(['hotel', 'date', 'clean', 'cleanBy', 'cleanAt', 'updatedAt'])));
+        || (hkLeadIn(request.resource.data.hotel) && request.resource.data.keys().hasOnly(['hotel', 'date', 'clean', 'cleanBy', 'cleanAt', 'start', 'done', 'asg', 'asgName', 'asgAt', 'updatedAt']))
+        || (hkWorkIn(request.resource.data.hotel) && request.resource.data.keys().hasOnly(['hotel', 'date', 'clean', 'cleanBy', 'cleanAt', 'start', 'done', 'updatedAt'])));
       allow update: if request.resource.data.hotel == resource.data.hotel && (hkFullIn(resource.data.hotel)
-        || (hkLeadIn(resource.data.hotel) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['clean', 'cleanBy', 'cleanAt', 'asg', 'asgName', 'asgAt', 'updatedAt']))
-        || (hkWorkIn(resource.data.hotel) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['clean', 'cleanBy', 'cleanAt', 'updatedAt'])));
+        || (hkLeadIn(resource.data.hotel) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['clean', 'cleanBy', 'cleanAt', 'start', 'done', 'asg', 'asgName', 'asgAt', 'updatedAt']))
+        || (hkWorkIn(resource.data.hotel) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['clean', 'cleanBy', 'cleanAt', 'start', 'done', 'updatedAt'])));
+      allow delete: if manages(resource.data.hotel) || gmIn(resource.data.hotel);
+    }
+    // זמני ניקיון (התחלה–סיום) לכל חדר: העובד כותב את שלו, רק מנהלים קוראים (ממוצע לעובד)
+    match /hkLog/{id} {
+      allow read: if manages(resource.data.hotel) || gmIn(resource.data.hotel) || canCeo();
+      allow create, update: if hkWorkIn(request.resource.data.hotel) && request.resource.data.uid == request.auth.uid;
       allow delete: if manages(resource.data.hotel) || gmIn(resource.data.hotel);
     }
     // רשימת החדרים של כל מלון

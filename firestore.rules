@@ -146,11 +146,12 @@ service cloud.firestore {
         && (!a.get('brief', false) || roleApp('brief') || roleApp('gm'))
         && (!a.get('front', false) || roleApp('front'))
         && (!a.get('maint', false) || roleApp('maint') || roleApp('gm') || roleApp('shifts'))
-        && (!a.get('fin', false) || roleApp('fin'));
+        && (!a.get('fin', false) || roleApp('fin'))
+        && (!a.get('hk', false) || roleApp('hk') || roleApp('gm') || roleApp('shifts'));
     }
     function grantOk(n) {
       return n.apps is map
-        && n.apps.keys().hasOnly(['shifts', 'events', 'perms', 'ceo', 'dept', 'mkt', 'exp', 'gm', 'brief', 'front', 'maint', 'fin'])
+        && n.apps.keys().hasOnly(['shifts', 'events', 'perms', 'ceo', 'dept', 'mkt', 'exp', 'gm', 'brief', 'front', 'maint', 'fin', 'hk'])
         && n.get('hotels', []) is list
         && n.get('depts', []) is list
         && (isOwner() || roleApp('shifts') || n.get('depts', []).hasOnly(roleDepts()))
@@ -357,6 +358,30 @@ service cloud.firestore {
     // דוחות משמרת בלי סכומים (עותק שהשרת כותב): הקבלה רואה את הדוחות של המלון שלה לצורך חפיפה
     match /shiftReportsPub/{id} {
       allow read: if frontIn(resource.data.hotel) || manages(resource.data.hotel) || gmIn(resource.data.hotel) || canCeo() || finIn(resource.data.hotel);
+      allow write: if isOwner();
+    }
+
+    // ---------- משק: לוח החדרים ----------
+    // hk/{hotel}__{date}: הקבלה, מנהל המלון ומנהלי הסידור מעדכנים הכול; עובדי משק רק את מצב הניקיון
+    function hkFullIn(h) { return manages(h) || gmIn(h) || frontIn(h); }
+    function hkWorkIn(h) {
+      return hkFullIn(h)
+        || (hasRole() && roleApp('hk') && (roleHotels().size() == 0 || h in roleHotels()))
+        || (deptMgr(h) && 'housekeeping' in roleDepts())
+        || (isEmployee() && myHotel() == h
+            && 'housekeeping' in get(/databases/$(database)/documents/employees/$(request.auth.uid)).data.get('depts', []));
+    }
+    match /hk/{id} {
+      allow read: if signedIn() && hkWorkIn(id.split('__')[0]);
+      allow create: if request.resource.data.hotel == id.split('__')[0] && (hkFullIn(request.resource.data.hotel)
+        || (hkWorkIn(request.resource.data.hotel) && request.resource.data.keys().hasOnly(['hotel', 'date', 'clean', 'cleanBy', 'cleanAt', 'updatedAt'])));
+      allow update: if request.resource.data.hotel == resource.data.hotel && (hkFullIn(resource.data.hotel)
+        || (hkWorkIn(resource.data.hotel) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['clean', 'cleanBy', 'cleanAt', 'updatedAt'])));
+      allow delete: if manages(resource.data.hotel) || gmIn(resource.data.hotel);
+    }
+    // רשימת החדרים של כל מלון
+    match /hkcfg/{h} {
+      allow read: if signedIn() && hkWorkIn(h);
       allow write: if isOwner();
     }
 

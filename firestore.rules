@@ -312,6 +312,13 @@ service cloud.firestore {
       allow read: if canEvents() || canMkt();
       allow write: if canEvents();
     }
+    // משימות ותזכורות של צוות המכירות, והערות לכל לקוח
+    match /tasks/{id} {
+      allow read, write: if canEvents();
+    }
+    match /clients/{id} {
+      allow read, write: if canEvents();
+    }
 
     // ---------- שיווק ----------
     match /campaigns/{id} { allow read, write: if canMkt(); }

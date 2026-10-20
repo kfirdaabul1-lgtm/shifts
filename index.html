@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202610202200"></script>
+<script src="i18n.js?v=202610202230"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -193,6 +193,7 @@ table.plain th.num{text-align:end}
 .panel{background:var(--surface);width:min(580px,100%);max-height:90vh;overflow:auto;border-radius:16px 16px 0 0;padding:18px max(18px,env(safe-area-inset-right,0px)) calc(22px + env(safe-area-inset-bottom,0px)) max(18px,env(safe-area-inset-left,0px));display:flex;flex-direction:column;gap:14px}
 @media (min-width:720px){.sheet{align-items:center}.panel{border-radius:16px}}
 body:has(.sheet:not([hidden])) .lang-toggle{display:none!important}
+.crm-row{display:grid;grid-template-columns:120px minmax(0,1fr) 90px;gap:10px;align-items:center;font-size:.9rem;margin:4px 0}.crm-track{height:14px;background:var(--sunk);border-radius:7px;overflow:hidden}.crm-track i{display:block;height:100%;background:var(--accent,#1f5f6b);border-radius:7px}.lead-bar-won{background:var(--ok)!important}.lead-bar-lost{background:var(--bad)!important}.prow.late{border-color:var(--warn)}
 .lead-pipe{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(220px,1fr);gap:10px;overflow-x:auto;padding-bottom:8px}
 .lead-col{background:var(--sunk);border-radius:12px;padding:8px;display:flex;flex-direction:column;gap:8px;min-height:120px}.lead-col-h{display:flex;justify-content:space-between;align-items:center;padding:2px 4px}
 .lead-col.lead-won{background:var(--ok-bg)}.lead-col.lead-lost{background:var(--bad-bg)}
@@ -410,7 +411,8 @@ document.addEventListener('change',e=>{const t=e.target;if(!t.matches)return;
   if(t.matches('[data-inv]')){const d=S.drafts.inv;if(!d)return;d[t.dataset.inv]=t.type==='checkbox'?t.checked:t.value;if(t.tagName==='SELECT'||t.type==='checkbox'||t.type==='date'){t.blur();render()}return}
   if(t.matches('[data-expf]')){S.expF[t.dataset.expf]=t.value;t.blur();render();return}
   if(t.id==='inv_img'&&t.files&&t.files[0]){const d=S.drafts.inv;toast('מעבד את הצילום…');compressImage(t.files[0]).then(u=>{S.invImg={id:d.id,data:u,changed:true};render()}).catch(()=>toast('לא הצלחתי לקרוא את התמונה'))}});
-document.addEventListener('change',e=>{const t=e.target;if(t.matches('[data-leadf]')&&t.tagName==='SELECT'){S.leadF[t.dataset.leadf]=t.value;t.blur();render()}
+document.addEventListener('change',e=>{const t=e.target;if(t.matches('[data-task]')){const id=t.dataset.task,up={done:t.checked,doneAt:t.checked?Date.now():null};S.tasks[id]={...S.tasks[id],...up};fdb.doc('tasks/'+id).set(up,{merge:true}).catch(()=>{});render();return}
+  if(t.matches('[data-leadf]')&&t.tagName==='SELECT'){S.leadF[t.dataset.leadf]=t.value;t.blur();render()}
   else if(t.matches('[data-leadq]')&&S.sheet&&S.sheet.type==='lead'&&t.value){const id=S.sheet.id,q=(S.lquotes||{})[t.value];const up={quoteId:t.value,quoteNum:(q&&q.num)||null,updatedAt:Date.now()};S.leads[id]={...S.leads[id],...up};fdb.doc('leads/'+id).set(up,{merge:true});t.blur();render();toast('ההצעה חוברה לליד')}});
 document.addEventListener('input',e=>{const t=e.target;if(t.matches('[data-leadf]')&&t.tagName==='INPUT'){S.leadF.q=t.value;clearTimeout(S.leadQT);S.leadQT=setTimeout(()=>{const el=document.activeElement,pos=el&&el.selectionStart;S.pending=false;renderTop();$('#main').innerHTML=viewHTML();const n=$('[data-leadf=q]');if(n){n.focus();try{n.setSelectionRange(pos,pos)}catch(_){ }}},250)}});
 document.addEventListener('change',e=>{if(e.target.matches('[data-hkhist]')){S.hkHistD=e.target.value||todayISO();e.target.blur();render()}});
@@ -876,13 +878,14 @@ function vMkt(){liveColl('camps','campaigns');
   const sum=list=>{const sp=list.reduce((a,[,c])=>a+(+c.spend||0),0),ld=list.reduce((a,[,c])=>a+(+c.leads||0),0),rv=list.reduce((a,[,c])=>a+(+c.revenue||0),0);return {sp,ld,rv,n:list.length}};
   const wk=all.filter(([,c])=>campWeek(c)===W),pw=all.filter(([,c])=>campWeek(c)===addDays(W,-7)),A=sum(wk),P=sum(pw);
   const chg=(a,b)=>b?` · ${a>=b?'▲':'▼'} ${Math.abs(Math.round((a-b)/b*100))}% משבוע קודם`:'';
-  const tabs=`<div class="chips" style="gap:6px;margin-top:8px"><button class="dchip ${f.view==='week'?'':'off'}" data-act="mkt-view" data-v="week">דוח שבועי</button><button class="dchip ${f.view==='year'?'':'off'}" data-act="mkt-view" data-v="year">סיכום לפי שבועות</button><button class="dchip ${f.view==='leads'?'':'off'}" data-act="mkt-view" data-v="leads">מהקמפיין לאירוע</button>
+  const tabs=`<div class="chips" style="gap:6px;margin-top:8px"><button class="dchip ${f.view==='week'?'':'off'}" data-act="mkt-view" data-v="week">דוח שבועי</button><button class="dchip ${f.view==='year'?'':'off'}" data-act="mkt-view" data-v="year">סיכום לפי שבועות</button><button class="dchip ${f.view==='dash'?'':'off'}" data-act="mkt-view" data-v="dash">דשבורד שיווק</button><button class="dchip ${f.view==='leads'?'':'off'}" data-act="mkt-view" data-v="leads">מהקמפיין לאירוע</button>
     <select data-mktf="pl" style="width:auto"><option value="all">כל הפלטפורמות</option>${PLATFORMS.map(([k,n])=>`<option value="${k}" ${f.pl===k?'selected':''}>${n}</option>`).join('')}</select></div>`;
   const nav=`<div class="actions" style="align-items:center"><button class="btn sm" data-act="mkt-week" data-d="-7" aria-label="שבוע קודם">›</button><b class="mono">${weekLabel(W)}</b><button class="btn sm" data-act="mkt-week" data-d="7" aria-label="שבוע הבא">‹</button></div>`;
   const head=`<section class="head"><div class="head-t"><h1>סושיאל מדיה · דוחות שבועיים</h1><button class="btn pri" data-act="camp-new">+ דוח שבועי</button></div>${tabs}</section>`;
   if(S.campsErr)return wrap(head+`<div class="notice">לא הצלחתי לטעון: ${esc(S.campsErr)}</div>`);
   if(!S.campsReady)return wrap(head+'<p class="muted">טוען…</p>');
   if(f.view==='leads')return wrap(head+mktLeadsHTML());
+  if(f.view==='dash')return wrap(head+mktDashHTML());
   if(f.view==='year'){const weeks=[...new Set(all.map(([,c])=>campWeek(c)))].sort().reverse();
     return wrap(head+(weeks.length?`<div class="card"><h3>לפי שבועות</h3><div class="scroll-x"><table class="plain"><thead><tr><th>שבוע</th><th class="num">דוחות</th><th class="num">הושקע</th><th class="num">לידים</th><th class="num">עלות לליד</th><th class="num">הכנסות</th><th class="num">החזר</th><th></th></tr></thead><tbody>
       ${weeks.map(w=>{const x=sum(all.filter(([,c])=>campWeek(c)===w));return `<tr><td class="mono">${weekLabel(w)}</td><td class="num">${x.n}</td><td class="num">${ils(x.sp)}</td><td class="num">${x.ld}</td><td class="num">${x.ld?ils(x.sp/x.ld):'—'}</td><td class="num">${ils(x.rv)}</td><td class="num">${x.sp?'×'+(x.rv/x.sp).toFixed(1):'—'}</td><td><button class="btn sm" data-act="mkt-go" data-w="${w}">פתיחה</button></td></tr>`}).join('')}</tbody></table></div></div>`:emptyBox('עוד אין דוחות','לוחצים "דוח שבועי" ומזינים את נתוני השבוע.')))}
@@ -950,9 +953,10 @@ function leadCard(id,l){const late=leadLate(l),lq=leadQuote(id,l),q=lq&&lq[1];
     <span class="lead-tags">${l.source?`<span class="pill">${esc(LSRC[l.source]||l.source)}</span>`:''}${l.campaign?`<span class="pill">${esc(l.campaign)}</span>`:''}${q?`<span class="pill ${q.status==='approved'?'ok':''}">הצעה #${esc(q.num||'')}</span>`:''}</span>
     <small class="${late?'bad-t':'muted'}">${l.nextAt&&leadOpen(l)?`${late?'⚠ ':''}לחזור: ${dm(l.nextAt)}`:''}${l.ownerName?` · ${esc(l.ownerName)}`:''}</small>
     ${l.stage==='won'&&l.wonValue?`<small><b>${ils(l.wonValue)}</b></small>`:+l.value?`<small class="muted">${ils(l.value)} צפוי</small>`:''}</button>`}
-function vLeads(){leadsSub();leadsSync();const f=S.leadF||(S.leadF={view:'pipe',own:'all',src:'all',q:''});
+const myTasksDue=()=>Object.values(S.tasks||{}).filter(t=>!t.done&&t.owner===S.uid&&t.due&&t.due<=todayISO()).length;
+function vLeads(){leadsSub();tasksSub();leadsSync();const f=S.leadF||(S.leadF={view:'pipe',own:'all',src:'all',q:''});
   const head=`<section class="head"><div class="head-t"><h1>לידים ומכירות</h1><button class="btn pri" data-act="lead-new">+ ליד חדש</button></div>
-    <div class="chips" style="gap:6px;margin-top:8px"><button class="dchip ${f.view==='pipe'?'':'off'}" data-act="lead-view" data-v="pipe">פייפליין</button><button class="dchip ${f.view==='list'?'':'off'}" data-act="lead-view" data-v="list">רשימה</button>
+    <div class="chips" style="gap:6px;margin-top:8px"><button class="dchip ${f.view==='pipe'?'':'off'}" data-act="lead-view" data-v="pipe">פייפליין</button><button class="dchip ${f.view==='list'?'':'off'}" data-act="lead-view" data-v="list">רשימה</button><button class="dchip ${f.view==='clients'?'':'off'}" data-act="lead-view" data-v="clients">לקוחות</button><button class="dchip ${f.view==='tasks'?'':'off'}" data-act="lead-view" data-v="tasks">משימות${myTasksDue()?` (${myTasksDue()})`:''}</button><button class="dchip ${f.view==='sales'?'':'off'}" data-act="lead-view" data-v="sales">דשבורד מכירות</button>
     <select data-leadf="own" style="width:auto"><option value="all">כל המטפלים</option><option value="me" ${f.own==='me'?'selected':''}>רק שלי</option></select>
     <select data-leadf="src" style="width:auto"><option value="all">כל המקורות</option>${LEAD_SRC.map(([k,n])=>`<option value="${k}" ${f.src===k?'selected':''}>${n}</option>`).join('')}</select>
     <input type="search" data-leadf="q" value="${esc(f.q||'')}" placeholder="חיפוש לפי שם, טלפון או חברה" style="max-width:240px"></div></section>`;
@@ -968,6 +972,9 @@ function vLeads(){leadsSub();leadsSync();const f=S.leadF||(S.leadF={view:'pipe',
   const today=late.length?`<div class="card" style="border-color:var(--warn)"><h3>לחזור היום · ${late.length}</h3><div class="lead-row">${late.sort(([,a],[,b])=>String(a.nextAt).localeCompare(String(b.nextAt))).map(([id,l])=>leadCard(id,l)).join('')}</div></div>`:'';
   if(!Object.keys(S.leads||{}).length)return wrap(head+k+emptyBox('עוד אין לידים','כל פנייה של לקוח לאירוע נרשמת כאן כליד: מאיפה הגיע, מי מטפל ומתי לחזור אליו. כשנשלחת לו הצעה ונסגרת, הליד מתעדכן לבד.','<button class="btn pri" data-act="lead-new">+ ליד ראשון</button>'));
   let body;
+  if(f.view==='clients')return wrap(head+clientsHTML(f));
+  if(f.view==='tasks')return wrap(head+k+tasksHTML(f));
+  if(f.view==='sales')return wrap(head+salesHTML(f));
   if(f.view==='list')body=`<div class="card"><div class="scroll-x"><table class="plain"><thead><tr><th>ליד</th><th>שלב</th><th>מקור</th><th>אירוע</th><th>לחזור</th><th>מטפל</th><th class="num">סכום</th></tr></thead><tbody>${all.map(([id,l])=>`<tr data-act="lead-open" data-id="${id}" style="cursor:pointer"><td><b>${esc(l.name||'')}</b>${l.company?`<div class="muted" style="font-size:.8rem">${esc(l.company)}</div>`:''}</td><td><span class="pill ${l.stage==='won'?'ok':l.stage==='lost'?'bad':''}">${LSTG[l.stage]||''}</span></td><td>${esc(LSRC[l.source]||'')}${l.campaign?`<div class="muted" style="font-size:.8rem">${esc(l.campaign)}</div>`:''}</td><td>${esc([l.type,l.date?dm(l.date):''].filter(Boolean).join(' · '))}</td><td class="${leadLate(l)?'bad-t':''}">${l.nextAt&&leadOpen(l)?dm(l.nextAt):''}</td><td>${esc(l.ownerName||'')}</td><td class="num">${l.stage==='won'?ils(l.wonValue||0):+l.value?ils(l.value):''}</td></tr>`).join('')}</tbody></table></div></div>`;
   else body=`<div class="lead-pipe">${LEAD_STAGES.map(([s,n])=>{const L=all.filter(([,l])=>(l.stage||'new')===s),sum=L.reduce((a,[,l])=>a+(s==='won'?(+l.wonValue||0):(+l.value||0)),0);
     return `<section class="lead-col lead-${s}"><div class="lead-col-h"><b>${n}</b><span class="muted">${L.length}${sum?' · '+ils(sum):''}</span></div>${L.slice(0,60).map(([id,l])=>leadCard(id,l)).join('')||'<p class="muted" style="font-size:.85rem;margin:6px 0">אין</p>'}</section>`}).join('')}</div>`;
@@ -992,9 +999,95 @@ function sheetLead(){const id=S.sheet.id,l=(S.leads||{})[id]||{},isNew=!(S.leads
   <div class="actions"><button class="btn pri" data-act="lead-save">שמירה</button>${isNew?'':`<button class="btn" data-act="lead-quote">${q?'פתיחת אפליקציית האירועים':'יצירת הצעת מחיר'}</button><button class="btn ghost" data-act="lead-del">${S.confirm==='lead-del'?'לחיצה נוספת תמחק':'מחיקה'}</button>`}</div>
   ${isNew?'':`<div class="sep"></div><h3>הצעת מחיר</h3>${q?`<p style="margin:0"><b>הצעה #${esc(q.num||'')}</b> · ${esc({draft:'טיוטה',sent:'נשלחה',approved:'אושרה',declined:'נדחתה'}[q.status]||'')} · ${ils(quoteVal(q))} לפני מע״מ</p><p class="muted" style="font-size:.82rem;margin:4px 0 0">השלב של הליד מתעדכן לבד לפי ההצעה.</p>`:'<p class="muted" style="margin:0">עוד אין הצעה. "יצירת הצעת מחיר" פותחת הצעה חדשה עם פרטי הליד. הצעה עם אותו טלפון מתחברת לבד.</p>'}
   ${S.can.events&&qOpts.length?`<label class="f" style="margin-top:8px">חיבור להצעה קיימת<select data-leadq="1"><option value="">${l.quoteId?'שינוי…':'בחירה…'}</option>${qOpts.map(([qid,x])=>`<option value="${qid}" ${l.quoteId===qid?'selected':''}>#${esc(x.num||'')} · ${esc((x.client&&x.client.name)||'')} · ${x.event&&x.event.date?dm(x.event.date):''}</option>`).join('')}</select></label>`:''}
+  <div class="sep"></div><h3>משימות לליד</h3>${(()=>{tasksSub();const T=Object.entries(S.tasks||{}).filter(([,t])=>t.leadId===id);return (T.length?`<div class="plist">${T.map(([tid,t])=>taskRow(tid,t)).join('')}</div>`:'')+taskFormHTML(id)})()}
   <div class="sep"></div><h3>פעילות</h3>
   <div class="row" style="align-items:flex-end"><label class="f" style="max-width:140px">סוג<select id="la_kind">${LEAD_ACTS.map(([k,n])=>`<option value="${k}">${n}</option>`).join('')}</select></label><label class="f" style="flex:3">מה היה<input type="text" id="la_text" placeholder="למשל: דיברנו, מחכה לאישור תקציב"></label><button class="btn" data-act="lead-act">הוספה</button></div>
   ${acts.length?`<div class="plist">${acts.map(a=>`<div class="prow"><span class="who"><b>${esc(LACT[a.kind]||'')}</b> ${esc(a.text||'')}<small class="muted">${new Date(a.at).toLocaleString('he-IL',{dateStyle:'short',timeStyle:'short'})} · ${esc(a.byName||'')}</small></span></div>`).join('')}</div>`:'<p class="muted" style="margin:0">עוד אין פעילות.</p>'}`}`}
+/* ---------- CRM phase 2: clients, tasks, sales dashboard ----------
+   clients are derived from leads + quotes, grouped by phone (else e-mail, else name); clients/{key} {notes, tag, updatedAt} keeps notes per client.
+   tasks/{id} {title, due 'YYYY-MM-DD', owner, ownerName, leadId, leadName, done, doneAt, createdBy, createdAt}; push: functions onTask + crmMorning. */
+const clientKey=(phone,email,name)=>{const t=leadTel(phone);if(t.length>=9)return 'p'+t;const e=String(email||'').trim().toLowerCase();if(e)return 'e'+e.replace(/[^a-z0-9@._-]/g,'');const n=String(name||'').trim();return n?'n'+n.replace(/[\/\s]+/g,'_').slice(0,60):''};
+function crmClients(){const C={};const add=(k,o)=>{if(!k)return;const c=C[k]||(C[k]={key:k,name:'',company:'',phone:'',email:'',leads:[],quotes:[],first:0,last:0});
+    for(const f of ['name','company','phone','email'])if(!c[f]&&o[f])c[f]=o[f];return c};
+  for(const [id,l] of Object.entries(S.leads||{})){const c=add(clientKey(l.phone,l.email,l.name),l);if(c)c.leads.push([id,l])}
+  for(const [id,q] of Object.entries(S.lquotes||{})){if(q.kind==='group')continue;const cl=q.client||{},c=add(clientKey(cl.phone,cl.email,cl.name),cl);if(c)c.quotes.push([id,q])}
+  for(const c of Object.values(C)){const won=c.quotes.filter(([,q])=>q.status==='approved');c.won=won.length;c.rev=won.reduce((a,[,q])=>a+quoteVal(q),0);
+    const dates=c.quotes.map(([,q])=>q.event&&q.event.date).filter(Boolean).sort();c.lastEvent=dates.filter(d=>d<=todayISO()).pop()||'';c.nextEvent=dates.find(d=>d>todayISO())||'';
+    c.last=Math.max(0,...c.leads.map(([,l])=>l.updatedAt||l.createdAt||0),...c.quotes.map(([,q])=>qTime(q)))}
+  return C}
+function clientsHTML(f){liveColl('clientsMeta','clients');const C=Object.values(crmClients()),q=String(f.q||'').trim().toLowerCase(),qt=leadTel(q);
+  let L=C.filter(c=>!q||[c.name,c.company,c.email].some(x=>String(x||'').toLowerCase().includes(q))||(qt.length>=4&&leadTel(c.phone).includes(qt)));
+  L.sort((a,b)=>b.rev-a.rev||b.last-a.last);
+  const rep=C.filter(c=>c.won>=2).length;
+  return `<div class="kpis">${kpi('לקוחות',String(C.length))}${kpi('לקוחות חוזרים',String(rep),'2 אירועים ומעלה')}${kpi('הכנסות מלקוחות',ils(C.reduce((a,c)=>a+c.rev,0)),'אירועים שנסגרו, לפני מע״מ')}</div>
+  <div class="card"><div class="scroll-x"><table class="plain"><thead><tr><th>לקוח</th><th>טלפון</th><th class="num">לידים</th><th class="num">הצעות</th><th class="num">אירועים</th><th class="num">הכנסות</th><th>אירוע הבא</th></tr></thead><tbody>
+  ${L.slice(0,300).map(c=>{const m=(S.clientsMeta||{})[c.key]||{};return `<tr data-act="client-open" data-k="${esc(c.key)}" style="cursor:pointer"><td><b>${esc(c.name||'')}</b>${m.tag?` <span class="pill ok">${esc(m.tag)}</span>`:''}${c.company?`<div class="muted" style="font-size:.8rem">${esc(c.company)}</div>`:''}</td><td dir="ltr">${esc(c.phone||'')}</td><td class="num">${c.leads.length}</td><td class="num">${c.quotes.length}</td><td class="num">${c.won}</td><td class="num">${c.rev?ils(c.rev):''}</td><td>${c.nextEvent?dm(c.nextEvent):''}</td></tr>`}).join('')}</tbody></table></div>${L.length?'':'<p class="muted">אין לקוחות שמתאימים לחיפוש.</p>'}</div>`}
+function sheetClient(){const k=S.sheet.k,c=crmClients()[k];if(!c)return sheetHead('לקוח','')+'<p class="muted">הלקוח לא נמצא.</p>';
+  const m=(S.clientsMeta||{})[k]||{},tel=leadTel(c.phone),ST={draft:'טיוטה',sent:'נשלחה',approved:'אושרה',declined:'נדחתה'};
+  const tl=[...c.leads.map(([id,l])=>({t:l.createdAt||0,h:`<b>ליד</b> · ${esc(LSTG[l.stage]||'')}${l.type?' · '+esc(l.type):''}`,act:'lead-open',id})),
+    ...c.quotes.map(([id,q])=>({t:qTime(q),h:`<b>הצעה #${esc(q.num||'')}</b> · ${esc(ST[q.status]||'')} · ${q.event&&q.event.date?dm(q.event.date):''} · ${ils(quoteVal(q))}`})),
+    ...c.leads.flatMap(([,l])=>(l.acts||[]).map(a=>({t:a.at,h:`${esc(LACT[a.kind]||'')}: ${esc(a.text||'')} <span class="muted">· ${esc(a.byName||'')}</span>`})))].sort((a,b)=>b.t-a.t);
+  return sheetHead(esc(c.name||'לקוח'),esc([c.company,c.phone,c.email].filter(Boolean).join(' · ')))+`
+  ${tel.length>=9?`<div class="actions"><a class="btn sm" href="tel:${esc(c.phone)}">📞 חיוג</a><a class="btn sm" href="https://wa.me/972${tel}" target="_blank" rel="noopener">וואטסאפ</a>${c.email?`<a class="btn sm" href="mailto:${esc(c.email)}">מייל</a>`:''}<button class="btn sm" data-act="client-lead" data-k="${esc(k)}">+ ליד חדש ללקוח</button></div>`:''}
+  <div class="kpis">${kpi('אירועים',String(c.won))}${kpi('הכנסות',ils(c.rev),'לפני מע״מ')}${kpi('אירוע אחרון',c.lastEvent?dm(c.lastEvent):'—',c.nextEvent?'הבא: '+dm(c.nextEvent):'')}</div>
+  <div class="row"><label class="f">סימון<input type="text" list="cl-tags" id="cl_tag" value="${esc(m.tag||'')}" placeholder="למשל: לקוח VIP, חברה קבועה"><datalist id="cl-tags"><option value="לקוח VIP"><option value="חברה קבועה"><option value="לא לעבוד איתו"></datalist></label></div>
+  <label class="f">הערות על הלקוח<textarea id="cl_notes" rows="3">${esc(m.notes||'')}</textarea></label>
+  <div class="actions"><button class="btn pri" data-act="client-save" data-k="${esc(k)}">שמירה</button></div>
+  <div class="sep"></div><h3>היסטוריה</h3>${tl.length?`<div class="plist">${tl.map(x=>`<div class="prow"${x.act?` data-act="${x.act}" data-id="${x.id}" style="cursor:pointer"`:''}><span class="who">${x.h}<small class="muted">${x.t?new Date(x.t).toLocaleDateString('he-IL'):''}</small></span></div>`).join('')}</div>`:'<p class="muted">אין היסטוריה.</p>'}`}
+// tasks
+function tasksSub(){liveColl('tasks','tasks')}
+const taskLate=t=>!t.done&&t.due&&t.due<todayISO(),taskToday=t=>!t.done&&t.due===todayISO();
+function taskRow(id,t){return `<div class="prow${taskLate(t)?' late':''}"><label class="check" style="flex:1;align-items:flex-start"><input type="checkbox" data-task="${id}" ${t.done?'checked':''}><span class="who"><b style="${t.done?'text-decoration:line-through;opacity:.6':''}">${esc(t.title||'')}</b><small class="${taskLate(t)?'bad-t':'muted'}">${t.due?(taskLate(t)?'⚠ ':'')+dm(t.due):'בלי תאריך'}${t.ownerName?' · '+esc(t.ownerName):''}${t.leadName?' · '+esc(t.leadName):''}</small></span></label>${t.leadId&&(S.leads||{})[t.leadId]?`<button class="btn sm ghost" data-act="lead-open" data-id="${t.leadId}">ליד</button>`:''}<button class="btn sm ghost" data-act="task-del" data-id="${id}" aria-label="מחיקה">×</button></div>`}
+function taskFormHTML(leadId){const own=leadOwners();return `<div class="row" style="align-items:flex-end"><label class="f" style="flex:3">משימה<input type="text" id="tk_title" placeholder="למשל: לשלוח ללקוח תפריט מעודכן"></label><label class="f" style="max-width:160px">עד תאריך<input type="date" id="tk_due" value="${todayISO()}"></label><label class="f" style="max-width:160px">למי<select id="tk_owner">${Object.entries(own).map(([u,n])=>`<option value="${u}" ${u===S.uid?'selected':''}>${esc(n)}</option>`).join('')}</select></label><button class="btn pri" data-act="task-add" data-lead="${leadId||''}">הוספה</button></div>`}
+function tasksHTML(f){tasksSub();const all=Object.entries(S.tasks||{}).filter(([,t])=>f.own!=='me'||t.owner===S.uid);
+  const open=all.filter(([,t])=>!t.done).sort(([,a],[,b])=>String(a.due||'9').localeCompare(String(b.due||'9'))),done=all.filter(([,t])=>t.done).sort(([,a],[,b])=>(b.doneAt||0)-(a.doneAt||0)).slice(0,20);
+  const late=open.filter(([,t])=>taskLate(t)),tod=open.filter(([,t])=>taskToday(t)),later=open.filter(([,t])=>!taskLate(t)&&!taskToday(t));
+  const sec=(h,l,cls)=>l.length?`<h4 style="margin:12px 0 6px" class="${cls||''}">${h} · ${l.length}</h4><div class="plist">${l.map(([id,t])=>taskRow(id,t)).join('')}</div>`:'';
+  return `<div class="card"><h3>משימה חדשה</h3>${taskFormHTML('')}<p class="muted" style="font-size:.82rem;margin:6px 0 0">מי שמקבל משימה מקבל התראה לטלפון. כל בוקר ב-8:30 נשלחת לכל אחד תזכורת עם המשימות והלידים שלו להיום.</p></div>
+  <div class="card">${open.length?sec('באיחור',late,'bad-t')+sec('היום',tod)+sec('בהמשך',later):'<p class="muted">אין משימות פתוחות.</p>'}${done.length?`<details style="margin-top:12px"><summary>בוצעו לאחרונה · ${done.length}</summary><div class="plist">${done.map(([id,t])=>taskRow(id,t)).join('')}</div></details>`:''}</div>`}
+// sales dashboard
+const LEAD_PROB={new:.1,contacted:.2,meeting:.4,quote:.6};
+function salesHTML(f){const per=f.per||'month',now=todayISO(),M=now.slice(0,7),PM=monAdd(M,-1),Y=now.slice(0,4);
+  const inP=t=>{if(!t)return false;const d=new Date(t).toISOString().slice(0,10);return per==='month'?d.slice(0,7)===M:per==='prev'?d.slice(0,7)===PM:d.slice(0,4)===Y};
+  const all=Object.entries(S.leads||{}).map(([,l])=>l),created=all.filter(l=>inP(l.createdAt)),won=all.filter(l=>l.stage==='won'&&inP(l.wonAt||l.updatedAt)),lost=all.filter(l=>l.stage==='lost'&&inP(l.updatedAt));
+  const rev=won.reduce((a,l)=>a+(+l.wonValue||0),0),days=won.filter(l=>l.wonAt&&l.createdAt).map(l=>(l.wonAt-l.createdAt)/864e5);
+  const open=all.filter(leadOpen),pipe=open.reduce((a,l)=>a+(+l.value||0),0),wpipe=open.reduce((a,l)=>a+(+l.value||0)*(LEAD_PROB[l.stage||'new']||0),0);
+  const perSel=`<div class="chips" style="gap:6px;margin-bottom:8px">${[['month','החודש'],['prev','החודש הקודם'],['year','השנה']].map(([k,n])=>`<button class="dchip ${per===k?'':'off'}" data-act="sales-per" data-v="${k}">${n}</button>`).join('')}</div>`;
+  const k=`<div class="kpis">${kpi('לידים חדשים',String(created.length))}${kpi('נסגרו',String(won.length),won.length+lost.length?Math.round(won.length/(won.length+lost.length)*100)+'% אחוז סגירה':'')}${kpi('הכנסות שנסגרו',ils(rev),won.length?'ממוצע לאירוע '+ils(rev/won.length):'לפני מע״מ')}${kpi('זמן ממוצע לסגירה',days.length?Math.round(days.reduce((a,b)=>a+b,0)/days.length)+' ימים':'—')}</div>`;
+  // funnel of open leads now
+  const cnt=LEAD_STAGES.map(([s,n])=>[s,n,all.filter(l=>(l.stage||'new')===s).length]),mx=Math.max(1,...cnt.map(x=>x[2]));
+  const funnel=`<div class="card"><h3>הלידים לפי שלב (כרגע)</h3>${cnt.map(([s,n,c])=>`<div class="crm-row"><span>${n}</span><div class="crm-track"><i class="lead-bar-${s}" style="width:${c/mx*100}%"></i></div><b class="mono">${c}</b></div>`).join('')}
+    <p class="muted" style="font-size:.85rem;margin:8px 0 0">שווי לידים פתוחים: <b>${ils(pipe)}</b> · תחזית משוקללת לפי שלב: <b>${ils(wpipe)}</b> (ליד חדש 10%, נוצר קשר 20%, פגישה 40%, הצעה 60%)</p></div>`;
+  const grp=(key,label,fn)=>{const g={};for(const l of all){const kk=fn(l)||'—';const x=g[kk]||(g[kk]={n:0,won:0,lost:0,rev:0});if(inP(l.createdAt))x.n++;if(l.stage==='won'&&inP(l.wonAt||l.updatedAt)){x.won++;x.rev+=+l.wonValue||0}if(l.stage==='lost'&&inP(l.updatedAt))x.lost++}
+    const rows=Object.entries(g).filter(([,x])=>x.n||x.won||x.lost).sort((a,b)=>b[1].rev-a[1].rev||b[1].n-a[1].n);
+    return `<div class="card"><h3>${label}</h3>${rows.length?`<div class="scroll-x"><table class="plain"><thead><tr><th>${key}</th><th class="num">לידים חדשים</th><th class="num">נסגרו</th><th class="num">לא נסגרו</th><th class="num">אחוז סגירה</th><th class="num">הכנסות</th></tr></thead><tbody>${rows.map(([n,x])=>`<tr><td><b>${esc(n)}</b></td><td class="num">${x.n}</td><td class="num">${x.won}</td><td class="num">${x.lost}</td><td class="num">${x.won+x.lost?Math.round(x.won/(x.won+x.lost)*100)+'%':'—'}</td><td class="num">${ils(x.rev)}</td></tr>`).join('')}</tbody></table></div>`:'<p class="muted">אין נתונים בתקופה הזו.</p>'}</div>`};
+  // upcoming approved events revenue, next 3 months (from quotes)
+  const up=[0,1,2].map(i=>{const m=monAdd(M,i),v=Object.values(S.lquotes||{}).filter(q=>q.kind!=='group'&&q.status==='approved'&&q.event&&String(q.event.date||'').slice(0,7)===m).reduce((a,q)=>a+quoteVal(q),0);return [m,v]}),umx=Math.max(1,...up.map(x=>x[1]));
+  const upc=`<div class="card"><h3>אירועים סגורים לחודשים הקרובים</h3>${up.map(([m,v])=>`<div class="crm-row"><span>${monLabel(m)}</span><div class="crm-track"><i style="width:${v/umx*100}%"></i></div><b class="mono">${ils(v)}</b></div>`).join('')}<p class="muted" style="font-size:.82rem;margin:6px 0 0">לפי תאריך האירוע, הצעות שאושרו, לפני מע״מ.</p></div>`;
+  const lostR={};lost.forEach(l=>{const r=l.lostReason||'לא צוין';lostR[r]=(lostR[r]||0)+1});
+  const lostC=lost.length?`<div class="card"><h3>למה לא נסגרו</h3>${Object.entries(lostR).sort((a,b)=>b[1]-a[1]).map(([r,c])=>`<div class="crm-row"><span>${esc(r)}</span><div class="crm-track"><i class="lead-bar-lost" style="width:${c/lost.length*100}%"></i></div><b class="mono">${c}</b></div>`).join('')}</div>`:'';
+  return perSel+k+`<div class="setgrid">${funnel}${upc}</div>`+grp('מקור','לפי מקור',l=>LSRC[l.source]||'')+grp('מטפל/ת','לפי איש מכירות',l=>l.ownerName||'')+grp('מקום','לפי מקום',l=>EV_VENUE[l.venue]||'')+lostC}
+// social media dashboard: a month of spend (weekly reports) next to what the leads page shows really came in
+const SRC_PLAT={instagram:'meta',facebook:'meta',google:'google',tiktok:'tiktok'};
+function mktDashHTML(){leadsSub();if(!S.leadsReady)return '<p class="muted">טוען לידים…</p>';if(S.leadsErr)return `<div class="notice">אין גישה ללידים: ${esc(S.leadsErr)}</div>`;
+  const M=S.mktM||(S.mktM=todayISO().slice(0,7)),camps=Object.values(S.camps||{}),leads=Object.values(S.leads||{});
+  const cPlat={};camps.forEach(c=>{if(c.name)cPlat[String(c.name).trim()]=c.platform||'other'});
+  const plat=l=>(l.campaign&&cPlat[l.campaign])||SRC_PLAT[l.source]||'organic';
+  const mOf=t=>t?new Date(t).toISOString().slice(0,7):'';
+  const stat=m=>{const sp=camps.filter(c=>String(campWeek(c)).slice(0,7)===m).reduce((a,c)=>a+(+c.spend||0),0);
+    const ld=leads.filter(l=>mOf(l.createdAt)===m),paid=ld.filter(l=>plat(l)!=='organic'),won=leads.filter(l=>l.stage==='won'&&mOf(l.wonAt||l.updatedAt)===m),rev=won.reduce((a,l)=>a+(+l.wonValue||0),0);
+    return {sp,ld:ld.length,paid:paid.length,won:won.length,rev}};
+  const A=stat(M),P=stat(monAdd(M,-1)),chg=(a,b)=>b?` · ${a>=b?'▲':'▼'} ${Math.abs(Math.round((a-b)/b*100))}%`:'';
+  const nav=`<div class="actions" style="align-items:center"><button class="btn sm" data-act="mkt-mon" data-d="-1" aria-label="חודש קודם">›</button><b>${monLabel(M)}</b><button class="btn sm" data-act="mkt-mon" data-d="1" aria-label="חודש הבא">‹</button></div>`;
+  const k=`<div class="kpis">${kpi('הושקע',ils(A.sp),'מהדוחות השבועיים'+chg(A.sp,P.sp))}${kpi('לידים',String(A.ld),`${A.paid} מקמפיינים`+chg(A.ld,P.ld))}${kpi('עלות לליד',A.paid?ils(A.sp/A.paid):'—','לפי לידים מקמפיינים')}${kpi('נסגרו לאירוע',String(A.won),(A.won&&A.sp?ils(A.sp/A.won)+' לאירוע':'')+chg(A.won,P.won))}${kpi('הכנסות',ils(A.rev),'לפני מע״מ'+chg(A.rev,P.rev))}${kpi('החזר',A.sp?'×'+(A.rev/A.sp).toFixed(1):'—','הכנסות חלקי השקעה',A.sp&&A.rev<A.sp?'bad':'')}</div>`;
+  const PN={...PLMAP,organic:'אורגני / ישיר'},by={};
+  for(const c of camps)if(String(campWeek(c)).slice(0,7)===M){const p=c.platform||'other',x=by[p]||(by[p]={sp:0,ld:0,won:0,rev:0});x.sp+=+c.spend||0}
+  for(const l of leads){const p=plat(l),x=by[p]||(by[p]={sp:0,ld:0,won:0,rev:0});if(mOf(l.createdAt)===M)x.ld++;if(l.stage==='won'&&mOf(l.wonAt||l.updatedAt)===M){x.won++;x.rev+=+l.wonValue||0}}
+  const rows=Object.entries(by).filter(([,x])=>x.sp||x.ld||x.won).sort((a,b)=>b[1].rev-a[1].rev||b[1].ld-a[1].ld);
+  const tbl=`<div class="card"><h3>לפי פלטפורמה · ${monLabel(M)}</h3>${rows.length?`<div class="scroll-x"><table class="plain"><thead><tr><th>פלטפורמה</th><th class="num">הושקע</th><th class="num">לידים</th><th class="num">עלות לליד</th><th class="num">נסגרו</th><th class="num">עלות לאירוע</th><th class="num">הכנסות</th><th class="num">החזר</th></tr></thead><tbody>${rows.map(([p,x])=>`<tr><td><b>${esc(PN[p]||p)}</b></td><td class="num">${x.sp?ils(x.sp):'—'}</td><td class="num">${x.ld}</td><td class="num">${x.sp&&x.ld?ils(x.sp/x.ld):'—'}</td><td class="num">${x.won}</td><td class="num">${x.sp&&x.won?ils(x.sp/x.won):'—'}</td><td class="num">${ils(x.rev)}</td><td class="num">${x.sp?'×'+(x.rev/x.sp).toFixed(1):'—'}</td></tr>`).join('')}</tbody></table></div>`:'<p class="muted">אין נתונים לחודש הזה.</p>'}</div>`;
+  const ms=[5,4,3,2,1,0].map(i=>monAdd(M,-i)),T=ms.map(m=>[m,stat(m)]),mx=Math.max(1,...T.map(([,x])=>x.ld));
+  const trend=`<div class="card"><h3>חצי שנה אחרונה</h3><div class="scroll-x"><table class="plain"><thead><tr><th>חודש</th><th>לידים</th><th class="num">הושקע</th><th class="num">נסגרו</th><th class="num">הכנסות</th><th class="num">החזר</th></tr></thead><tbody>${T.map(([m,x])=>`<tr${m===M?' style="font-weight:700"':''}><td>${monLabel(m)}</td><td style="min-width:140px"><div class="crm-row" style="grid-template-columns:minmax(0,1fr) 34px;margin:0"><div class="crm-track"><i style="width:${x.ld/mx*100}%"></i></div><b class="mono">${x.ld}</b></div></td><td class="num">${ils(x.sp)}</td><td class="num">${x.won}</td><td class="num">${ils(x.rev)}</td><td class="num">${x.sp?'×'+(x.rev/x.sp).toFixed(1):'—'}</td></tr>`).join('')}</tbody></table></div></div>`;
+  return `<div class="card" style="padding-block:10px">${nav}</div>`+k+tbl+trend+`<p class="muted" style="font-size:.82rem">לידים מקמפיין = ליד שנרשם עם שם קמפיין, או שהגיע מאינסטגרם, פייסבוק, גוגל או טיקטוק. ההכנסות לפי חודש הסגירה.</p>`}
 // social media: what the campaigns really brought, from the leads that name them
 function mktLeadsHTML(){leadsSub();if(!S.leadsReady)return '<p class="muted">טוען לידים…</p>';if(S.leadsErr)return `<div class="notice">אין גישה ללידים: ${esc(S.leadsErr)}</div>`;
   const by={},spend={};for(const c of Object.values(S.camps||{})){const n=String(c.name||'').trim();if(n)spend[n]=(spend[n]||0)+(+c.spend||0)}
@@ -1237,7 +1330,7 @@ function vGm(){const hs=scopeHs();if(!hs.length)return wrap(emptyBox('אין מ�
 // an item reached its minimum: quantity at or below the minimum set for it
 const isLow=x=>+x.min>0&&(+x.qty||0)<=+x.min;
 const lowItems=()=>Object.entries(S.alertInv||{}).filter(([,x])=>isLow(x));
-function alertCount(){let n=myPending().length+swapIn().length+(S.admin?swapMgr().filter(([,r])=>visibleHotels().includes(r.hotel)).length:0);
+function alertCount(){let n=(S.can&&S.can.events?myTasksDue()+Object.values(S.leads||{}).filter(l=>l.owner===S.uid&&leadLate(l)).length:0)+myPending().length+swapIn().length+(S.admin?swapMgr().filter(([,r])=>visibleHotels().includes(r.hotel)).length:0);
   if(S.can.gm||S.can.shifts||S.isOwner)n+=Object.values(S.alertPreqs||{}).filter(r=>r.status==='pending').length+lowItems().length;
   if(S.can.maint)n+=recurRooms(Object.values(S.alertFaultsAll||{})).length;
   if(S.can.fin)n+=finPendingAll();
@@ -1834,7 +1927,7 @@ function vProfile(){
 /* ---------- sheets ---------- */
 function renderSheet(){
   const el=$('#sheet');if(!S.sheet){el.hidden=true;el.innerHTML='';return}
-  let h='';if(S.sheet.type==='perm')h=sheetPerm();else if(S.sheet.type==='cell')h=sheetCell();else if(S.sheet.type==='emp')h=sheetEmp();else if(S.sheet.type==='send')h=sheetSend();else if(S.sheet.type==='remind')h=sheetRemind();else if(S.sheet.type==='camp')h=sheetCamp();else if(S.sheet.type==='sup')h=sheetSup();else if(S.sheet.type==='inv')h=sheetInv();else if(S.sheet.type==='stock')h=sheetStock();else if(S.sheet.type==='preq')h=sheetPreq();else if(S.sheet.type==='swap')h=sheetSwap();else if(S.sheet.type==='iospush')h=sheetIosPush();else if(S.sheet.type==='pushask')h=sheetPushAsk();else if(S.sheet.type==='srview')h=sheetSrView();else if(S.sheet.type==='bkauto')h=sheetBkAuto();else if(S.sheet.type==='hk')h=sheetHk();else if(S.sheet.type==='lead')h=sheetLead();else if(S.sheet.type==='hkooo')h=sheetHkOoo();
+  let h='';if(S.sheet.type==='perm')h=sheetPerm();else if(S.sheet.type==='cell')h=sheetCell();else if(S.sheet.type==='emp')h=sheetEmp();else if(S.sheet.type==='send')h=sheetSend();else if(S.sheet.type==='remind')h=sheetRemind();else if(S.sheet.type==='camp')h=sheetCamp();else if(S.sheet.type==='sup')h=sheetSup();else if(S.sheet.type==='inv')h=sheetInv();else if(S.sheet.type==='stock')h=sheetStock();else if(S.sheet.type==='preq')h=sheetPreq();else if(S.sheet.type==='swap')h=sheetSwap();else if(S.sheet.type==='iospush')h=sheetIosPush();else if(S.sheet.type==='pushask')h=sheetPushAsk();else if(S.sheet.type==='srview')h=sheetSrView();else if(S.sheet.type==='bkauto')h=sheetBkAuto();else if(S.sheet.type==='hk')h=sheetHk();else if(S.sheet.type==='lead')h=sheetLead();else if(S.sheet.type==='client')h=sheetClient();else if(S.sheet.type==='hkooo')h=sheetHkOoo();
   if(!h){S.sheet=null;el.hidden=true;return}
   el.innerHTML=`<div class="panel${S.sheet.type==='srview'?' big':''}" role="dialog" aria-modal="true">${h}</div>`;el.hidden=false;
 }
@@ -2019,7 +2112,7 @@ function joinCodeHTML(){const c={...cfg(),joinCode:validCode()};
   <p class="muted" style="font-size:.85rem">עובד חדש נכנס לאפליקציה, מתחבר ומקליד את הקוד, וכך הוא משויך ל${esc(hotelName(S.hotel))}. אפשר להחליף קוד בכל זמן, והקוד הישן מפסיק לעבוד.</p>
   <div class="actions" style="align-items:center">${c.joinCode?`<b class="code">${esc(c.joinCode)}</b>`:'<span class="muted">עוד אין קוד</span>'}<button class="btn" data-act="join-new">${c.joinCode?'החלפת קוד':'יצירת קוד'}</button></div>`}
 // full backup (owner): every collection to one JSON file in the same format the import reads
-const BACKUP_COLLS=['hotels','settings','employees','mgr','avail','shifts','schedule','requests','roles','joinCodes','config','menus','contracts','quotes','campaigns','suppliers','invoices','expcfg','inventory','purchaseReqs','shiftReports','faults','hk','hkcfg','hkLog','hkComplaints','leads'];
+const BACKUP_COLLS=['hotels','settings','employees','mgr','avail','shifts','schedule','requests','roles','joinCodes','config','menus','contracts','quotes','campaigns','suppliers','invoices','expcfg','inventory','purchaseReqs','shiftReports','faults','hk','hkcfg','hkLog','hkComplaints','leads','tasks','clients'];
 const lastBackup=()=>{let l=0;try{l=+localStorage.getItem('scLastBackup')||0}catch(_){ }bkCfgLoad();return Math.max(l,+(S.bkCfg&&S.bkCfg.lastAt)||0)};
 // daily automatic backup to the owner's Google Drive: an Apps Script in their Drive calls the driveBackup function with the key in backupcfg/main
 const BK_FN='https://europe-west1-'+((CFG.firebase&&CFG.firebase.projectId)||'hotel-shifts')+'.cloudfunctions.net/driveBackup';
@@ -2316,6 +2409,16 @@ const ACT={
   'lead-view':D=>{S.leadF.view=D.v;render()},
   'lead-stage':D=>{(S.drafts.lead||(S.drafts.lead={})).stage=D.v;render()},
   'lead-save':()=>leadSave(),
+  'sales-per':D=>{S.leadF.per=D.v;render()},
+  'mkt-mon':D=>{S.mktM=monAdd(S.mktM||todayISO().slice(0,7),+D.d);render()},
+  'client-open':D=>{S.sheet={type:'client',k:D.k};render()},
+  'client-save':D=>{const o={tag:String(($('#cl_tag')||{}).value||'').trim(),notes:String(($('#cl_notes')||{}).value||''),updatedAt:Date.now(),by:S.uid};S.clientsMeta=S.clientsMeta||{};S.clientsMeta[D.k]=o;fdb.doc('clients/'+D.k).set(o,{merge:true}).then(()=>toast('נשמר'),e=>toast('השמירה נכשלה: '+errMsg(mapErr(e))));render()},
+  'client-lead':D=>{const c=crmClients()[D.k]||{};S.drafts.lead={stage:'new',owner:S.uid,name:c.name||'',phone:c.phone||'',email:c.email||'',company:c.company||'',source:'returning'};S.confirm=null;S.sheet={type:'lead',id:'l'+Date.now().toString(36)+Math.random().toString(36).slice(2,6)};render()},
+  'task-add':D=>{const title=String(($('#tk_title')||{}).value||'').trim();if(!title){toast('צריך לכתוב את המשימה');return}
+    const owner=($('#tk_owner')||{}).value||S.uid,own=leadOwners(),l=D.lead?(S.leads||{})[D.lead]:null,id='t'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+    const t={title,due:($('#tk_due')||{}).value||'',owner,ownerName:own[owner]||'',leadId:D.lead||'',leadName:l?(l.name||''):'',done:false,createdBy:S.uid,createdByName:S.meName||'',createdAt:Date.now()};
+    S.tasks=S.tasks||{};S.tasks[id]=t;fdb.doc('tasks/'+id).set(t).then(()=>toast(owner===S.uid?'המשימה נוספה':'המשימה נשלחה ל'+(own[owner]||'')),e=>toast('השמירה נכשלה: '+errMsg(mapErr(e))));render()},
+  'task-del':D=>{delete S.tasks[D.id];fdb.doc('tasks/'+D.id).delete().catch(()=>{});render()},
   'lead-del':()=>{if(S.confirm!=='lead-del'){S.confirm='lead-del';render();return}const id=S.sheet.id;S.confirm=null;S.sheet=null;delete S.leads[id];fdb.doc('leads/'+id).delete().then(()=>toast('הליד נמחק'),e=>toast('המחיקה נכשלה: '+errMsg(mapErr(e))));render()},
   'lead-act':()=>{const id=S.sheet.id,l=(S.leads||{})[id];if(!l){toast('קודם שומרים את הליד');return}const t=String(($('#la_text')||{}).value||'').trim();if(!t){toast('צריך לכתוב מה היה');return}
     const a={at:Date.now(),by:S.uid,byName:S.meName||'',kind:($('#la_kind')||{}).value||'note',text:t},up={acts:[...(l.acts||[]),a],updatedAt:Date.now()};
@@ -2675,7 +2778,7 @@ async function start(u){
     db.collection('requests').where('uid','==',S.uid).onSnapshot(q=>{own=docsMap(q);mix()},onErr);
     db.collection('requests').where('peer','==',S.uid).onSnapshot(q=>{peer=docsMap(q);mix()},()=>{});
     db.collection('requests').where('hotel','==',S.myHotel===CHAIN?S.hotel:(S.myHotel||S.hotel)).where('status','==','approved').onSnapshot(q=>{hot=docsMap(q);mix()},()=>{})}
-  subWeek();S.ready=true;render();checkJoinCodes();if(!S.station)alertsSub();setTimeout(pushInit,1500);setTimeout(pushAsk,2500);
+  subWeek();S.ready=true;render();checkJoinCodes();if(!S.station)alertsSub();if(S.can.events){liveColl('leads','leads');tasksSub()}setTimeout(pushInit,1500);setTimeout(pushAsk,2500);
 }
 (function boot(){
   render();

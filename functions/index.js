@@ -214,3 +214,25 @@ exports.onHkUpdate = trig('hk/{id}').onWrite(async (ch) => {
   if (!lines.length) return;
   return sendTo(st, { title: 'עדכון משק', body: lines.slice(0, 6).join('\n'), hash: '#hk', tag: 'hku-' + a.hotel + '-' + (lines.length === 1 ? lines[0].split(':')[0] : Date.now()) });
 });
+
+// ---------- CRM: tasks and follow-ups ----------
+// a task given to someone else → push now; every morning 08:30 (Israel) each person gets their tasks + leads to call back today
+exports.onTask = trig('tasks/{id}').onCreate(async (snap) => {
+  const t = snap.data() || {};
+  if (!t.owner || t.owner === t.createdBy) return;
+  return sendTo([t.owner], { title: 'משימה חדשה', body: `${t.title || ''}${t.due ? ' · עד ' + t.due.slice(8, 10) + '.' + t.due.slice(5, 7) : ''}${t.createdByName ? ' · מ' + t.createdByName : ''}`, hash: '#leads', tag: 'task-' + snap.id });
+});
+exports.crmMorning = functions.region(REGION).pubsub.schedule('30 8 * * *').timeZone('Asia/Jerusalem').onRun(async () => {
+  const today = ilDate(new Date()), per = {};
+  const add = (u, k) => { if (!u) return; (per[u] = per[u] || { tasks: 0, leads: 0, late: 0 })[k]++; };
+  const ts = await db.collection('tasks').where('done', '==', false).get();
+  ts.forEach((d) => { const t = d.data(); if (t.due && t.due <= today) { add(t.owner, 'tasks'); if (t.due < today) add(t.owner, 'late'); } });
+  const ls = await db.collection('leads').get();
+  ls.forEach((d) => { const l = d.data(); if (l.stage !== 'won' && l.stage !== 'lost' && l.nextAt && l.nextAt <= today) add(l.owner, 'leads'); });
+  await Promise.all(Object.entries(per).map(([u, x]) => {
+    const parts = [];
+    if (x.tasks) parts.push(`${x.tasks} משימות${x.late ? ` (${x.late} באיחור)` : ''}`);
+    if (x.leads) parts.push(`${x.leads} לידים לחזור אליהם`);
+    return sendTo([u], { title: 'בוקר טוב · מה מחכה לך היום', body: parts.join(' · '), hash: '#leads', tag: 'crm-' + today });
+  }));
+});

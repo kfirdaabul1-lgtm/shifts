@@ -329,13 +329,18 @@ service cloud.firestore {
     match /invoices/{id} {
       allow read: if canCeo() || expAll() || (canExp() && resource.data.hotel in expHotelsR())
         || (gmRole() && (roleHotels().size() == 0 || resource.data.hotel in roleHotels()));
-      allow create: if expIn(hotelOf(request.resource.data));
+      // חשבונית ששולמה מהקופה, מדוח סוף משמרת: הקבלה/מנהלי המלון פותחים אותה כ"פתוחה" וההוצאות מאשרים
+      allow create: if expIn(hotelOf(request.resource.data))
+        || (request.resource.data.get('source', '') == 'sr' && request.resource.data.status == 'open' && request.resource.data.createdBy == request.auth.uid
+            && (frontIn(hotelOf(request.resource.data)) || manages(hotelOf(request.resource.data)) || gmIn(hotelOf(request.resource.data))));
       allow update: if expIn(hotelOf(resource.data)) && expIn(hotelOf(request.resource.data));
       allow delete: if expIn(hotelOf(resource.data));
     }
     match /invoiceImgs/{id} {
       allow read, delete: if expIn(hotelOf(resource.data));
       allow create, update: if expIn(hotelOf(request.resource.data));
+      allow create: if !exists(/databases/$(database)/documents/invoiceImgs/$(id))
+        && (frontIn(hotelOf(request.resource.data)) || manages(hotelOf(request.resource.data)) || gmIn(hotelOf(request.resource.data)));
     }
     // מייל הנהלת חשבונות לכל מלון: expcfg/{hotel} (main הישן: רק מי שרואה את כל המלונות)
     match /expcfg/{h} { allow read: if canExp(); allow write: if expIn(h) && (h != 'main' || expAll()); }
@@ -387,6 +392,16 @@ service cloud.firestore {
     }
     // מנהל מחלקת משק: גם משבץ חדרים לעובדים
     function hkLeadIn(h) { return hkFullIn(h) || (deptMgr(h) && 'housekeeping' in roleDepts()); }
+    // קריאות מהקבלה למשק: הקבלה/מנהלים פותחים ורואים; העובד שהקריאה נשלחה אליו רואה אותה ומסמן "טופל"
+    match /hkCalls/{id} {
+      allow read: if signedIn() && (hkFullIn(resource.data.hotel) || resource.data.to == request.auth.uid);
+      allow create: if signedIn() && hkFullIn(request.resource.data.hotel) && request.resource.data.openedBy == request.auth.uid
+        && request.resource.data.status == 'open';
+      allow update: if signedIn() && (hkFullIn(resource.data.hotel)
+        || (resource.data.to == request.auth.uid && request.resource.data.status == 'done'
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'doneAt', 'mins'])));
+      allow delete: if signedIn() && hkFullIn(resource.data.hotel);
+    }
     match /hk/{id} {
       allow read: if signedIn() && hkWorkIn(id.split('__')[0]);
       allow create: if request.resource.data.hotel == id.split('__')[0] && (hkFullIn(request.resource.data.hotel)

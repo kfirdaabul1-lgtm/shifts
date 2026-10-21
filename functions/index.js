@@ -116,7 +116,7 @@ exports.onStock = trig('inventory/{id}').onWrite(async (ch) => {
 // A small Google Apps Script in the owner's own Drive calls this once a day with the key stored in backupcfg/main
 // (only the owner can read or change it) and saves the JSON it gets into a Drive folder. Same format as the
 // "גיבוי" button on the Permissions page, so the Import card can restore it. Invoice images are left out (size).
-const BACKUP_COLLS = ['hotels', 'settings', 'employees', 'mgr', 'avail', 'shifts', 'schedule', 'requests', 'roles', 'joinCodes', 'config', 'menus', 'contracts', 'quotes', 'campaigns', 'suppliers', 'invoices', 'expcfg', 'inventory', 'purchaseReqs', 'shiftReports', 'faults', 'hk', 'hkcfg', 'hkLog', 'hkComplaints', 'leads', 'tasks', 'clients'];
+const BACKUP_COLLS = ['hotels', 'settings', 'employees', 'mgr', 'avail', 'shifts', 'schedule', 'requests', 'roles', 'joinCodes', 'config', 'menus', 'contracts', 'quotes', 'campaigns', 'suppliers', 'invoices', 'expcfg', 'inventory', 'purchaseReqs', 'shiftReports', 'faults', 'hk', 'hkcfg', 'hkLog', 'hkComplaints', 'leads', 'tasks', 'clients', 'hkCalls'];
 const plain = (v) => {
   if (v instanceof admin.firestore.Timestamp) return { seconds: v.seconds, nanoseconds: v.nanoseconds };
   if (Array.isArray(v)) return v.map(plain);
@@ -362,4 +362,31 @@ exports.backupWatch = functions.region(REGION).pubsub.schedule('15 9 * * *').tim
   if (Date.now() - since < 30 * 3600e3) return;
   const own = await db.collection('pushTokens').where('owner', '==', true).get();
   return sendTo(own.docs.map((x) => x.id), { title: 'הגיבוי האוטומטי לא רץ', body: c.lastAt ? 'הגיבוי האחרון לדרייב היה לפני יותר מיום. כדאי לבדוק ב-script.google.com ← Executions.' : 'עוד לא נשמר אף גיבוי אוטומטי לדרייב. כדאי לבדוק את ההגדרה בעמוד הרשאות.', hash: '#perms', tag: 'backup-watch' });
+});
+
+// ---------- reception → housekeeping calls ----------
+// new call → push to the worker it was sent to; done → push to the hotel's reception desks + whoever opened it
+exports.onHkCall = trig('hkCalls/{id}').onWrite(async (ch, ctx) => {
+  const a = ch.before.exists ? ch.before.data() : null, b = ch.after.exists ? ch.after.data() : null;
+  if (!b) return;
+  const what = HK_CALL_TXT(b);
+  if (!a && b.status === 'open' && b.to) {
+    return sendTo([b.to], { title: `קריאה למשק · חדר ${b.room || ''}`, body: what + (b.openedByName ? ` · מ${b.openedByName}` : ''), hash: '', tag: 'call-' + ctx.params.id });
+  }
+  if (a && a.status !== 'done' && b.status === 'done') {
+    const st = await stationsOf(b.hotel);
+    return sendTo([...st, b.openedBy].filter((u) => u && u !== b.to), { title: `חדר ${b.room || ''} · הקריאה טופלה`, body: `${b.toName || 'העובד'} · ${what}${b.mins != null ? ` · אחרי ${b.mins} דק׳` : ''}`, hash: '#front', tag: 'calldone-' + ctx.params.id });
+  }
+});
+const HK_CALL_N = { towels: 'מגבות לחדר', sheets: 'החלפת מצעים', wc: 'לנקות שירותים', bins: 'להחליף פחים', floor: 'לנקות רצפה', full: 'ניקוי מלא לחדר' };
+function HK_CALL_TXT(c) { return (c.tasks || []).filter((k) => k !== 'other').map((k) => HK_CALL_N[k] || k).concat(c.note ? [c.note] : []).join(' · '); }
+
+// ---------- invoice paid from the till (shift report) → push to whoever approves expenses for that hotel ----------
+exports.onSrInvoice = trig('invoices/{id}').onCreate(async (snap) => {
+  const v = snap.data() || {}; if (v.source !== 'sr') return;
+  const out = new Set(), rs = await db.collection('roles').get();
+  rs.forEach((d) => { const r = d.data() || {}; if (r.station || !(r.apps && r.apps.exp)) return; const hs = r.expHotels || r.hotels || []; if (!hs.length || hs.includes(v.hotel)) out.add(d.id); });
+  const own = await db.collection('pushTokens').where('owner', '==', true).get(); own.forEach((d) => out.add(d.id));
+  const hn = await hotelName(v.hotel);
+  return sendTo([...out], { title: 'חשבונית מהקופה ממתינה לאישור', body: `${hn ? hn + ' · ' : ''}₪${v.total || 0}${v.supplierName ? ' · ' + v.supplierName : ''} · ${v.notes || ''}`.slice(0, 180), hash: '#exp', tag: 'srinv-' + snap.id });
 });

@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202610202320"></script>
+<script src="i18n.js?v=202610211100"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -416,13 +416,14 @@ document.addEventListener('change',e=>{const t=e.target;if(!t.matches)return;
 document.addEventListener('change',e=>{const t=e.target;if(t.matches('[data-task]')){const id=t.dataset.task,up={done:t.checked,doneAt:t.checked?Date.now():null};S.tasks[id]={...S.tasks[id],...up};fdb.doc('tasks/'+id).set(up,{merge:true}).catch(()=>{});render();return}
   if(t.matches('[data-leadf]')&&t.tagName==='SELECT'){S.leadF[t.dataset.leadf]=t.value;t.blur();render()}
   else if(t.matches('[data-leadq]')&&S.sheet&&S.sheet.type==='lead'&&t.value){const id=S.sheet.id,q=(S.lquotes||{})[t.value];const up={quoteId:t.value,quoteNum:(q&&q.num)||null,updatedAt:Date.now()};S.leads[id]={...S.leads[id],...up};fdb.doc('leads/'+id).set(up,{merge:true});t.blur();render();toast('ההצעה חוברה לליד')}});
-document.addEventListener('input',e=>{const t=e.target;if(t.matches('[data-leadf]')&&t.tagName==='INPUT'){S.leadF.q=t.value;clearTimeout(S.leadQT);S.leadQT=setTimeout(()=>{const el=document.activeElement,pos=el&&el.selectionStart;S.pending=false;renderTop();$('#main').innerHTML=viewHTML();const n=$('[data-leadf=q]');if(n){n.focus();try{n.setSelectionRange(pos,pos)}catch(_){ }}},250)}});
+document.addEventListener('input',e=>{const t=e.target;if(t.matches('[data-leadf]')&&t.tagName==='INPUT'){S.leadF.q=t.value;clearTimeout(S.leadQT);S.leadQT=setTimeout(()=>{const el=document.activeElement,pos=el&&el.selectionStart;S.pending=false;renderTop();$('#main').innerHTML=callsBannerHTML()+viewHTML();const n=$('[data-leadf=q]');if(n){n.focus();try{n.setSelectionRange(pos,pos)}catch(_){ }}},250)}});
 document.addEventListener('change',e=>{if(e.target.matches('[data-hkhist]')){S.hkHistD=e.target.value||todayISO();e.target.blur();render()}});
 document.addEventListener('change',e=>{if(e.target.matches('[data-hkasg]')&&S.sheet&&S.sheet.type==='hk'){hkSet(S.sheet.h,S.sheet.r,'asg',e.target.value);e.target.blur()}});
 document.addEventListener('change',e=>{if(e.target.matches('[data-mktf]')){S.mktF[e.target.dataset.mktf]=e.target.value;e.target.blur();render()}});
 document.addEventListener('change',e=>{if(e.target.matches('[data-ceo-year]')){S.ceo.year=e.target.value;S.ceo.data=null;ceoLoad(S.ceo.year)}});
 document.addEventListener('change',e=>{if(e.target.id==='sw_peer'){const d=S.drafts.sw||(S.drafts.sw={});d.peer=e.target.value;d.to='';e.target.blur();render();return}});
 document.addEventListener('change',e=>{if(e.target.id==='pm_hotel'&&S.drafts.perm){S.drafts.perm.hotel=e.target.value;e.target.blur();render()}});
+document.addEventListener('change',e=>{if(e.target.id!=='sr_inv')return;const f=e.target.files&&e.target.files[0];if(!f)return;compressImage(f).then(u=>{S.srInv=u;render()},()=>toast('לא הצלחתי לקרוא את התמונה'))});
 document.addEventListener('input',onField);document.addEventListener('change',onField);
 const isTyping=()=>{const a=document.activeElement;return a&&['INPUT','TEXTAREA','SELECT'].includes(a.tagName)&&!['checkbox','radio'].includes(a.type)};
 document.addEventListener('focusout',()=>setTimeout(()=>{if(S.pending&&!isTyping())render()},0));
@@ -465,7 +466,7 @@ function sheetIosPush(){return sheetHead('התראות באייפון','')+`<p>�
   <ol style="padding-inline-start:20px;line-height:1.9"><li>פותחים את האתר ב-<b>Safari</b>.</li><li>לוחצים על כפתור השיתוף <b>⎙</b> (ריבוע עם חץ למעלה) בתחתית המסך.</li><li>בוחרים <b>"הוסף למסך הבית"</b> ולוחצים "הוסף".</li><li>פותחים את <b>Seven</b> מהאייקון החדש במסך הבית.</li><li>בתפריט לוחצים <b>"הפעלת התראות"</b> ומאשרים.</li></ol>
   <p class="muted" style="font-size:.85rem">צריך iOS 16.4 ומעלה. אחרי ההתקנה האתר נפתח כמו אפליקציה, בלי שורת הכתובת.</p>
   <div class="actions"><button class="btn pri" data-act="close">הבנתי</button></div>`}
-function render(){if(isTyping()){S.pending=true;return}S.pending=false;renderTop();renderDrawer();$('#main').innerHTML=viewHTML();renderSheet()}
+function render(){if(isTyping()){S.pending=true;return}S.pending=false;renderTop();renderDrawer();$('#main').innerHTML=callsBannerHTML()+viewHTML();renderSheet()}
 function renderTop(){
   const c=cfg();
   const tabs=S.admin?(S.deptOnly?[['sched','סידור'],['shifts','משמרות פתוחות']]:[['sched','סידור'],['shifts','משמרות פתוחות'],['staff','עובדים'],['costs','עלויות'],['settings','הגדרות']]):S.myHotel===CHAIN||isMgmt(S.uid)?[['profile','הפרופיל שלי']]:[['avail','הזמינות שלי'],['mine','המשמרות שלי'+(myPending().length?` (${myPending().length})`:'')],['profile','הפרופיל שלי']];
@@ -1161,7 +1162,7 @@ function expInvoices(){const f=S.expF||(S.expF={h:'all',m:todayISO().slice(0,7),
   <div class="kpis">${kpi('סה״כ הוצאות',ils(tot),`${rows.length} חשבוניות · לפני מע״מ`)}${kpi('חוב פתוח לספקים',ils(owe),`${unpaidAll.length} חשבוניות שלא שולמו · כולל מע״מ`)}${kpi('באיחור',String(late.length),late.length?ils(late.reduce((a,v)=>a+invTotals(v).total,0)):'אין חשבוניות באיחור',late.length?'bad':'')}${kpi('לא נשלחו להנהלת חשבונות',String(unsent),unsent?'לוחצים על חשבונית ושולחים':'הכל נשלח',unsent?'bad':'')}${kpi('מוצרים שהתייקרו',String(ups),'לעומת החשבונית הקודמת מאותו ספק',ups?'bad':'')}</div>
   ${top.length?`<div class="card"><h3>לפי ספק</h3><div class="bars">${top.map(([sid,v])=>`<div class="bar" style="--h:var(--brass)"><span>${esc(supName(sid))}</span><div class="track"><div class="fill" style="width:${(v/top[0][1]*100).toFixed(1)}%"></div></div><span class="val">${ils(v)}</span></div>`).join('')}</div></div>`:''}
   ${rows.length?`<div class="card"><h3>חשבוניות</h3><div class="plist">${rows.map(([id,v])=>{const T=invTotals(v),up=(v.items||[]).filter(i=>{const lp=lastPrice(v.supplier,i.name,v.date,id);return lp&&+i.price>lp.price*1.005}).length;
-    return `<button class="prow" data-act="inv-open" data-id="${id}" style="text-align:start;width:100%;background:none;border:0;border-bottom:1px solid var(--line);cursor:pointer;font:inherit;color:inherit"><span class="who"><b>${esc(supName(v.supplier))}${v.number?` · #${esc(v.number)}`:''}</b><small>${v.date?dm(v.date):''} · ${esc(hotelName(v.hotel))} · ${(v.items||[]).length} מוצרים${up?` · <span style="color:var(--bad)">${up} התייקרו</span>`:''}${v.hasImg?' · 📎':''}</small></span><span style="text-align:end"><b class="mono">${ils(T.total)}</b><br>${invPill(v)} ${v.sentAt?'':'<span class="pill">לא נשלח להנה״ח</span>'}</span></button>`}).join('')}</div></div>`
+    return `<button class="prow" data-act="inv-open" data-id="${id}" style="text-align:start;width:100%;background:none;border:0;border-bottom:1px solid var(--line);cursor:pointer;font:inherit;color:inherit"><span class="who"><b>${esc(v.supplier?supName(v.supplier):(v.supplierName||'ספק לא משויך'))}${v.number?` · #${esc(v.number)}`:''}${v.source==='sr'?' <span class="pill warn">מדוח משמרת</span>':''}</b><small>${v.date?dm(v.date):''} · ${esc(hotelName(v.hotel))} · ${(v.items||[]).length} מוצרים${up?` · <span style="color:var(--bad)">${up} התייקרו</span>`:''}${v.hasImg?' · 📎':''}</small></span><span style="text-align:end"><b class="mono">${ils(T.total)}</b><br>${invPill(v)} ${v.sentAt?'':'<span class="pill">לא נשלח להנה״ח</span>'}</span></button>`}).join('')}</div></div>`
   :emptyBox('אין חשבוניות בחודש הזה','לוחצים "חשבונית חדשה", מצלמים את החשבונית ומזינים את המוצרים והמחירים. המערכת משווה כל מחיר לפעם הקודמת שקניתם מאותו ספק.')}`}
 function expPay(){const rows=Object.entries(S.invs).filter(([,v])=>invStatus(v)!=='paid').sort(([,a],[,b])=>String(dueOf(a)||'9').localeCompare(String(dueOf(b)||'9')));
   if(!rows.length)return emptyBox('אין חשבוניות פתוחות','כל החשבוניות שהוזנו שולמו.');
@@ -1507,8 +1508,49 @@ function vFront(){const hs=scopeHs();if(!hs.length)return wrap(emptyBox('אין 
   const sched=`<h2 style="margin-top:8px">סידור העבודה</h2>${S.sched.published?'':'<p class="muted" style="font-size:.85rem">הסידור לשבוע הזה עוד לא פורסם, מוצג השיבוץ הנוכחי.</p>'}`+
     (depts.length?depts.map(d=>`<section class="dept" style="--h:${d.h}"><div class="dept-h"><span class="sw"></span><h2>${d.n}</h2></div>${deptTable(d.k,'view')}</section>`).join(''):emptyBox('אין משמרות לשבוע הזה',''));
   // the reception fills the report but never sees past reports (cash amounts are for managers only)
-  return wrap(head+daily+srFormHTML(h)+(srBoss(h)?srListHTML(h,false):srListHTML(h,false,true))+evCard+sched);
+  return wrap(head+callsCardHTML(h)+frontFaultsHTML(h)+daily+srFormHTML(h)+(srBoss(h)?srListHTML(h,false):srListHTML(h,false,true))+evCard+sched);
 }
+/* ---------- reception → housekeeping calls: hkCalls/{id} {hotel, date, room, tasks:[HK_CALL keys], note, to, toName, status open|done,
+   openedAt, openedBy, openedByName, doneAt, mins}. The worker gets a push (function onHkCall) and a card on every page until "טופל". ---------- */
+const HK_CALL=[['towels','מגבות לחדר'],['sheets','החלפת מצעים'],['wc','לנקות שירותים'],['bins','להחליף פחים'],['floor','לנקות רצפה'],['full','ניקוי מלא לחדר'],['other','אחר (פירוט)']];
+const HK_CALLN=Object.fromEntries(HK_CALL);
+const callTasks=c=>(c.tasks||[]).filter(k=>k!=='other').map(k=>HK_CALLN[k]||k).concat(c.note?[c.note]:[]).join(' · ');
+const minsTxt=m=>m<60?`${m} דק׳`:`${Math.floor(m/60)} ש׳ ${m%60?(m%60)+' דק׳':''}`.trim();
+function callsSub(h){const d=todayISO(),k='calls:'+h+'|'+d;S.calls=S.calls||{};if(S.live[k])return S.calls[h];S.live[k]=true;let a={},b={};
+  const mix=()=>{S.calls[h]={...b,...a};render()},err=e=>{S.calls[h]={__err:errMsg(mapErr(e))};render()};
+  S.db.collection('hkCalls').where('hotel','==',h).where('date','==',d).onSnapshot(q=>{a=docsMap(q);mix()},err);
+  S.db.collection('hkCalls').where('hotel','==',h).where('status','==','open').onSnapshot(q=>{b=docsMap(q);mix()},()=>{});
+  return S.calls[h]}
+function myCallsSub(){if(S.live.myCalls||!S.uid||S.station)return;S.live.myCalls=true;
+  S.db.collection('hkCalls').where('to','==',S.uid).onSnapshot(q=>{const prev=S.myCalls;S.myCalls=docsMap(q);
+    const fresh=prev?Object.entries(S.myCalls).filter(([id,c])=>c.status==='open'&&!prev[id]):[];
+    if(fresh.length)toast(`קריאה חדשה למשק: חדר ${fresh[0][1].room}`);render()},()=>{})}
+function callsBannerHTML(){const mine=Object.entries(S.myCalls||{}).filter(([,c])=>c.status==='open').sort(([,a],[,b])=>(a.openedAt||0)-(b.openedAt||0));
+  if(!mine.length)return '';
+  return `<div class="wrap stack" style="padding-bottom:0"><div class="card call-card"><h3>🔔 קריאות פתוחות אליך · ${mine.length}</h3><div class="plist">${mine.map(([id,c])=>{const m=Math.max(0,Math.round((Date.now()-(c.openedAt||Date.now()))/60000));
+    return `<div class="prow" style="flex-wrap:wrap"><span class="who"><b style="font-size:1.15rem">חדר ${esc(c.room||'')}</b><small style="font-size:.95rem;color:var(--ink)">${esc(callTasks(c))}</small><small>מ${esc(c.openedByName||'הקבלה')} · ${new Date(c.openedAt||0).toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'})} · <b style="color:${m>=30?'var(--bad)':'var(--warn)'}">פתוחה ${minsTxt(m)}</b></small></span>
+      <button class="btn pri" style="min-height:44px" data-act="call-done" data-id="${id}">טופל ✓</button></div>`}).join('')}</div></div></div>`}
+function callsCardHTML(h){const C=callsSub(h),g=(k,d)=>dv('call',k,d),t=(S.drafts.call||{}).tasks||[],crew0=crewOf(h,todayISO(),['housekeeping','public']),real=u=>!String(u).startsWith('m_'),crew={on:crew0.on.filter(x=>real(x.u)),others:crew0.others.filter(real)};
+  const opt=u=>`<option value="${u}" ${g('to','')===u?'selected':''}>${esc(empName(u))}</option>`;
+  const sel=`<select id="call_to" data-f="call.to"><option value="">בוחרים עובד…</option>${crew.on.length?`<optgroup label="במשמרת עכשיו">${crew.on.map(x=>opt(x.u)).join('')}</optgroup>`:''}${crew.others.length?`<optgroup label="לא במשמרת">${crew.others.map(opt).join('')}</optgroup>`:''}</select>`;
+  const form=`<div class="row"><label class="f" style="max-width:140px">מספר חדר<input type="text" id="call_room" data-f="call.room" value="${esc(g('room',''))}" inputmode="numeric" placeholder="למשל 204"></label><label class="f" style="flex:2">למי שולחים${sel}</label></div>
+    <div class="f"><span>מה נדרש לעשות</span><div class="chips" style="gap:6px;margin-top:6px">${HK_CALL.map(([k,n])=>`<button class="dchip ${t.includes(k)?'':'off'}" data-act="call-t" data-k="${k}">${n}</button>`).join('')}</div></div>
+    ${t.includes('other')?`<label class="f">פירוט<textarea id="call_note" data-f="call.note" rows="2" placeholder="מה צריך לעשות?">${esc(g('note',''))}</textarea></label>`:''}
+    ${!crew.on.length?'<p class="muted" style="font-size:.85rem;margin:0">אין עכשיו עובדי משק או שטחים ציבוריים במשמרת לפי הסידור. אפשר לשלוח לעובד שלא במשמרת.</p>':''}
+    <div><button class="btn pri" data-act="call-send" data-h="${h}">שליחת קריאה</button></div>`;
+  const list=C&&!C.__err?Object.entries(C).sort(([,a],[,b])=>(a.status==='open'?0:1)-(b.status==='open'?0:1)||(b.openedAt||0)-(a.openedAt||0)):[];
+  const rows=list.map(([id,c])=>{const open=c.status!=='done',m=Math.max(0,Math.round(((open?Date.now():c.doneAt||0)-(c.openedAt||0))/60000));
+    return `<div class="prow" style="flex-wrap:wrap"><span class="who"><b>חדר ${esc(c.room||'')} · ${esc(callTasks(c))}</b><small>אל ${esc(c.toName||'')} · נפתחה ${new Date(c.openedAt||0).toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'})}${c.openedByName?' · '+esc(c.openedByName):''}</small></span>
+      ${open?`<span class="pill ${m>=30?'bad':'warn'}">פתוחה ${minsTxt(m)}</span><button class="btn sm ghost" data-act="call-del" data-id="${id}" data-h="${h}">${S.confirm==='cx:'+id?'לחיצה נוספת תבטל':'ביטול'}</button>`:`<span class="pill ok">טופל אחרי ${minsTxt(+c.mins||m)}</span>`}</div>`}).join('');
+  const done=list.filter(([,c])=>c.status==='done'),avg=done.length?Math.round(done.reduce((a,[,c])=>a+(+c.mins||0),0)/done.length):0;
+  return `<div class="card"><h3>קריאה למשק</h3>${form}
+    <h3 style="margin-top:14px">קריאות היום${done.length?` · זמן טיפול ממוצע ${minsTxt(avg)}`:''}</h3>${!C?'<p class="muted">טוען…</p>':C.__err?`<p class="muted">אין גישה לקריאות: ${esc(C.__err)}</p>`:rows?`<div class="plist">${rows}</div>`:'<p class="muted">אין קריאות היום.</p>'}</div>`}
+// reception: open a maintenance fault from the reception page (same fault-add action as the maintenance page)
+function frontFaultsHTML(h){faultsSub(h);const g=(k,d)=>dv('flt',k,d),open=faultsOf(h).filter(([,f])=>f.status!=='done').sort(([,a],[,b])=>(b.openedAt||0)-(a.openedAt||0));
+  return `<div class="card"><h3>פתיחת תקלת אחזקה</h3><div class="row"><label class="f" style="max-width:140px">חדר / מקום<input type="text" id="ffl_room" data-f="flt.room" value="${esc(g('room',''))}" placeholder="למשל 204, לובי"></label>
+    <label class="f" style="flex:3">מה התקלה<input type="text" id="ffl_desc" data-f="flt.desc" value="${esc(g('desc',''))}" placeholder="למשל מזגן לא מקרר"></label></div>
+    <div><button class="btn pri" data-act="fault-add" data-h="${h}">פתיחת תקלה</button></div>
+    ${open.length?`<details style="margin-top:10px"><summary>תקלות פתוחות במלון · ${open.length}</summary><div class="plist" style="margin-top:8px">${open.slice(0,30).map(([id,f])=>faultRowHTML(id,f,h,false)).join('')}</div></details>`:''}</div>`}
 /* ---------- reception shift report: shiftReports/{id} {hotel, month, date, shift, name, float, cash, credit, unusual, details, by, createdAt} ---------- */
 const SR_SHIFTS=[['morning','בוקר'],['evening','ערב'],['night','לילה']];const SR_N={...Object.fromEntries(SR_SHIFTS),noon:'צהריים'};
 const srBoss=h=>S.isOwner||(S.can.shifts&&scopeHs().includes(h))||(S.can.gm&&scopeHs().includes(h));
@@ -1531,6 +1573,14 @@ function srRowsHTML(l,title,ph){const a=dv('sr',l,[]);return `<div class="f"><sp
 function srStaff(h){const all=Object.keys(S.emps).filter(u=>(S.emps[u].hotel||'main')===h&&isActive(u)&&!S.emps[u].manual);
   const rec=all.filter(u=>(S.emps[u].depts||[]).some(d=>d==='reception'||d==='ops'));return (rec.length?rec:all).sort((a,b)=>empName(a).localeCompare(empName(b),'he'))}
 // gap between the 420 report and the cash deposited (null when one of them is missing)
+// a cash gap paid out against an invoice: scan it, say how much was paid; it goes to expenses as an open invoice for approval
+function srInvHTML(g){const img=S.srInv||'';
+  return `<div class="card" style="background:var(--sunk);border:0;padding:12px;margin:6px 0"><b style="font-size:.95rem">שולם מהקופה מול חשבונית?</b>
+    <p class="muted" style="font-size:.82rem;margin:4px 0 8px">סורקים את החשבונית ורושמים כמה שולם. היא תיכנס להוצאות, ומי שאחראי על ההוצאות יאשר אותה.</p>
+    <div class="actions" style="align-items:center"><label class="btn" style="width:fit-content;cursor:pointer">📷 ${img?'סריקה מחדש':'סריקת חשבונית'}<input type="file" accept="image/*" capture="environment" id="sr_inv" hidden></label>
+    ${img?`<img src="${img}" alt="החשבונית" style="height:64px;border-radius:8px;border:1px solid var(--line)"><button class="btn sm ghost" data-act="sr-inv-x">הסרה</button>`:''}</div>
+    ${img?`<div class="row" style="margin-top:8px"><label class="f">כמה שולם בחשבונית (₪)<input type="number" min="0" step="0.01" inputmode="decimal" id="sr_invamt" data-f="sr.invAmt" value="${esc(g('invAmt',''))}"></label>
+    <label class="f">ממי החשבונית (שם העסק)<input type="text" id="sr_invsup" data-f="sr.invSup" value="${esc(g('invSup',''))}" placeholder="לא חובה"></label></div>`:''}</div>`}
 function srGap(a,b){a=String(a??'').trim();b=String(b??'').trim();if(a===''||b==='')return 0;return Math.round(((+a||0)-(+b||0))*100)/100}
 function srFormHTML(h){const g=(k,d)=>dv('sr',k,d),un=g('unusual','');
   return `<div class="card"><h3>דוח סיכום משמרת</h3><p class="muted" style="font-size:.85rem">ממלאים בסוף כל משמרת. אחרי השליחה הדוח עובר למנהל המלון בלבד, והסכומים לא מוצגים כאן.</p>
@@ -1541,7 +1591,7 @@ function srFormHTML(h){const g=(k,d)=>dv('sr',k,d),un=g('unusual','');
   <label class="f">מזומן לפי דוח 420 (₪)<input type="number" min="0" step="any" inputmode="decimal" id="sr_r420" data-f="sr.r420" value="${esc(g('r420',''))}"></label>
   <label class="f">מזומן שהופקד (₪)<input type="number" min="0" step="any" inputmode="decimal" id="sr_cash" data-f="sr.cash" value="${esc(g('cash',''))}"></label>
   <label class="f">סליקה באשראי (₪)<input type="number" min="0" step="any" inputmode="decimal" id="sr_credit" data-f="sr.credit" value="${esc(g('credit',''))}"></label></div>
-  ${srGap(g('r420',''),g('cash',''))?`<label class="f" style="color:var(--bad)">יש פער של ${ils(Math.abs(srGap(g('r420',''),g('cash',''))))} בין דוח 420 למזומן שהופקד. הסבירו את הפער<textarea id="sr_gap" data-f="sr.gapNote" rows="2" placeholder="למשל: החזר ללקוח, טעות בקופה, עודף שנשאר">${esc(g('gapNote',''))}</textarea></label>`:''}
+  ${srGap(g('r420',''),g('cash',''))?`<label class="f" style="color:var(--bad)">יש פער של ${ils(Math.abs(srGap(g('r420',''),g('cash',''))))} בין דוח 420 למזומן שהופקד. הסבירו את הפער<textarea id="sr_gap" data-f="sr.gapNote" rows="2" placeholder="למשל: החזר ללקוח, טעות בקופה, עודף שנשאר">${esc(g('gapNote',''))}</textarea></label>${srInvHTML(g)}`:''}
   ${g('shift',srDefShift())==='night'?`<div class="row">${isHostel(h)?`<label class="f">צ׳ק אין היום · דורמס<input type="number" min="0" inputmode="numeric" id="sr_cid" data-f="sr.cid" value="${esc(g('cid',''))}"></label><label class="f">צ׳ק אין היום · פרייבט<input type="number" min="0" inputmode="numeric" id="sr_ci" data-f="sr.ci" value="${esc(g('ci',''))}"></label>`:`<label class="f">כמה צ׳ק אין היום<input type="number" min="0" inputmode="numeric" id="sr_ci" data-f="sr.ci" value="${esc(g('ci',''))}"></label>`}<label class="f">כמה צ׳ק אאוט היום${isHostel(h)?' (פרייבט)':''}<input type="number" min="0" inputmode="numeric" id="sr_co" data-f="sr.co" value="${esc(g('co',''))}"></label></div><p class="muted" style="font-size:.82rem;margin:0">לפי ההזמנות. המספרים נכנסים גם ל-10days של התאריך בדוח.</p>`:''}
   ${g('shift',srDefShift())!=='night'?`<div class="row">${g('shift',srDefShift())==='morning'?`<label class="f">כמה צ׳ק אאוט נשאר<input type="number" min="0" inputmode="numeric" id="sr_col" data-f="sr.coLeft" value="${esc(g('coLeft',''))}"></label>`:''}<label class="f">כמה צ׳ק אין נשארו להיום<input type="number" min="0" inputmode="numeric" id="sr_cil" data-f="sr.ciLeft" value="${esc(g('ciLeft',''))}"></label></div>`:''}
   <div class="row"><label class="f">הודעות בוקינג שלא נענו (מספר)<input type="number" min="0" inputmode="numeric" id="sr_bk" data-f="sr.booking" value="${esc(g('booking',''))}" placeholder="כמה הודעות בוקינג לא נענו"></label>
@@ -1553,7 +1603,15 @@ function srFormHTML(h){const g=(k,d)=>dv('sr',k,d),un=g('unusual','');
   <div class="f"><span>היו אירועים חריגים במשמרת?</span><div class="chips" style="gap:6px"><button type="button" class="hchip" data-act="sr-un" data-v="no" aria-pressed="${un==='no'}">לא</button><button type="button" class="hchip" data-act="sr-un" data-v="yes" aria-pressed="${un==='yes'}">כן</button></div></div>
   ${un==='yes'?`<label class="f">פירוט האירועים החריגים<textarea id="sr_det" data-f="sr.details" rows="4" placeholder="מה קרה, באיזו שעה, מי היה מעורב ומה נעשה">${esc(g('details',''))}</textarea></label>`:''}
   <div><button class="btn pri" data-act="sr-save" data-h="${h}">שליחת הדוח</button></div></div>`}
-function srListHTML(h,gm,pub){const m=S.srMonth||todayISO().slice(0,7);if(pub)srPubSub(h,m);else srSub(h,m);const d=((pub?S.srepsPub:S.sreps)||{})[h+'|'+m];
+// reception (no money): only today's reports + last night's report
+function srPubRecentHTML(h){const t=todayISO(),y=addDays(t,-1),ms=[...new Set([t.slice(0,7),y.slice(0,7)])];ms.forEach(m=>srPubSub(h,m));
+  const parts=ms.map(m=>(S.srepsPub||{})[h+'|'+m]);
+  if(parts.some(x=>!x))return `<div class="card"><h3>דוחות משמרת · היום והלילה הקודם</h3><p class="muted">טוען…</p></div>`;
+  if(parts.some(x=>x.__err))return `<div class="card"><h3>דוחות משמרת · היום והלילה הקודם</h3><p class="muted">אין גישה לדוחות.</p></div>`;
+  const ord={night:-1,morning:0,noon:1,evening:2},all=Object.assign({},...parts);
+  const rows=Object.entries(all).filter(([,r])=>r.date===t||(r.date===y&&r.shift==='night')).sort(([,a],[,b])=>String(b.date).localeCompare(String(a.date))||ord[b.shift]-ord[a.shift]);
+  return `<div class="card"><h3>דוחות משמרת · היום והלילה הקודם</h3>${rows.length?`<div class="plist">${rows.map(([id,r])=>`<div class="prow"><span class="who"><b><button class="linkbtn" data-act="sr-view" data-id="${id}" data-h="${h}" data-pub="1">${esc(r.name||'')}</button> · ${SR_N[r.shift]||''} · ${dm(r.date)}</b><small>${r.booking!=null?`בוקינג שלא נענו: ${+r.booking} · `:''}${r.arsona!=null?`ארסונה: ${+r.arsona} · `:''}${r.unusual?'⚠️ '+esc(String(r.details||'אירוע חריג').slice(0,80)):'ללא חריגים'}</small></span><button class="btn sm" data-act="sr-view" data-id="${id}" data-h="${h}" data-pub="1">פתיחה</button></div>`).join('')}</div>`:'<p class="muted">עוד אין דוחות היום או מהלילה הקודם.</p>'}</div>`}
+function srListHTML(h,gm,pub){if(pub)return srPubRecentHTML(h);const m=S.srMonth||todayISO().slice(0,7);srSub(h,m);const d=(S.sreps||{})[h+'|'+m];
   const nav=`<div class="actions" style="align-items:center"><button class="btn sm" data-act="sr-month" data-d="-1" aria-label="חודש קודם">›</button><b>${HE_MON[+m.slice(5)-1]} ${m.slice(0,4)}</b><button class="btn sm" data-act="sr-month" data-d="1" aria-label="חודש הבא">‹</button></div>`;
   if(!d)return `<div class="card"><h3>דוחות סיכום משמרת</h3>${nav}<p class="muted">טוען…</p></div>`;
   if(d.__err)return `<div class="card"><h3>דוחות סיכום משמרת</h3><p class="muted">אין גישה לדוחות.</p></div>`;
@@ -1562,7 +1620,7 @@ function srListHTML(h,gm,pub){const m=S.srMonth||todayISO().slice(0,7);if(pub)sr
   return `<div class="card"><div class="actions" style="justify-content:space-between;align-items:center"><h3 style="margin:0">דוחות סיכום משמרת</h3>${nav}</div>
   ${pub?'<p class="muted" style="font-size:.85rem;margin:0">דוחות המשמרות הקודמות, לחפיפה. בלי סכומי הקופה.</p>':''}<div class="kpis">${kpi('דוחות',String(rows.length))}${pub?'':kpi('מזומן להפקדה',ils(sum('cash')))+kpi('סליקה באשראי',ils(sum('credit')))}${kpi('אירועים חריגים',String(unN),'',unN?'bad':'ok')}</div>
   ${rows.length?`<div class="plist">${rows.map(([id,r])=>`<div class="prow srrow" style="flex-wrap:wrap${r.unusual?';border-color:var(--bad)':''}"><span class="who" data-act="sr-view" data-id="${id}" data-h="${h}" role="button" tabindex="0" title="פתיחת הדוח במסך מלא"><b>יום ${DAYS[dow(r.date)]} ${dm(r.date)} · ${SR_N[r.shift]||''} · ${esc(r.name||'')}</b>
-    ${pub?'':`<small>קרן קופה ${ils(+r.float||0)}${r.r420!=null?` · לפי 420 ${ils(+r.r420||0)}`:''} · הופקד ${ils(+r.cash||0)} · אשראי ${ils(+r.credit||0)}</small>${r.gap?`<small style="color:var(--bad)">פער ${ils(r.gap)}: ${esc(r.gapNote||'')}</small>`:''}${finPill(r)}`}
+    ${pub?'':`<small>קרן קופה ${ils(+r.float||0)}${r.r420!=null?` · לפי 420 ${ils(+r.r420||0)}`:''} · הופקד ${ils(+r.cash||0)} · אשראי ${ils(+r.credit||0)}</small>${r.gap?`<small style="color:var(--bad)">פער ${ils(r.gap)}: ${esc(r.gapNote||'')}</small>`:''}${r.invId?`<small>📎 חשבונית ${ils(+r.invAmt||0)} נשלחה לאישור בהוצאות</small>`:''}${finPill(r)}`}
     ${r.shift==='night'&&(r.ci!=null||r.co!=null||r.cid!=null)?`<small>${r.cid!=null?`צ׳ק אין דורמס ${+r.cid} · `:''}צ׳ק אין${r.cid!=null?' פרייבט':''} ${r.ci??'—'} · צ׳ק אאוט ${r.co??'—'}</small>`:''}${r.shift==='morning'&&r.coLeft!=null?`<small>צ׳ק אאוט שנשארו: ${+r.coLeft}</small>`:''}${r.ciLeft!=null?`<small>צ׳ק אין שנשארו להיום: ${+r.ciLeft}</small>`:''}${r.booking!=null?`<small>הודעות בוקינג שלא נענו: ${+r.booking}</small>`:''}${r.arsona!=null?`<small>פניות פתוחות ארסונה: ${+r.arsona}</small>`:''}
     ${(r.ooo||[]).length?`<small>חדרים OOO: ${r.ooo.map(x=>`${esc(x.room)}${x.note?' ('+esc(x.note)+')':''}`).join(', ')}</small>`:''}${(r.faults||[]).length?`<small>תקלות פתוחות: ${r.faults.map(x=>`${esc(x.room)}${x.note?' ('+esc(x.note)+')':''}`).join(', ')}</small>`:''}${(r.lost||[]).length?`<small>אבדות ומציאות: ${r.lost.map(x=>`${esc(x.room)}${x.note?' ('+esc(x.note)+')':''}`).join(', ')}</small>`:''}${(r.cmp||[]).length?`<small style="color:var(--warn)">תלונות אורחים: ${r.cmp.map(x=>`${esc(x.room)}${x.note?' ('+esc(x.note)+')':''}`).join(', ')}</small>`:''}${r.unusual?`<small style="color:var(--bad);white-space:pre-wrap">⚠ ${esc(r.details||'אירוע חריג')}</small>`:''}</span>
     <span class="actions"><button class="btn sm" data-act="sr-view" data-id="${id}" data-h="${h}">פתיחה</button>${r.unusual?'<span class="pill bad">חריג</span>':'<span class="pill ok">תקין</span>'}${boss?`<button class="btn sm ghost" data-act="sr-del" data-id="${id}" data-h="${h}">${S.confirm==='sr:'+id?'לחיצה נוספת תמחק':'מחיקה'}</button>`:''}</span></div>`).join('')}</div>`:'<p class="muted">אין דוחות בחודש הזה.</p>'}</div>`}
@@ -1576,7 +1634,7 @@ function sheetSrView(){const r=srFind(S.sheet.id);if(!r)return sheetHead('דוח
   return sheetHead(`דוח סיכום משמרת ${SR_N[r.shift]||''}`,`${esc(hotelName(r.hotel))} · יום ${DAYS[dow(r.date)]} ${dm(r.date)} · ${esc(r.name||'')}${when?' · נשלח '+when:''}`)+`
   <div class="srv-top">${r.unusual?'<span class="pill bad">היו אירועים חריגים</span>':'<span class="pill ok">משמרת תקינה</span>'}${r.__pub?'':finPill(r)}</div>
   <div class="srv-grid">
-    ${r.__pub?'':`<div class="srv-sec"><h3>קופה</h3>${row('קרן קופה',ils(+r.float||0))}${r.r420!=null?row('מזומן לפי דוח 420',ils(+r.r420||0)):''}${row('מזומן שהופקד',ils(+r.cash||0))}${row('סליקה באשראי',ils(+r.credit||0))}${r.gap?row('פער',ils(r.gap),'bad')+`<p class="srv-note bad">${esc(r.gapNote||'')}</p>`:''}</div>`}
+    ${r.__pub?'':`<div class="srv-sec"><h3>קופה</h3>${row('קרן קופה',ils(+r.float||0))}${r.r420!=null?row('מזומן לפי דוח 420',ils(+r.r420||0)):''}${row('מזומן שהופקד',ils(+r.cash||0))}${row('סליקה באשראי',ils(+r.credit||0))}${r.gap?row('פער',ils(r.gap),'bad')+`<p class="srv-note bad">${esc(r.gapNote||'')}</p>`:''}${r.invId?row('📎 חשבונית ששולמה מהקופה',ils(+r.invAmt||0)):''}</div>`}
     <div class="srv-sec"><h3>מספרים</h3>${r.booking!=null?row('הודעות בוקינג שלא נענו',n(r.booking)):''}${r.arsona!=null?row('פניות פתוחות ארסונה',n(r.arsona)):''}${r.ciLeft!=null?row('צ׳ק אין שנשארו להיום',n(r.ciLeft)):''}${r.coLeft!=null?row('צ׳ק אאוט שנשארו',n(r.coLeft)):''}${r.cid!=null?row('צ׳ק אין דורמס',n(r.cid)):''}${r.ci!=null?row('צ׳ק אין'+(r.cid!=null?' פרייבט':''),n(r.ci)):''}${r.co!=null?row('צ׳ק אאוט',n(r.co)):''}</div>
     ${list('חדרים OOO',r.ooo)}${list('תקלות פתוחות',r.faults)}${list('אבדות ומציאות',r.lost)}${(r.cmp||[]).length?list('תלונות אורחים על חדר',r.cmp):''}
   </div>
@@ -1594,7 +1652,7 @@ function vFin(){const hs=scopeHs();if(!hs.length)return wrap(emptyBox('אין מ
   if(R&&R.__err)return wrap(head+`<div class="notice">לא הצלחתי לטעון: ${esc(R.__err)}</div>`);
   const row=([id,r],act)=>`<div class="prow" style="flex-wrap:wrap${r.gap?';border-color:var(--bad)':''}"><span class="who"><b>יום ${DAYS[dow(r.date)]} ${dm(r.date)} · ${SR_N[r.shift]||''} · ${esc(r.name||'')}</b>
     <small>לפי דוח 420: <b>${ils(+r.r420||0)}</b> · מזומן שהופקד: <b>${ils(+r.cash||0)}</b> · אשראי ${ils(+r.credit||0)} · קרן קופה ${ils(+r.float||0)}</small>
-    ${r.gap?`<small style="color:var(--bad)">פער ${ils(r.gap)} · הסבר העובד: ${esc(r.gapNote||'')}</small>`:''}${act?'':finPill(r)}</span>
+    ${r.gap?`<small style="color:var(--bad)">פער ${ils(r.gap)} · הסבר העובד: ${esc(r.gapNote||'')}</small>`:''}${r.invId?`<small>📎 חשבונית ${ils(+r.invAmt||0)} (בהוצאות, ממתינה לאישור)</small>`:''}${act?'':finPill(r)}</span>
     ${act?`<span class="actions" style="flex-wrap:wrap"><button class="btn sm pri" data-act="fin-ok" data-id="${id}" data-h="${h}">ההפקדה תואמת ${ils(+r.cash||0)}</button>
       ${S.finIssue===id?`<input type="text" id="fin_note" data-f="fin.note" placeholder="מה הפער? למשל הופקדו 1,800" style="width:auto;min-width:200px" value="${esc(dv('fin','note',''))}"><button class="btn sm danger" data-act="fin-issue" data-id="${id}" data-h="${h}">שמירת פער</button>`:`<button class="btn sm" data-act="fin-issue-open" data-id="${id}">יש פער</button>`}</span>`:''}</div>`;
   return wrap(head+`<div class="card"><h3>דוחות שממתינים לאישור ההפקדה · ${pend.length}</h3><p class="muted" style="font-size:.85rem">לכל דוח סוף משמרת בודקים שהמזומן שהופקד בפועל הוא הסכום שנכתב בדוח.</p>${!R?'<p class="muted">טוען…</p>':pend.length?`<div class="plist">${pend.map(x=>row(x,true)).join('')}</div>`:'<p class="muted">אין דוחות שממתינים. 👍</p>'}</div>`+
@@ -1646,11 +1704,13 @@ function hkCarryClient(h,d){const k='hkcarry:'+h+'|'+d;if(S.live[k])return;S.liv
     for(const [r,c] of Object.entries(yc))if((c==='vc'||c==='vi')&&yo[r]!=='oc'&&yo[r]!=='res'&&!cur[r]){o.clean[r]='vi';o.cleanBy[r]='אוטומטי';o.cleanAt[r]=now}
     return fdb.doc('hk/'+hkDocId(h,d)).set(o,{merge:true})}).catch(e=>console.warn('hk carry',e))}
 // housekeeping staff on shift today (schedule + approved changes, like the daily brief), then the rest of the hotel's housekeeping staff
-function hkCrew(h,d){const B=briefLoad(h,d),sched=B.sched||{},rq=B.reqs||[],on={};
-  for(const [id,s] of Object.entries(B.shifts||{})){if(s.dept!=='housekeeping'||!(+s.need))continue;let a=((sched.assign||{})[id]||[]).filter(u=>!rq.some(r=>r.type!=='extend'&&((r.from===id&&r.uid===u)||(r.type==='swap'&&r.to&&r.to===id&&r.peer===u))));
+function hkCrew(h,d){return crewOf(h,d,['housekeeping'])}
+// who is on shift today in these departments (schedule + approved requests), and the rest of those departments' staff
+function crewOf(h,d,depts){const B=briefLoad(h,d),sched=B.sched||{},rq=B.reqs||[],on={};
+  for(const [id,s] of Object.entries(B.shifts||{})){if(!depts.includes(s.dept)||!(+s.need))continue;let a=((sched.assign||{})[id]||[]).filter(u=>!rq.some(r=>r.type!=='extend'&&((r.from===id&&r.uid===u)||(r.type==='swap'&&r.to&&r.to===id&&r.peer===u))));
     for(const r of rq)if(r.type!=='extend'){if(r.to===id&&!a.includes(r.uid))a=[...a,r.uid];if(r.type==='swap'&&r.from===id&&r.peer&&!a.includes(r.peer))a=[...a,r.peer]}
     a.forEach(u=>{if(!on[u])on[u]=`${KMAP[s.kind]?.n||''} ${s.start}–${(sched.ext||{})[id]?.[u]||s.end}`})}
-  const others=Object.entries(S.emps||{}).filter(([u,e])=>!on[u]&&(e.hotel||'main')===h&&(e.depts||[]).includes('housekeeping')&&!e.mgmt).map(([u])=>u);
+  const others=Object.entries(S.emps||{}).filter(([u,e])=>!on[u]&&(e.hotel||'main')===h&&(e.depts||[]).some(x=>depts.includes(x))&&!e.mgmt).map(([u])=>u);
   const by=a=>a.sort((x,y)=>empName(x).localeCompare(empName(y),'he'));
   return {on:by(Object.keys(on)).map(u=>({u,t:on[u]})),others:by(others)}}
 // one write per tap: merge only this room's fields (works whether today's doc exists or not)
@@ -2115,7 +2175,7 @@ function joinCodeHTML(){const c={...cfg(),joinCode:validCode()};
   <p class="muted" style="font-size:.85rem">עובד חדש נכנס לאפליקציה, מתחבר ומקליד את הקוד, וכך הוא משויך ל${esc(hotelName(S.hotel))}. אפשר להחליף קוד בכל זמן, והקוד הישן מפסיק לעבוד.</p>
   <div class="actions" style="align-items:center">${c.joinCode?`<b class="code">${esc(c.joinCode)}</b>`:'<span class="muted">עוד אין קוד</span>'}<button class="btn" data-act="join-new">${c.joinCode?'החלפת קוד':'יצירת קוד'}</button></div>`}
 // full backup (owner): every collection to one JSON file in the same format the import reads
-const BACKUP_COLLS=['hotels','settings','employees','mgr','avail','shifts','schedule','requests','roles','joinCodes','config','menus','contracts','quotes','campaigns','suppliers','invoices','expcfg','inventory','purchaseReqs','shiftReports','faults','hk','hkcfg','hkLog','hkComplaints','leads','tasks','clients'];
+const BACKUP_COLLS=['hotels','settings','employees','mgr','avail','shifts','schedule','requests','roles','joinCodes','config','menus','contracts','quotes','campaigns','suppliers','invoices','expcfg','inventory','purchaseReqs','shiftReports','faults','hk','hkcfg','hkLog','hkComplaints','leads','tasks','clients','hkCalls'];
 const lastBackup=()=>{let l=0;try{l=+localStorage.getItem('scLastBackup')||0}catch(_){ }bkCfgLoad();return Math.max(l,+(S.bkCfg&&S.bkCfg.lastAt)||0)};
 // daily automatic backup to the owner's Google Drive: an Apps Script in their Drive calls the driveBackup function with the key in backupcfg/main
 const BK_FN='https://europe-west1-'+((CFG.firebase&&CFG.firebase.projectId)||'hotel-shifts')+'.cloudfunctions.net/driveBackup';
@@ -2515,6 +2575,17 @@ const ACT={
     if(!canFiles)window.open('https://drive.google.com/drive/my-drive','_blank');backupNow('drive')},
   'backup-share':async()=>{const f=S.bkFile;if(!f)return;try{await navigator.share({files:[f],title:f.name});S.bkFile=null;render();toast('נשלח. ודאו שהקובץ נשמר בדרייב.')}catch(e){if(e&&e.name==='AbortError')return;toast('השיתוף נכשל. נסו "הורדת גיבוי מלא" והעלו ידנית.')}},
   'backup-later':()=>{try{localStorage.setItem('scBackupSnooze',String(Date.now()+864e5))}catch(_){ }S.bkSnooze=true;render()},
+  'call-t':D=>{const c=S.drafts.call=S.drafts.call||{},t=c.tasks||[];c.tasks=t.includes(D.k)?t.filter(x=>x!==D.k):[...t,D.k];render()},
+  'call-send':D=>{const h=D.h,c=S.drafts.call||{},g=k=>dv('call',k,''),room=String(g('room')).trim(),to=String(g('to')),tasks=c.tasks||[],note=tasks.includes('other')?String(g('note')).trim():'';
+    if(!room){toast('צריך לרשום מספר חדר');return}if(!tasks.length){toast('צריך לבחור מה נדרש לעשות');return}if(tasks.includes('other')&&!note){toast('צריך לפרט מה לעשות');return}if(!to){toast('צריך לבחור למי שולחים');return}
+    const id='hc'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),now=Date.now();
+    const doc={hotel:h,date:todayISO(),room,tasks,note,to,toName:empName(to),status:'open',openedAt:now,openedBy:S.uid,openedByName:S.meName||(S.station?'עמדת קבלה':empName(S.uid))||''};
+    S.calls[h]={...(S.calls[h]||{}),[id]:doc};S.drafts.call=null;render();
+    fdb.doc('hkCalls/'+id).set(doc).then(()=>toast(`הקריאה נשלחה ל${doc.toName}`),e=>{toast('השליחה נכשלה: '+errMsg(mapErr(e)));const x={...S.calls[h]};delete x[id];S.calls[h]=x;render()})},
+  'call-del':D=>{if(S.confirm!=='cx:'+D.id){S.confirm='cx:'+D.id;render();return}S.confirm=null;const x={...(S.calls[D.h]||{})};delete x[D.id];S.calls[D.h]=x;render();fdb.doc('hkCalls/'+D.id).delete().then(()=>toast('הקריאה בוטלה'),e=>toast('לא הצלחתי: '+errMsg(mapErr(e))))},
+  'call-done':D=>{const c=(S.myCalls||{})[D.id];if(!c)return;const now=Date.now(),mins=Math.max(0,Math.round((now-(c.openedAt||now))/60000));
+    S.myCalls={...S.myCalls,[D.id]:{...c,status:'done',doneAt:now,mins}};render();
+    fdb.doc('hkCalls/'+D.id).update({status:'done',doneAt:now,mins}).then(()=>toast('תודה! הקבלה מקבלת עדכון'),e=>{toast('לא הצלחתי: '+errMsg(mapErr(e)));S.myCalls={...S.myCalls,[D.id]:c};render()})},
   'fault-add':D=>{const h=D.h,g=(k,d)=>dv('flt',k,d),room=String(g('room','')).trim(),desc=String(g('desc','')).trim();
     if(!desc){toast('צריך לכתוב מה התקלה');return}const id='f'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),doc={hotel:h,room,desc,status:'open',openedAt:Date.now(),openedBy:S.uid,openedByName:S.meName||empName(S.uid)||'',source:'manual'};
     S.faults[h]={...(S.faults[h]||{}),[id]:doc};save('faults/'+id,doc);S.drafts.flt=null;render();toast('התקלה נפתחה')},
@@ -2534,6 +2605,7 @@ const ACT={
     if(!uid){toast('צריך לבחור מי ממלא את הדוח');return}if(!/^\d{4}-\d{2}-\d{2}$/.test(date)){toast('צריך לבחור תאריך');return}
     if(['float','r420','cash','credit'].some(k=>String(g(k,'')).trim()==='')){toast('צריך למלא קרן קופה, מזומן לפי דוח 420, מזומן שהופקד וסליקה באשראי (אפשר 0)');return}
     const gap=srGap(g('r420',''),g('cash','')),gapNote=String(g('gapNote','')).trim();if(gap&&!gapNote){toast('יש פער בין דוח 420 למזומן שהופקד. צריך להסביר אותו');return}
+    const invImg=gap&&S.srInv?S.srInv:'',invAmt=Math.round((+g('invAmt',0)||0)*100)/100;if(invImg&&!(invAmt>0)){toast('צריך לרשום כמה שולם בחשבונית');return}
     if(!un){toast('צריך לסמן אם היו אירועים חריגים');return}if(un==='yes'&&!det){toast('צריך לפרט את האירועים החריגים');return}
     const shift=g('shift',srDefShift()),rows=l=>(g(l,[])||[]).map(x=>({room:String(x.room||'').trim(),note:String(x.note||'').trim()})).filter(x=>x.room||x.note);
     if([...rows('ooo'),...rows('faults'),...rows('lost'),...rows('cmp')].some(x=>!x.room)){toast('צריך מספר חדר בכל שורה של חדרים, תקלות או אבדות');return}
@@ -2547,7 +2619,12 @@ const ACT={
     faultsFromReport(h,extra.faults,name);
     if(shift==='night')srToDaily(h,date,hs?{cid:extra.cid,ci:extra.ci,co:extra.co}:{ci:extra.ci,co:extra.co});
     const id='r'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),doc={...extra,hotel:h,month:date.slice(0,7),date,shift,name,empUid:uid,float:+g('float',0)||0,r420:+g('r420',0)||0,gap,gapNote:gap?gapNote:'',finStatus:'pending',cash:+g('cash',0)||0,credit:+g('credit',0)||0,unusual:un==='yes',details:un==='yes'?det:'',by:S.uid,createdAt:Date.now()};
-    const k=h+'|'+doc.month;S.sreps=S.sreps||{};if(S.sreps[k]&&!S.sreps[k].__err)S.sreps[k]={...S.sreps[k],[id]:doc};save('shiftReports/'+id,doc);hkComplaintsFromReport(h,date,extra.cmp,id,S.uid);S.drafts.sr=null;S.srMonth=doc.month;render();toast('הדוח נשלח. תודה!')},
+    if(invImg){const iid='i'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),now=Date.now();doc.invId=iid;doc.invAmt=invAmt;
+      const inv={status:'open',dueDate:date,paidAt:null,payMethod:null,payRef:'',supplier:'',supplierName:String(g('invSup','')).trim(),hotel:h,date,number:'',vatIncluded:true,vat:18,items:[{name:'חשבונית ששולמה מהקופה',qty:1,unit:'',price:invAmt}],notes:`מדוח סוף משמרת ${dm(date)} · ${SR_N[shift]||''} · ${name}${gapNote?' · '+gapNote:''}`,hasImg:true,sentAt:null,source:'sr',reportId:id,createdBy:S.uid,createdAt:now,updatedBy:S.uid,updatedAt:now};
+      inv.net=r2(invTotals(inv).net);inv.total=r2(invTotals(inv).total);
+      S.db.doc('invoiceImgs/'+iid).set({data:invImg,hotel:h,at:now}).then(()=>S.db.doc('invoices/'+iid).set(inv)).catch(e=>toast('החשבונית לא נשמרה: '+errMsg(mapErr(e))))}
+    S.srInv=null;const k=h+'|'+doc.month;S.sreps=S.sreps||{};if(S.sreps[k]&&!S.sreps[k].__err)S.sreps[k]={...S.sreps[k],[id]:doc};save('shiftReports/'+id,doc);hkComplaintsFromReport(h,date,extra.cmp,id,S.uid);S.drafts.sr=null;S.srMonth=doc.month;render();toast('הדוח נשלח. תודה!')},
+  'sr-inv-x':()=>{S.srInv=null;render()},
   'sr-view':D=>{S.confirm=null;S.sheet={type:'srview',id:D.id};render()},
   'sr-del':D=>{if(S.confirm!=='sr:'+D.id){S.confirm='sr:'+D.id;render();return}S.confirm=null;for(const k in (S.sreps||{}))if(S.sreps[k][D.id]){const c={...S.sreps[k]};delete c[D.id];S.sreps[k]=c}save('shiftReports/'+D.id,null);render();toast('הדוח נמחק')},
   'preq-open':D=>{S.drafts.pq=null;S.sheet={type:'preq',id:D.id};render()},
@@ -2817,7 +2894,7 @@ async function start(u){
     db.collection('requests').where('uid','==',S.uid).onSnapshot(q=>{own=docsMap(q);mix()},onErr);
     db.collection('requests').where('peer','==',S.uid).onSnapshot(q=>{peer=docsMap(q);mix()},()=>{});
     db.collection('requests').where('hotel','==',S.myHotel===CHAIN?S.hotel:(S.myHotel||S.hotel)).where('status','==','approved').onSnapshot(q=>{hot=docsMap(q);mix()},()=>{})}
-  subWeek();S.ready=true;render();checkJoinCodes();if(!S.station)alertsSub();if(S.can.events){liveColl('leads','leads');tasksSub()}setTimeout(pushInit,1500);setTimeout(pushAsk,2500);
+  subWeek();S.ready=true;render();checkJoinCodes();if(!S.station){alertsSub();myCallsSub()}setInterval(()=>{if(Object.values(S.myCalls||{}).some(c=>c.status==='open')||S.tab==='front')render()},60000);if(S.can.events){liveColl('leads','leads');tasksSub()}setTimeout(pushInit,1500);setTimeout(pushAsk,2500);
 }
 (function boot(){
   render();

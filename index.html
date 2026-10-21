@@ -1948,7 +1948,7 @@ function hkPreset(h){const n=String(hotelName(h)||'').toLowerCase();
   if(/סיז|seas/.test(n))return {rooms:'101-119 -113 -117\n201-219 -213 -217\n301-314 -313\n401-403'};
   if(/גוטמן|gutman|gutmann/.test(n))return {rooms:'101-107\n200-210\n300-312 -306'};
   if(/הוסטל|hostel|180/.test(n))return {rooms:'201-206\n301-311',dorms:'101-111 -108',beds:8};
-  if(/סבן|7even|seven/.test(n))return {rooms:'401-429\n501-524 526-528\n601-625'};
+  if(/סבן|7even|seven/.test(n))return {rooms:'401-429\n501-528\n601-625'};
   return {rooms:''}}
 // "101-119 -113 -117, 201" → ['101',…]; a leading minus removes a room
 function hkParse(spec){const add=[],del=new Set();String(spec||'').split(/[\s,;]+/).filter(Boolean).forEach(t=>{const neg=t.startsWith('-'),x=neg?t.slice(1):t,m=x.match(/^(\d+)-(\d+)$/);

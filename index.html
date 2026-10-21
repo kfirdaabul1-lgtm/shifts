@@ -249,7 +249,10 @@ body:has(.sheet:not([hidden])) .lang-toggle{display:none!important}
 .burger{width:42px;height:42px;border:0;background:none;color:var(--ink);display:grid;place-items:center;border-radius:10px;cursor:pointer;flex:none}
 .burger:hover{background:var(--sunk)}
 .drawer-bg{position:fixed;inset:0;background:var(--scrim);z-index:70}
-.drawer{position:fixed;top:0;bottom:0;left:0;width:min(300px,86vw);background:var(--surface);z-index:71;display:flex;flex-direction:column;gap:4px;padding:calc(14px + env(safe-area-inset-top,0px)) 14px calc(18px + env(safe-area-inset-bottom,0px)) max(14px,env(safe-area-inset-left,0px));box-shadow:0 0 40px rgb(0 0 0 / .18)}
+.drawer{position:fixed;top:0;bottom:0;left:0;width:min(300px,86vw);background:var(--surface);z-index:71;display:flex;flex-direction:column;gap:4px;padding:calc(14px + env(safe-area-inset-top,0px)) 14px calc(18px + env(safe-area-inset-bottom,0px)) max(14px,env(safe-area-inset-left,0px));box-shadow:0 0 40px rgb(0 0 0 / .18);overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y}
+.drawer>*{flex:none}
+html:has(.drawer),body:has(.drawer){overflow:hidden}
+.drawer .sp{flex:1 0 8px}
 @media (prefers-reduced-motion:no-preference){.drawer{animation:drawerIn .22s ease-out}.drawer-bg{animation:fadeIn .2s}}
 @keyframes drawerIn{from{transform:translateX(-100%)}to{transform:none}}
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
@@ -260,7 +263,6 @@ body:has(.sheet:not([hidden])) .lang-toggle{display:none!important}
 .drawer .item:hover{background:var(--sunk)}
 .drawer .item[aria-current="page"]{background:var(--sunk);font-weight:600}
 .drawer .item svg{color:var(--muted);flex:none}
-.drawer .sp{flex:1}
 .hlist{display:flex;flex-direction:column;gap:10px}
 .hrow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:end;padding-bottom:10px;border-bottom:1px solid var(--line)}
 .hcode{display:flex;align-items:center;gap:8px;flex-wrap:wrap}

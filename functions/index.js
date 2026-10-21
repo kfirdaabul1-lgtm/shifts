@@ -179,11 +179,12 @@ async function hkCarry(h, today, yday) {
   const ys = await db.doc('hk/' + h + '__' + yday).get(); if (!ys.exists) return 0;
   const ref = db.doc('hk/' + h + '__' + today), ts = await ref.get(), td = ts.exists ? ts.data() : {};
   if (td.carried) return 0;
-  const y = ys.data() || {}, yc = y.clean || {}, yo = y.occ || {}, cur = td.clean || {}, now = Date.now();
+  const y = ys.data() || {}, yc = y.clean || {}, cur = td.clean || {}, now = Date.now();
   const o = { hotel: h, date: today, carried: true, updatedAt: now, clean: {}, cleanBy: {}, cleanAt: {} };
   let n = 0;
   for (const [r, c] of Object.entries(yc)) {
-    if ((c === 'vc' || c === 'vi') && yo[r] !== 'oc' && yo[r] !== 'res' && !cur[r]) { o.clean[r] = 'vi'; o.cleanBy[r] = 'אוטומטי'; o.cleanAt[r] = now; n++; }
+    // every room keeps yesterday's status; only VC (clean) becomes VI (clean since yesterday)
+    if (c && !cur[r]) { o.clean[r] = c === 'vc' ? 'vi' : c; o.cleanBy[r] = 'אוטומטי'; o.cleanAt[r] = now; n++; }
   }
   await ref.set(o, { merge: true });
   return n;

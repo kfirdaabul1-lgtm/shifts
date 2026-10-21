@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202610211330"></script>
+<script src="i18n.js?v=202610211320b"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1783,7 +1783,7 @@ function hkSub(h,d){const k='hk:'+h+'|'+d;S.hkDays=S.hkDays||{};if(!S.live[k]){S
 function hkCarryClient(h,d){const k='hkcarry:'+h+'|'+d;if(S.live[k])return;S.live[k]=true;
   fdb.doc('hk/'+hkDocId(h,addDays(d,-1))).get().then(ys=>{if(!ys.exists)return;const y=ys.data()||{},yc=y.clean||{},yo=y.occ||{},T=(S.hkDays||{})[h+'|'+d]||{},cur=T.clean||{},now=Date.now();
     if(T.carried)return;const o={hotel:h,date:d,carried:true,updatedAt:now,lastBy:S.uid,clean:{},cleanBy:{},cleanAt:{}};
-    for(const [r,c] of Object.entries(yc))if((c==='vc'||c==='vi')&&yo[r]!=='oc'&&yo[r]!=='res'&&!cur[r]){o.clean[r]='vi';o.cleanBy[r]='אוטומטי';o.cleanAt[r]=now}
+    for(const [r,c] of Object.entries(yc))if(c&&!cur[r]){o.clean[r]=c==='vc'?'vi':c;o.cleanBy[r]='אוטומטי';o.cleanAt[r]=now}
     return fdb.doc('hk/'+hkDocId(h,d)).set(o,{merge:true})}).catch(e=>console.warn('hk carry',e))}
 // housekeeping staff on shift today (schedule + approved changes, like the daily brief), then the rest of the hotel's housekeeping staff
 function hkCrew(h,d){return crewOf(h,d,['housekeeping'])}
@@ -1853,7 +1853,7 @@ function vHk(){const hs=hkHotels();if(!hs.length)return wrap(emptyBox('אין מ
   const rooms=`<div class="card">${R.dorms.length?'<h3>חדרים פרטיים</h3>':''}${grid||'<p class="muted">אין חדרים בסינון הזה.</p>'}${R.dorms.length?`<h3 style="margin-top:14px">חדרי דורמס${R.beds?` · ${R.beds} מיטות בחדר, כל מיטה בנפרד`:''}</h3>${dg||'<p class="muted">אין חדרים בסינון הזה.</p>'}`:''}</div>`;
   const staff=Object.entries(S.emps||{}).filter(([,e])=>(e.hotel||'main')===h&&(e.depts||[]).includes('housekeeping')&&!e.mgmt).map(([,e])=>esc(e.name||'')).filter(Boolean).sort((a,b)=>a.localeCompare(b,'he'));
   const staffCard=!lead&&staff.length?`<div class="card"><h3>צוות משק</h3><p style="margin:0">${staff.join(' · ')}</p></div>`:'';
-  const legend=`<p class="muted" style="font-size:.82rem">${HK_CLEAN.map(([,c,n])=>`<b>${c}</b> ${n}`).join(' · ')} · ${HK_OCC.map(([v,c,n])=>v==='empty'?'<b>ריק</b> אין הזמנה':`<b>${c}</b> ${n}`).join(' · ')} · חדר שהיה VC בלי הזמנה עובר לבד ל-VI למחרת · <b>VIP</b> אורח חשוב · <b>B</b> אורח Booking · <b>3</b>/<b>4</b> אורחים · <b>SB</b> Split bed · <b>👶</b> Baby cot${full?'':' · מצב ההזמנה מתעדכן על ידי הקבלה'}</p>`;
+  const legend=`<p class="muted" style="font-size:.82rem">${HK_CLEAN.map(([,c,n])=>`<b>${c}</b> ${n}`).join(' · ')} · ${HK_OCC.map(([v,c,n])=>v==='empty'?'<b>ריק</b> אין הזמנה':`<b>${c}</b> ${n}`).join(' · ')} · כל יום חדש מתחיל עם מצב הניקיון של אתמול, וחדר שהיה VC עובר לבד ל-VI · <b>VIP</b> אורח חשוב · <b>B</b> אורח Booking · <b>3</b>/<b>4</b> אורחים · <b>SB</b> Split bed · <b>👶</b> Baby cot${full?'':' · מצב ההזמנה מתעדכן על ידי הקבלה'}</p>`;
   const back=!lead?'<div class="actions"><button class="btn" data-act="hk-board">חזרה לחדרים שלי</button></div>':'';
   return wrap(head+back+myCard+kpis+crewCard+paint+rooms+legend+staffCard)}
 function sheetHk(){const {h,r}=S.sheet,d=todayISO(),D=(S.hkDays||{})[h+'|'+d]||{},c=(D.clean||{})[r],o=(D.occ||{})[r],a=(D.asg||{})[r],full=hkFull(h),lead=hkLead(h),R=hkRooms(h),dorm=!!R.bedOf[r]&&!R.rooms.includes(r),bedNo=dorm&&R.beds?r.slice(R.bedOf[r].length):'';

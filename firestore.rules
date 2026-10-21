@@ -458,6 +458,9 @@ service cloud.firestore {
         && (roleHotels().size() == 0 || resource.data.get('hotel', '') in roleHotels()));
       allow write: if canSpa();
     }
+    match /spacfg/{id} {
+      allow read, write: if canSpa();
+    }
     match /backupcfg/{id} {
       allow read, write: if isOwner();
     }

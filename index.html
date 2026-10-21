@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202610211300"></script>
+<script src="i18n.js?v=202610211330"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -254,7 +254,7 @@ body:has(.sheet:not([hidden])) .lang-toggle{display:none!important}
 .spa-dh.today{color:var(--brass)}.spa-day{border-inline-start:1px solid var(--line)}.spa-col{position:relative}.spa-col.today{background:color-mix(in srgb,var(--brass) 6%,transparent)}
 .spa-hl{position:absolute;inset-inline:0;border-top:1px dashed var(--line)}
 .spa-ev{position:absolute;display:flex;flex-direction:column;gap:1px;overflow:hidden;text-align:start;padding:3px 5px;border-radius:8px;border:0;background:#7C3AED;color:#fff;font:inherit;font-size:.72rem;line-height:1.25;cursor:pointer;box-shadow:0 1px 2px rgb(0 0 0 / .15)}
-.spa-ev b{font-size:.76rem;overflow-wrap:anywhere}.spa-ev span{opacity:.92;overflow-wrap:anywhere}.spa-ev.done{background:#1D734A}
+.spa-ev b{font-size:.76rem;overflow-wrap:anywhere}.spa-ev span{opacity:.92;overflow-wrap:anywhere}.spa-ev.done{background:#1D734A}.spa-ev.pend{background:#A78BFA}.spa-ev.clash{outline:3px solid #DC2626;outline-offset:-1px}.spa-brk{position:absolute;border-radius:0 0 6px 6px;background:repeating-linear-gradient(45deg,rgb(124 58 237 / .18) 0 6px,transparent 6px 12px)}
 .drawer-bg{position:fixed;inset:0;background:var(--scrim);z-index:70}
 .drawer{position:fixed;top:0;bottom:0;left:0;width:min(300px,86vw);background:var(--surface);z-index:71;display:flex;flex-direction:column;gap:4px;padding:calc(14px + env(safe-area-inset-top,0px)) 14px calc(18px + env(safe-area-inset-bottom,0px)) max(14px,env(safe-area-inset-left,0px));box-shadow:0 0 40px rgb(0 0 0 / .18);overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y}
 .drawer>*{flex:none}
@@ -431,6 +431,7 @@ document.addEventListener('change',e=>{if(e.target.matches('[data-ceo-year]')){S
 document.addEventListener('change',e=>{if(e.target.id==='sw_peer'){const d=S.drafts.sw||(S.drafts.sw={});d.peer=e.target.value;d.to='';e.target.blur();render();return}});
 document.addEventListener('change',e=>{if(e.target.id==='pm_hotel'&&S.drafts.perm){S.drafts.perm.hotel=e.target.value;e.target.blur();render()}});
 document.addEventListener('change',e=>{if(e.target.id!=='sr_inv')return;const f=e.target.files&&e.target.files[0];if(!f)return;compressImage(f).then(u=>{S.srInv=u;render()},()=>toast('לא הצלחתי לקרוא את התמונה'))});
+document.addEventListener('change',e=>{const t=e.target;if(!t.matches||!t.matches('[data-spatid]')||!S.sheet||S.sheet.type!=='spa')return;const b=(S.spaBk||{})[S.sheet.id]||{},d=S.drafts.spa||(S.drafts.spa={}),ti=[...dv('spa','tid',b.tid||[])];ti[+t.dataset.spatid]=t.value;d.tid=ti;const th=[...dv('spa','ther',b.ther||[])],x=spaThers().find(y=>y.id===t.value);if(x)th[+t.dataset.spatid]=x.g;d.ther=th;t.blur();render()});
 document.addEventListener('input',onField);document.addEventListener('change',onField);
 const isTyping=()=>{const a=document.activeElement;return a&&['INPUT','TEXTAREA','SELECT'].includes(a.tagName)&&!['checkbox','radio'].includes(a.type)};
 document.addEventListener('focusout',()=>setTimeout(()=>{if(S.pending&&!isTyping())render()},0));
@@ -762,19 +763,37 @@ const SPA_TH=[['any','לא משנה'],['m','מטפל'],['f','מטפלת']],SPA_H
 const spaMin=t=>{const [h,m]=String(t||'0:0').split(':').map(Number);return (h||0)*60+(m||0)};
 const spaHM=m=>String(Math.floor(m/60)%24).padStart(2,'0')+':'+String(m%60).padStart(2,'0');
 const spaTh=b=>{const t=b.ther||[],m=t.filter(x=>x==='m').length,f=t.filter(x=>x==='f').length;return [m?`${m} מטפל${m>1?'ים':''}`:'',f?`${f} מטפל${f>1?'ות':'ת'}`:''].filter(Boolean).join(' · ')};
-function vSpa(){liveColl('spaBk','spa');const W=S.spaW||(S.spaW=weekOf(todayISO())),days=[0,1,2,3,4,5,6].map(i=>addDays(W,i)),t=todayISO();
+// spa settings: spacfg/main {ther:[{id, name, g:'m'|'f', phone, active}], brk (minutes between treatments)}
+function spaCfg(){if(!S.live.spacfg){S.live.spacfg=true;S.db.doc('spacfg/main').onSnapshot(d=>{S.spaCfgD=d.exists?d.data():{};render()},()=>{S.spaCfgD={};render()})}return S.spaCfgD||{}}
+const spaBrk=()=>Math.max(0,+spaCfg().brk||0);
+const spaThers=()=>(spaCfg().ther||[]);
+const spaTName=id=>(spaThers().find(t=>t.id===id)||{}).name||'';
+// a specific therapist booked twice at the same time (including the break between treatments)
+function spaClash(id,b){const tids=(b.tid||[]).filter(Boolean);if(!tids.length)return [];const a=spaMin(b.time),e=a+(+b.mins||60)+spaBrk(),out=[];
+  for(const [oid,o] of Object.entries(S.spaBk||{})){if(oid===id||o.status==='canceled'||o.date!==b.date)continue;const oa=spaMin(o.time),oe=oa+(+o.mins||60)+spaBrk();if(oa>=e||a>=oe)continue;
+    for(const t of tids)if((o.tid||[]).includes(t))out.push(spaTName(t)+' ('+o.time+' '+(o.treatment||'')+')')}return [...new Set(out)]}
+function spaSettingsHTML(){const c=spaCfg(),l=spaThers(),g=(k,d)=>dv('spt',k,d),gg=g('g','f');
+  return `<div class="card"><h3>הפסקה בין טיפולים</h3><p class="muted" style="font-size:.85rem">זמן ההפסקה חל על כל הטיפולים: הוא מוצג בגריד אחרי כל טיפול, ומטפל ששובץ לטיפול לא יכול להיות משובץ לטיפול אחר עד שההפסקה נגמרת.</p>
+    <div class="actions" style="align-items:flex-end"><label class="f" style="max-width:180px">דקות הפסקה<input type="number" min="0" step="5" inputmode="numeric" data-f="spc.brk" value="${esc(dv('spc','brk',c.brk??0))}"></label><button class="btn pri" data-act="spa-brk">שמירה</button></div></div>
+  <div class="card"><h3>מטפלים חיצוניים · ${l.length}</h3><p class="muted" style="font-size:.85rem">מטפלים שעובדים איתנו ואינם עובדים של המלון. אפשר לשבץ אותם לטיפולים בגריד.</p>
+    ${l.length?`<div class="plist">${l.map(t=>`<div class="prow"><span class="who"><b>${esc(t.name)}</b><small>${t.g==='m'?'מטפל':'מטפלת'}${t.phone?` · <span dir="ltr">${esc(t.phone)}</span>`:''}${t.active===false?' · לא פעיל':''}</small></span><span class="actions"><button class="btn sm ghost" data-act="spa-tact" data-id="${t.id}">${t.active===false?'הפעלה':'השבתה'}</button><button class="btn sm ghost" data-act="spa-tdel" data-id="${t.id}">${S.confirm==='spt:'+t.id?'לחיצה נוספת תמחק':'מחיקה'}</button></span></div>`).join('')}</div>`:'<p class="muted">עוד לא הוגדרו מטפלים.</p>'}
+    <div class="row" style="margin-top:10px"><label class="f">שם<input type="text" data-f="spt.name" value="${esc(g('name',''))}"></label><label class="f">טלפון<input type="tel" dir="ltr" data-f="spt.phone" value="${esc(g('phone',''))}" placeholder="לא חובה"></label></div>
+    <div class="actions" style="align-items:center"><div class="seg" role="group"><button data-act="spa-tg" data-v="f" aria-pressed="${gg==='f'}">מטפלת</button><button data-act="spa-tg" data-v="m" aria-pressed="${gg==='m'}">מטפל</button></div><button class="btn pri" data-act="spa-tadd">+ הוספת מטפל</button></div></div>`}
+function vSpa(){liveColl('spaBk','spa');spaCfg();const W=S.spaW||(S.spaW=weekOf(todayISO())),days=[0,1,2,3,4,5,6].map(i=>addDays(W,i)),t=todayISO();
   const wk=Object.entries(S.spaBk||{}).filter(([,b])=>b.status!=='canceled'&&b.date>=W&&b.date<=days[6]);
   const sum=(l,k)=>l.reduce((a,[,b])=>a+(+b[k]||0),0);
   let from=8*60,to=22*60;wk.forEach(([,b])=>{const a=spaMin(b.time),e=a+(+b.mins||60);from=Math.min(from,Math.floor(a/60)*60);to=Math.max(to,Math.ceil(e/60)*60)});to=Math.min(to,24*60);
   const hours=[];for(let m=from;m<to;m+=60)hours.push(m);const H=(to-from)/60*SPA_HH;
   const col=d=>{const l=wk.filter(([,b])=>b.date===d).sort(([,a],[,b])=>spaMin(a.time)-spaMin(b.time));
     // side by side when treatments overlap
-    const lanes=[],pos={};l.forEach(([id,b])=>{const a=spaMin(b.time),e=a+(+b.mins||60);let i=lanes.findIndex(x=>x<=a);if(i<0){i=lanes.length;lanes.push(e)}else lanes[i]=e;pos[id]=i});
+    const lanes=[],pos={};l.forEach(([id,b])=>{const a=spaMin(b.time),e=a+(+b.mins||60);let i=lanes.findIndex(x=>x<=a);if(i<0){i=lanes.length;lanes.push(e+spaBrk())}else lanes[i]=e+spaBrk();pos[id]=i});
     const n=Math.max(1,lanes.length);
     return `<div class="spa-col${d===t?' today':''}" style="height:${H}px">${hours.map(m=>`<div class="spa-hl" style="top:${(m-from)/60*SPA_HH}px"></div>`).join('')}
-      ${l.map(([id,b])=>{const a=spaMin(b.time),hgt=Math.max(26,(+b.mins||60)/60*SPA_HH-3);return `<button class="spa-ev${b.status==='done'?' done':''}" style="top:${(a-from)/60*SPA_HH+1}px;height:${hgt}px;width:calc(${100/n}% - 3px);inset-inline-start:calc(${pos[id]*100/n}% + 1px)" data-act="spa-open" data-id="${id}">
-        <b>${esc(b.time||'')} · ${esc(b.treatment||'טיפול')}</b><span>${+b.mins||60} דק׳ · ${+b.people||1} ${+b.people===1?'אדם':'אנשים'}${spaTh(b)?' · '+spaTh(b):''}</span><span>${ils(+b.amount||0)}${b.name?' · '+esc(b.name):''}</span></button>`}).join('')}</div>`};
-  const head=`<section class="head"><div class="head-t"><h1>ספא</h1><button class="btn pri" data-act="spa-new">+ טיפול חדש</button></div>
+      ${l.map(([id,b])=>{const a=spaMin(b.time),hgt=Math.max(26,(+b.mins||60)/60*SPA_HH-3),br=spaBrk(),cl=spaClash(id,b).length,nm=(b.tid||[]).map((t,i)=>t?(spaTName(t)||(b.tname||[])[i]||'')+((b.tok||[])[i]?' ✓':' ⏳'):'').filter(Boolean).join(', '),pend=Array.from({length:+b.people||1},(_,i)=>!(b.tok||[])[i]).some(Boolean);return (br?`<div class="spa-brk" style="top:${(a+(+b.mins||60)-from)/60*SPA_HH}px;height:${br/60*SPA_HH}px;width:calc(${100/n}% - 3px);inset-inline-start:calc(${pos[id]*100/n}% + 1px)" title="הפסקה"></div>`:'')+`<button class="spa-ev${b.status==='done'?' done':''}${cl?' clash':''}${pend&&b.status!=='done'?' pend':''}" style="top:${(a-from)/60*SPA_HH+1}px;height:${hgt}px;width:calc(${100/n}% - 3px);inset-inline-start:calc(${pos[id]*100/n}% + 1px)" data-act="spa-open" data-id="${id}">
+        <b>${esc(b.time||'')} · ${esc(b.treatment||'טיפול')}</b><span>${+b.mins||60} דק׳ · ${+b.people||1} ${+b.people===1?'אדם':'אנשים'}${spaTh(b)?' · '+spaTh(b):''}</span>${nm?`<span>👤 ${esc(nm)}</span>`:''}<span>${ils(+b.amount||0)}${b.name?' · '+esc(b.name):''}</span></button>`}).join('')}</div>`};
+  const tabs=`<div class="chips" style="gap:6px"><button class="dchip ${S.spaView==='set'?'off':''}" data-act="spa-view" data-v="board">יומן טיפולים</button><button class="dchip ${S.spaView==='set'?'':'off'}" data-act="spa-view" data-v="set">הגדרות</button></div>`;
+  if(S.spaView==='set')return wrap(`<section class="head"><div class="head-t"><h1>ספא · הגדרות</h1></div>${tabs}</section>`+spaSettingsHTML());
+  const head=`<section class="head"><div class="head-t"><h1>ספא</h1><button class="btn pri" data-act="spa-new">+ טיפול חדש</button></div>${tabs}
     <div class="actions" style="align-items:center"><button class="btn sm" data-act="spa-week" data-d="-7" aria-label="שבוע קודם">›</button><b class="mono">${weekLabel(W)}</b><button class="btn sm" data-act="spa-week" data-d="7" aria-label="שבוע הבא">‹</button>${W!==weekOf(t)?'<button class="btn sm ghost" data-act="spa-week" data-d="0">השבוע</button>':''}</div>
     <div class="kpis">${kpi('טיפולים השבוע',String(wk.length),'')}${kpi('אנשים',String(sum(wk,'people')),'')}${kpi('סכום לתשלום',ils(sum(wk,'amount')),'')}${kpi('היום',String(wk.filter(([,b])=>b.date===t).length),'טיפולים')}</div></section>`;
   if(S.spaBkErr)return wrap(head+`<div class="notice">לא הצלחתי לטעון: ${esc(S.spaBkErr)}</div>`);
@@ -782,16 +801,18 @@ function vSpa(){liveColl('spaBk','spa');const W=S.spaW||(S.spaW=weekOf(todayISO(
   const grid=`<div class="card spa-card"><div class="spa-scroll"><div class="spa-grid">
     <div class="spa-times"><div class="spa-dh"></div><div style="position:relative;height:${H}px">${hours.map(m=>`<span style="top:${(m-from)/60*SPA_HH}px">${spaHM(m)}</span>`).join('')}</div></div>
     ${days.map(d=>`<div class="spa-day"><button class="spa-dh${d===t?' today':''}" data-act="spa-new" data-d="${d}" title="טיפול חדש ביום הזה">${DAYS[dow(d)]} ${dm(d)} <small>+</small></button>${col(d)}</div>`).join('')}
-  </div></div></div>`;
+  </div></div><p class="muted" style="font-size:.8rem;margin:8px 4px 0">סגול כהה: המטפל תואם · סגול בהיר: עוד לא תואם עם המטפל · ירוק: בוצע · מסגרת אדומה: מטפל משובץ פעמיים באותו זמן · פסים: הפסקה בין טיפולים</p></div>`;
   return wrap(head+grid)}
 function sheetSpa(){const id=S.sheet.id,b=(S.spaBk||{})[id]||{},isNew=!(S.spaBk||{})[id],g=(k,d)=>dv('spa',k,b[k]??d);
-  const ppl=Math.max(1,Math.min(12,+g('people',1)||1)),th=g('ther',b.ther||[]),mins=+g('mins',60)||60;
+  const ppl=Math.max(1,Math.min(12,+g('people',1)||1)),th=g('ther',b.ther||[]),tid=g('tid',b.tid||[]),tok=g('tok',b.tok||[]),mins=+g('mins',60)||60,thers=spaThers().filter(t=>t.active!==false);
+  const clash=spaClash(id,{date:g('date',S.sheet.d||todayISO()),time:g('time','10:00'),mins,tid});
   return sheetHead(isNew?'טיפול חדש בספא':'טיפול בספא',isNew?'כל מי שיש לו הרשאת ספא יקבל התראה על הטיפול.':(b.createdByName?'הוזן ע״י '+esc(b.createdByName):''))+`
   <div class="row"><label class="f">תאריך<input type="date" id="spa_d" data-f="spa.date" value="${esc(g('date',S.sheet.d||todayISO()))}"></label><label class="f">שעה<input type="time" id="spa_t" data-f="spa.time" value="${esc(g('time','10:00'))}" step="300"></label></div>
   <label class="f">טיפול<input type="text" id="spa_tr" data-f="spa.treatment" list="spa_trl" value="${esc(g('treatment',''))}" placeholder="למשל עיסוי שוודי"><datalist id="spa_trl">${[...new Set(Object.values(S.spaBk||{}).map(x=>x.treatment).filter(Boolean))].slice(0,40).map(x=>`<option value="${esc(x)}">`).join('')}</datalist></label>
   <div class="f"><span>דקות טיפול</span><div class="chips" style="gap:6px;margin-top:4px">${[30,45,60,75,90,120].map(m=>`<button class="dchip ${mins===m?'':'off'}" data-act="spa-mins" data-v="${m}">${m}</button>`).join('')}<input type="number" min="5" step="5" inputmode="numeric" data-f="spa.mins" value="${mins}" style="width:90px" aria-label="דקות"></div></div>
   <div class="f"><span>כמות אנשים</span><div class="actions" style="align-items:center"><button class="btn sm" data-act="spa-ppl" data-d="-1" aria-label="פחות">−</button><b style="min-width:28px;text-align:center;font-size:1.2rem">${ppl}</b><button class="btn sm" data-act="spa-ppl" data-d="1" aria-label="יותר">+</button></div></div>
-  <div class="f"><span>מטפל / מטפלת${ppl>1?' לכל אחד':''}</span>${Array.from({length:ppl},(_,i)=>`<div class="actions" style="align-items:center;margin-top:4px">${ppl>1?`<span class="muted" style="min-width:54px">אדם ${i+1}</span>`:''}<div class="seg" role="group">${SPA_TH.map(([k,n])=>`<button data-act="spa-th" data-i="${i}" data-v="${k}" aria-pressed="${(th[i]||'any')===k}">${n}</button>`).join('')}</div></div>`).join('')}</div>
+  <div class="f"><span>מטפל / מטפלת${ppl>1?' לכל אחד':''}</span>${Array.from({length:ppl},(_,i)=>`<div class="actions" style="align-items:center;margin-top:4px">${ppl>1?`<span class="muted" style="min-width:54px">אדם ${i+1}</span>`:''}<div class="seg" role="group">${SPA_TH.map(([k,n])=>`<button data-act="spa-th" data-i="${i}" data-v="${k}" aria-pressed="${(th[i]||'any')===k}">${n}</button>`).join('')}</div></div><div class="actions" style="align-items:center;margin:4px 0 8px">${ppl>1?'<span style="min-width:54px"></span>':''}<label class="f" style="margin:0;flex:1 1 160px"><span class="muted" style="font-size:.8rem">זהות המטפל</span><select data-spatid="${i}" aria-label="זהות המטפל"><option value="">${thers.length?'עוד לא נקבע':'אין מטפלים (מוסיפים בהגדרות)'}</option>${thers.filter(t=>(th[i]||'any')==='any'||t.g===th[i]).map(t=>`<option value="${t.id}" ${tid[i]===t.id?'selected':''}>${esc(t.name)}</option>`).join('')}</select></label>
+    <button class="btn sm ${tok[i]?'pri':''}" style="${tok[i]?'':'border-color:var(--warn);color:var(--warn)'}" data-act="spa-tok" data-i="${i}" aria-pressed="${!!tok[i]}">${tok[i]?'✓ תואם עם המטפל':'לא תואם עדיין'}</button></div>`).join('')}${clash.length?`<div class="notice bad" style="margin-top:6px">המטפל כבר משובץ בזמן הזה (כולל ההפסקה של ${spaBrk()} דק׳): ${esc(clash.join(' · '))}</div>`:''}</div>
   <label class="f">סכום לתשלום (₪)<input type="number" min="0" step="any" inputmode="decimal" id="spa_amt" data-f="spa.amount" value="${esc(g('amount',''))}"></label>
   <div class="row"><label class="f">שם הלקוח<input type="text" data-f="spa.name" value="${esc(g('name',''))}" placeholder="לא חובה"></label><label class="f">טלפון<input type="tel" dir="ltr" data-f="spa.phone" value="${esc(g('phone',''))}" placeholder="לא חובה"></label></div>
   <label class="f">הערות<input type="text" data-f="spa.notes" value="${esc(g('notes',''))}" placeholder="לא חובה"></label>
@@ -1523,7 +1544,7 @@ function vBrief(){const hs=scopeHs();if(!hs.length)return wrap(emptyBox('אין 
   const why=B.schedErr?`<p class="notice" style="font-size:.85rem">לא הצלחתי לקרוא את הסידור של ${esc(hotelName(h))}: ${esc(B.schedErr)}</p>`:!B.schedExists||!Object.values(sched.assign||{}).some(x=>x&&x.length)?`<p class="notice" style="font-size:.85rem">אין עדיין שיבוצים שמורים ל${esc(hotelName(h))} לשבוע ${weekLabel(weekOf(d))}. הסידור שרואים בעמוד הסידור הוא כנראה של שבוע אחר: עוברים לשבוע הזה, משבצים, והבריף יתעדכן.</p>`:!nShifts?`<p class="notice" style="font-size:.85rem">לא נפתחו משמרות ל${esc(hotelName(h))} ביום הזה.</p>`:'';
   const crewCard=`<div class="card"><h3>במשמרת היום</h3>${why}${!sched.published&&B.schedExists?'<p class="muted" style="font-size:.85rem">הסידור לשבוע הזה עוד לא פורסם, מוצג השיבוץ הנוכחי.</p>':''}${crew.length?crew.map(([k,l])=>`<div style="margin-bottom:8px"><b style="color:hsl(${DMAP[k].h} 45% 38%)">${DMAP[k].n}</b><div class="muted" style="font-size:.9rem">${l.map(x=>`${esc(x.name)} <span class="mono">(${esc(x.t)})</span>`).join(' · ')}</div></div>`).join(''):'<p class="muted">אין שיבוצים ליום הזה.</p>'}</div>`;
   const spaL=h&&h===spaHotel()?spaDaySub(h,d):undefined;
-  const spaCard=spaL===undefined?'':`<div class="card"><h3>טיפולי ספא היום${spaL?' · '+spaL.length:''}</h3>${spaL===null?'<p class="muted">אין לך גישה לטיפולי הספא.</p>':!spaL?'<p class="muted">טוען…</p>':spaL.length?`<div class="plist">${spaL.map(b=>`<div class="prow"><span class="who"><b>${esc(b.time||'')} · ${esc(b.treatment||'')}</b><small>${+b.mins||60} דק׳ · ${+b.people||1} ${+b.people===1?'אדם':'אנשים'}${spaTh(b)?' · '+spaTh(b):''}${b.name?' · '+esc(b.name):''}</small></span>${b.status==='done'?'<span class="pill ok">בוצע</span>':''}</div>`).join('')}</div>`:'<p class="muted">אין טיפולים היום.</p>'}</div>`;
+  const spaCard=spaL===undefined?'':`<div class="card"><h3>טיפולי ספא היום${spaL?' · '+spaL.length:''}</h3>${spaL===null?'<p class="muted">אין לך גישה לטיפולי הספא.</p>':!spaL?'<p class="muted">טוען…</p>':spaL.length?`<div class="plist">${spaL.map(b=>`<div class="prow"><span class="who"><b>${esc(b.time||'')} · ${esc(b.treatment||'')}</b><small>${+b.mins||60} דק׳ · ${+b.people||1} ${+b.people===1?'אדם':'אנשים'}${spaTh(b)?' · '+spaTh(b):''}${(b.tname||[]).filter(Boolean).length?' · '+esc((b.tname||[]).filter(Boolean).join(', ')):''}${b.name?' · '+esc(b.name):''}</small></span>${b.status==='done'?'<span class="pill ok">בוצע</span>':''}</div>`).join('')}</div>`:'<p class="muted">אין טיפולים היום.</p>'}</div>`;
   const wa=`https://wa.me/?text=${encodeURIComponent(briefText(h,d,daily,evs,crew)+(spaL&&spaL.length?`\n\nספא:\n`+spaL.map(b=>`• ${b.time} ${b.treatment} · ${+b.mins||60} דק׳ · ${+b.people||1} אנשים${spaTh(b)?' · '+spaTh(b):''}`).join('\n'):''))}`;
   return wrap(head+`<div class="setgrid">${nums}${evCard}${spaCard}${crewCard}</div><div class="actions"><a class="btn brass" href="${wa}" target="_blank" rel="noopener">שליחת הבריף בוואטסאפ</a></div>`);
 }
@@ -2237,7 +2258,7 @@ function joinCodeHTML(){const c={...cfg(),joinCode:validCode()};
   <p class="muted" style="font-size:.85rem">עובד חדש נכנס לאפליקציה, מתחבר ומקליד את הקוד, וכך הוא משויך ל${esc(hotelName(S.hotel))}. אפשר להחליף קוד בכל זמן, והקוד הישן מפסיק לעבוד.</p>
   <div class="actions" style="align-items:center">${c.joinCode?`<b class="code">${esc(c.joinCode)}</b>`:'<span class="muted">עוד אין קוד</span>'}<button class="btn" data-act="join-new">${c.joinCode?'החלפת קוד':'יצירת קוד'}</button></div>`}
 // full backup (owner): every collection to one JSON file in the same format the import reads
-const BACKUP_COLLS=['hotels','settings','employees','mgr','avail','shifts','schedule','requests','roles','joinCodes','config','menus','contracts','quotes','campaigns','suppliers','invoices','expcfg','inventory','purchaseReqs','shiftReports','faults','hk','hkcfg','hkLog','hkComplaints','leads','tasks','clients','hkCalls','spa'];
+const BACKUP_COLLS=['hotels','settings','employees','mgr','avail','shifts','schedule','requests','roles','joinCodes','config','menus','contracts','quotes','campaigns','suppliers','invoices','expcfg','inventory','purchaseReqs','shiftReports','faults','hk','hkcfg','hkLog','hkComplaints','leads','tasks','clients','hkCalls','spa','spacfg'];
 const lastBackup=()=>{let l=0;try{l=+localStorage.getItem('scLastBackup')||0}catch(_){ }bkCfgLoad();return Math.max(l,+(S.bkCfg&&S.bkCfg.lastAt)||0)};
 // daily automatic backup to the owner's Google Drive: an Apps Script in their Drive calls the driveBackup function with the key in backupcfg/main
 const BK_FN='https://europe-west1-'+((CFG.firebase&&CFG.firebase.projectId)||'hotel-shifts')+'.cloudfunctions.net/driveBackup';
@@ -2557,18 +2578,27 @@ const ACT={
   'app-exp':()=>{S.menu=false;setTab('exp')},
   'app-gm':()=>{S.menu=false;setTab('gm')},
   'app-hr':()=>{S.menu=false;setTab('hr')},
+  'spa-view':D=>{S.spaView=D.v;render()},
+  'spa-brk':()=>{const v=Math.max(0,Math.round(+dv('spc','brk',spaCfg().brk||0)||0));fdb.doc('spacfg/main').set({brk:v,updatedAt:Date.now(),updatedBy:S.uid},{merge:true}).then(()=>{S.drafts.spc=null;toast('זמן ההפסקה נשמר')},e=>toast('לא הצלחתי: '+errMsg(mapErr(e))))},
+  'spa-tg':D=>{(S.drafts.spt||(S.drafts.spt={})).g=D.v;render()},
+  'spa-tadd':()=>{const d=S.drafts.spt||{},name=String(d.name||'').trim();if(!name){toast('צריך לרשום שם');return}
+    const t={id:'t'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),name,g:d.g||'f',phone:String(d.phone||'').trim(),active:true};
+    fdb.doc('spacfg/main').set({ther:[...spaThers(),t],updatedAt:Date.now(),updatedBy:S.uid},{merge:true}).then(()=>{S.drafts.spt=null;render();toast('המטפל נוסף')},e=>toast('לא הצלחתי: '+errMsg(mapErr(e))))},
+  'spa-tact':D=>{fdb.doc('spacfg/main').set({ther:spaThers().map(t=>t.id===D.id?{...t,active:t.active===false}:t),updatedAt:Date.now()},{merge:true}).catch(e=>toast('לא הצלחתי: '+errMsg(mapErr(e))))},
+  'spa-tdel':D=>{if(S.confirm!=='spt:'+D.id){S.confirm='spt:'+D.id;render();return}S.confirm=null;fdb.doc('spacfg/main').set({ther:spaThers().filter(t=>t.id!==D.id),updatedAt:Date.now()},{merge:true}).then(()=>toast('המטפל נמחק'),e=>toast('לא הצלחתי: '+errMsg(mapErr(e))))},
   'spa-week':D=>{S.spaW=+D.d?addDays(S.spaW||weekOf(todayISO()),+D.d):weekOf(todayISO());render()},
   'spa-new':D=>{S.drafts.spa=null;S.confirm=null;S.sheet={type:'spa',id:'sp'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),d:D.d||(S.spaW&&S.spaW!==weekOf(todayISO())?S.spaW:todayISO())};render()},
   'spa-open':D=>{S.drafts.spa=null;S.confirm=null;S.sheet={type:'spa',id:D.id};render()},
+  'spa-tok':D=>{const b=(S.spaBk||{})[S.sheet.id]||{},d=S.drafts.spa||(S.drafts.spa={}),t=[...dv('spa','tok',b.tok||[])];t[+D.i]=!t[+D.i];d.tok=t;render()},
   'spa-mins':D=>{(S.drafts.spa||(S.drafts.spa={})).mins=+D.v;render()},
   'spa-ppl':D=>{const b=(S.spaBk||{})[S.sheet.id]||{},d=S.drafts.spa||(S.drafts.spa={});d.people=Math.max(1,Math.min(12,(+dv('spa','people',b.people||1)||1)+(+D.d)));render()},
-  'spa-th':D=>{const b=(S.spaBk||{})[S.sheet.id]||{},d=S.drafts.spa||(S.drafts.spa={}),t=[...dv('spa','ther',b.ther||[])];t[+D.i]=D.v;d.ther=t;render()},
+  'spa-th':D=>{const b=(S.spaBk||{})[S.sheet.id]||{},d=S.drafts.spa||(S.drafts.spa={}),t=[...dv('spa','ther',b.ther||[])];t[+D.i]=D.v;d.ther=t;const ti=[...dv('spa','tid',b.tid||[])],cur=spaThers().find(x=>x.id===ti[+D.i]);if(cur&&D.v!=='any'&&cur.g!==D.v){ti[+D.i]='';d.tid=ti}render()},
   'spa-save':()=>{const id=S.sheet.id,b=(S.spaBk||{})[id]||{},isNew=!(S.spaBk||{})[id],g=(k,d)=>dv('spa',k,b[k]??d);
     const date=String(g('date',S.sheet.d||todayISO())),time=String(g('time','10:00')),treatment=String(g('treatment','')).trim(),mins=Math.round(+g('mins',60)||0),people=Math.max(1,+g('people',1)||1);
     if(!/^\d{4}-\d{2}-\d{2}$/.test(date)){toast('צריך לבחור תאריך');return}if(!/^\d{1,2}:\d{2}$/.test(time)){toast('צריך לבחור שעה');return}
     if(!treatment){toast('צריך לרשום איזה טיפול');return}if(!(mins>0)){toast('צריך לרשום כמה דקות');return}
-    const ther=Array.from({length:people},(_,i)=>(g('ther',[])||[])[i]||'any'),now=Date.now();
-    const doc={...b,hotel:b.hotel||spaHotel(),date,time,treatment,mins,people,ther,amount:+g('amount',0)||0,name:String(g('name','')).trim(),phone:String(g('phone','')).trim(),notes:String(g('notes','')).trim(),status:b.status||'booked',updatedAt:now,updatedBy:S.uid};
+    const tidA=Array.from({length:people},(_,i)=>(g('tid',[])||[])[i]||''),ther=Array.from({length:people},(_,i)=>{const t=spaThers().find(x=>x.id===tidA[i]);return t?t.g:((g('ther',[])||[])[i]||'any')}),now=Date.now();
+    const doc={...b,hotel:b.hotel||spaHotel(),date,time,treatment,mins,people,ther,tid:tidA,tname:tidA.map(spaTName),tok:Array.from({length:people},(_,i)=>!!(g('tok',[])||[])[i]),amount:+g('amount',0)||0,name:String(g('name','')).trim(),phone:String(g('phone','')).trim(),notes:String(g('notes','')).trim(),status:b.status||'booked',updatedAt:now,updatedBy:S.uid};
     if(isNew){doc.createdAt=now;doc.createdBy=S.uid;doc.createdByName=S.meName||''}
     S.spaBk={...S.spaBk,[id]:doc};S.spaW=weekOf(date);S.sheet=null;S.drafts.spa=null;render();
     fdb.doc('spa/'+id).set(doc).then(()=>toast(isNew?'הטיפול נשמר ונשלח לצוות הספא':'נשמר'),e=>toast('השמירה נכשלה: '+errMsg(mapErr(e))))},

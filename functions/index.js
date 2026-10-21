@@ -116,7 +116,7 @@ exports.onStock = trig('inventory/{id}').onWrite(async (ch) => {
 // A small Google Apps Script in the owner's own Drive calls this once a day with the key stored in backupcfg/main
 // (only the owner can read or change it) and saves the JSON it gets into a Drive folder. Same format as the
 // "גיבוי" button on the Permissions page, so the Import card can restore it. Invoice images are left out (size).
-const BACKUP_COLLS = ['hotels', 'settings', 'employees', 'mgr', 'avail', 'shifts', 'schedule', 'requests', 'roles', 'joinCodes', 'config', 'menus', 'contracts', 'quotes', 'campaigns', 'suppliers', 'invoices', 'expcfg', 'inventory', 'purchaseReqs', 'shiftReports', 'faults', 'hk', 'hkcfg', 'hkLog', 'hkComplaints', 'leads', 'tasks', 'clients', 'hkCalls'];
+const BACKUP_COLLS = ['hotels', 'settings', 'employees', 'mgr', 'avail', 'shifts', 'schedule', 'requests', 'roles', 'joinCodes', 'config', 'menus', 'contracts', 'quotes', 'campaigns', 'suppliers', 'invoices', 'expcfg', 'inventory', 'purchaseReqs', 'shiftReports', 'faults', 'hk', 'hkcfg', 'hkLog', 'hkComplaints', 'leads', 'tasks', 'clients', 'hkCalls', 'spa'];
 const plain = (v) => {
   if (v instanceof admin.firestore.Timestamp) return { seconds: v.seconds, nanoseconds: v.nanoseconds };
   if (Array.isArray(v)) return v.map(plain);
@@ -399,4 +399,16 @@ exports.onEmpNew = trig('employees/{uid}').onCreate(async (snap) => {
   const own = await db.collection('pushTokens').where('owner', '==', true).get(); own.forEach((d) => out.add(d.id));
   const hn = h === 'chain' ? 'עובדי רשת' : await hotelName(h);
   return sendTo([...out], { title: 'עובד חדש נרשם', body: `${e.name || ''}${hn ? ' · ' + hn : ''}${h === 'chain' ? '' : ' · צריך לשייך מחלקה'}`, hash: '#hr', tag: 'empnew-' + snap.id });
+});
+
+// ---------- spa: every new treatment pops up for everyone with the spa permission ----------
+exports.onSpaNew = trig('spa/{id}').onCreate(async (snap) => {
+  const b = snap.data() || {}, out = new Set(), rs = await db.collection('roles').get();
+  rs.forEach((d) => { const r = d.data() || {}; if (!r.station && r.apps && r.apps.spa) out.add(d.id); });
+  const own = await db.collection('pushTokens').where('owner', '==', true).get(); own.forEach((d) => out.add(d.id));
+  out.delete(b.createdBy);
+  const t = b.ther || [], m = t.filter((x) => x === 'm').length, f = t.filter((x) => x === 'f').length;
+  const th = [m ? `${m} מטפל` : '', f ? `${f} מטפלת` : ''].filter(Boolean).join(' + ');
+  const dd = String(b.date || ''), dm = dd ? dd.slice(8, 10) + '.' + dd.slice(5, 7) : '';
+  return sendTo([...out], { title: 'טיפול ספא חדש', body: `${dm} ${b.time || ''} · ${b.treatment || ''} · ${b.mins || 60} דק׳ · ${b.people || 1} אנשים${th ? ' · ' + th : ''}${b.amount ? ' · ₪' + b.amount : ''}`, hash: '#spa', tag: 'spa-' + snap.id });
 });

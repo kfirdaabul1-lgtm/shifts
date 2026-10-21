@@ -116,7 +116,7 @@ exports.onStock = trig('inventory/{id}').onWrite(async (ch) => {
 // A small Google Apps Script in the owner's own Drive calls this once a day with the key stored in backupcfg/main
 // (only the owner can read or change it) and saves the JSON it gets into a Drive folder. Same format as the
 // "גיבוי" button on the Permissions page, so the Import card can restore it. Invoice images are left out (size).
-const BACKUP_COLLS = ['hotels', 'settings', 'employees', 'mgr', 'avail', 'shifts', 'schedule', 'requests', 'roles', 'joinCodes', 'config', 'menus', 'contracts', 'quotes', 'campaigns', 'suppliers', 'invoices', 'expcfg', 'inventory', 'purchaseReqs', 'shiftReports', 'faults', 'hk', 'hkcfg', 'hkLog', 'hkComplaints', 'leads', 'tasks', 'clients', 'hkCalls', 'spa', 'spacfg', 'vouchers'];
+const BACKUP_COLLS = ['vchcfg', 'hotels', 'settings', 'employees', 'mgr', 'avail', 'shifts', 'schedule', 'requests', 'roles', 'joinCodes', 'config', 'menus', 'contracts', 'quotes', 'campaigns', 'suppliers', 'invoices', 'expcfg', 'inventory', 'purchaseReqs', 'shiftReports', 'faults', 'hk', 'hkcfg', 'hkLog', 'hkComplaints', 'leads', 'tasks', 'clients', 'hkCalls', 'spa', 'spacfg', 'vouchers'];
 const plain = (v) => {
   if (v instanceof admin.firestore.Timestamp) return { seconds: v.seconds, nanoseconds: v.nanoseconds };
   if (Array.isArray(v)) return v.map(plain);
@@ -418,7 +418,8 @@ exports.onSpaNew = trig('spa/{id}').onCreate(async (snap) => {
 exports.onHkVacant = trig('hk/{id}').onWrite(async (ch) => {
   if (!ch.after.exists || !ch.before.exists) return;
   const bo = ch.before.data().occ || {}, a = ch.after.data() || {}, ao = a.occ || {}, asg = a.asg || {}, per = {};
-  for (const [r, v] of Object.entries(bo)) if (v === 'oc' && ao[r] !== 'oc' && asg[r]) (per[asg[r]] = per[asg[r]] || []).push(r);
+  const has = (x) => String(x || '').split(',').includes('oc');
+  for (const [r, v] of Object.entries(bo)) if (has(v) && !has(ao[r]) && asg[r]) (per[asg[r]] = per[asg[r]] || []).push(r);
   const uids = Object.keys(per); if (!uids.length) return;
   const hn = await hotelName(a.hotel);
   return Promise.all(uids.map((u) => sendTo([u], { title: per[u].length > 1 ? 'חדרים התפנו' : 'החדר התפנה', body: `${hn ? hn + ': ' : ''}חדר ${per[u].join(', ')} ריק עכשיו, אפשר לנקות`, hash: '#hk', tag: 'hkv-' + u + '-' + per[u].join('-') })));

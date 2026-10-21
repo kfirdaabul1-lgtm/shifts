@@ -87,6 +87,7 @@ service cloud.firestore {
     function cmpIn(h) { return isOwner() || (hasRole() && roleApp('cmp') && (roleHotels().size() == 0 || h in roleHotels())); }
     // שוברים: מנפיקים, רואים ומממשים. עמוד השובר לאורח קורא שובר אחד לפי המזהה הסודי שלו (get בלבד, בלי רשימה)
     function canVch() { return isOwner() || (hasRole() && roleApp('vch')); }
+    function canVchR() { return isOwner() || (hasRole() && roleApp('vchr')); }
     function canSpa() { return isOwner() || (hasRole() && roleApp('spa')); }
     function briefRole() { return hasRole() && roleApp('brief'); }
     // קבלת המלון: רואה סידור ואירועים של המלונות שלו ומזין 10days
@@ -152,11 +153,12 @@ service cloud.firestore {
         && (!a.get('hr', false) || roleApp('hr'))
         && (!a.get('spa', false) || roleApp('spa'))
         && (!a.get('cmp', false) || roleApp('cmp'))
-        && (!a.get('vch', false) || roleApp('vch'));
+        && (!a.get('vch', false) || roleApp('vch'))
+        && (!a.get('vchr', false) || roleApp('vchr'));
     }
     function grantOk(n) {
       return n.apps is map
-        && n.apps.keys().hasOnly(['shifts', 'events', 'perms', 'ceo', 'dept', 'mkt', 'exp', 'gm', 'brief', 'front', 'maint', 'fin', 'hk', 'hr', 'spa', 'cmp', 'vch'])
+        && n.apps.keys().hasOnly(['shifts', 'events', 'perms', 'ceo', 'dept', 'mkt', 'exp', 'gm', 'brief', 'front', 'maint', 'fin', 'hk', 'hr', 'spa', 'cmp', 'vch', 'vchr'])
         && n.get('hotels', []) is list
         && n.get('depts', []) is list
         && (isOwner() || roleApp('shifts') || n.get('depts', []).hasOnly(roleDepts()))
@@ -471,10 +473,17 @@ service cloud.firestore {
     }
     match /vouchers/{id} {
       allow get: if true;
-      allow list: if canVch();
+      allow list: if canVch() || canVchR();
       allow create: if canVch() && request.resource.data.createdBy == request.auth.uid && request.resource.data.status == 'active';
-      allow update: if canVch();
+      // issuers (vch) may cancel; redeemers (vchr) may only record a redemption
+      allow update: if (canVch() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'hist', 'updatedAt']) && request.resource.data.status == 'cancelled')
+        || (canVchR() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['balance', 'status', 'hist', 'updatedAt']) && request.resource.data.status in ['partial', 'redeemed'])
+        || isOwner();
       allow delete: if isOwner();
+    }
+    match /vchcfg/{id} {
+      allow read: if canVch() || canVchR();
+      allow write: if canVch();
     }
     match /backupcfg/{id} {
       allow read, write: if isOwner();

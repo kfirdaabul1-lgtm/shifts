@@ -166,7 +166,7 @@ exports.onHkAssign = trig('hk/{id}').onWrite(async (ch) => {
   const hn = await hotelName(a.hotel);
   await Promise.all(uids.map((u) => {
     const rooms = per[u].sort((x, y) => String(x).localeCompare(String(y), 'he', { numeric: true }));
-    const txt = rooms.map((r) => r + (vip[r] ? ' VIP' : '') + (bk[r] ? ' Booking' : '') + (pax[r] ? ' ' + pax[r] + ' אורחים' : '') + (twin[r] ? ' Twin' : '') + (cot[r] ? ' Baby cot' : '') + (clean[r] === 'vd' ? ' (VD)' : '')).join(', ');
+    const txt = rooms.map((r) => r + (vip[r] ? ' VIP' : '') + (bk[r] ? ' Booking' : '') + (pax[r] ? ' ' + pax[r] + ' אורחים' : '') + (twin[r] ? ' Split bed' : '') + (cot[r] ? ' Baby cot' : '') + (clean[r] === 'vd' ? ' (VD)' : '')).join(', ');
     return sendTo([u], { title: rooms.length > 1 ? `יש לך ${rooms.length} חדרים לסדר` : 'יש לך חדר לסדר', body: `${hn ? hn + ': ' : ''}חדר ${txt}`, hash: '#hk', tag: 'hk-' + u + '-' + a.date });
   }));
 });
@@ -203,7 +203,7 @@ exports.onFaultDone = trig('faults/{id}').onUpdate(async (ch) => {
 });
 
 // housekeeping: every cleaning update (status or "started cleaning") → the hotel's reception desk, except its own changes
-const HK_TXT = { vc: 'VC · חדר נקי', vi: 'VI · נקי מאתמול', vd: 'VD · חדר מלוכלך', ooo: 'OOO · תקלה תחזוקתית' };
+const HK_TXT = { vc: 'VC · חדר נקי', vi: 'VI · נקי מאתמול', vd: 'VD · חדר מלוכלך', od: 'OD · תפוס מלוכלך', ooo: 'OOO · תקלה תחזוקתית' };
 exports.onHkUpdate = trig('hk/{id}').onWrite(async (ch) => {
   if (!ch.after.exists) return;
   const b = ch.before.exists ? ch.before.data() : {}, a = ch.after.data() || {};

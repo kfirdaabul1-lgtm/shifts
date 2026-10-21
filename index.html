@@ -200,7 +200,7 @@ body:has(.sheet:not([hidden])) .lang-toggle{display:none!important}
 .lead-card{display:flex;flex-direction:column;align-items:flex-start;gap:3px;text-align:start;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:inherit;cursor:pointer;width:100%}
 .lead-card.late{border-color:var(--warn);box-shadow:0 0 0 2px var(--warn-bg)}.lead-card small{font-size:.8rem}.lead-tags{display:flex;flex-wrap:wrap;gap:4px}.lead-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px}.bad-t{color:var(--bad)}
 .hk-ks{display:flex;flex-wrap:wrap;gap:6px}.hk-sep{width:1px;background:var(--line);margin:0 4px}
-.hk-k{display:flex;flex-direction:column;align-items:flex-start;gap:2px;min-width:96px;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font:inherit;cursor:pointer}.hk-k span{font-size:.78rem;color:var(--muted)}.hk-k b{font-size:1.25rem}.hk-k.on{outline:3px solid var(--ink);outline-offset:1px}.hk-k.hk-vc span,.hk-k.hk-vd span,.hk-k.hk-ooo span{color:#fff;opacity:.9}.hk-k.hk-vi span{color:#3b2f00}
+.hk-k{display:flex;flex-direction:column;align-items:flex-start;gap:2px;min-width:96px;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font:inherit;cursor:pointer}.hk-k span{font-size:.78rem;color:var(--muted)}.hk-k b{font-size:1.25rem}.hk-k.on{outline:3px solid var(--ink);outline-offset:1px}.hk-k.hk-vc span,.hk-k.hk-vd span,.hk-k.hk-od span,.hk-k.hk-ooo span{color:#fff;opacity:.9}.hk-k.hk-vi span{color:#3b2f00}
 .hk-p{padding:8px 12px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:inherit;font-weight:600;cursor:pointer;min-height:40px}.hk-p.on{outline:3px solid var(--ink);outline-offset:1px}
 .hk-floor h4{margin:10px 0 6px;font-size:.85rem;color:var(--muted)}.hk-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(74px,1fr));gap:6px}
 .hk-room{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:72px;padding:16px 4px 6px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:inherit;cursor:pointer}
@@ -1895,11 +1895,12 @@ const finPendingN=h=>Object.values((S.alertFin||{})[h]||{}).filter(r=>r.finStatu
    A new doc per day, so every morning all statuses start empty. Room lists: hkcfg/{hotel} {rooms:'101-119 -113', dorms:'101-111 -108', beds:8}; without it, presets by hotel name.
    Housekeeping staff change only the cleaning status; the housekeeping department manager also assigns rooms; reception, hotel managers and shift managers change everything.
    An assigned worker gets a push (functions onHkAssign). */
-const HK_CLEAN=[['vc','VC','חדר נקי'],['vi','VI','נקי מאתמול'],['vd','VD','חדר מלוכלך'],['ooo','OOO','תקלה תחזוקתית']];
-const HK_OCC=[['oc','OD','תפוס'],['co','C/O','צ׳ק אאוט'],['res','RES','הזמנה'],['empty','ריק','ריק']];
+// OD (occupied) is a clean / maintenance status again (owner's wish, Oct 21, latest); old occupancy 'oc' marks are ignored
+const HK_CLEAN=[['vc','VC','חדר נקי'],['vi','VI','נקי מאתמול'],['vd','VD','חדר מלוכלך'],['od','OD','תפוס'],['ooo','OOO','תקלה תחזוקתית']];
+const HK_OCC=[['co','C/O','צ׳ק אאוט'],['res','RES','הזמנה'],['empty','ריק','ריק']];
 // guest marks and room set-up, set by reception: VIP, Booking, twin beds, baby cot; pax = 3 or 4 guests
 const HK_FLAGS=['vip','bk','grp','twin','cot'];
-const HK_CN={...Object.fromEntries(HK_CLEAN.map(x=>[x[0],x])),od:['od','OD','תפוס מלוכלך']},HK_ON=Object.fromEntries(HK_OCC.map(x=>[x[0],x]));
+const HK_CN=Object.fromEntries(HK_CLEAN.map(x=>[x[0],x])),HK_ON=Object.fromEntries(HK_OCC.map(x=>[x[0],x]));
 function hkPreset(h){const n=String(hotelName(h)||'').toLowerCase();
   if(/סיז|seas/.test(n))return {rooms:'101-119 -113 -117\n201-219 -213 -217\n301-314 -313\n401-403'};
   if(/גוטמן|gutman|gutmann/.test(n))return {rooms:'101-107\n200-210\n300-312 -306'};
@@ -1942,7 +1943,6 @@ function hkCarryClient(h,d,from){
     if(T.carried)return;const o={hotel:h,date:d,carried:true,updatedAt:now,lastBy:S.uid,clean:{},cleanBy:{},cleanAt:{}};
     for(const [r,c] of Object.entries(yc))if(c&&!cur[r]){o.clean[r]=c==='vc'?'vi':c;o.cleanBy[r]='אוטומטי';o.cleanAt[r]=now}
     // OD (occupied) also carries over to the new day (owner's wish); only full roles may write occupancy, the server does it for everyone
-    if(hkFull(h)){const co=T.occ||{};o.occ={};o.occBy={};o.occAt={};for(const [r,v] of Object.entries(yo))if(occL(v).includes('oc')&&!co[r]){o.occ[r]='oc';o.occBy[r]='אוטומטי';o.occAt[r]=now}}
     return fdb.doc('hk/'+hkDocId(h,d)).set(o,{merge:true})})}
 // housekeeping staff on shift today (schedule + approved changes, like the daily brief), then the rest of the hotel's housekeeping staff
 function hkCrew(h,d){return crewOf(h,d,['housekeeping'])}

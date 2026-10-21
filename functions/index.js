@@ -424,6 +424,9 @@ exports.onHkVacant = trig('hk/{id}').onWrite(async (ch) => {
   const bo = ch.before.data().occ || {}, a = ch.after.data() || {}, ao = a.occ || {}, asg = a.asg || {}, per = {};
   const has = (x) => String(x || '').split(',').includes('oc');
   for (const [r, v] of Object.entries(bo)) if (has(v) && !has(ao[r]) && asg[r]) (per[asg[r]] = per[asg[r]] || []).push(r);
+  // OD is now a clean status: OD → anything else (not by the assigned worker themself) = the room is free to clean
+  const bc = ch.before.data().clean || {}, ac = a.clean || {};
+  for (const [r, v] of Object.entries(bc)) if (v === 'od' && ac[r] !== 'od' && asg[r] && a.lastBy !== asg[r] && !(per[asg[r]] || []).includes(r)) (per[asg[r]] = per[asg[r]] || []).push(r);
   const uids = Object.keys(per); if (!uids.length) return;
   const hn = await hotelName(a.hotel);
   return Promise.all(uids.map((u) => sendTo([u], { title: per[u].length > 1 ? 'חדרים התפנו' : 'החדר התפנה', body: `${hn ? hn + ': ' : ''}חדר ${per[u].join(', ')} ריק עכשיו, אפשר לנקות`, hash: '#hk', tag: 'hkv-' + u + '-' + per[u].join('-') })));

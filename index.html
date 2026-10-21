@@ -1931,7 +1931,8 @@ function hkDayD(h){const k='hkday:'+h;S.hkDay=S.hkDay||{};if(!S.live[k]){S.live[
   fdb.doc('hkday/'+h).onSnapshot(s=>{const x=s.exists?s.data():null;S.hkDay[h]=x&&x.date?x:{date:todayISO(),init:true};if(!x&&hkFull(h))fdb.doc('hkday/'+h).set({hotel:h,date:todayISO(),by:S.uid,byName:S.meName||'',at:Date.now()}).catch(()=>{});render()},e=>{S.hkDay[h]={date:todayISO(),__err:errMsg(mapErr(e))};render()})}
   return S.hkDay[h]||null}
 const hkToday=h=>{const x=hkDayD(h);return x&&x.date?x.date:todayISO()};
-async function hkNewDay(h){const from=hkToday(h),to=todayISO();if(from>=to){toast('הלוח כבר על היום');return}
+const hkNextDay=h=>{const d=hkToday(h),t=todayISO();return d<t?t:addDays(d,1)};
+async function hkNewDay(h){const from=hkToday(h),to=hkNextDay(h);if(to>addDays(todayISO(),1)){toast('הלוח כבר על היום הבא');return}
   try{await hkCarryClient(h,to,from);await fdb.doc('hkday/'+h).set({hotel:h,date:to,from,by:S.uid,byName:S.meName||'',at:Date.now()});S.hkDay[h]={date:to};render();toast('נפתח יום חדש: '+dm(to))}
   catch(e){toast('לא הצלחתי לפתוח יום חדש: '+errMsg(mapErr(e)))}}
 function hkSub(h,d){const k='hk:'+h+'|'+d;S.hkDays=S.hkDays||{};if(!S.live[k]){S.live[k]=true;
@@ -1983,7 +1984,7 @@ function hkTile(h,r,D){const c=(D.clean||{})[r],o=(D.occ||{})[r],a=(D.asg||{})[r
 function vHk(){const hs=hkHotels();if(!hs.length)return wrap(emptyBox('אין מלונות בהרשאה',''));
   if(!hs.includes(S.hkH))S.hkH=hs.includes(S.hotel)?S.hotel:hs[0];const h=S.hkH,dl=hkDayD(h),d=hkToday(h),D=dl?hkSub(h,d)||null:null,full=hkFull(h),lead=hkLead(h);
   const chips=hs.length>1?`<div class="chips" style="gap:6px">${hs.map(x=>`<button class="dchip ${x===h?'':'off'}" style="--h:var(--brass)" data-act="hk-hotel" data-h="${x}">${esc(hotelName(x))}</button>`).join('')}</div>`:'';
-  const head=`<div class="page-h"><div><h1>משק</h1><p class="muted">${esc(hotelName(h))} · יום ${DAYS[dow(d)]} ${dm(d)}</p></div></div>${chips}${dl&&d<todayISO()?`<div class="notice" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><span>הלוח עדיין מציג את יום ${DAYS[dow(d)]} ${dm(d)}. היום החדש נפתח רק בלחיצה על הכפתור, ואז מצבי הניקיון ו-OD עוברים ליום החדש.</span>${full?`<button class="btn pri" data-act="hk-newday" data-h="${h}">${S.confirm==='hknd:'+h?'לחיצה נוספת תפתח את היום':'מעבר ליום חדש · '+dm(todayISO())}</button>`:'<span class="muted">הקבלה או המנהל פותחים את היום החדש.</span>'}</div>`:''}`;
+  const head=`<div class="page-h"><div><h1>משק</h1><p class="muted">${esc(hotelName(h))} · יום ${DAYS[dow(d)]} ${dm(d)}</p></div></div>${chips}${dl&&d<todayISO()?`<div class="notice">הלוח עדיין מציג את יום ${DAYS[dow(d)]} ${dm(d)}. היום החדש נפתח רק בלחיצה על הכפתור, ואז מצבי הניקיון עוברים ליום החדש.${full?'':' הקבלה או המנהל פותחים את היום החדש.'}</div>`:''}${dl&&full&&hkNextDay(h)<=addDays(todayISO(),1)?`<div class="actions" style="margin:6px 0"><button class="btn ${d<todayISO()?'pri':''}" data-act="hk-newday" data-h="${h}">${S.confirm==='hknd:'+h?'לחיצה נוספת תפתח את היום':'מעבר ליום חדש · '+DAYS[dow(hkNextDay(h))]+' '+dm(hkNextDay(h))}</button></div>`:''}`;
   if(!D)return wrap(head+'<p class="muted">טוען…</p>');if(D.__err)return wrap(head+`<div class="notice">לא הצלחתי לטעון את החדרים: ${esc(D.__err)}</div>`);
   const R=hkRooms(h),all=R.units;
   if(!all.length)return wrap(head+emptyBox('עוד לא הוגדרו חדרים למלון הזה','בעל המערכת מגדיר את רשימת החדרים בעמוד ההרשאות, בכרטיס המלונות.'));

@@ -450,6 +450,11 @@ service cloud.firestore {
 
     // ---------- אחזקה: תקלות ----------
     // אחזקה ומנהלים רואים ומעדכנים; הקבלה פותחת תקלות (מדוח משמרת) ורואה אותן; מחיקה רק למנהלים
+    match /faultsAck/{id} {
+      allow read: if maintIn(resource.data.hotel);
+      allow create, update: if maintIn(request.resource.data.hotel);
+      allow delete: if maintIn(resource.data.hotel);
+    }
     match /faults/{id} {
       allow read: if maintIn(resource.data.hotel) || frontIn(resource.data.hotel);
       allow create: if isOwner() || ((maintIn(request.resource.data.hotel) || frontIn(request.resource.data.hotel)

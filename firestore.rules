@@ -154,11 +154,12 @@ service cloud.firestore {
         && (!a.get('spa', false) || roleApp('spa'))
         && (!a.get('cmp', false) || roleApp('cmp'))
         && (!a.get('vch', false) || roleApp('vch'))
-        && (!a.get('vchr', false) || roleApp('vchr'));
+        && (!a.get('vchr', false) || roleApp('vchr'))
+        && (!a.get('hkchk', false) || roleApp('hkchk') || roleApp('gm') || roleApp('shifts'));
     }
     function grantOk(n) {
       return n.apps is map
-        && n.apps.keys().hasOnly(['shifts', 'events', 'perms', 'ceo', 'dept', 'mkt', 'exp', 'gm', 'brief', 'front', 'maint', 'fin', 'hk', 'hr', 'spa', 'cmp', 'vch', 'vchr'])
+        && n.apps.keys().hasOnly(['shifts', 'events', 'perms', 'ceo', 'dept', 'mkt', 'exp', 'gm', 'brief', 'front', 'maint', 'fin', 'hk', 'hr', 'spa', 'cmp', 'vch', 'vchr', 'hkchk'])
         && n.get('hotels', []) is list
         && n.get('depts', []) is list
         && (isOwner() || roleApp('shifts') || n.get('depts', []).hasOnly(roleDepts()))
@@ -400,7 +401,7 @@ service cloud.firestore {
     function hkFullIn(h) { return manages(h) || gmIn(h) || frontIn(h); }
     function hkWorkIn(h) {
       return hkFullIn(h)
-        || (hasRole() && roleApp('hk') && (roleHotels().size() == 0 || h in roleHotels()))
+        || (hasRole() && (roleApp('hk') || roleApp('hkchk')) && (roleHotels().size() == 0 || h in roleHotels()))
         || (deptMgr(h) && 'housekeeping' in roleDepts())
         || (isEmployee() && myHotel() == h
             && 'housekeeping' in get(/databases/$(database)/documents/employees/$(request.auth.uid)).data.get('depts', []));
@@ -424,11 +425,11 @@ service cloud.firestore {
     match /hk/{id} {
       allow read: if signedIn() && hkWorkIn(id.split('__')[0]);
       allow create: if request.resource.data.hotel == id.split('__')[0] && (hkFullIn(request.resource.data.hotel)
-        || (hkLeadIn(request.resource.data.hotel) && request.resource.data.keys().hasOnly(['hotel', 'date', 'carried', 'lastBy', 'clean', 'cleanBy', 'cleanAt', 'start', 'done', 'doneBy', 'asg', 'asgName', 'asgAt', 'note', 'noteBy', 'noteAt', 'updatedAt']))
-        || (hkWorkIn(request.resource.data.hotel) && request.resource.data.keys().hasOnly(['hotel', 'date', 'carried', 'lastBy', 'clean', 'cleanBy', 'cleanAt', 'start', 'done', 'doneBy', 'note', 'noteBy', 'noteAt', 'updatedAt'])));
+        || (hkLeadIn(request.resource.data.hotel) && request.resource.data.keys().hasOnly(['hotel', 'date', 'carried', 'lastBy', 'clean', 'cleanBy', 'cleanAt', 'start', 'done', 'doneBy', 'asg', 'asgName', 'asgAt', 'note', 'noteBy', 'noteAt', 'chk', 'chkBy', 'chkAt', 'back', 'updatedAt']))
+        || (hkWorkIn(request.resource.data.hotel) && request.resource.data.keys().hasOnly(['hotel', 'date', 'carried', 'lastBy', 'clean', 'cleanBy', 'cleanAt', 'start', 'done', 'doneBy', 'note', 'noteBy', 'noteAt', 'chk', 'chkBy', 'chkAt', 'back', 'updatedAt'])));
       allow update: if request.resource.data.hotel == resource.data.hotel && (hkFullIn(resource.data.hotel)
-        || (hkLeadIn(resource.data.hotel) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['carried', 'lastBy', 'clean', 'cleanBy', 'cleanAt', 'start', 'done', 'doneBy', 'asg', 'asgName', 'asgAt', 'note', 'noteBy', 'noteAt', 'updatedAt']))
-        || (hkWorkIn(resource.data.hotel) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['carried', 'lastBy', 'clean', 'cleanBy', 'cleanAt', 'start', 'done', 'doneBy', 'note', 'noteBy', 'noteAt', 'updatedAt'])));
+        || (hkLeadIn(resource.data.hotel) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['carried', 'lastBy', 'clean', 'cleanBy', 'cleanAt', 'start', 'done', 'doneBy', 'asg', 'asgName', 'asgAt', 'note', 'noteBy', 'noteAt', 'chk', 'chkBy', 'chkAt', 'back', 'updatedAt']))
+        || (hkWorkIn(resource.data.hotel) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['carried', 'lastBy', 'clean', 'cleanBy', 'cleanAt', 'start', 'done', 'doneBy', 'note', 'noteBy', 'noteAt', 'chk', 'chkBy', 'chkAt', 'back', 'updatedAt'])));
       allow delete: if manages(resource.data.hotel) || gmIn(resource.data.hotel);
     }
     // זמני ניקיון (התחלה–סיום) לכל חדר: העובד כותב את שלו, רק מנהלים קוראים (ממוצע לעובד)

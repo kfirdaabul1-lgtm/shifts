@@ -159,14 +159,14 @@ exports.mirrorShiftReport = trig('shiftReports/{id}').onWrite(async (ch, ctx) =>
 exports.onHkAssign = trig('hk/{id}').onWrite(async (ch) => {
   if (!ch.after.exists) return;
   const b = (ch.before.exists && ch.before.data().asg) || {}, a = ch.after.data() || {}, asg = a.asg || {};
-  const grp = a.grp || {}, vip = a.vip || {}, bk = a.bk || {}, clean = a.clean || {}, pax = a.pax || {}, twin = a.twin || {}, cot = a.cot || {}, wine = a.wine || {}, bal = a.bal || {};
+  const grp = a.grp || {}, vip = a.vip || {}, bk = a.bk || {}, clean = a.clean || {}, pax = a.pax || {}, twin = a.twin || {}, cot = a.cot || {}, wine = a.wine || {}, bal = a.bal || {}, trt = a.trt || {};
   const per = {};
   for (const [room, uid] of Object.entries(asg)) if (uid && b[room] !== uid) (per[uid] = per[uid] || []).push(room);
   const uids = Object.keys(per); if (!uids.length) return;
   const hn = await hotelName(a.hotel);
   await Promise.all(uids.map((u) => {
     const rooms = per[u].sort((x, y) => String(x).localeCompare(String(y), 'he', { numeric: true }));
-    const txt = rooms.map((r) => r + (vip[r] ? ' VIP' : '') + (bk[r] ? ' Booking' : '') + (grp[r] ? ' Group' : '') + (pax[r] ? ' ' + pax[r] + ' אורחים' : '') + (twin[r] ? ' Split bed' : '') + (cot[r] ? ' Baby cot' : '') + (wine[r] ? ' יין' : '') + (bal[r] ? ' בלונים' : '') + (clean[r] === 'vd' ? ' (VD)' : '')).join(', ');
+    const txt = rooms.map((r) => r + (vip[r] ? ' VIP' : '') + (bk[r] ? ' Booking' : '') + (grp[r] ? ' Group' : '') + (pax[r] ? ' ' + pax[r] + ' אורחים' : '') + (twin[r] ? ' Split bed' : '') + (trt[r] ? (trt[r] === 'full' ? ' Full refresh' : ' Refresh') : '') + (cot[r] ? ' Baby cot' : '') + (wine[r] ? ' יין' : '') + (bal[r] ? ' בלונים' : '') + (clean[r] === 'vd' ? ' (VD)' : '')).join(', ');
     return sendTo([u], { title: rooms.length > 1 ? `יש לך ${rooms.length} חדרים לסדר` : 'יש לך חדר לסדר', body: `${hn ? hn + ': ' : ''}חדר ${txt}`, hash: '#hk', tag: 'hk-' + u + '-' + a.date });
   }));
 });
@@ -433,6 +433,22 @@ exports.onHkVacant = trig('hk/{id}').onWrite(async (ch) => {
 });
 
 // ---------- guest complaint from a shift report → push to everyone with the complaints (cmp) app for that hotel ----------
+// ---------- room inspector: a cleaner finished a room → push the hotel's inspectors (hkchk); sent back to cleaning → push the cleaner ----------
+exports.onHkCheck = trig('hk/{id}').onWrite(async (ch) => {
+  if (!ch.after.exists) return;
+  const b = ch.before.exists ? ch.before.data() : {}, a = ch.after.data() || {}, bd = b.done || {}, ad = a.done || {}, bb = b.back || {}, ab = a.back || {};
+  const fin = Object.keys(ad).filter((r) => ad[r] && ad[r] !== bd[r]);
+  const back = Object.keys(ab).filter((r) => ab[r] && ab[r] !== bb[r]);
+  const hn = await hotelName(a.hotel), jobs = [];
+  if (fin.length) {
+    const rs = await db.collection('roles').get(), out = [];
+    rs.forEach((d) => { const r = d.data() || {}; if (r.station || !(r.apps && r.apps.hkchk)) return; const hs = r.hotels || []; if ((!hs.length || hs.includes(a.hotel)) && d.id !== a.lastBy) out.push(d.id); });
+    if (out.length) jobs.push(sendTo(out, { title: fin.length > 1 ? 'חדרים לבדיקה' : 'חדר לבדיקה', body: `${hn ? hn + ': ' : ''}חדר ${fin.join(', ')} נוקה וממתין לבדיקה`, hash: '#hk', tag: 'hkchk-' + a.hotel + '-' + fin.join('-') }));
+  }
+  const per = {}; for (const r of back) { const u = (b.doneBy || {})[r] || (a.asg || {})[r]; if (u && u !== a.lastBy) (per[u] = per[u] || []).push(r); }
+  for (const [u, rooms] of Object.entries(per)) jobs.push(sendTo([u], { title: 'חדר הוחזר לניקוי', body: `${hn ? hn + ': ' : ''}חדר ${rooms.join(', ')} לא עבר בדיקה, צריך לנקות שוב`, hash: '#hk', tag: 'hkback-' + rooms.join('-') }));
+  return Promise.all(jobs);
+});
 exports.onCmpNew = trig('hkComplaints/{id}').onCreate(async (snap) => {
   const c = snap.data() || {}, h = c.hotel || 'main', out = new Set(), rs = await db.collection('roles').get();
   rs.forEach((d) => { const r = d.data() || {}; if (r.station || !(r.apps && r.apps.cmp)) return; const hs = r.hotels || []; if (!hs.length || hs.includes(h)) out.add(d.id); });

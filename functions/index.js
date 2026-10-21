@@ -159,14 +159,14 @@ exports.mirrorShiftReport = trig('shiftReports/{id}').onWrite(async (ch, ctx) =>
 exports.onHkAssign = trig('hk/{id}').onWrite(async (ch) => {
   if (!ch.after.exists) return;
   const b = (ch.before.exists && ch.before.data().asg) || {}, a = ch.after.data() || {}, asg = a.asg || {};
-  const grp = a.grp || {}, vip = a.vip || {}, bk = a.bk || {}, clean = a.clean || {}, pax = a.pax || {}, twin = a.twin || {}, cot = a.cot || {};
+  const grp = a.grp || {}, vip = a.vip || {}, bk = a.bk || {}, clean = a.clean || {}, pax = a.pax || {}, twin = a.twin || {}, cot = a.cot || {}, wine = a.wine || {}, bal = a.bal || {};
   const per = {};
   for (const [room, uid] of Object.entries(asg)) if (uid && b[room] !== uid) (per[uid] = per[uid] || []).push(room);
   const uids = Object.keys(per); if (!uids.length) return;
   const hn = await hotelName(a.hotel);
   await Promise.all(uids.map((u) => {
     const rooms = per[u].sort((x, y) => String(x).localeCompare(String(y), 'he', { numeric: true }));
-    const txt = rooms.map((r) => r + (vip[r] ? ' VIP' : '') + (bk[r] ? ' Booking' : '') + (grp[r] ? ' Group' : '') + (pax[r] ? ' ' + pax[r] + ' אורחים' : '') + (twin[r] ? ' Split bed' : '') + (cot[r] ? ' Baby cot' : '') + (clean[r] === 'vd' ? ' (VD)' : '')).join(', ');
+    const txt = rooms.map((r) => r + (vip[r] ? ' VIP' : '') + (bk[r] ? ' Booking' : '') + (grp[r] ? ' Group' : '') + (pax[r] ? ' ' + pax[r] + ' אורחים' : '') + (twin[r] ? ' Split bed' : '') + (cot[r] ? ' Baby cot' : '') + (wine[r] ? ' יין' : '') + (bal[r] ? ' בלונים' : '') + (clean[r] === 'vd' ? ' (VD)' : '')).join(', ');
     return sendTo([u], { title: rooms.length > 1 ? `יש לך ${rooms.length} חדרים לסדר` : 'יש לך חדר לסדר', body: `${hn ? hn + ': ' : ''}חדר ${txt}`, hash: '#hk', tag: 'hk-' + u + '-' + a.date });
   }));
 });

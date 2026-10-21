@@ -1,4 +1,4 @@
-<!doctype html><html lang="he" dir="rtl"><head><meta name="theme-color" content="#1f5f6b"><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style><script src="i18n.js?v=202610211200"></script></head><body>
+<!doctype html><html lang="he" dir="rtl"><head><meta name="theme-color" content="#1f5f6b"><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style><script src="i18n.js?v=202610211215"></script></head><body>
 <style>
 .evtop{background:var(--surface);border-bottom:1px solid var(--line)}
 .evtop-in{max-width:1240px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:10px;padding-block:6px;padding-left:max(10px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
@@ -371,6 +371,12 @@ table.ctable{border-collapse:collapse;width:100%;min-width:620px;font-size:14px;
         </div>
         <div class="clash" id="clash" hidden></div>
         <div class="meta" id="dayInfo" style="font-size:13px;color:var(--muted)"></div>
+        <div class="lbl" style="margin-top:8px;font-size:13px;color:var(--muted)">התחייבויות מינימום (לא חובה)</div>
+        <div class="row">
+          <label class="f">מינימום בר (₪)<input id="minBar" type="number" min="0" step="any" inputmode="decimal" placeholder="לא חובה"></label>
+          <label class="f">מינימום כרטיסים<input id="minTickets" type="number" min="0" inputmode="numeric" placeholder="לא חובה"></label>
+          <label class="f">מינימום הכנסות (₪)<input id="minRev" type="number" min="0" step="any" inputmode="decimal" placeholder="לא חובה"></label>
+        </div>
       </div>
 
       <div class="sec"><div class="sec-t">פריטים ומחירים</div>
@@ -1094,11 +1100,16 @@ const F={cName:['client','name'],cCompany:['client','company'],cPhone:['client',
 function fillForm(){
   migrateQuoteMenus(cur);
   for(const [id,[a,b]] of Object.entries(F)){$('#'+id).value=cur[a][b]??''}
+  for(const [id,k] of MINS)$('#'+id).value=(cur.mins||{})[k]??'';
   $('#disc').value=cur.discount||0;$('#valid').value=cur.validDays;$('#vatIncl').checked=!!cur.vatIncluded;$('#notes').value=cur.notes||'';
   $('#editTitle').textContent=cur.num?`עריכת ${isOrder(cur)?'הזמנת אירוע':'הצעה'} מס' ${cur.num}`:'הצעה חדשה';
   renderVenues();renderItems();fillQuoteMenus();fillContract();refresh();
   if(!viewingVer)$('#verBanner').hidden=true;renderHistory();
 }
+// minimum commitments (all optional): cur.mins {bar, tickets, revenue}
+const MINS=[['minBar','bar'],['minTickets','tickets'],['minRev','revenue']];
+const minsHTML=q=>{const m=q.mins||{},p=[];if(m.bar!==''&&m.bar!=null&&+m.bar>0)p.push('מינימום בר: '+money(+m.bar));if(+m.tickets>0)p.push('מינימום כרטיסים: '+(+m.tickets));if(+m.revenue>0)p.push('מינימום הכנסות: '+money(+m.revenue));return p.length?`<div class="notes"><div class="lbl">התחייבויות מינימום</div>${p.join(' · ')}</div>`:''};
+for(const [id,k] of MINS)$('#'+id).addEventListener('input',e=>{const v=e.target.value;const m={...(cur.mins||{})};if(v===''||!(+v>0))delete m[k];else m[k]=Number(v);cur.mins=m;refresh()});
 for(const [id,[a,b]] of Object.entries(F)){
   $('#'+id).addEventListener('input',e=>{cur[a][b]=id==='eGuests'?Number(e.target.value):e.target.value;if(id==='eGuests')renderItems();refresh()});
 }
@@ -1208,6 +1219,7 @@ function renderDoc(){
     <div class="g"><span>סה״כ לתשלום</span><span>${money(c.total)}</span></div>
     ${(q.payments||[]).length?(q.payments.map(p=>`<div><span>שולם: ${PAY_KIND[p.kind]||'תשלום'}${p.date?' · '+fmtDate(p.date):''}</span><span>-${money(p.amount)}</span></div>`).join('')+`<div class="g"><span>יתרה לתשלום</span><span>${money(Math.max(0,balance(q)))}</span></div>`):''}
   </div>
+  ${minsHTML(q)}
   ${q.notes?`<div class="notes"><div class="lbl">הערות</div>${esc(q.notes)}</div>`:''}
   ${b.terms?`<div class="notes"><div class="lbl">תנאים</div>${esc(b.terms)}</div>`:''}
   ${q.signature?`<div class="sign"><div><img class="sigimg" src="${q.signature.img}" alt="חתימה"><span>חתימת הלקוח: <b class="signed">${esc(q.signature.name)}</b></span></div><div><div style="height:66px"></div><span>נחתם ב-${esc(q.signature.at)}</span></div></div>`

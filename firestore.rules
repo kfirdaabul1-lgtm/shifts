@@ -417,6 +417,10 @@ service cloud.firestore {
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'doneAt', 'mins'])));
       allow delete: if signedIn() && hkFullIn(resource.data.hotel);
     }
+    match /hkday/{h} {
+      allow read: if hkFullIn(h) || hkWorkIn(h);
+      allow write: if hkFullIn(h);
+    }
     match /hk/{id} {
       allow read: if signedIn() && hkWorkIn(id.split('__')[0]);
       allow create: if request.resource.data.hotel == id.split('__')[0] && (hkFullIn(request.resource.data.hotel)

@@ -116,7 +116,7 @@ exports.onStock = trig('inventory/{id}').onWrite(async (ch) => {
 // A small Google Apps Script in the owner's own Drive calls this once a day with the key stored in backupcfg/main
 // (only the owner can read or change it) and saves the JSON it gets into a Drive folder. Same format as the
 // "גיבוי" button on the Permissions page, so the Import card can restore it. Invoice images are left out (size).
-const BACKUP_COLLS = ['faultsAck', 'srDrafts', 'vchcfg', 'hotels', 'settings', 'employees', 'mgr', 'avail', 'shifts', 'schedule', 'requests', 'roles', 'joinCodes', 'config', 'menus', 'contracts', 'quotes', 'campaigns', 'suppliers', 'invoices', 'expcfg', 'inventory', 'purchaseReqs', 'shiftReports', 'faults', 'hk', 'hkcfg', 'hkLog', 'hkComplaints', 'leads', 'tasks', 'clients', 'hkCalls', 'spa', 'spacfg', 'vouchers'];
+const BACKUP_COLLS = ['hkday', 'faultsAck', 'srDrafts', 'vchcfg', 'hotels', 'settings', 'employees', 'mgr', 'avail', 'shifts', 'schedule', 'requests', 'roles', 'joinCodes', 'config', 'menus', 'contracts', 'quotes', 'campaigns', 'suppliers', 'invoices', 'expcfg', 'inventory', 'purchaseReqs', 'shiftReports', 'faults', 'hk', 'hkcfg', 'hkLog', 'hkComplaints', 'leads', 'tasks', 'clients', 'hkCalls', 'spa', 'spacfg', 'vouchers'];
 const plain = (v) => {
   if (v instanceof admin.firestore.Timestamp) return { seconds: v.seconds, nanoseconds: v.nanoseconds };
   if (Array.isArray(v)) return v.map(plain);
@@ -195,8 +195,8 @@ async function hkCarry(h, today, yday) {
 }
 exports.hkNightly = functions.region(REGION).pubsub.schedule('1 0 * * *').timeZone('Asia/Jerusalem').onRun(async () => {
   const today = ilDate(new Date()), yday = ilDate(new Date(Date.now() - 12 * 3600 * 1000));
-  const hs = await db.collection('hotels').get();
-  for (const d of hs.docs) { try { const n = await hkCarry(d.id, today, yday); if (n) console.log('hk carry', d.id, n); } catch (e) { console.error('hk carry', d.id, e); } }
+  // the housekeeping day now changes only when reception/managers press "מעבר ליום חדש" in the app (hkday/{hotel}), so nothing is carried here any more
+  void today; void yday; void hkCarry; return null;
 });
 
 // maintenance: a fault fixed → the hotel's reception desk

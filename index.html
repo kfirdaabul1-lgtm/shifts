@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202610211610"></script>
+<script src="i18n.js?v=202610211620"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -921,7 +921,7 @@ function vCmp(){const hs=cmpHotels();if(!hs.length)return wrap(emptyBox('אין 
   const chips=hs.length>1?`<div class="chips" style="gap:6px">${hs.map(x=>`<button class="dchip ${x===h?'':'off'}" style="--h:var(--brass)" data-act="cmp-hotel" data-h="${x}">${esc(hotelName(x))}</button>`).join('')}</div>`:'';
   const nav=`<div class="actions" style="align-items:center"><button class="btn sm" data-act="cmp-month" data-d="-1" aria-label="חודש קודם">›</button><b>${HE_MON[+m.slice(5)-1]} ${m.slice(0,4)}</b><button class="btn sm" data-act="cmp-month" data-d="1" aria-label="חודש הבא">‹</button></div>`;
   const head=`<section class="head"><div class="head-t"><h1>תלונות אורחים · ${esc(hotelName(h))}</h1>${nav}</div>${chips}</section>`;
-  if(!D)return wrap(head+'<p class="muted">טוען…</p>');if(D.__err)return wrap(head+'<div class="notice">אין גישה לתלונות של המלון הזה.</div>');
+  if(!D)return wrap(head+'<p class="muted">טוען…</p>');if(dl&&dl.__err)return wrap(head+`<div class="notice">לא הצלחתי לטעון: ${esc(dl.__err)}</div>`);if(D.__err)return wrap(head+'<div class="notice">אין גישה לתלונות של המלון הזה.</div>');
   const all=Object.entries(D).sort(([,a],[,b])=>String(b.date).localeCompare(String(a.date))||(b.createdAt||0)-(a.createdAt||0));
   const open=all.filter(([,c])=>c.status!=='done'),byRoom={},byCl={};all.forEach(([,c])=>{byRoom[c.room]=(byRoom[c.room]||0)+1;if(c.cleanerName)byCl[c.cleanerName]=(byCl[c.cleanerName]||0)+1});
   const rep=Object.entries(byRoom).filter(([,n])=>n>1).sort((a,b)=>b[1]-a[1]),topCl=Object.entries(byCl).sort((a,b)=>b[1]-a[1])[0];
@@ -1800,7 +1800,7 @@ function srInvHTML(g){const img=S.srInv||'';
     <label class="f">ממי החשבונית (שם העסק)<input type="text" id="sr_invsup" data-f="sr.invSup" value="${esc(g('invSup',''))}" placeholder="לא חובה"></label></div>`:''}</div>`}
 function srGap(a,b){a=String(a??'').trim();b=String(b??'').trim();if(a===''||b==='')return 0;return Math.round(((+a||0)-(+b||0))*100)/100}
 // OOO rooms + open faults in the report come from the maintenance / housekeeping status (not typed by reception)
-function srMaint(h){faultsSub(h);const D=hkSub(h,todayISO())||{},cl=D.clean||{};
+function srMaint(h){faultsSub(h);const D=hkSub(h,hkToday(h))||{},cl=D.clean||{};
   const ooo=Object.keys(cl).filter(r=>cl[r]==='ooo').sort((a,b)=>String(a).localeCompare(String(b),'he',{numeric:true})).map(r=>{const f=faultsOf(h).find(([,x])=>x.status!=='done'&&String(x.room)===String(r));return {room:String(r),note:f?String(f[1].desc||''):''}});
   const faults=faultsOf(h).filter(([,f])=>f.status!=='done').sort(([,a],[,b])=>(a.openedAt||0)-(b.openedAt||0)).map(([,f])=>({room:String(f.room||''),note:String(f.desc||'')}));
   return {ooo,faults,ready:!!(S.faults||{})[h]}}
@@ -1924,18 +1924,26 @@ function hkFullHs(){if(S.station)return [S.myHotel];if(S.isOwner||S.can.shifts||
 function hkHotels(){return [...new Set(hkFullHs().concat(hkWorkerHs()))].filter(h=>h&&h!==CHAIN)}
 const hkFull=h=>hkFullHs().includes(h);
 const hkLead=h=>hkFull(h)||(S.deptOnly&&S.myDepts.includes('housekeeping')&&scopeHs().includes(h));
+// the housekeeping day changes only when someone presses "מעבר ליום חדש" (owner's wish): hkday/{hotel} {date, by, byName, at}
+function hkDayD(h){const k='hkday:'+h;S.hkDay=S.hkDay||{};if(!S.live[k]){S.live[k]=true;
+  fdb.doc('hkday/'+h).onSnapshot(s=>{const x=s.exists?s.data():null;S.hkDay[h]=x&&x.date?x:{date:todayISO(),init:true};if(!x&&hkFull(h))fdb.doc('hkday/'+h).set({hotel:h,date:todayISO(),by:S.uid,byName:S.meName||'',at:Date.now()}).catch(()=>{});render()},e=>{S.hkDay[h]={date:todayISO(),__err:errMsg(mapErr(e))};render()})}
+  return S.hkDay[h]||null}
+const hkToday=h=>{const x=hkDayD(h);return x&&x.date?x.date:todayISO()};
+async function hkNewDay(h){const from=hkToday(h),to=todayISO();if(from>=to){toast('הלוח כבר על היום');return}
+  try{await hkCarryClient(h,to,from);await fdb.doc('hkday/'+h).set({hotel:h,date:to,from,by:S.uid,byName:S.meName||'',at:Date.now()});S.hkDay[h]={date:to};render();toast('נפתח יום חדש: '+dm(to))}
+  catch(e){toast('לא הצלחתי לפתוח יום חדש: '+errMsg(mapErr(e)))}}
 function hkSub(h,d){const k='hk:'+h+'|'+d;S.hkDays=S.hkDays||{};if(!S.live[k]){S.live[k]=true;
-    fdb.doc('hk/'+hkDocId(h,d)).onSnapshot(s=>{S.hkDays[h+'|'+d]=s.exists?s.data():{};if(!(s.metadata&&s.metadata.hasPendingWrites)&&!S.hkDays[h+'|'+d].carried&&d===todayISO())hkCarryClient(h,d);render()},e=>{S.hkDays[h+'|'+d]={__err:errMsg(mapErr(e))};render()})}
+    fdb.doc('hk/'+hkDocId(h,d)).onSnapshot(s=>{S.hkDays[h+'|'+d]=s.exists?s.data():{};render()},e=>{S.hkDays[h+'|'+d]={__err:errMsg(mapErr(e))};render()})}
   const kc='hkc:'+h;S.hkCfg=S.hkCfg||{};if(!S.live[kc]){S.live[kc]=true;fdb.doc('hkcfg/'+h).onSnapshot(s=>{S.hkCfg[h]=s.exists?s.data():null;render()},()=>{S.hkCfg[h]=null})}
   return S.hkDays[h+'|'+d]}
 // a room that ended yesterday VC/VI with no guest (occ not oc/res) starts today as VI; the server does this at midnight (hkNightly), this is the fallback
-function hkCarryClient(h,d){const k='hkcarry:'+h+'|'+d;if(S.live[k])return;S.live[k]=true;
-  fdb.doc('hk/'+hkDocId(h,addDays(d,-1))).get().then(ys=>{if(!ys.exists)return;const y=ys.data()||{},yc=y.clean||{},yo=y.occ||{},T=(S.hkDays||{})[h+'|'+d]||{},cur=T.clean||{},now=Date.now();
+function hkCarryClient(h,d,from){
+  return fdb.doc('hk/'+hkDocId(h,from||addDays(d,-1))).get().then(ys=>{if(!ys.exists)return;const y=ys.data()||{},yc=y.clean||{},yo=y.occ||{},T=(S.hkDays||{})[h+'|'+d]||{},cur=T.clean||{},now=Date.now();
     if(T.carried)return;const o={hotel:h,date:d,carried:true,updatedAt:now,lastBy:S.uid,clean:{},cleanBy:{},cleanAt:{}};
     for(const [r,c] of Object.entries(yc))if(c&&!cur[r]){o.clean[r]=c==='vc'?'vi':c;o.cleanBy[r]='אוטומטי';o.cleanAt[r]=now}
     // OD (occupied) also carries over to the new day (owner's wish); only full roles may write occupancy, the server does it for everyone
     if(hkFull(h)){const co=T.occ||{};o.occ={};o.occBy={};o.occAt={};for(const [r,v] of Object.entries(yo))if(occL(v).includes('oc')&&!co[r]){o.occ[r]='oc';o.occBy[r]='אוטומטי';o.occAt[r]=now}}
-    return fdb.doc('hk/'+hkDocId(h,d)).set(o,{merge:true})}).catch(e=>console.warn('hk carry',e))}
+    return fdb.doc('hk/'+hkDocId(h,d)).set(o,{merge:true})})}
 // housekeeping staff on shift today (schedule + approved changes, like the daily brief), then the rest of the hotel's housekeeping staff
 function hkCrew(h,d){return crewOf(h,d,['housekeeping'])}
 // who is on shift today in these departments (schedule + approved requests), and the rest of those departments' staff
@@ -1950,7 +1958,7 @@ function crewOf(h,d,depts){const B=briefLoad(h,d),sched=B.sched||{},rq=B.reqs||[
 const occL=v=>String(v||'').split(',').filter(x=>HK_ON[x]);
 const occTags=(v,big)=>occL(v).map(x=>`<span class="${big?'hk-f':'hk-o'} hk-o-${x}${big?' big':''}">${HK_ON[x][1]}${big&&x!=='empty'?' · '+HK_ON[x][2]:''}</span>`).join('');
 // one write per tap: merge only this room's fields (works whether today's doc exists or not)
-function hkSet(h,room,kind,val){const d=todayISO(),D=(S.hkDays||{})[h+'|'+d]||{},FV=firebase.firestore.FieldValue,now=Date.now(),who=S.meName||S.email||'';
+function hkSet(h,room,kind,val){const d=hkToday(h),D=(S.hkDays||{})[h+'|'+d]||{},FV=firebase.firestore.FieldValue,now=Date.now(),who=S.meName||S.email||'';
   if((kind==='occ'||HK_FLAGS.includes(kind)||kind==='pax')&&!hkFull(h)){toast('רק הקבלה מעדכנת את מצב ההזמנה ואת סימון האורחים');return}
   if(kind==='asg'&&!hkLead(h)){toast('אין לך הרשאה לשבץ חדרים');return}
   if(HK_FLAGS.includes(kind))val=(D[kind]||{})[room]?'':true;
@@ -1972,9 +1980,9 @@ function hkTile(h,r,D){const c=(D.clean||{})[r],o=(D.occ||{})[r],a=(D.asg||{})[r
   const flags=((D.vip||{})[r]?'<span class="hk-f hk-vip">VIP</span>':'')+((D.bk||{})[r]?'<span class="hk-f hk-bk">B</span>':'')+((D.grp||{})[r]?'<span class="hk-f hk-grp">G</span>':'')+((D.pax||{})[r]?`<span class="hk-f hk-pax">${+D.pax[r]}</span>`:'')+((D.twin||{})[r]?'<span class="hk-f hk-twin">SB</span>':'')+((D.cot||{})[r]?'<span class="hk-f hk-cot">👶</span>':'');
   return `<button class="hk-room hk-${c||'none'}${a===S.uid?' hk-mine':''}" data-act="hk-room" data-r="${esc(r)}" data-h="${h}" aria-label="חדר ${esc(r)}"><b>${esc(r)}</b><span class="hk-c">${cl?cl[1]:'—'}</span>${ol.length?`<span class="hk-ol">${occTags(o)}</span>`:''}${flags?`<span class="hk-fl">${flags}</span>`:''}${a?`<span class="hk-a">${esc(hkFirst((D.asgName||{})[r]||empName(a)))}</span>`:''}</button>`}
 function vHk(){const hs=hkHotels();if(!hs.length)return wrap(emptyBox('אין מלונות בהרשאה',''));
-  if(!hs.includes(S.hkH))S.hkH=hs.includes(S.hotel)?S.hotel:hs[0];const h=S.hkH,d=todayISO(),D=hkSub(h,d)||null,full=hkFull(h),lead=hkLead(h);
+  if(!hs.includes(S.hkH))S.hkH=hs.includes(S.hotel)?S.hotel:hs[0];const h=S.hkH,dl=hkDayD(h),d=hkToday(h),D=dl?hkSub(h,d)||null:null,full=hkFull(h),lead=hkLead(h);
   const chips=hs.length>1?`<div class="chips" style="gap:6px">${hs.map(x=>`<button class="dchip ${x===h?'':'off'}" style="--h:var(--brass)" data-act="hk-hotel" data-h="${x}">${esc(hotelName(x))}</button>`).join('')}</div>`:'';
-  const head=`<div class="page-h"><div><h1>משק</h1><p class="muted">${esc(hotelName(h))} · יום ${DAYS[dow(d)]} ${dm(d)} · הסטטוסים מתאפסים כל יום</p></div></div>${chips}`;
+  const head=`<div class="page-h"><div><h1>משק</h1><p class="muted">${esc(hotelName(h))} · יום ${DAYS[dow(d)]} ${dm(d)}</p></div></div>${chips}${dl&&d<todayISO()?`<div class="notice" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><span>הלוח עדיין מציג את יום ${DAYS[dow(d)]} ${dm(d)}. היום החדש נפתח רק בלחיצה על הכפתור, ואז מצבי הניקיון ו-OD עוברים ליום החדש.</span>${full?`<button class="btn pri" data-act="hk-newday" data-h="${h}">${S.confirm==='hknd:'+h?'לחיצה נוספת תפתח את היום':'מעבר ליום חדש · '+dm(todayISO())}</button>`:'<span class="muted">הקבלה או המנהל פותחים את היום החדש.</span>'}</div>`:''}`;
   if(!D)return wrap(head+'<p class="muted">טוען…</p>');if(D.__err)return wrap(head+`<div class="notice">לא הצלחתי לטעון את החדרים: ${esc(D.__err)}</div>`);
   const R=hkRooms(h),all=R.units;
   if(!all.length)return wrap(head+emptyBox('עוד לא הוגדרו חדרים למלון הזה','בעל המערכת מגדיר את רשימת החדרים בעמוד ההרשאות, בכרטיס המלונות.'));
@@ -1991,7 +1999,7 @@ function vHk(){const hs=hkHotels();if(!hs.length)return wrap(emptyBox('אין מ
   const myCard=mine.length?`<div class="card hk-minecard"><h3>החדרים שלי היום · ${mine.length}</h3><div class="hk-grid">${mine.map(r=>hkTile(h,r,{...D})).join('')}</div><p class="muted" style="font-size:.82rem;margin:6px 0 0">מסיימים חדר? לוחצים עליו ומסמנים VC.</p></div>`:'';
   const p=S.hkPaint||'';
   let crewCard='';
-  if(lead){const C=hkCrew(h,d),cntA=u=>all.filter(r=>(D.asg||{})[r]===u).length,more=!!S.hkMore;
+  if(lead){const C=hkCrew(h,todayISO()),cntA=u=>all.filter(r=>(D.asg||{})[r]===u).length,more=!!S.hkMore;
     const chip=(u,t)=>`<button class="hk-p ${p==='asg:'+u?'on':''}" data-act="hk-paint" data-v="asg:${u}">${esc(empName(u))}${t?` <small class="muted">${esc(t)}</small>`:''} <b class="hk-n">${cntA(u)}</b></button>`;
     crewCard=`<div class="card"><h3 style="margin:0 0 4px">שיבוץ חדרים לעובדי משק</h3><p class="muted" style="font-size:.85rem;margin:0 0 8px">בוחרים עובד ולוחצים על החדרים שלו. העובד מקבל התראה שיש לו חדרים לסדר.</p>
       <div class="hk-ks">${C.on.length?C.on.map(x=>chip(x.u,x.t)).join(''):'<span class="muted">אין עובדי משק משובצים היום בסידור.</span>'}<button class="hk-p ${p==='asg:'?'on':''}" data-act="hk-paint" data-v="asg:">הסרת שיבוץ ✕</button></div>
@@ -2014,7 +2022,7 @@ function vHk(){const hs=hkHotels();if(!hs.length)return wrap(emptyBox('אין מ
 function sheetHk(){const {h,r}=S.sheet,d=todayISO(),D=(S.hkDays||{})[h+'|'+d]||{},c=(D.clean||{})[r],o=(D.occ||{})[r],a=(D.asg||{})[r],full=hkFull(h),lead=hkLead(h),R=hkRooms(h),dorm=!!R.bedOf[r]&&!R.rooms.includes(r),bedNo=dorm&&R.beds?r.slice(R.bedOf[r].length):'';
   const t=x=>x?new Date(x).toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'}):'',vip=!!(D.vip||{})[r],bk=!!(D.bk||{})[r],grp=!!(D.grp||{})[r],pax=+(D.pax||{})[r]||0,tw=!!(D.twin||{})[r],cot=!!(D.cot||{})[r];
   let asgHTML='';
-  if(lead){const C=hkCrew(h,d),opts=C.on.map(x=>x.u).concat(C.others);if(a&&!opts.includes(a))opts.unshift(a);
+  if(lead){const C=hkCrew(h,todayISO()),opts=C.on.map(x=>x.u).concat(C.others);if(a&&!opts.includes(a))opts.unshift(a);
     asgHTML=`<label class="f">שיבוץ לעובד משק<select data-hkasg="1">${['<option value="">ללא שיבוץ</option>'].concat(opts.map(u=>`<option value="${u}" ${u===a?'selected':''}>${esc(empName(u))}${C.on.some(x=>x.u===u)?' · במשמרת':''}</option>`)).join('')}</select></label>`}
   else if(a)asgHTML=`<p style="margin:0">משובץ ל: <b>${esc((D.asgName||{})[r]||empName(a))}</b></p>`;
   return sheetHead(bedNo?`מיטה ${esc(r)}`:`חדר ${esc(r)}${dorm?' · דורמס':''}`,esc(hotelName(h))+(bedNo?` · דורמס ${esc(R.bedOf[r])}, מיטה ${esc(bedNo)}`:''))+`
@@ -2033,15 +2041,15 @@ function sheetHk(){const {h,r}=S.sheet,d=todayISO(),D=(S.hkDays||{})[h+'|'+d]||{
 // ---------- housekeeping worker view: my rooms, "started" and "done" ----------
 // start/done times are kept per room in the day doc (start, done); finishing also writes hkLog/{hotel}__{date}__{room}
 // {hotel, month, date, room, uid, name, start, end, mins} so managers see the average cleaning time per worker (workers don't see it)
-function hkStart(h,room){const d=todayISO(),D=(S.hkDays||{})[h+'|'+d]||{},now=Date.now();
+function hkStart(h,room){const d=hkToday(h),D=(S.hkDays||{})[h+'|'+d]||{},now=Date.now();
   S.hkDays[h+'|'+d]={...D,start:{...(D.start||{}),[room]:now}};render();
   fdb.doc('hk/'+hkDocId(h,d)).set({hotel:h,date:d,updatedAt:now,lastBy:S.uid,start:{[room]:now}},{merge:true}).then(()=>toast(`חדר ${room}: התחלת ניקיון`),e=>{toast('השמירה נכשלה: '+errMsg(mapErr(e)));S.hkDays[h+'|'+d]=D;render()})}
-function hkDone(h,room){const d=todayISO(),D=(S.hkDays||{})[h+'|'+d]||{},now=Date.now(),who=S.meName||S.email||'',st=(D.start||{})[room];
+function hkDone(h,room){const d=hkToday(h),D=(S.hkDays||{})[h+'|'+d]||{},now=Date.now(),who=S.meName||S.email||'',st=(D.start||{})[room];
   S.hkDays[h+'|'+d]={...D,clean:{...(D.clean||{}),[room]:'vi'},done:{...(D.done||{}),[room]:now},doneBy:{...(D.doneBy||{}),[room]:S.uid}};render();
   fdb.doc('hk/'+hkDocId(h,d)).set({hotel:h,date:d,updatedAt:now,lastBy:S.uid,clean:{[room]:'vi'},cleanBy:{[room]:who},cleanAt:{[room]:now},done:{[room]:now},doneBy:{[room]:S.uid}},{merge:true})
     .then(()=>toast(`חדר ${room} נקי ✓`),e=>{toast('השמירה נכשלה: '+errMsg(mapErr(e)));S.hkDays[h+'|'+d]=D;render()});
   if(st&&now>st)fdb.doc('hkLog/'+hkDocId(h,d)+'__'+room).set({hotel:h,month:d.slice(0,7),date:d,room,uid:S.uid,name:who,start:st,end:now,mins:Math.round((now-st)/60000)}).catch(()=>{})}
-function hkWorkerHTML(h,D,R){const d=todayISO(),mine=R.units.filter(r=>(D.asg||{})[r]===S.uid);
+function hkWorkerHTML(h,D,R){const d=hkToday(h),mine=R.units.filter(r=>(D.asg||{})[r]===S.uid);
   const left=mine.filter(r=>!(D.done||{})[r]&&(D.clean||{})[r]!=='vc'),done=mine.filter(r=>!left.includes(r));
   const card=r=>{const c=(D.clean||{})[r],o=(D.occ||{})[r],st=(D.start||{})[r],fin=(D.done||{})[r]||c==='vc',bed=R.bedOf[r]&&R.beds&&!R.rooms.includes(r);
     const tags=[(D.vip||{})[r]&&'<span class="hk-f hk-vip big">VIP</span>',(D.bk||{})[r]&&'<span class="hk-f hk-bk big">Booking</span>',(D.grp||{})[r]&&'<span class="hk-f hk-grp big">Group</span>',(D.pax||{})[r]&&`<span class="hk-f hk-pax big">${+D.pax[r]} אורחים</span>`,(D.twin||{})[r]&&'<span class="hk-f hk-twin big">Split bed</span>',(D.cot||{})[r]&&'<span class="hk-f hk-cot big">👶 Baby cot</span>',occL(o).length&&occTags(o,true)].filter(Boolean).join('');
@@ -2060,7 +2068,7 @@ function hkTimesHTML(h){const m=todayISO().slice(0,7),pm=monAdd(m,-1),a=hkLogSub
   return `<div class="card"><h3>זמן ממוצע לניקיון חדר</h3><p class="muted" style="font-size:.85rem;margin:0 0 8px">${esc(hotelName(h))} · לפי "התחלתי" ו"סיימתי" של עובדי המשק, החודש והחודש הקודם. העובדים לא רואים את הנתון הזה.</p>
   ${rows.length?`<div class="hk-tw"><table class="hk-tbl"><thead><tr><th>עובד/ת</th><th>חדרים</th><th>ממוצע</th><th>החודש</th></tr></thead><tbody>${rows.map(([u,x])=>`<tr><td>${esc(S.emps[u]?empName(u):x.name||'')}</td><td class="mono">${x.n}</td><td class="mono"><b>${Math.round(x.t/x.n)} דק׳</b></td><td class="mono">${x.nm?Math.round(x.tm/x.nm)+' דק׳':'—'}</td></tr>`).join('')}</tbody></table></div>`:'<p class="muted">עוד אין חדרים שנוקו עם התחלה וסיום.</p>'}</div>`}
 // a room marked OOO in housekeeping opens a maintenance fault (one per room per day: fixed id; the push to maintenance comes from onFault)
-function hkFault(h,room,desc){const d=todayISO(),id='hk_'+h+'_'+d+'_'+String(room).replace(/[^\w-]/g,'');
+function hkFault(h,room,desc){const d=hkToday(h),id='hk_'+h+'_'+d+'_'+String(room).replace(/[^\w-]/g,'');
   fdb.doc('faults/'+id).set({hotel:h,room:String(room),desc:String(desc||'').trim()||'סומן OOO בעמוד המשק',status:'open',openedAt:Date.now(),openedBy:S.uid,openedByName:S.meName||S.email||'',due:'',source:'hk'})
     .then(()=>toast(`נפתחה תקלה באחזקה לחדר ${room}`),()=>{})}
 function hkOoo(h,room,desc){hkSet(h,room,'clean','ooo');hkFault(h,room,desc)}
@@ -2415,7 +2423,7 @@ function joinCodeHTML(){const c={...cfg(),joinCode:validCode()};
   <p class="muted" style="font-size:.85rem">עובד חדש נכנס לאפליקציה, מתחבר ומקליד את הקוד, וכך הוא משויך ל${esc(hotelName(S.hotel))}. אפשר להחליף קוד בכל זמן, והקוד הישן מפסיק לעבוד.</p>
   <div class="actions" style="align-items:center">${c.joinCode?`<b class="code">${esc(c.joinCode)}</b>`:'<span class="muted">עוד אין קוד</span>'}<button class="btn" data-act="join-new">${c.joinCode?'החלפת קוד':'יצירת קוד'}</button></div>`}
 // full backup (owner): every collection to one JSON file in the same format the import reads
-const BACKUP_COLLS=['faultsAck','srDrafts','vchcfg','hotels','settings','employees','mgr','avail','shifts','schedule','requests','roles','joinCodes','config','menus','contracts','quotes','campaigns','suppliers','invoices','expcfg','inventory','purchaseReqs','shiftReports','faults','hk','hkcfg','hkLog','hkComplaints','leads','tasks','clients','hkCalls','spa','spacfg','vouchers'];
+const BACKUP_COLLS=['hkday','faultsAck','srDrafts','vchcfg','hotels','settings','employees','mgr','avail','shifts','schedule','requests','roles','joinCodes','config','menus','contracts','quotes','campaigns','suppliers','invoices','expcfg','inventory','purchaseReqs','shiftReports','faults','hk','hkcfg','hkLog','hkComplaints','leads','tasks','clients','hkCalls','spa','spacfg','vouchers'];
 const lastBackup=()=>{let l=0;try{l=+localStorage.getItem('scLastBackup')||0}catch(_){ }bkCfgLoad();return Math.max(l,+(S.bkCfg&&S.bkCfg.lastAt)||0)};
 // daily automatic backup to the owner's Google Drive: an Apps Script in their Drive calls the driveBackup function with the key in backupcfg/main
 const BK_FN='https://europe-west1-'+((CFG.firebase&&CFG.firebase.projectId)||'hotel-shifts')+'.cloudfunctions.net/driveBackup';
@@ -2737,7 +2745,7 @@ const ACT={
   'app-hr':()=>{S.menu=false;setTab('hr')},
   'hk-move':D=>{S.sheet={...S.sheet,mv:D.v==='1'};S.drafts.hkmv=null;render()},
   'hk-move-do':()=>{const {h,r}=S.sheet,to=String(dv('hkmv','to',''));if(!to){toast('צריך לבחור לאיזה חדר מעבירים');return}if(!hkFull(h))return;
-    const d=todayISO(),D=(S.hkDays||{})[h+'|'+d]||{},FV=firebase.firestore.FieldValue,now=Date.now(),o={hotel:h,date:d,updatedAt:now,lastBy:S.uid},loc={...D};
+    const d=hkToday(h),D=(S.hkDays||{})[h+'|'+d]||{},FV=firebase.firestore.FieldValue,now=Date.now(),o={hotel:h,date:d,updatedAt:now,lastBy:S.uid},loc={...D};
     for(const k of ['occ','occBy','occAt','vip','bk','grp','pax','twin','cot','asg','asgName','asgAt']){const v=(D[k]||{})[r];o[k]={[r]:FV.delete(),[to]:v!=null&&v!==''?v:FV.delete()};const m={...(D[k]||{})};delete m[r];if(v!=null&&v!=='')m[to]=v;else delete m[to];loc[k]=m}
     const who=S.meName||S.email||'',sc=(D.clean||{})[r];if(sc!=='ooo'&&sc!=='vd'){o.clean={[r]:'vi'};o.cleanBy={[r]:who};o.cleanAt={[r]:now};loc.clean={...(D.clean||{}),[r]:'vi'}}
     S.hkDays[h+'|'+d]=loc;S.drafts.hkmv=null;S.sheet={type:'hk',h,r:to};render();
@@ -2838,7 +2846,7 @@ const ACT={
   'hk-done':D=>hkDone(D.h,D.r),
   'hk-ooo':D=>{S.sheet={type:'hkooo',h:D.h,r:D.r};render();setTimeout(()=>{const t=$('#hk_ooo_desc');if(t)t.focus()},50)},
   'hk-ooo-send':()=>{const {h,r}=S.sheet,t=$('#hk_ooo_desc'),desc=t?t.value:'';if(!String(desc).trim()){toast('צריך לכתוב מה התקלה');return}S.sheet=null;hkOoo(h,r,desc)},
-  'hk-droom':D=>{const p=S.hkPaint;if(!p)return;const [k,v]=p.split(':'),R=hkRooms(D.h);const Dd=(S.hkDays||{})[D.h+'|'+todayISO()]||{},bb=R.bedsOf[D.r]||[],allOn=k==='occ'&&v&&bb.every(b=>occL((Dd.occ||{})[b]).includes(v));bb.forEach(b=>{if(k==='occ'&&v&&!allOn&&occL((Dd.occ||{})[b]).includes(v))return;if(HK_FLAGS.includes(k)||k==='pax'){const cur=((((S.hkDays||{})[D.h+'|'+todayISO()]||{})[k]||{})[b]);if(k==='pax'?+cur===+v:!!cur)return}hkSet(D.h,b,k,v)})},
+  'hk-droom':D=>{const p=S.hkPaint;if(!p)return;const [k,v]=p.split(':'),R=hkRooms(D.h);const Dd=(S.hkDays||{})[D.h+'|'+hkToday(D.h)]||{},bb=R.bedsOf[D.r]||[],allOn=k==='occ'&&v&&bb.every(b=>occL((Dd.occ||{})[b]).includes(v));bb.forEach(b=>{if(k==='occ'&&v&&!allOn&&occL((Dd.occ||{})[b]).includes(v))return;if(HK_FLAGS.includes(k)||k==='pax'){const cur=((((S.hkDays||{})[D.h+'|'+todayISO()]||{})[k]||{})[b]);if(k==='pax'?+cur===+v:!!cur)return}hkSet(D.h,b,k,v)})},
   'hk-room':D=>{const p=S.hkPaint;if(p){const [k,v]=p.split(':');if(k==='clean'&&v==='ooo'){hkOoo(D.h,D.r,'');return}hkSet(D.h,D.r,k,v);return}S.sheet={type:'hk',h:D.h,r:D.r};render()},
   'hk-set':D=>{if(D.k==='clean'&&D.v==='ooo'){S.sheet={type:'hkooo',h:S.sheet.h,r:S.sheet.r};render();return}hkSet(S.sheet.h,S.sheet.r,D.k,D.v)},
   'hk-cfg-save':D=>{const h=D.h,v=k=>{const el=document.querySelector(`[data-hkc="${h}|${k}"]`);return el?el.value:''};const o={hotel:h,rooms:v('rooms').trim(),dorms:v('dorms').trim(),beds:Math.max(0,+v('beds')||0),updatedAt:Date.now()};
@@ -2913,6 +2921,7 @@ const ACT={
     fdb.doc('srDrafts/'+S.uid+'__'+h).set({hotel:h,by:S.uid,data,at}).then(()=>toast('הטיוטה נשמרה. הדוח עוד לא נשלח'),e=>toast('הטיוטה לא נשמרה: '+errMsg(mapErr(e))))},
   'sr-draft-del':D=>{const h=D.h;if(S.confirm!=='srd:'+h){S.confirm='srd:'+h;render();return}S.confirm=null;(S.srDraft||(S.srDraft={}))[h]={};S.drafts.sr=null;render();fdb.doc('srDrafts/'+S.uid+'__'+h).delete().then(()=>toast('הטיוטה נמחקה'),()=>{})},
   'fcmp-send':D=>frontCmpSend(D.h),
+  'hk-newday':D=>{if(S.confirm!=='hknd:'+D.h){S.confirm='hknd:'+D.h;render();return}S.confirm=null;hkNewDay(D.h)},
   'recur-ack':D=>{const h=D.h,r=String(D.r),at=Date.now();S.recAck={...(S.recAck||{}),[h+'|'+r]:at};render();alertTick();
     fdb.doc('faultsAck/'+h+'__'+r.replace(/\//g,'_')).set({hotel:h,room:r,at,by:S.uid,byName:S.meName||''}).then(()=>toast('הוסר. אם תיפתח בחדר תקלה חדשה, הוא יחזור לרשימה'),e=>toast('לא הצלחתי: '+errMsg(mapErr(e))))},
   'sr-un':D=>{(S.drafts.sr||(S.drafts.sr={})).unusual=D.v;render()},

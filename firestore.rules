@@ -424,11 +424,11 @@ service cloud.firestore {
     match /hk/{id} {
       allow read: if signedIn() && hkWorkIn(id.split('__')[0]);
       allow create: if request.resource.data.hotel == id.split('__')[0] && (hkFullIn(request.resource.data.hotel)
-        || (hkLeadIn(request.resource.data.hotel) && request.resource.data.keys().hasOnly(['hotel', 'date', 'carried', 'lastBy', 'clean', 'cleanBy', 'cleanAt', 'start', 'done', 'doneBy', 'asg', 'asgName', 'asgAt', 'updatedAt']))
-        || (hkWorkIn(request.resource.data.hotel) && request.resource.data.keys().hasOnly(['hotel', 'date', 'carried', 'lastBy', 'clean', 'cleanBy', 'cleanAt', 'start', 'done', 'doneBy', 'updatedAt'])));
+        || (hkLeadIn(request.resource.data.hotel) && request.resource.data.keys().hasOnly(['hotel', 'date', 'carried', 'lastBy', 'clean', 'cleanBy', 'cleanAt', 'start', 'done', 'doneBy', 'asg', 'asgName', 'asgAt', 'note', 'noteBy', 'noteAt', 'updatedAt']))
+        || (hkWorkIn(request.resource.data.hotel) && request.resource.data.keys().hasOnly(['hotel', 'date', 'carried', 'lastBy', 'clean', 'cleanBy', 'cleanAt', 'start', 'done', 'doneBy', 'note', 'noteBy', 'noteAt', 'updatedAt'])));
       allow update: if request.resource.data.hotel == resource.data.hotel && (hkFullIn(resource.data.hotel)
-        || (hkLeadIn(resource.data.hotel) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['carried', 'lastBy', 'clean', 'cleanBy', 'cleanAt', 'start', 'done', 'doneBy', 'asg', 'asgName', 'asgAt', 'updatedAt']))
-        || (hkWorkIn(resource.data.hotel) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['carried', 'lastBy', 'clean', 'cleanBy', 'cleanAt', 'start', 'done', 'doneBy', 'updatedAt'])));
+        || (hkLeadIn(resource.data.hotel) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['carried', 'lastBy', 'clean', 'cleanBy', 'cleanAt', 'start', 'done', 'doneBy', 'asg', 'asgName', 'asgAt', 'note', 'noteBy', 'noteAt', 'updatedAt']))
+        || (hkWorkIn(resource.data.hotel) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['carried', 'lastBy', 'clean', 'cleanBy', 'cleanAt', 'start', 'done', 'doneBy', 'note', 'noteBy', 'noteAt', 'updatedAt'])));
       allow delete: if manages(resource.data.hotel) || gmIn(resource.data.hotel);
     }
     // זמני ניקיון (התחלה–סיום) לכל חדר: העובד כותב את שלו, רק מנהלים קוראים (ממוצע לעובד)

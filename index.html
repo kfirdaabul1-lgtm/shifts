@@ -2140,7 +2140,7 @@ function backup() {
 
 function setup() {
   ScriptApp.getProjectTriggers().forEach(t => ScriptApp.deleteTrigger(t));
-  ScriptApp.newTrigger('backup').timeBased().everyDays(1).atHour(3).create();
+  ScriptApp.newTrigger('backup').timeBased().everyDays(1).atHour(3).inTimezone('Asia/Jerusalem').create();
   backup();
 }
 `}

@@ -353,3 +353,13 @@ exports.onMetaCfg = functions.region(REGION).runWith({ timeoutSeconds: 300 }).fi
   if (a.token === b.token && a.adAccount === b.adAccount && a.syncReq === b.syncReq) return; // our own status writes
   return metaRun(true);
 });
+
+// ---------- watch the daily Drive backup: if it hasn't run for 30 hours, tell the owner (09:15 Israel) ----------
+exports.backupWatch = functions.region(REGION).pubsub.schedule('15 9 * * *').timeZone('Asia/Jerusalem').onRun(async () => {
+  const d = await db.doc('backupcfg/main').get(); if (!d.exists) return;
+  const c = d.data() || {}; if (!c.key) return;
+  const since = Math.max(c.lastAt || 0, c.createdAt || 0);
+  if (Date.now() - since < 30 * 3600e3) return;
+  const own = await db.collection('pushTokens').where('owner', '==', true).get();
+  return sendTo(own.docs.map((x) => x.id), { title: 'הגיבוי האוטומטי לא רץ', body: c.lastAt ? 'הגיבוי האחרון לדרייב היה לפני יותר מיום. כדאי לבדוק ב-script.google.com ← Executions.' : 'עוד לא נשמר אף גיבוי אוטומטי לדרייב. כדאי לבדוק את ההגדרה בעמוד הרשאות.', hash: '#perms', tag: 'backup-watch' });
+});

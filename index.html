@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202610211510"></script>
+<script src="i18n.js?v=202610211520"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -831,12 +831,14 @@ const vchNorm=c=>{const x=String(c||'').toUpperCase().replace(/[^A-Z0-9]/g,'');r
 const vchStatus=v=>(v.status==='active'||v.status==='partial')&&v.expires&&v.expires<todayISO()?'expired':v.status;
 const VCH_ST={active:['בתוקף','ok'],partial:['מומש חלקית','warn'],redeemed:['מומש',''],expired:['פג תוקף','bad'],cancelled:['מבוטל','bad']};
 const vchKind=v=>v.type==='money'?'שובר כספי':v.type==='pct'?'שובר אחוזי הנחה':'שובר לשירות / מוצר';
+const vchValid=v=>(v.validHotels||[]).length?v.validHotels:null;
+const vchWhere=v=>vchValid(v)?(v.validNames||v.validHotels.map(h=>hotelName(h))).join(', '):'כל המלונות';
 const vchCan=v=>['active','partial'].includes(vchStatus(v));
 const vchUrl=id=>appLink().replace(/index\.html$/,'').replace(/\/?$/,'/')+'voucher.html?v='+id;
 const VCH_PRESETS=['שתייה על חשבון הבית','ארוחת בוקר זוגית','הנחה בשהייה הבאה','טיפול ספא','שדרוג חדר'];
 function vchSub(){liveColl('vchs','vouchers');return S.vchs}
 function vchHotels(){const all=hotelIds();if(S.isOwner||!(S.role&&Array.isArray(S.role.hotels)&&S.role.hotels.length))return all;return all.filter(h=>S.role.hotels.includes(h))}
-function vchWa(v,id){const ph=normPhone(v.phone||'').replace('+','');const t=`שלום ${v.name||''},\n${v.source==='complaint'?'מצטערים על אי הנוחות. ':''}קיבלת שובר: ${v.title}${v.type==='money'?` בשווי ${ils(v.amount)}`:v.type==='pct'?` (${+v.pct}% הנחה)`:''}.\nקוד השובר: ${v.code}${v.expires?`\nבתוקף עד ${dm(v.expires)}.${v.expires.slice(0,4)}`:''}\nלצפייה בשובר וב-QR: ${vchUrl(id)}\n${hotelName(v.hotel)||'Seven Collection'}`;
+function vchWa(v,id){const ph=normPhone(v.phone||'').replace('+','');const t=`שלום ${v.name||''},\n${v.source==='complaint'?'מצטערים על אי הנוחות. ':''}קיבלת שובר: ${v.title}${v.type==='money'?` בשווי ${ils(v.amount)}`:v.type==='pct'?` (${+v.pct}% הנחה)`:''}.${vchValid(v)?`\nתקף ב: ${vchWhere(v)}`:''}\nקוד השובר: ${v.code}${v.expires?`\nבתוקף עד ${dm(v.expires)}.${v.expires.slice(0,4)}`:''}\nלצפייה בשובר וב-QR: ${vchUrl(id)}\n${hotelName(v.hotel)||'Seven Collection'}`;
   return `https://wa.me/${ph}?text=${encodeURIComponent(t)}`}
 function vVch(){const V=vchSub()||{},q=String(S.vchF?.q||'').trim(),f=S.vchF?.st||'all',m=todayISO().slice(0,7);
   if(S.vchQ){const c=vchNorm(S.vchQ);S.vchQ='';const hit=Object.entries(V).find(([,v])=>v.code===c);if(hit)setTimeout(()=>{S.sheet={type:'vch',id:hit[0]};render()},0);else if(S.vchsReady)toast('לא נמצא שובר עם הקוד הזה')}
@@ -850,7 +852,7 @@ function vVch(){const V=vchSub()||{},q=String(S.vchF?.q||'').trim(),f=S.vchF?.st
   if(!S.vchsReady)return wrap(head+redeem+'<p class="muted">טוען…</p>');
   const list=all.filter(([,v])=>(f==='all'||vchStatus(v)===f||(f==='open'&&vchCan(v)))&&(!q||[v.code,v.name,v.phone,v.room,v.title].join(' ').toLowerCase().includes(q.toLowerCase())));
   const filt=`<div class="actions" style="align-items:center;margin:6px 0"><input type="search" data-vchq="1" value="${esc(q)}" placeholder="חיפוש: קוד, שם, טלפון, חדר" style="flex:1 1 200px"><select data-vchst="1" style="width:auto">${[['all','כל השוברים'],['open','בתוקף'],['partial','מומש חלקית'],['redeemed','מומש'],['expired','פג תוקף'],['cancelled','מבוטל']].map(([k,n])=>`<option value="${k}" ${f===k?'selected':''}>${n}</option>`).join('')}</select></div>`;
-  const rows=list.map(([id,v])=>{const st=vchStatus(v),[sn,sc]=VCH_ST[st]||[st,''];return `<button class="prow" data-act="vch-open" data-id="${id}" style="width:100%;text-align:start;background:none;font:inherit;color:inherit;cursor:pointer"><span class="who"><b>${esc(v.title||'')}${v.source==='complaint'?' <span class="pill warn">פיצוי</span>':''}</b><small><span class="mono" dir="ltr">${esc(v.code)}</span> · ${esc(v.name||'ללא שם')}${v.room?' · חדר '+esc(v.room):''} · ${esc(hotelName(v.hotel)||'')}${v.expires?' · עד '+dm(v.expires):''}</small></span><span class="actions"><b class="mono">${v.type==='money'?ils(+v.balance||0):v.type==='pct'?(+v.pct||0)+'%':'שירות'}</b><span class="pill ${sc}">${sn}</span></span></button>`}).join('');
+  const rows=list.map(([id,v])=>{const st=vchStatus(v),[sn,sc]=VCH_ST[st]||[st,''];return `<button class="prow" data-act="vch-open" data-id="${id}" style="width:100%;text-align:start;background:none;font:inherit;color:inherit;cursor:pointer"><span class="who"><b>${esc(v.title||'')}${v.source==='complaint'?' <span class="pill warn">פיצוי</span>':''}</b><small><span class="mono" dir="ltr">${esc(v.code)}</span> · ${esc(v.name||'ללא שם')}${v.room?' · חדר '+esc(v.room):''} · ${vchValid(v)?'תקף ב'+esc(vchWhere(v)):'כל המלונות'}${v.expires?' · עד '+dm(v.expires):''}</small></span><span class="actions"><b class="mono">${v.type==='money'?ils(+v.balance||0):v.type==='pct'?(+v.pct||0)+'%':'שירות'}</b><span class="pill ${sc}">${sn}</span></span></button>`}).join('');
   return wrap(head+redeem+`<div class="card"><h3>כל השוברים · ${list.length}</h3>${filt}${rows?`<div class="plist">${rows}</div>`:'<p class="muted">אין שוברים להצגה.</p>'}</div>`)}
 function sheetVchNew(){const g=(k,d)=>dv('vchn',k,d),c=S.sheet.cmp||{},type=g('type','service'),hs=vchHotels();
   return sheetHead(c.room?'שובר פיצוי לחדר '+esc(c.room):'שובר חדש',c.note?'על התלונה: '+esc(c.note):'השובר נשמר במערכת, ומקבלים קישור לשליחה לאורח בוואטסאפ.')+`
@@ -860,21 +862,23 @@ function sheetVchNew(){const g=(k,d)=>dv('vchn',k,d),c=S.sheet.cmp||{},type=g('t
   <div class="row">${type==='pct'?'':`<label class="f">${type==='money'?'ערך השובר (₪)':'שווי משוער (₪, לא חובה)'}<input type="number" min="0" step="any" inputmode="decimal" data-f="vchn.amount" value="${esc(g('amount',''))}"></label>`}<label class="f">תוקף (חודשים, 0 = ללא)<input type="number" min="0" step="1" inputmode="numeric" data-f="vchn.months" value="${esc(g('months','12'))}"></label></div>
   <div class="row"><label class="f">שם האורח<input type="text" data-f="vchn.name" value="${esc(g('name',''))}"></label><label class="f">טלפון (לוואטסאפ)<input type="tel" dir="ltr" data-f="vchn.phone" value="${esc(g('phone',''))}"></label></div>
   <div class="row"><label class="f">חדר<input type="text" data-f="vchn.room" value="${esc(g('room',c.room||''))}"></label>${hs.length>1?`<label class="f">מלון<select data-f="vchn.hotel">${hs.map(h=>`<option value="${h}" ${g('hotel',c.hotel||S.hotel)===h?'selected':''}>${esc(hotelName(h))}</option>`).join('')}</select></label>`:''}</div>
+  ${hotelIds().length>1?`<div class="f"><span>תקף במלונות</span><div class="chips" style="gap:6px;margin-top:4px"><button class="dchip ${(g('vh',[])||[]).length?'off':''}" data-act="vchn-vh" data-h="">כל המלונות</button>${hotelIds().map(h=>`<button class="dchip ${(g('vh',[])||[]).includes(h)?'':'off'}" style="--h:var(--brass)" data-act="vchn-vh" data-h="${h}">${esc(hotelName(h))}</button>`).join('')}</div></div>`:''}
   <label class="f">סיבה / הערה<input type="text" data-f="vchn.reason" value="${esc(g('reason',c.note||''))}" placeholder="לא חובה"></label>
   <div class="actions"><button class="btn pri" data-act="vch-create">הנפקת שובר</button></div>`}
 function sheetVch(){const id=S.sheet.id,v=(S.vchs||{})[id];if(!v)return sheetHead('שובר','')+'<p class="muted">השובר לא נמצא.</p>';
   const st=vchStatus(v),[sn,sc]=VCH_ST[st]||[st,''],can=vchCan(v);setTimeout(()=>vchQr(id),0);
-  return sheetHead(esc(v.title||'שובר'),`${vchKind(v)} · ${esc(hotelName(v.hotel)||'')}`)+`
+  return sheetHead(esc(v.title||'שובר'),`${vchKind(v)} · ${esc(vchValid(v)?vchWhere(v):(hotelName(v.hotel)||''))}`)+`
   <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap"><div id="vch_qr" style="background:#fff;padding:6px;border-radius:8px;min-width:120px;min-height:120px"></div>
    <div><span class="pill ${sc}">${sn}</span><div class="mono" dir="ltr" style="font:700 1.4rem ui-monospace,monospace;letter-spacing:2px;margin:6px 0">${esc(v.code)}</div>
    ${v.type==='pct'?`<div style="font:800 1.3rem system-ui;color:var(--brass)">${+v.pct||0}% הנחה</div><div class="muted" style="font-size:.85rem">חד־פעמי, להזמנה הבאה</div>`:v.type==='money'?`<div>שווי ${ils(+v.amount||0)} · יתרה <b>${ils(+v.balance||0)}</b></div>`:(+v.amount?`<div class="muted">שווי משוער ${ils(+v.amount)}</div>`:'')}
    <div class="muted" style="font-size:.85rem">${esc(v.name||'')}${v.phone?' · <span dir="ltr">'+esc(v.phone)+'</span>':''}${v.room?' · חדר '+esc(v.room):''}${v.expires?' · בתוקף עד '+dm(v.expires)+'.'+v.expires.slice(0,4):' · ללא תפוגה'}</div>
+   <div style="font-size:.85rem">🏨 תקף ב: <b>${esc(vchWhere(v))}</b></div>
    ${v.reason?`<div class="muted" style="font-size:.85rem">${v.source==='complaint'?'פיצוי על תלונה: ':''}${esc(v.reason)}</div>`:''}</div></div>
   <div class="actions" style="margin-top:8px">${v.phone?`<a class="btn brass" target="_blank" rel="noopener" href="${vchWa(v,id)}">שליחה לאורח בוואטסאפ</a>`:''}<button class="btn" data-act="vch-copy" data-id="${id}">העתקת קישור לשובר</button><a class="btn ghost" target="_blank" rel="noopener" href="${vchUrl(id)}">פתיחת עמוד השובר</a></div>
   ${can?`<div class="card" style="background:var(--sunk);border:0;margin-top:10px"><h3 style="margin-top:0">מימוש</h3>${v.type==='money'?`<div class="actions" style="align-items:flex-end"><label class="f" style="flex:1 1 140px">סכום למימוש (₪)<input type="number" min="0" step="any" inputmode="decimal" data-f="vchr.amount" value="${esc(dv('vchr','amount',''))}"></label><button class="btn sm" data-act="vch-all" data-v="${+v.balance||0}">כל היתרה</button></div>`:''}
-    <label class="f">${v.type==='pct'?'מספר ההזמנה / הערה':'הערה (לא חובה)'}<input type="text" data-f="vchr.note" value="${esc(dv('vchr','note',''))}" placeholder="${v.type==='pct'?'למשל הזמנה 12345':'למשל: בר הלובי'}"></label>
+    ${(()=>{const ok=vchValid(v)?vchHotels().filter(h=>v.validHotels.includes(h)):vchHotels();if(!ok.length)return `<div class="notice bad">השובר תקף רק ב${esc(vchWhere(v))}. אי אפשר לממש אותו במלון שלך.</div>`;return ok.length>1?`<label class="f">באיזה מלון ממומש<select data-f="vchr.hotel">${ok.map(h=>`<option value="${h}" ${dv('vchr','hotel',ok.includes(S.hotel)?S.hotel:ok[0])===h?'selected':''}>${esc(hotelName(h))}</option>`).join('')}</select></label>`:''})()}<label class="f">${v.type==='pct'?'מספר ההזמנה / הערה':'הערה (לא חובה)'}<input type="text" data-f="vchr.note" value="${esc(dv('vchr','note',''))}" placeholder="${v.type==='pct'?'למשל הזמנה 12345':'למשל: בר הלובי'}"></label>
     <div class="actions"><button class="btn pri" data-act="vch-redeem" data-id="${id}">${S.confirm==='vr:'+id?'לחיצה נוספת תאשר':v.type==='money'?'מימוש הסכום':'סימון שמומש'}</button><button class="btn ghost" data-act="vch-cancel" data-id="${id}">${S.confirm==='vx:'+id?'לחיצה נוספת תבטל':'ביטול השובר'}</button></div></div>`:''}
-  ${(v.hist||[]).length?`<h3>היסטוריה</h3><div class="plist">${v.hist.slice().reverse().map(x=>`<div class="prow"><span class="who"><b>${x.kind==='cancel'?'בוטל':x.amount?'מומש '+ils(x.amount):'מומש'}</b><small>${new Date(x.at).toLocaleString('he-IL',{dateStyle:'short',timeStyle:'short'})}${x.byName?' · '+esc(x.byName):''}${x.note?' · '+esc(x.note):''}</small></span></div>`).join('')}</div>`:''}
+  ${(v.hist||[]).length?`<h3>היסטוריה</h3><div class="plist">${v.hist.slice().reverse().map(x=>`<div class="prow"><span class="who"><b>${x.kind==='cancel'?'בוטל':x.amount?'מומש '+ils(x.amount):'מומש'}</b><small>${new Date(x.at).toLocaleString('he-IL',{dateStyle:'short',timeStyle:'short'})}${x.hotelName?' · '+esc(x.hotelName):''}${x.byName?' · '+esc(x.byName):''}${x.note?' · '+esc(x.note):''}</small></span></div>`).join('')}</div>`:''}
   <p class="muted" style="font-size:.8rem">הונפק ${new Date(v.createdAt||0).toLocaleDateString('he-IL')}${v.createdByName?' ע״י '+esc(v.createdByName):''}</p>`}
 async function vchQr(id){const el=document.getElementById('vch_qr');if(!el||el.dataset.done)return;el.dataset.done='1';
   try{await loadScript('https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js');const v=(S.vchs||{})[id];el.innerHTML='';new QRCode(el,{text:appLink().replace(/\/?$/,'')+'#vch?c='+(v?v.code:''),width:120,height:120,correctLevel:QRCode.CorrectLevel.M})}catch(_){el.textContent=''}}
@@ -884,10 +888,11 @@ async function vchScanToggle(){if(S.vchScanner){try{await S.vchScanner.stop();S.
   catch(e){S.vchScan=false;S.vchScanner=null;render();toast('לא ניתן להפעיל את המצלמה. צריך לאשר גישה למצלמה.')}}
 async function vchRedeem(id){const v=(S.vchs||{})[id];if(!v)return;const amt=v.type==='money'?Math.round((+dv('vchr','amount',0)||0)*100)/100:0,note=String(dv('vchr','note','')).trim();
   if(v.type==='money'&&!(amt>0)){toast('צריך לרשום סכום למימוש');return}
+  const ok=vchValid(v)?vchHotels().filter(h=>v.validHotels.includes(h)):vchHotels();if(!ok.length){toast('השובר תקף רק ב'+vchWhere(v));return}const rh=String(dv('vchr','hotel',ok.includes(S.hotel)?S.hotel:ok[0]));if(!ok.includes(rh)){toast('השובר תקף רק ב'+vchWhere(v));return}
   const step=cur=>{if(!vchCan(cur))throw new Error('השובר כבר לא בתוקף למימוש ('+(VCH_ST[vchStatus(cur)]||[''])[0]+')');
     if(cur.type==='money'&&amt>(+cur.balance||0)+0.001)throw new Error('הסכום גבוה מהיתרה ('+ils(+cur.balance||0)+')');
     const bal=cur.type==='money'?Math.round(((+cur.balance||0)-amt)*100)/100:0;
-    return {balance:bal,status:bal<0.005?'redeemed':'partial',hist:[...(cur.hist||[]),{at:Date.now(),kind:'redeem',amount:cur.type==='money'?amt:cur.type==='pct'?0:(+cur.amount||0),note,by:S.uid,byName:S.meName||''}],updatedAt:Date.now()}};
+    return {balance:bal,status:bal<0.005?'redeemed':'partial',hist:[...(cur.hist||[]),{at:Date.now(),kind:'redeem',hotel:rh,hotelName:hotelName(rh)||'',amount:cur.type==='money'?amt:cur.type==='pct'?0:(+cur.amount||0),note,by:S.uid,byName:S.meName||''}],updatedAt:Date.now()}};
   const ref=fdb.doc('vouchers/'+id);
   try{let up;if(fdb.runTransaction)await fdb.runTransaction(async tx=>{const d=await tx.get(ref);up=step(d.data()||{});tx.update(ref,up)});else{const d=await ref.get();up=step(d.data()||{});await ref.set(up,{merge:true})}
     S.vchs={...S.vchs,[id]:{...v,...up}};S.drafts.vchr=null;render();toast(v.type==='money'?`מומשו ${ils(amt)}. יתרה: ${ils(up.balance)}`:'השובר מומש')}
@@ -2709,12 +2714,13 @@ const ACT={
   'spa-del':()=>{if(S.confirm!=='spa-del'){S.confirm='spa-del';render();return}S.confirm=null;const id=S.sheet.id,c={...S.spaBk};delete c[id];S.spaBk=c;S.sheet=null;render();fdb.doc('spa/'+id).delete().then(()=>toast('הטיפול נמחק'),e=>toast('לא הצלחתי: '+errMsg(mapErr(e))))},
   'app-spa':()=>{S.menu=false;setTab('spa')},
   'vch-new':()=>{S.drafts.vchn=null;S.confirm=null;S.sheet={type:'vchnew'};render()},
+  'vchn-vh':D=>{const d=S.drafts.vchn||(S.drafts.vchn={}),cur=d.vh||[];d.vh=!D.h?[]:cur.includes(D.h)?cur.filter(x=>x!==D.h):[...cur,D.h];render()},
   'vchn-type':D=>{(S.drafts.vchn||(S.drafts.vchn={})).type=D.v;render()},
   'vch-create':async()=>{const d=S.drafts.vchn||{},c=S.sheet.cmp||{},type=d.type||'service',pct=Math.round(+d.pct||0),title=String(d.title||'').trim()||(type==='pct'&&pct?pct+'% הנחה בהזמנה הבאה':''),amount=type==='pct'?0:Math.round((+d.amount||0)*100)/100,months=Math.max(0,parseInt(d.months??'12',10)||0);
     if(type==='pct'&&!(pct>=1&&pct<=100)){toast('צריך אחוז הנחה בין 1 ל-100');return}if(!title){toast('צריך לרשום מה כולל השובר');return}if(type==='money'&&!(amount>0)){toast('צריך לרשום ערך לשובר כספי');return}
     let exp='';if(months){const x=new Date();x.setMonth(x.getMonth()+months);exp=x.toISOString().slice(0,10)}
     const id=vchId(),now=Date.now(),hotel=d.hotel||c.hotel||(vchHotels().includes(S.hotel)?S.hotel:vchHotels()[0])||'';
-    const v={code:vchCode(),hotelName:hotelName(hotel)||'',type,title,amount,pct:type==='pct'?pct:0,balance:type==='money'?amount:0,status:'active',expires:exp,hotel,name:String(d.name||'').trim(),phone:String(d.phone||'').trim(),email:'',room:String(d.room??c.room??'').trim(),reason:String(d.reason??c.note??'').trim(),source:c.id?'complaint':'manual',cmpId:c.id||'',hist:[],createdAt:now,createdBy:S.uid,createdByName:S.meName||''};
+    const vh=(d.vh||[]).filter(h=>hotelIds().includes(h)),v={code:vchCode(),hotelName:hotelName(hotel)||'',validHotels:vh,validNames:vh.map(h=>hotelName(h)),type,title,amount,pct:type==='pct'?pct:0,balance:type==='money'?amount:0,status:'active',expires:exp,hotel,name:String(d.name||'').trim(),phone:String(d.phone||'').trim(),email:'',room:String(d.room??c.room??'').trim(),reason:String(d.reason??c.note??'').trim(),source:c.id?'complaint':'manual',cmpId:c.id||'',hist:[],createdAt:now,createdBy:S.uid,createdByName:S.meName||''};
     try{await fdb.doc('vouchers/'+id).set(v);if(c.id)fdb.doc('hkComplaints/'+c.id).set({voucherId:id,voucherCode:v.code},{merge:true}).catch(()=>{});
       if(c.id&&c.m&&S.hkCmp&&S.hkCmp[c.hotel+'|'+c.m]&&S.hkCmp[c.hotel+'|'+c.m][c.id])S.hkCmp[c.hotel+'|'+c.m][c.id]={...S.hkCmp[c.hotel+'|'+c.m][c.id],voucherId:id,voucherCode:v.code};
       S.vchs={...(S.vchs||{}),[id]:v};S.drafts.vchn=null;S.sheet={type:'vch',id};render();toast('השובר הונפק')}catch(e){toast('ההנפקה נכשלה: '+errMsg(mapErr(e)))}},

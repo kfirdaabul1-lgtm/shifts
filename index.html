@@ -1882,8 +1882,8 @@ function hkStart(h,room){const d=todayISO(),D=(S.hkDays||{})[h+'|'+d]||{},now=Da
   S.hkDays[h+'|'+d]={...D,start:{...(D.start||{}),[room]:now}};render();
   fdb.doc('hk/'+hkDocId(h,d)).set({hotel:h,date:d,updatedAt:now,lastBy:S.uid,start:{[room]:now}},{merge:true}).then(()=>toast(`חדר ${room}: התחלת ניקיון`),e=>{toast('השמירה נכשלה: '+errMsg(mapErr(e)));S.hkDays[h+'|'+d]=D;render()})}
 function hkDone(h,room){const d=todayISO(),D=(S.hkDays||{})[h+'|'+d]||{},now=Date.now(),who=S.meName||S.email||'',st=(D.start||{})[room];
-  S.hkDays[h+'|'+d]={...D,clean:{...(D.clean||{}),[room]:'vc'},done:{...(D.done||{}),[room]:now},doneBy:{...(D.doneBy||{}),[room]:S.uid}};render();
-  fdb.doc('hk/'+hkDocId(h,d)).set({hotel:h,date:d,updatedAt:now,lastBy:S.uid,clean:{[room]:'vc'},cleanBy:{[room]:who},cleanAt:{[room]:now},done:{[room]:now},doneBy:{[room]:S.uid}},{merge:true})
+  S.hkDays[h+'|'+d]={...D,clean:{...(D.clean||{}),[room]:'vi'},done:{...(D.done||{}),[room]:now},doneBy:{...(D.doneBy||{}),[room]:S.uid}};render();
+  fdb.doc('hk/'+hkDocId(h,d)).set({hotel:h,date:d,updatedAt:now,lastBy:S.uid,clean:{[room]:'vi'},cleanBy:{[room]:who},cleanAt:{[room]:now},done:{[room]:now},doneBy:{[room]:S.uid}},{merge:true})
     .then(()=>toast(`חדר ${room} נקי ✓`),e=>{toast('השמירה נכשלה: '+errMsg(mapErr(e)));S.hkDays[h+'|'+d]=D;render()});
   if(st&&now>st)fdb.doc('hkLog/'+hkDocId(h,d)+'__'+room).set({hotel:h,month:d.slice(0,7),date:d,room,uid:S.uid,name:who,start:st,end:now,mins:Math.round((now-st)/60000)}).catch(()=>{})}
 function hkWorkerHTML(h,D,R){const d=todayISO(),mine=R.units.filter(r=>(D.asg||{})[r]===S.uid);

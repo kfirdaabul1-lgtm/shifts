@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202610211700"></script>
+<script src="i18n.js?v=202610211710"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -851,17 +851,27 @@ function vchCfgHTML(){if(!S.can.vch)return '';const c=vchCfg(),ds=(c.dates||[]).
   <h4 style="margin:10px 0 4px">חגים בשנה הקרובה (אוטומטי)</h4><div class="muted" style="font-size:.85rem;line-height:1.8">${vchHolList().map(x=>`${esc(x.name)}: ${dm(x.from)}${x.to!==x.from?'–'+dm(x.to):''}`).join(' · ')}</div></details>`}
 const VCH_PRESETS=['שתייה על חשבון הבית','ארוחת בוקר זוגית','הנחה בשהייה הבאה','טיפול ספא','שדרוג חדר'];
 function vchSub(){liveColl('vchs','vouchers');return S.vchs}
+// redeem-only users (vchr without vch) never list vouchers: a code is looked up in vchCodes/{code} {id, hotel} (get only), then the voucher doc is read by id
+async function vchByCode(c){try{const x=await fdb.doc('vchCodes/'+c).get();if(!x.exists)return null;const id=x.data().id,d=await fdb.doc('vouchers/'+id).get();if(!d.exists)return null;S.vchs={...(S.vchs||{}),[id]:d.data()};return id}catch(e){toast('לא הצלחתי לחפש: '+errMsg(mapErr(e)));return null}}
+async function vchOpenId(id){try{const d=await fdb.doc('vouchers/'+id).get();if(d.exists){S.vchs={...(S.vchs||{}),[id]:d.data()};S.drafts.vchr=null;S.confirm=null;S.sheet={type:'vch',id};render()}else toast('השובר לא נמצא')}catch(e){toast('לא הצלחתי לפתוח: '+errMsg(mapErr(e)))}}
+// one-time (per device) index of existing vouchers for code lookup, by issuers
+function vchCodesBackfill(){try{if(localStorage.getItem('vchCodesDone'))return}catch(_){}const V=S.vchs||{};const ops=Object.entries(V).filter(([,v])=>v.code).map(([id,v])=>fdb.doc('vchCodes/'+v.code).set({id,hotel:v.hotel||''},{merge:true}));Promise.all(ops).then(()=>{try{localStorage.setItem('vchCodesDone','1')}catch(_){}}).catch(()=>{})}
 function vchHotels(){const all=hotelIds();if(S.isOwner||!(S.role&&Array.isArray(S.role.hotels)&&S.role.hotels.length))return all;return all.filter(h=>S.role.hotels.includes(h))}
 function vchWa(v,id){const ph=normPhone(v.phone||'').replace('+','');const t=`שלום ${v.name||''},\n${v.source==='complaint'?'מצטערים על אי הנוחות. ':''}קיבלת שובר: ${v.title}${v.type==='money'?` בשווי ${ils(v.amount)}`:v.type==='pct'?` (${+v.pct}% הנחה)`:''}.${vchValid(v)?`\nתקף ב: ${vchWhere(v)}`:''}${v.noHol?'\n'+VCH_NOHOL:''}\nקוד השובר: ${v.code}${v.expires?`\nבתוקף עד ${dm(v.expires)}.${v.expires.slice(0,4)}`:''}\nלצפייה בשובר וב-QR: ${vchUrl(id)}\n${hotelName(v.hotel)||'Seven Collection'}`;
   return `https://wa.me/${ph}?text=${encodeURIComponent(t)}`}
-function vVch(){const V=vchSub()||{},q=String(S.vchF?.q||'').trim(),f=S.vchF?.st||'all',m=todayISO().slice(0,7);
+function vchRedeemCard(){return `<div class="card"><h3>מימוש שובר</h3><div class="actions" style="align-items:center"><input type="text" id="vch_code" dir="ltr" autocomplete="off" autocapitalize="characters" placeholder="ABCD-EFGH-JK23" style="flex:1 1 200px;font:600 1.1rem ui-monospace,monospace;letter-spacing:2px;text-align:center"><button class="btn pri" data-act="vch-find">חיפוש</button><button class="btn" data-act="vch-scan">${S.vchScan?'✕ עצירת סריקה':'📷 סריקת QR'}</button></div><div id="vch_reader" ${S.vchScan?'':'hidden'} style="max-width:380px;margin-top:10px;border-radius:10px;overflow:hidden"></div></div>`}
+function vVchRedeemOnly(){
+  if(S.vchQ){const c=vchNorm(S.vchQ);S.vchQ='';if(c)vchByCode(c).then(id=>{if(id){S.drafts.vchr=null;S.confirm=null;S.sheet={type:'vch',id};render()}else toast('לא נמצא שובר עם הקוד הזה')})}
+  const mine=Object.entries(S.vchs||{}).filter(([,v])=>(v.hist||[]).some(x=>x.by===S.uid&&x.kind==='redeem'&&new Date(x.at).toISOString().slice(0,10)===todayISO()));
+  return wrap(`<section class="head"><div class="head-t"><h1>מימוש שוברים</h1></div><p class="muted">מקלידים את הקוד שעל השובר או סורקים את ה-QR.</p></section>`+vchRedeemCard()+(mine.length?`<div class="card"><h3>מימשת היום</h3><div class="plist">${mine.map(([id,v])=>`<button class="prow" data-act="vch-open" data-id="${id}" style="width:100%;text-align:start;background:none;font:inherit;color:inherit;cursor:pointer"><span class="who"><b>${esc(v.title||'')}</b><small><span class="mono" dir="ltr">${esc(v.code)}</span>${v.name?' · '+esc(v.name):''}</small></span></button>`).join('')}</div></div>`:''))}
+function vVch(){if(!S.can.vch)return vVchRedeemOnly();const V=vchSub()||{};if(S.vchsReady)vchCodesBackfill();const q=String(S.vchF?.q||'').trim(),f=S.vchF?.st||'all',m=todayISO().slice(0,7);
   if(S.vchQ){const c=vchNorm(S.vchQ);S.vchQ='';const hit=Object.entries(V).find(([,v])=>v.code===c);if(hit)setTimeout(()=>{S.sheet={type:'vch',id:hit[0]};render()},0);else if(S.vchsReady)toast('לא נמצא שובר עם הקוד הזה')}
   const all=Object.entries(V).sort(([,a],[,b])=>(b.createdAt||0)-(a.createdAt||0));
   const act=all.filter(([,v])=>vchCan(v)),owe=act.filter(([,v])=>v.type==='money').reduce((t,[,v])=>t+(+v.balance||0),0);
   const issuedM=all.filter(([,v])=>new Date(v.createdAt||0).toISOString().slice(0,7)===m),usedM=all.reduce((t,[,v])=>t+(v.hist||[]).filter(x=>x.kind==='redeem'&&new Date(x.at).toISOString().slice(0,7)===m).length,0);
   const head=`<section class="head"><div class="head-t"><h1>שוברים</h1>${S.can.vch?'<button class="btn pri" data-act="vch-new">+ שובר חדש</button>':''}</div>
     <div class="kpis">${kpi('בתוקף',String(act.length),'')}${kpi('יתרה פתוחה',ils(owe),'שוברים כספיים')}${kpi('הונפקו החודש',String(issuedM.length),issuedM.filter(([,v])=>v.source==='complaint').length+' פיצוי על תלונה')}${kpi('מימושים החודש',String(usedM),'')}</div></section>`;
-  const redeem=`<div class="card"><h3>מימוש שובר</h3><div class="actions" style="align-items:center"><input type="text" id="vch_code" dir="ltr" autocomplete="off" autocapitalize="characters" placeholder="ABCD-EFGH-JK23" style="flex:1 1 200px;font:600 1.1rem ui-monospace,monospace;letter-spacing:2px;text-align:center"><button class="btn pri" data-act="vch-find">חיפוש</button><button class="btn" data-act="vch-scan">${S.vchScan?'✕ עצירת סריקה':'📷 סריקת QR'}</button></div><div id="vch_reader" ${S.vchScan?'':'hidden'} style="max-width:380px;margin-top:10px;border-radius:10px;overflow:hidden"></div></div>`;
+  const redeem=vchRedeemCard();
   const rdm=S.can.vchr?redeem:'';
   if(S.vchsErr)return wrap(head+`<div class="notice">לא הצלחתי לטעון: ${esc(S.vchsErr)}</div>`);
   if(!S.vchsReady)return wrap(head+rdm+'<p class="muted">טוען…</p>');
@@ -2437,7 +2447,7 @@ function joinCodeHTML(){const c={...cfg(),joinCode:validCode()};
   <p class="muted" style="font-size:.85rem">עובד חדש נכנס לאפליקציה, מתחבר ומקליד את הקוד, וכך הוא משויך ל${esc(hotelName(S.hotel))}. אפשר להחליף קוד בכל זמן, והקוד הישן מפסיק לעבוד.</p>
   <div class="actions" style="align-items:center">${c.joinCode?`<b class="code">${esc(c.joinCode)}</b>`:'<span class="muted">עוד אין קוד</span>'}<button class="btn" data-act="join-new">${c.joinCode?'החלפת קוד':'יצירת קוד'}</button></div>`}
 // full backup (owner): every collection to one JSON file in the same format the import reads
-const BACKUP_COLLS=['hkday','faultsAck','srDrafts','vchcfg','hotels','settings','employees','mgr','avail','shifts','schedule','requests','roles','joinCodes','config','menus','contracts','quotes','campaigns','suppliers','invoices','expcfg','inventory','purchaseReqs','shiftReports','faults','hk','hkcfg','hkLog','hkComplaints','leads','tasks','clients','hkCalls','spa','spacfg','vouchers'];
+const BACKUP_COLLS=['vchCodes','hkday','faultsAck','srDrafts','vchcfg','hotels','settings','employees','mgr','avail','shifts','schedule','requests','roles','joinCodes','config','menus','contracts','quotes','campaigns','suppliers','invoices','expcfg','inventory','purchaseReqs','shiftReports','faults','hk','hkcfg','hkLog','hkComplaints','leads','tasks','clients','hkCalls','spa','spacfg','vouchers'];
 const lastBackup=()=>{let l=0;try{l=+localStorage.getItem('scLastBackup')||0}catch(_){ }bkCfgLoad();return Math.max(l,+(S.bkCfg&&S.bkCfg.lastAt)||0)};
 // daily automatic backup to the owner's Google Drive: an Apps Script in their Drive calls the driveBackup function with the key in backupcfg/main
 const BK_FN='https://europe-west1-'+((CFG.firebase&&CFG.firebase.projectId)||'hotel-shifts')+'.cloudfunctions.net/driveBackup';
@@ -2802,7 +2812,7 @@ const ACT={
     let exp='';if(months){const x=new Date();x.setMonth(x.getMonth()+months);exp=x.toISOString().slice(0,10)}
     const id=vchId(),now=Date.now(),hotel=d.hotel||c.hotel||(vchHotels().includes(S.hotel)?S.hotel:vchHotels()[0])||'';
     const vh=(d.vh||[]).filter(h=>hotelIds().includes(h)),v={code:vchCode(),hotelName:hotelName(hotel)||'',validHotels:vh,validNames:vh.map(h=>hotelName(h)),type,title,amount,pct:type==='pct'?pct:0,balance:type==='money'?amount:0,status:'active',expires:exp,hotel,name:String(d.name||'').trim(),phone:String(d.phone||'').trim(),email:'',room:String(d.room??c.room??'').trim(),reason:String(d.reason??c.note??'').trim(),noHol:!!d.noHol,source:c.id?'complaint':'manual',cmpId:c.id||'',hist:[],createdAt:now,createdBy:S.uid,createdByName:S.meName||''};
-    try{await fdb.doc('vouchers/'+id).set(v);if(c.id)fdb.doc('hkComplaints/'+c.id).set({voucherId:id,voucherCode:v.code},{merge:true}).catch(()=>{});
+    try{await fdb.doc('vouchers/'+id).set(v);fdb.doc('vchCodes/'+v.code).set({id,hotel:v.hotel||''}).catch(()=>{});if(c.id)fdb.doc('hkComplaints/'+c.id).set({voucherId:id,voucherCode:v.code},{merge:true}).catch(()=>{});
       if(c.id&&c.m&&S.hkCmp&&S.hkCmp[c.hotel+'|'+c.m]&&S.hkCmp[c.hotel+'|'+c.m][c.id])S.hkCmp[c.hotel+'|'+c.m][c.id]={...S.hkCmp[c.hotel+'|'+c.m][c.id],voucherId:id,voucherCode:v.code};
       S.vchs={...(S.vchs||{}),[id]:v};S.drafts.vchn=null;S.sheet={type:'vch',id};render();toast('השובר הונפק')}catch(e){toast('ההנפקה נכשלה: '+errMsg(mapErr(e)))}},
   'vch-open':D=>{S.drafts.vchr=null;S.confirm=null;S.sheet={type:'vch',id:D.id};render()},
@@ -2814,7 +2824,7 @@ const ACT={
     S.vchs={...S.vchs,[D.id]:{...v,...up}};render();fdb.doc('vouchers/'+D.id).set(up,{merge:true}).then(()=>toast('השובר בוטל'),e=>toast('לא הצלחתי: '+errMsg(mapErr(e))))},
   'vch-copy':D=>{const u=vchUrl(D.id);(navigator.clipboard?navigator.clipboard.writeText(u):Promise.reject()).then(()=>toast('הקישור הועתק'),()=>prompt('הקישור לשובר:',u))},
   'cmp-vch':D=>{const h=S.cmpH,m=S.cmpM,c=((S.hkCmp||{})[h+'|'+m]||{})[D.id];if(!c)return;S.drafts.vchn={type:'service',room:c.room||'',reason:c.note||''};S.sheet={type:'vchnew',cmp:{id:D.id,hotel:h,m,room:c.room,note:c.note}};render()},
-  'cmp-vch-open':D=>{liveColl('vchs','vouchers');S.sheet={type:'vch',id:D.v};render()},
+  'cmp-vch-open':D=>{if(S.can.vch){liveColl('vchs','vouchers');S.sheet={type:'vch',id:D.v};render()}else vchOpenId(D.v)},
   'cmp-hotel':D=>{S.cmpH=D.h;render()},
   'cmp-month':D=>{S.cmpM=monAdd(S.cmpM||todayISO().slice(0,7),+D.d);render()},
   'cmp-f':D=>{S.cmpF=D.v;render()},

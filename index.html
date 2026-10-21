@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202610211345"></script>
+<script src="i18n.js?v=202610211355"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1872,7 +1872,7 @@ function sheetHk(){const {h,r}=S.sheet,d=todayISO(),D=(S.hkDays||{})[h+'|'+d]||{
   <div class="f"><span>הכנת החדר</span><div class="hk-ks"><button class="hk-p hk-pax ${pax===3?'on':''}" data-act="hk-set" data-k="pax" data-v="3">${pax===3?'✓ ':''}3 אורחים</button><button class="hk-p hk-pax ${pax===4?'on':''}" data-act="hk-set" data-k="pax" data-v="4">${pax===4?'✓ ':''}4 אורחים</button><button class="hk-p hk-twin ${tw?'on':''}" data-act="hk-set" data-k="twin" data-v="1">${tw?'✓ ':''}Split bed</button><button class="hk-p hk-cot ${cot?'on':''}" data-act="hk-set" data-k="cot" data-v="1">${cot?'✓ ':''}👶 Baby cot</button></div></div>`:''}
   ${asgHTML}
   ${c==='ooo'?'<p class="muted" style="font-size:.85rem;margin:0">החדר מסומן OOO, ונפתחה עליו תקלה בעמוד האחזקה.</p>':''}
-  ${full?`<div class="sep"></div><h3>העברת חדר</h3>${S.sheet.mv?`<p class="muted" style="font-size:.85rem;margin:0">כל מה שהוגדר על ${dorm?'המיטה':'החדר'} (מצב הזמנה, VIP, Booking, כמות אורחים, Split bed, Baby cot) יעבור ליעד, ו${dorm?'המיטה':'החדר'} הנוכחי יתנקה מהם. מצב הניקיון ושיבוץ העובד נשארים בכל חדר.</p>
+  ${full?`<div class="sep"></div><h3>העברת חדר</h3>${S.sheet.mv?`<p class="muted" style="font-size:.85rem;margin:0">כל מה שהוגדר כאן (מצב הזמנה, VIP, Booking, כמות אורחים, Split bed, Baby cot ושיבוץ העובד) עובר ליעד. מצב הניקיון של היעד לא משתנה, והחדר הנוכחי עובר ל-VI.</p>
     <div class="actions" style="align-items:flex-end"><label class="f" style="flex:1 1 160px">לאיזה חדר מעבירים<select data-f="hkmv.to"><option value="">בוחרים חדר…</option>${R.units.filter(x=>x!==r).map(x=>`<option value="${esc(x)}" ${dv('hkmv','to','')===x?'selected':''}>${R.bedOf[x]?'מיטה':'חדר'} ${esc(x)}</option>`).join('')}</select></label><button class="btn pri" data-act="hk-move-do">העברה</button><button class="btn ghost" data-act="hk-move" data-v="0">ביטול</button></div>`:`<button class="btn" data-act="hk-move" data-v="1">⇄ העברת ${dorm?'מיטה':'חדר'}</button>`}`:''}
   <div class="actions"><button class="btn pri" data-act="close">סגירה</button></div>`}
 // ---------- housekeeping worker view: my rooms, "started" and "done" ----------
@@ -2583,7 +2583,8 @@ const ACT={
   'hk-move':D=>{S.sheet={...S.sheet,mv:D.v==='1'};S.drafts.hkmv=null;render()},
   'hk-move-do':()=>{const {h,r}=S.sheet,to=String(dv('hkmv','to',''));if(!to){toast('צריך לבחור לאיזה חדר מעבירים');return}if(!hkFull(h))return;
     const d=todayISO(),D=(S.hkDays||{})[h+'|'+d]||{},FV=firebase.firestore.FieldValue,now=Date.now(),o={hotel:h,date:d,updatedAt:now,lastBy:S.uid},loc={...D};
-    for(const k of ['occ','occBy','occAt','vip','bk','pax','twin','cot']){const v=(D[k]||{})[r];o[k]={[r]:FV.delete(),[to]:v!=null&&v!==''?v:FV.delete()};const m={...(D[k]||{})};delete m[r];if(v!=null&&v!=='')m[to]=v;else delete m[to];loc[k]=m}
+    for(const k of ['occ','occBy','occAt','vip','bk','pax','twin','cot','asg','asgName','asgAt']){const v=(D[k]||{})[r];o[k]={[r]:FV.delete(),[to]:v!=null&&v!==''?v:FV.delete()};const m={...(D[k]||{})};delete m[r];if(v!=null&&v!=='')m[to]=v;else delete m[to];loc[k]=m}
+    const who=S.meName||S.email||'';o.clean={[r]:'vi'};o.cleanBy={[r]:who};o.cleanAt={[r]:now};loc.clean={...(D.clean||{}),[r]:'vi'};
     S.hkDays[h+'|'+d]=loc;S.drafts.hkmv=null;S.sheet={type:'hk',h,r:to};render();
     fdb.doc('hk/'+hkDocId(h,d)).set(o,{merge:true}).then(()=>toast(`הועבר מ-${r} ל-${to}`),e=>{toast('ההעברה נכשלה: '+errMsg(mapErr(e)));S.hkDays[h+'|'+d]=D;render()})},
   'spa-view':D=>{S.spaView=D.v;render()},

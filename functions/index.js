@@ -413,3 +413,13 @@ exports.onSpaNew = trig('spa/{id}').onCreate(async (snap) => {
   const dd = String(b.date || ''), dm = dd ? dd.slice(8, 10) + '.' + dd.slice(5, 7) : '';
   return sendTo([...out], { title: 'טיפול ספא חדש', body: `${dm} ${b.time || ''} · ${b.treatment || ''} · ${b.mins || 60} דק׳ · ${b.people || 1} אנשים${th ? ' · ' + th : ''}${b.amount ? ' · ₪' + b.amount : ''}`, hash: '#spa', tag: 'spa-' + snap.id });
 });
+
+// ---------- a room stopped being OD (occupied) → tell the housekeeping worker assigned to it that it's empty and can be cleaned ----------
+exports.onHkVacant = trig('hk/{id}').onWrite(async (ch) => {
+  if (!ch.after.exists || !ch.before.exists) return;
+  const bo = ch.before.data().occ || {}, a = ch.after.data() || {}, ao = a.occ || {}, asg = a.asg || {}, per = {};
+  for (const [r, v] of Object.entries(bo)) if (v === 'oc' && ao[r] !== 'oc' && asg[r]) (per[asg[r]] = per[asg[r]] || []).push(r);
+  const uids = Object.keys(per); if (!uids.length) return;
+  const hn = await hotelName(a.hotel);
+  return Promise.all(uids.map((u) => sendTo([u], { title: per[u].length > 1 ? 'חדרים התפנו' : 'החדר התפנה', body: `${hn ? hn + ': ' : ''}חדר ${per[u].join(', ')} ריק עכשיו, אפשר לנקות`, hash: '#hk', tag: 'hkv-' + u + '-' + per[u].join('-') })));
+});

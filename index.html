@@ -1746,11 +1746,11 @@ const finPendingN=h=>Object.values((S.alertFin||{})[h]||{}).filter(r=>r.finStatu
    A new doc per day, so every morning all statuses start empty. Room lists: hkcfg/{hotel} {rooms:'101-119 -113', dorms:'101-111 -108', beds:8}; without it, presets by hotel name.
    Housekeeping staff change only the cleaning status; the housekeeping department manager also assigns rooms; reception, hotel managers and shift managers change everything.
    An assigned worker gets a push (functions onHkAssign). */
-const HK_CLEAN=[['vc','VC','חדר נקי'],['vi','VI','נקי מאתמול'],['vd','VD','חדר מלוכלך'],['od','OD','תפוס מלוכלך'],['ooo','OOO','תקלה תחזוקתית']];
-const HK_OCC=[['oc','OC','תפוס'],['co','C/O','צ׳ק אאוט'],['res','RES','הזמנה'],['empty','ריק','ריק']];
+const HK_CLEAN=[['vc','VC','חדר נקי'],['vi','VI','נקי מאתמול'],['vd','VD','חדר מלוכלך'],['ooo','OOO','תקלה תחזוקתית']];
+const HK_OCC=[['oc','OD','תפוס'],['co','C/O','צ׳ק אאוט'],['res','RES','הזמנה'],['empty','ריק','ריק']];
 // guest marks and room set-up, set by reception: VIP, Booking, twin beds, baby cot; pax = 3 or 4 guests
 const HK_FLAGS=['vip','bk','twin','cot'];
-const HK_CN=Object.fromEntries(HK_CLEAN.map(x=>[x[0],x])),HK_ON=Object.fromEntries(HK_OCC.map(x=>[x[0],x]));
+const HK_CN={...Object.fromEntries(HK_CLEAN.map(x=>[x[0],x])),od:['od','OD','תפוס מלוכלך']},HK_ON=Object.fromEntries(HK_OCC.map(x=>[x[0],x]));
 function hkPreset(h){const n=String(hotelName(h)||'').toLowerCase();
   if(/סיז|seas/.test(n))return {rooms:'101-119 -113 -117\n201-219 -213 -217\n301-314 -313\n401-403'};
   if(/גוטמן|gutman|gutmann/.test(n))return {rooms:'101-107\n200-210\n300-312 -306'};

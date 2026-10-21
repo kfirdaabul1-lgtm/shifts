@@ -481,6 +481,10 @@ service cloud.firestore {
         || isOwner();
       allow delete: if isOwner();
     }
+    match /srDrafts/{id} {
+      allow read, delete: if signedIn() && (id.split('__')[0] == request.auth.uid || isOwner());
+      allow create, update: if signedIn() && id.split('__')[0] == request.auth.uid && request.resource.data.by == request.auth.uid;
+    }
     match /vchcfg/{id} {
       allow read: if canVch() || canVchR();
       allow write: if canVch();

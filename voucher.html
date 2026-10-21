@@ -1,0 +1,65 @@
+<!doctype html>
+<html dir="rtl" lang="he">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>שובר · Seven Collection</title>
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;background:#f3f1ec;font-family:system-ui,-apple-system,"Segoe UI",Arial,sans-serif;color:#1f2937;padding:24px 16px}
+  .voucher{max-width:520px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 8px 30px rgba(0,0,0,.08)}
+  .top{background:#1f2937;color:#fff;padding:22px 24px}
+  .top .site{font-size:18px;font-weight:700}
+  .top .kind{font-size:13px;opacity:.75}
+  .body{padding:24px;border-bottom:2px dashed #e5e1d6}
+  .title{font-size:22px;font-weight:700;margin:0 0 6px}
+  .value{font-size:30px;font-weight:800;color:#b8860b;margin:8px 0}
+  .balance{color:#555;font-size:15px}
+  .code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:26px;letter-spacing:3px;font-weight:700;direction:ltr;text-align:center;background:#faf7ef;border-radius:10px;padding:14px;margin:18px 0 0}
+  .qr{display:flex;justify-content:center;padding:24px}
+  .meta{padding:0 24px 24px;color:#666;font-size:14px;text-align:center;line-height:1.7}
+  .badge{display:inline-block;padding:4px 12px;border-radius:999px;font-size:13px;font-weight:600;margin-bottom:10px}
+  .b-ok{background:#e6f4ea;color:#1e7b34}.b-bad{background:#fdecea;color:#b42318}.b-mid{background:#fff4e0;color:#9a5b00}
+  .actions{text-align:center;margin:20px auto 0;max-width:520px}
+  .actions button{background:#1f2937;color:#fff;border:0;border-radius:8px;padding:12px 22px;font-size:15px;cursor:pointer}
+  .msg{max-width:520px;margin:40px auto;text-align:center;color:#666}
+  @media print{body{background:#fff;padding:0}.voucher{box-shadow:none;border:1px solid #ddd}.actions{display:none}}
+</style>
+</head>
+<body>
+<div id="app"><p class="msg">טוען את השובר…</p></div>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="config.js"></script>
+<script>
+(function(){
+  var CFG=window.APP_CONFIG||{},app=document.getElementById('app');
+  var esc=function(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})};
+  var ils=function(n){return '₪'+(Math.round((+n||0)*100)/100).toLocaleString('he-IL')};
+  var dmy=function(d){return d?d.slice(8,10)+'/'+d.slice(5,7)+'/'+d.slice(0,4):''};
+  var fail=function(t){app.innerHTML='<p class="msg">'+esc(t)+'</p>'};
+  var id=new URLSearchParams(location.search).get('v')||'';
+  if(!/^v[0-9a-f]{32}$/.test(id))return fail('השובר לא נמצא.');
+  try{firebase.initializeApp(CFG.firebase)}catch(e){return fail('לא הצלחתי להתחבר.')}
+  firebase.firestore().doc('vouchers/'+id).get().then(function(d){
+    if(!d.exists)return fail('השובר לא נמצא.');
+    var v=d.data(),today=new Date().toISOString().slice(0,10);
+    var st=(v.status==='active'||v.status==='partial')&&v.expires&&v.expires<today?'expired':v.status;
+    var L={active:['בתוקף','b-ok'],partial:['מומש חלקית','b-mid'],redeemed:['מומש','b-bad'],expired:['פג תוקף','b-bad'],cancelled:['מבוטל','b-bad']}[st]||[st,''];
+    var valid=st==='active'||st==='partial';
+    var site=v.hotelName||CFG.appName||'Seven Collection';
+    app.innerHTML='<div class="voucher"><div class="top"><div class="site">'+esc(site)+'</div><div class="kind">'+(v.type==='money'?'שובר כספי':'שובר לשירות / מוצר')+'</div></div>'+
+      '<div class="body"><span class="badge '+L[1]+'">'+L[0]+'</span><h1 class="title">'+esc(v.title)+'</h1>'+
+      (v.type==='money'?'<div class="value">'+ils(v.amount)+'</div>'+(st==='partial'?'<div class="balance">יתרה למימוש: <strong>'+ils(v.balance)+'</strong></div>':''):'')+
+      '<div class="code">'+esc(v.code)+'</div></div>'+(valid?'<div class="qr"><div id="qr"></div></div>':'')+
+      '<div class="meta">'+(v.name?'על שם: '+esc(v.name)+'<br>':'')+(v.expires?'בתוקף עד '+dmy(v.expires)+'<br>':'')+'להצגה בעת המימוש</div></div>'+
+      '<div class="actions"><button onclick="window.print()">הדפסה / שמירה כ-PDF</button></div>';
+    if(valid&&window.QRCode){var base=(CFG.appUrl||'').trim()||location.href.replace(/voucher\.html.*$/,'');
+      new QRCode(document.getElementById('qr'),{text:base.replace(/index\.html$/,'').replace(/\/?$/,'/')+'#vch?c='+v.code,width:190,height:190,correctLevel:QRCode.CorrectLevel.M})}
+  }).catch(function(){fail('לא הצלחתי לטעון את השובר. נסו שוב מאוחר יותר.')});
+})();
+</script>
+</body>
+</html>

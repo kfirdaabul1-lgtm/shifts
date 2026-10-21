@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202610212030"></script>
+<script src="i18n.js?v=202610212300"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -942,22 +942,29 @@ async function vchRedeem(id){const v=(S.vchs||{})[id];if(!v)return;const amt=v.t
 /* ---------- guest complaints page (cmp app): every "תלונות אורחים על חדר" row of the shift reports (hkComplaints), per hotel and month.
    Status open|done (cmp-done, handledBy/handledByName/handledAt/handleNote). Function onCmpNew pushes each new complaint to cmp holders of that hotel. ---------- */
 const cmpHotels=()=>{const all=hotelIds();if(S.isOwner||!(S.role&&Array.isArray(S.role.hotels)&&S.role.hotels.length))return all;return all.filter(h=>S.role.hotels.includes(h))};
-function vCmp(){const hs=cmpHotels();if(!hs.length)return wrap(emptyBox('אין מלונות בהרשאה',''));if(!hs.includes(S.cmpH))S.cmpH=hs.includes(S.hotel)?S.hotel:hs[0];
-  const h=S.cmpH,m=S.cmpM||(S.cmpM=todayISO().slice(0,7)),D=hkCmpSub(h,m),f=S.cmpF||'all';
-  const chips=hs.length>1?`<div class="chips" style="gap:6px">${hs.map(x=>`<button class="dchip ${x===h?'':'off'}" style="--h:var(--brass)" data-act="cmp-hotel" data-h="${x}">${esc(hotelName(x))}</button>`).join('')}</div>`:'';
+// one listener per month for all the user's hotels (hotel in hs, month == m); also fills S.hkCmp[hotel|month] so the per-hotel cards keep working
+function cmpAllSub(hs,m){const k='cmpall:'+m+':'+hs.join(',');S.cmpAll=S.cmpAll||{};if(!S.live[k]){S.live[k]=true;
+  fdb.collection('hkComplaints').where('hotel','in',hs.slice(0,10)).where('month','==',m).onSnapshot(q=>{const all=docsMap(q);S.cmpAll[m]=all;S.hkCmp=S.hkCmp||{};hs.forEach(h=>{S.hkCmp[h+'|'+m]=Object.fromEntries(Object.entries(all).filter(([,c])=>c.hotel===h))});render()},e=>{S.cmpAll[m]={__err:errMsg(mapErr(e))};render()})}
+  return S.cmpAll[m]}
+function cmpFind(id){for(const k in (S.hkCmp||{})){const c=S.hkCmp[k]&&S.hkCmp[k][id];if(c){const [h,m]=k.split('|');return [h,m,c]}}return [S.cmpH,S.cmpM,null]}
+function vCmp(){const hs=cmpHotels();if(!hs.length)return wrap(emptyBox('אין מלונות בהרשאה',''));if(S.cmpH!=='all'&&!hs.includes(S.cmpH))S.cmpH=hs.length>1?'all':hs[0];
+  const m=S.cmpM||(S.cmpM=todayISO().slice(0,7)),A=cmpAllSub(hs,m),f=S.cmpF||'all',h=S.cmpH;
+  const D=!A?null:A.__err?{__err:A.__err}:h==='all'?A:Object.fromEntries(Object.entries(A).filter(([,c])=>c.hotel===h));
+  const nOf=x=>A&&!A.__err?Object.values(A).filter(c=>x==='all'||c.hotel===x).length:'';
+  const chips=hs.length>1?`<div class="chips" style="gap:6px">${['all',...hs].map(x=>`<button class="dchip ${x===h?'':'off'}" style="--h:var(--brass)" data-act="cmp-hotel" data-h="${x}">${x==='all'?'כל המלונות':esc(hotelName(x))}${nOf(x)!==''?` (${nOf(x)})`:''}</button>`).join('')}</div>`:'';
   const nav=`<div class="actions" style="align-items:center"><button class="btn sm" data-act="cmp-month" data-d="-1" aria-label="חודש קודם">›</button><b>${HE_MON[+m.slice(5)-1]} ${m.slice(0,4)}</b><button class="btn sm" data-act="cmp-month" data-d="1" aria-label="חודש הבא">‹</button></div>`;
-  const head=`<section class="head"><div class="head-t"><h1>תלונות אורחים · ${esc(hotelName(h))}</h1>${nav}</div>${chips}</section>`;
-  if(!D)return wrap(head+'<p class="muted">טוען…</p>');if(D.__err)return wrap(head+'<div class="notice">אין גישה לתלונות של המלון הזה.</div>');
+  const head=`<section class="head"><div class="head-t"><h1>תלונות אורחים · ${h==='all'?'כל המלונות':esc(hotelName(h))}</h1>${nav}</div>${chips}</section>`;
+  if(!D)return wrap(head+'<p class="muted">טוען…</p>');if(D.__err)return wrap(head+`<div class="notice">לא הצלחתי לטעון את התלונות: ${esc(D.__err)}</div>`);
   const all=Object.entries(D).sort(([,a],[,b])=>String(b.date).localeCompare(String(a.date))||(b.createdAt||0)-(a.createdAt||0));
-  const open=all.filter(([,c])=>c.status!=='done'),byRoom={},byCl={};all.forEach(([,c])=>{byRoom[c.room]=(byRoom[c.room]||0)+1;if(c.cleanerName)byCl[c.cleanerName]=(byCl[c.cleanerName]||0)+1});
+  const open=all.filter(([,c])=>c.status!=='done'),byRoom={},byCl={};all.forEach(([,c])=>{const rk=c.hotel+'|'+c.room;byRoom[rk]=(byRoom[rk]||0)+1;if(c.cleanerName)byCl[c.cleanerName]=(byCl[c.cleanerName]||0)+1});
   const rep=Object.entries(byRoom).filter(([,n])=>n>1).sort((a,b)=>b[1]-a[1]),topCl=Object.entries(byCl).sort((a,b)=>b[1]-a[1])[0];
-  const k=`<div class="kpis">${kpi('תלונות החודש',String(all.length),'')}${kpi('פתוחות',String(open.length),open.length?'עוד לא טופלו':'הכול טופל',open.length?'bad':'ok')}${kpi('חדרים חוזרים',String(rep.length),rep.slice(0,4).map(([r,n])=>`${r} (${n})`).join(' · '),rep.length?'bad':'')}${kpi('הכי הרבה תלונות',topCl?esc(topCl[0]):'—',topCl?topCl[1]+' תלונות':'')}</div>`;
+  const k=`<div class="kpis">${kpi('תלונות החודש',String(all.length),'')}${kpi('פתוחות',String(open.length),open.length?'עוד לא טופלו':'הכול טופל',open.length?'bad':'ok')}${kpi('חדרים חוזרים',String(rep.length),rep.slice(0,4).map(([r,n])=>`${r.split('|')[1]} (${n})`).join(' · '),rep.length?'bad':'')}${kpi('הכי הרבה תלונות',topCl?esc(topCl[0]):'—',topCl?topCl[1]+' תלונות':'')}</div>`;
   const tabs=`<div class="chips" style="gap:6px;margin:8px 0">${[['all','הכול'],['open','פתוחות'],['done','טופלו']].map(([v,n])=>`<button class="dchip ${f===v?'':'off'}" data-act="cmp-f" data-v="${v}">${n}</button>`).join('')}</div>`;
   const list=all.filter(([,c])=>f==='all'||(f==='open'?c.status!=='done':c.status==='done'));
-  const rows=list.map(([id,c])=>`<div class="prow${c.status!=='done'?' cmp-open':''}" style="flex-wrap:wrap"><span class="who"><b>חדר ${esc(c.room||'')} · ${esc(c.note||'בלי פירוט')}${byRoom[c.room]>1?' <span class="pill bad">חדר חוזר</span>':''}</b>
+  const rows=list.map(([id,c])=>`<div class="prow${c.status!=='done'?' cmp-open':''}" style="flex-wrap:wrap"><span class="who"><b>${h==='all'&&hs.length>1?esc(hotelName(c.hotel))+' · ':''}חדר ${esc(c.room||'')} · ${esc(c.note||'בלי פירוט')}${byRoom[c.hotel+'|'+c.room]>1?' <span class="pill bad">חדר חוזר</span>':''}</b>
       <small>${dm(c.date)}${c.shift?' · משמרת '+(SR_N[c.shift]||''):''}${c.byName?' · דיווח: '+esc(c.byName):''}${c.cleanerName?' · ניקה: '+esc(c.cleanerName)+(c.cleanDate&&c.cleanDate!==c.date?' ('+dm(c.cleanDate)+')':''):' · לא ידוע מי ניקה'}${c.status==='done'?` · טופל${c.handledByName?' ע״י '+esc(c.handledByName):''}${c.handleNote?': '+esc(c.handleNote):''}`:''}</small></span>
       ${c.voucherId?`<button class="btn sm ghost" data-act="cmp-vch-open" data-v="${esc(c.voucherId)}" ${S.can.vch||S.can.vchr?'':'disabled'}>🎁 שובר ${esc(c.voucherCode||'')}</button>`:S.can.vch?`<button class="btn sm" data-act="cmp-vch" data-id="${id}">🎁 שובר פיצוי</button>`:''}${c.status==='done'?`<span class="pill ok">טופל</span><button class="btn sm ghost" data-act="cmp-reopen" data-id="${id}">פתיחה מחדש</button>`:`<input type="text" data-f="cmpn.${id}" value="${esc(dv('cmpn',id,''))}" placeholder="מה נעשה? (לא חובה)" style="max-width:220px"><button class="btn sm pri" data-act="cmp-done" data-id="${id}">סימון שטופל</button>`}</div>`).join('');
-  return wrap(head+k+`<div class="card"><h3>תלונות · ${list.length}</h3>${tabs}${rows?`<div class="plist">${rows}</div>`:'<p class="muted">אין תלונות בחודש הזה 🎉</p>'}<p class="muted" style="font-size:.8rem;margin-top:8px">התלונות נכנסות מדוחות סוף משמרת (שדה "תלונות אורחים על חדר").</p></div>`)}
+  return wrap(head+k+`<div class="card"><h3>תלונות · ${list.length}</h3>${tabs}${rows?`<div class="plist">${rows}</div>`:'<p class="muted">אין תלונות בחודש הזה 🎉</p>'}<p class="muted" style="font-size:.8rem;margin-top:8px">התלונות נפתחות בעמוד הקבלה, בכרטיס "תלונת אורח".</p></div>`)}
 /* ---------- employees page (hr app): the only place employees are created and edited; new self-registered employees have no department until hr sets it ---------- */
 const hrHotels=()=>{const all=hotelIds();if(S.isOwner||!(S.role&&Array.isArray(S.role.hotels)&&S.role.hotels.length))return all;return all.filter(h=>S.role.hotels.includes(h))};
 const hrNoDept=()=>S.can&&S.can.hr?Object.entries(S.emps||{}).filter(([u,e])=>hrHotels().includes(e.hotel||'main')&&!(e.depts||[]).length&&!e.mgmt&&(e.hotel||'main')!==CHAIN).length:0;
@@ -2839,14 +2846,14 @@ const ACT={
   'vch-cancel':D=>{if(!S.can.vch){toast('אין לך הרשאה לבטל שוברים');return}if(S.confirm!=='vx:'+D.id){S.confirm='vx:'+D.id;render();return}S.confirm=null;const v=(S.vchs||{})[D.id];if(!v)return;const up={status:'cancelled',hist:[...(v.hist||[]),{at:Date.now(),kind:'cancel',amount:0,note:String(dv('vchr','note','')).trim(),by:S.uid,byName:S.meName||''}],updatedAt:Date.now()};
     S.vchs={...S.vchs,[D.id]:{...v,...up}};render();fdb.doc('vouchers/'+D.id).set(up,{merge:true}).then(()=>toast('השובר בוטל'),e=>toast('לא הצלחתי: '+errMsg(mapErr(e))))},
   'vch-copy':D=>{const u=vchUrl(D.id);(navigator.clipboard?navigator.clipboard.writeText(u):Promise.reject()).then(()=>toast('הקישור הועתק'),()=>prompt('הקישור לשובר:',u))},
-  'cmp-vch':D=>{const h=S.cmpH,m=S.cmpM,c=((S.hkCmp||{})[h+'|'+m]||{})[D.id];if(!c)return;S.drafts.vchn={type:'service',room:c.room||'',reason:c.note||''};S.sheet={type:'vchnew',cmp:{id:D.id,hotel:h,m,room:c.room,note:c.note}};render()},
+  'cmp-vch':D=>{const [h,m,c]=cmpFind(D.id);if(!c)return;S.drafts.vchn={type:'service',room:c.room||'',reason:c.note||''};S.sheet={type:'vchnew',cmp:{id:D.id,hotel:h,m,room:c.room,note:c.note}};render()},
   'cmp-vch-open':D=>{if(S.can.vch){liveColl('vchs','vouchers');S.sheet={type:'vch',id:D.v};render()}else vchOpenId(D.v)},
   'cmp-hotel':D=>{S.cmpH=D.h;render()},
   'cmp-month':D=>{S.cmpM=monAdd(S.cmpM||todayISO().slice(0,7),+D.d);render()},
   'cmp-f':D=>{S.cmpF=D.v;render()},
-  'cmp-done':D=>{const h=S.cmpH,m=S.cmpM,c=((S.hkCmp||{})[h+'|'+m]||{})[D.id];if(!c)return;const up={status:'done',handledBy:S.uid,handledByName:S.meName||'',handledAt:Date.now(),handleNote:String(dv('cmpn',D.id,'')).trim()};
+  'cmp-done':D=>{const [h,m,c]=cmpFind(D.id);if(!c)return;const up={status:'done',handledBy:S.uid,handledByName:S.meName||'',handledAt:Date.now(),handleNote:String(dv('cmpn',D.id,'')).trim()};
     S.hkCmp[h+'|'+m]={...S.hkCmp[h+'|'+m],[D.id]:{...c,...up}};if(S.drafts.cmpn)delete S.drafts.cmpn[D.id];render();fdb.doc('hkComplaints/'+D.id).set(up,{merge:true}).then(()=>toast('סומן שטופל'),e=>toast('לא הצלחתי: '+errMsg(mapErr(e))))},
-  'cmp-reopen':D=>{const h=S.cmpH,m=S.cmpM,c=((S.hkCmp||{})[h+'|'+m]||{})[D.id];if(!c)return;S.hkCmp[h+'|'+m]={...S.hkCmp[h+'|'+m],[D.id]:{...c,status:'open'}};render();fdb.doc('hkComplaints/'+D.id).set({status:'open'},{merge:true}).catch(e=>toast('לא הצלחתי: '+errMsg(mapErr(e))))},
+  'cmp-reopen':D=>{const [h,m,c]=cmpFind(D.id);if(!c)return;S.hkCmp[h+'|'+m]={...S.hkCmp[h+'|'+m],[D.id]:{...c,status:'open'}};render();fdb.doc('hkComplaints/'+D.id).set({status:'open'},{merge:true}).catch(e=>toast('לא הצלחתי: '+errMsg(mapErr(e))))},
   'app-cmp':()=>{S.menu=false;setTab('cmp')},
   'app-vch':()=>{S.menu=false;setTab('vch')},
   'hr-hotel':D=>{S.hrH=D.h;render()},

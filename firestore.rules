@@ -435,7 +435,7 @@ service cloud.firestore {
     }
     // תלונות אורחים על חדר (מדוח סיכום משמרת), נרשמות על המנקה: הקבלה כותבת, רק מנהלים קוראים
     match /hkComplaints/{id} {
-      allow read: if manages(resource.data.hotel) || gmIn(resource.data.hotel) || canCeo() || cmpIn(resource.data.hotel);
+      allow read: if manages(resource.data.hotel) || gmIn(resource.data.hotel) || canCeo() || cmpIn(resource.data.hotel) || frontIn(resource.data.hotel);
       allow create: if isOwner() || ((frontIn(request.resource.data.hotel) || manages(request.resource.data.hotel) || gmIn(request.resource.data.hotel))
         && request.resource.data.by == request.auth.uid);
       allow update: if manages(resource.data.hotel) || gmIn(resource.data.hotel)

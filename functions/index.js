@@ -423,3 +423,12 @@ exports.onHkVacant = trig('hk/{id}').onWrite(async (ch) => {
   const hn = await hotelName(a.hotel);
   return Promise.all(uids.map((u) => sendTo([u], { title: per[u].length > 1 ? 'חדרים התפנו' : 'החדר התפנה', body: `${hn ? hn + ': ' : ''}חדר ${per[u].join(', ')} ריק עכשיו, אפשר לנקות`, hash: '#hk', tag: 'hkv-' + u + '-' + per[u].join('-') })));
 });
+
+// ---------- guest complaint from a shift report → push to everyone with the complaints (cmp) app for that hotel ----------
+exports.onCmpNew = trig('hkComplaints/{id}').onCreate(async (snap) => {
+  const c = snap.data() || {}, h = c.hotel || 'main', out = new Set(), rs = await db.collection('roles').get();
+  rs.forEach((d) => { const r = d.data() || {}; if (r.station || !(r.apps && r.apps.cmp)) return; const hs = r.hotels || []; if (!hs.length || hs.includes(h)) out.add(d.id); });
+  const own = await db.collection('pushTokens').where('owner', '==', true).get(); own.forEach((d) => out.add(d.id));
+  const hn = await hotelName(h);
+  return sendTo([...out], { title: `תלונת אורח · חדר ${c.room || ''}`, body: `${hn ? hn + ' · ' : ''}${c.note || ''}${c.cleanerName ? ' · ניקה: ' + c.cleanerName : ''}`.slice(0, 180), hash: '#cmp', tag: 'cmp-' + snap.id });
+});

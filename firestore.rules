@@ -83,6 +83,8 @@ service cloud.firestore {
     // מנהל מלון: רואה את כל נתוני המלונות שלו (roleHotels, ריק = כולם) ומאשר דרישות רכש
     function gmRole() { return hasRole() && roleApp('gm'); }
     // בריף יומי: רואה את האירועים (קריאה בלבד)
+    // עמוד תלונות אורחים: רואה ומסמן טיפול בתלונות של המלונות שבהרשאה
+    function cmpIn(h) { return isOwner() || (hasRole() && roleApp('cmp') && (roleHotels().size() == 0 || h in roleHotels())); }
     function canSpa() { return isOwner() || (hasRole() && roleApp('spa')); }
     function briefRole() { return hasRole() && roleApp('brief'); }
     // קבלת המלון: רואה סידור ואירועים של המלונות שלו ומזין 10days
@@ -146,11 +148,12 @@ service cloud.firestore {
         && (!a.get('fin', false) || roleApp('fin'))
         && (!a.get('hk', false) || roleApp('hk') || roleApp('gm') || roleApp('shifts'))
         && (!a.get('hr', false) || roleApp('hr'))
-        && (!a.get('spa', false) || roleApp('spa'));
+        && (!a.get('spa', false) || roleApp('spa'))
+        && (!a.get('cmp', false) || roleApp('cmp'));
     }
     function grantOk(n) {
       return n.apps is map
-        && n.apps.keys().hasOnly(['shifts', 'events', 'perms', 'ceo', 'dept', 'mkt', 'exp', 'gm', 'brief', 'front', 'maint', 'fin', 'hk', 'hr', 'spa'])
+        && n.apps.keys().hasOnly(['shifts', 'events', 'perms', 'ceo', 'dept', 'mkt', 'exp', 'gm', 'brief', 'front', 'maint', 'fin', 'hk', 'hr', 'spa', 'cmp'])
         && n.get('hotels', []) is list
         && n.get('depts', []) is list
         && (isOwner() || roleApp('shifts') || n.get('depts', []).hasOnly(roleDepts()))
@@ -427,10 +430,12 @@ service cloud.firestore {
     }
     // תלונות אורחים על חדר (מדוח סיכום משמרת), נרשמות על המנקה: הקבלה כותבת, רק מנהלים קוראים
     match /hkComplaints/{id} {
-      allow read: if manages(resource.data.hotel) || gmIn(resource.data.hotel) || canCeo();
+      allow read: if manages(resource.data.hotel) || gmIn(resource.data.hotel) || canCeo() || cmpIn(resource.data.hotel);
       allow create: if isOwner() || ((frontIn(request.resource.data.hotel) || manages(request.resource.data.hotel) || gmIn(request.resource.data.hotel))
         && request.resource.data.by == request.auth.uid);
-      allow update, delete: if manages(resource.data.hotel) || gmIn(resource.data.hotel);
+      allow update: if manages(resource.data.hotel) || gmIn(resource.data.hotel)
+        || (cmpIn(resource.data.hotel) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'handledBy', 'handledByName', 'handledAt', 'handleNote']));
+      allow delete: if manages(resource.data.hotel) || gmIn(resource.data.hotel);
     }
     // רשימת החדרים של כל מלון
     match /hkcfg/{h} {

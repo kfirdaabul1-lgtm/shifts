@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202610211620"></script>
+<script src="i18n.js?v=202610211630"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1898,7 +1898,8 @@ const finPendingN=h=>Object.values((S.alertFin||{})[h]||{}).filter(r=>r.finStatu
 // OD (occupied) is a clean / maintenance status again (owner's wish, Oct 21, latest); old occupancy 'oc' marks are ignored
 const HK_CLEAN=[['vc','VC','חדר נקי'],['vi','VI','נקי מאתמול'],['vd','VD','חדר מלוכלך'],['od','OD','תפוס'],['ooo','OOO','תקלה תחזוקתית']];
 const HK_OCC=[['co','C/O','צ׳ק אאוט'],['res','RES','הזמנה'],['empty','ריק','ריק']];
-// guest marks and room set-up, set by reception: VIP, Booking, twin beds, baby cot; pax = 3 or 4 guests
+// guest marks and room set-up, set by reception: VIP, Booking, twin beds, baby cot; pax = number of guests (HK_PAX)
+const HK_PAX=[3,4,5,6,7];
 const HK_FLAGS=['vip','bk','grp','twin','cot'];
 const HK_CN=Object.fromEntries(HK_CLEAN.map(x=>[x[0],x])),HK_ON=Object.fromEntries(HK_OCC.map(x=>[x[0],x]));
 function hkPreset(h){const n=String(hotelName(h)||'').toLowerCase();
@@ -1976,7 +1977,7 @@ function hkSet(h,room,kind,val){const d=hkToday(h),D=(S.hkDays||{})[h+'|'+d]||{}
 const hkFirst=n=>String(n||'').trim().split(/\s+/)[0]||'';
 function hkTile(h,r,D){const c=(D.clean||{})[r],o=(D.occ||{})[r],a=(D.asg||{})[r],cl=c?HK_CN[c]:null,ol=occL(o),f=S.hkF||{};
   if(f.c&&(f.c==='none'?c:c!==f.c))return '';if(f.o&&(f.o==='none'?ol.length:!ol.includes(f.o)))return '';
-  if(['vip','bk','grp','twin','cot'].includes(f.g)&&!(D[f.g]||{})[r])return '';if((f.g==='p3'||f.g==='p4')&&+(D.pax||{})[r]!==+f.g.slice(1))return '';if(f.g==='mine'&&a!==S.uid)return '';if(f.g==='noasg'&&a)return '';
+  if(['vip','bk','grp','twin','cot'].includes(f.g)&&!(D[f.g]||{})[r])return '';if(/^p\d$/.test(f.g||'')&&+(D.pax||{})[r]!==+f.g.slice(1))return '';if(f.g==='mine'&&a!==S.uid)return '';if(f.g==='noasg'&&a)return '';
   const flags=((D.vip||{})[r]?'<span class="hk-f hk-vip">VIP</span>':'')+((D.bk||{})[r]?'<span class="hk-f hk-bk">B</span>':'')+((D.grp||{})[r]?'<span class="hk-f hk-grp">G</span>':'')+((D.pax||{})[r]?`<span class="hk-f hk-pax">${+D.pax[r]}</span>`:'')+((D.twin||{})[r]?'<span class="hk-f hk-twin">SB</span>':'')+((D.cot||{})[r]?'<span class="hk-f hk-cot">👶</span>':'');
   return `<button class="hk-room hk-${c||'none'}${a===S.uid?' hk-mine':''}" data-act="hk-room" data-r="${esc(r)}" data-h="${h}" aria-label="חדר ${esc(r)}"><b>${esc(r)}</b><span class="hk-c">${cl?cl[1]:'—'}</span>${ol.length?`<span class="hk-ol">${occTags(o)}</span>`:''}${flags?`<span class="hk-fl">${flags}</span>`:''}${a?`<span class="hk-a">${esc(hkFirst((D.asgName||{})[r]||empName(a)))}</span>`:''}</button>`}
 function vHk(){const hs=hkHotels();if(!hs.length)return wrap(emptyBox('אין מלונות בהרשאה',''));
@@ -1994,7 +1995,7 @@ function vHk(){const hs=hkHotels();if(!hs.length)return wrap(emptyBox('אין מ
   const mine=all.filter(r=>(D.asg||{})[r]===S.uid),nV=all.filter(r=>(D.vip||{})[r]).length,nB=all.filter(r=>(D.bk||{})[r]).length,nA=all.filter(r=>!(D.asg||{})[r]).length;
   const kpis=`<div class="card"><h3>מצב ניקיון ותחזוקה</h3><div class="hk-ks">${HK_CLEAN.map(([v,c,n])=>kc(v,`${c} · ${n}`,'hk-'+v)).join('')}${kc('none','ללא סטטוס','hk-none')}</div>
     <h3 style="margin-top:12px">מצב איוש</h3><div class="hk-ks">${HK_OCC.map(([v,c,n])=>ko(v,v==='empty'?'ריק':`${c} · ${n}`)).join('')}${ko('none','לא עודכן')}</div>
-    <h3 style="margin-top:12px">אורחים ושיבוץ</h3><div class="hk-ks">${kg('vip','VIP · אורח חשוב',nV)}${kg('bk','Booking',nB)}${kg('grp','Group',all.filter(r=>(D.grp||{})[r]).length)}${kg('p3','3 אורחים',all.filter(r=>+(D.pax||{})[r]===3).length)}${kg('p4','4 אורחים',all.filter(r=>+(D.pax||{})[r]===4).length)}${kg('twin','Split bed',all.filter(r=>(D.twin||{})[r]).length)}${kg('cot','Baby cot',all.filter(r=>(D.cot||{})[r]).length)}${mine.length?kg('mine','החדרים שלי',mine.length):''}${lead?kg('noasg','לא משובצים',nA):''}</div>
+    <h3 style="margin-top:12px">אורחים ושיבוץ</h3><div class="hk-ks">${kg('vip','VIP · אורח חשוב',nV)}${kg('bk','Booking',nB)}${kg('grp','Group',all.filter(r=>(D.grp||{})[r]).length)}${HK_PAX.map(n=>kg('p'+n,n+' אורחים',all.filter(r=>+(D.pax||{})[r]===n).length)).join('')}${kg('twin','Split bed',all.filter(r=>(D.twin||{})[r]).length)}${kg('cot','Baby cot',all.filter(r=>(D.cot||{})[r]).length)}${mine.length?kg('mine','החדרים שלי',mine.length):''}${lead?kg('noasg','לא משובצים',nA):''}</div>
     ${f.c||f.o||f.g?'<div class="actions" style="margin-top:8px"><button class="btn sm ghost" data-act="hk-f" data-m="x">הצגת כל החדרים</button></div>':''}</div>`;
   const myCard=mine.length?`<div class="card hk-minecard"><h3>החדרים שלי היום · ${mine.length}</h3><div class="hk-grid">${mine.map(r=>hkTile(h,r,{...D})).join('')}</div><p class="muted" style="font-size:.82rem;margin:6px 0 0">מסיימים חדר? לוחצים עליו ומסמנים VC.</p></div>`:'';
   const p=S.hkPaint||'';
@@ -2008,7 +2009,7 @@ function vHk(){const hs=hkHotels();if(!hs.length)return wrap(emptyBox('אין מ
     <div class="hk-ks">${HK_CLEAN.map(([v,c])=>`<button class="hk-p hk-${v} ${p==='clean:'+v?'on':''}" data-act="hk-paint" data-v="clean:${v}">${c}</button>`).join('')}<button class="hk-p ${p==='clean:'?'on':''}" data-act="hk-paint" data-v="clean:">ניקוי ✕</button>
     ${full?`<span class="hk-sep"></span>${HK_OCC.map(([v,c])=>`<button class="hk-p hk-o-${v} ${p==='occ:'+v?'on':''}" data-act="hk-paint" data-v="occ:${v}">${c}</button>`).join('')}<button class="hk-p ${p==='occ:'?'on':''}" data-act="hk-paint" data-v="occ:">הזמנה ✕</button>
     <span class="hk-sep"></span><button class="hk-p hk-vip ${p==='vip:1'?'on':''}" data-act="hk-paint" data-v="vip:1">VIP</button><button class="hk-p hk-bk ${p==='bk:1'?'on':''}" data-act="hk-paint" data-v="bk:1">Booking</button><button class="hk-p hk-grp ${p==='grp:1'?'on':''}" data-act="hk-paint" data-v="grp:1">Group</button>
-    <span class="hk-sep"></span><button class="hk-p hk-pax ${p==='pax:3'?'on':''}" data-act="hk-paint" data-v="pax:3">3</button><button class="hk-p hk-pax ${p==='pax:4'?'on':''}" data-act="hk-paint" data-v="pax:4">4</button><button class="hk-p hk-twin ${p==='twin:1'?'on':''}" data-act="hk-paint" data-v="twin:1">Split bed</button><button class="hk-p hk-cot ${p==='cot:1'?'on':''}" data-act="hk-paint" data-v="cot:1">👶 Baby cot</button>`:''}</div>
+    <span class="hk-sep"></span>${HK_PAX.map(n=>`<button class="hk-p hk-pax ${p==='pax:'+n?'on':''}" data-act="hk-paint" data-v="pax:${n}">${n}</button>`).join('')}<button class="hk-p hk-twin ${p==='twin:1'?'on':''}" data-act="hk-paint" data-v="twin:1">Split bed</button><button class="hk-p hk-cot ${p==='cot:1'?'on':''}" data-act="hk-paint" data-v="cot:1">👶 Baby cot</button>`:''}</div>
     ${full?'<p class="muted" style="font-size:.8rem;margin:6px 0 0">VIP, Booking, 3, 4, Split bed ו-Baby cot: לחיצה על חדר מסמנת, ולחיצה נוספת מורידה את הסימון.</p>':''}</div>`;
   const floors={};R.rooms.forEach(r=>{const fl=r.length>2?r.slice(0,r.length-2):'0';(floors[fl]=floors[fl]||[]).push(r)});
   const grid=Object.entries(floors).sort((a,b)=>+a[0]-+b[0]).map(([fl,rs])=>{const t=rs.map(r=>hkTile(h,r,D)).join('');return t?`<div class="hk-floor"><h4>קומה ${esc(fl)}</h4><div class="hk-grid">${t}</div></div>`:''}).join('');
@@ -2032,7 +2033,7 @@ function sheetHk(){const {h,r}=S.sheet,d=todayISO(),D=(S.hkDays||{})[h+'|'+d]||{
   <div class="f"><span>מצב איוש</span>${full?`<div class="hk-ks">${HK_OCC.map(([v,cc,n])=>`<button class="hk-p hk-o-${v} ${occL(o).includes(v)?'on':''}" data-act="hk-set" data-k="occ" data-v="${v}">${occL(o).includes(v)?'✓ ':''}<b>${cc}</b>${v==='empty'?'':' '+n}</button>`).join('')}${o?'<button class="hk-p" data-act="hk-set" data-k="occ" data-v="">ניקוי ✕</button>':''}</div>`:`<p style="margin:0"><b>${occL(o).length?occL(o).map(x=>HK_ON[x][1]).join(' + '):'לא עודכן'}</b> <span class="muted">· הקבלה מעדכנת</span></p>`}
   ${o&&(D.occBy||{})[r]?`<small class="muted">עודכן ע״י ${esc(D.occBy[r])} ב-${t((D.occAt||{})[r])}</small>`:''}</div>
   ${full?`<div class="f"><span>סימון אורח</span><div class="hk-ks"><button class="hk-p hk-vip ${vip?'on':''}" data-act="hk-set" data-k="vip" data-v="1">${vip?'✓ ':''}VIP · אורח חשוב</button><button class="hk-p hk-bk ${bk?'on':''}" data-act="hk-set" data-k="bk" data-v="1">${bk?'✓ ':''}אורח Booking</button><button class="hk-p hk-grp ${grp?'on':''}" data-act="hk-set" data-k="grp" data-v="1">${grp?'✓ ':''}Group · קבוצה</button></div></div>
-  <div class="f"><span>הכנת החדר</span><div class="hk-ks"><button class="hk-p hk-pax ${pax===3?'on':''}" data-act="hk-set" data-k="pax" data-v="3">${pax===3?'✓ ':''}3 אורחים</button><button class="hk-p hk-pax ${pax===4?'on':''}" data-act="hk-set" data-k="pax" data-v="4">${pax===4?'✓ ':''}4 אורחים</button><button class="hk-p hk-twin ${tw?'on':''}" data-act="hk-set" data-k="twin" data-v="1">${tw?'✓ ':''}Split bed</button><button class="hk-p hk-cot ${cot?'on':''}" data-act="hk-set" data-k="cot" data-v="1">${cot?'✓ ':''}👶 Baby cot</button></div></div>`:''}
+  <div class="f"><span>הכנת החדר</span><div class="hk-ks">${HK_PAX.map(n=>`<button class="hk-p hk-pax ${pax===n?'on':''}" data-act="hk-set" data-k="pax" data-v="${n}">${pax===n?'✓ ':''}${n} אורחים</button>`).join('')}<button class="hk-p hk-twin ${tw?'on':''}" data-act="hk-set" data-k="twin" data-v="1">${tw?'✓ ':''}Split bed</button><button class="hk-p hk-cot ${cot?'on':''}" data-act="hk-set" data-k="cot" data-v="1">${cot?'✓ ':''}👶 Baby cot</button></div></div>`:''}
   ${asgHTML}
   ${c==='ooo'?'<p class="muted" style="font-size:.85rem;margin:0">החדר מסומן OOO, ונפתחה עליו תקלה בעמוד האחזקה.</p>':''}
   ${full?`<div class="sep"></div><h3>העברת חדר</h3>${S.sheet.mv?`<p class="muted" style="font-size:.85rem;margin:0">כל מה שהוגדר כאן (מצב הזמנה, VIP, Booking, כמות אורחים, Split bed, Baby cot ושיבוץ העובד) עובר ליעד. מצב הניקיון של היעד לא משתנה, והחדר הנוכחי עובר ל-VI (אלא אם הוא VD או OOO).</p>

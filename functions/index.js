@@ -390,3 +390,13 @@ exports.onSrInvoice = trig('invoices/{id}').onCreate(async (snap) => {
   const hn = await hotelName(v.hotel);
   return sendTo([...out], { title: 'חשבונית מהקופה ממתינה לאישור', body: `${hn ? hn + ' · ' : ''}₪${v.total || 0}${v.supplierName ? ' · ' + v.supplierName : ''} · ${v.notes || ''}`.slice(0, 180), hash: '#exp', tag: 'srinv-' + snap.id });
 });
+
+// ---------- a new employee registered (no department yet) → push to whoever holds the employees (hr) app for that hotel ----------
+exports.onEmpNew = trig('employees/{uid}').onCreate(async (snap) => {
+  const e = snap.data() || {}; if (e.manual) return;
+  const h = e.hotel || 'main', out = new Set(), rs = await db.collection('roles').get();
+  rs.forEach((d) => { const r = d.data() || {}; if (r.station || !(r.apps && r.apps.hr)) return; const hs = r.hotels || []; if (!hs.length || hs.includes(h)) out.add(d.id); });
+  const own = await db.collection('pushTokens').where('owner', '==', true).get(); own.forEach((d) => out.add(d.id));
+  const hn = h === 'chain' ? 'עובדי רשת' : await hotelName(h);
+  return sendTo([...out], { title: 'עובד חדש נרשם', body: `${e.name || ''}${hn ? ' · ' + hn : ''}${h === 'chain' ? '' : ' · צריך לשייך מחלקה'}`, hash: '#hr', tag: 'empnew-' + snap.id });
+});

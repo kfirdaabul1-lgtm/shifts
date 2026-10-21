@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202610211710"></script>
+<script src="i18n.js?v=202610212030"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -591,6 +591,21 @@ async function printSchedule(kind){toast(kind==='pdf'?'מכין PDF…':'מכי�
       pdf.addImage(canvas.toDataURL('image/jpeg',0.92),'JPEG',(pw-iw)/2,m,iw,ih);pdf.save(name+'.pdf')}
     toast(kind==='png'?'התמונה ירדה':'ה-PDF ירד. אפשר להדפיס אותו על דף A4 לרוחב.')}
   catch(e){toast('יצירת הקובץ נכשלה')}finally{el.remove()}}
+// managers: what every employee submitted for the shown week (marked shifts by day, max shifts, note)
+function sheetSubs(){const w=S.week,f=S.subsF||'sub',sh=Object.fromEntries(weekShifts().filter(([,s])=>deptOk(s.dept))),act=Object.keys(S.emps).filter(u=>inRoster(u)&&(!S.deptOnly||(S.emps[u].depts||[]).some(d=>deptOk(d))));
+  const sub=act.filter(u=>S.avail[u]?.sub?.[w]),nosub=act.filter(u=>!S.avail[u]?.sub?.[w]),byName=(a,b)=>empName(a).localeCompare(empName(b),'he');
+  const list=(f==='sub'?sub:f==='no'?nosub:act).slice().sort(byName);
+  const card=u=>{const a=S.avail[u]||{},at=a.sub?.[w],mx=empMaxW(u,w),ids=Object.keys(a.slots||{}).filter(id=>sh[id]).sort((x,y)=>(sh[x].date+sh[x].start).localeCompare(sh[y].date+sh[y].start));
+    const days={};ids.forEach(id=>{(days[sh[id].date]=days[sh[id].date]||[]).push(sh[id])});
+    const deps=(S.emps[u].depts||[]).map(d=>DMAP[d]?.n).filter(Boolean).join(', ');
+    return `<div class="prow" style="flex-direction:column;align-items:stretch;gap:4px"><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><b>${esc(empName(u))}</b>${at?`<span class="pill ok">הגיש ${new Date(at).toLocaleString('he-IL',{weekday:'short',day:'numeric',month:'numeric',hour:'2-digit',minute:'2-digit'})}</span>`:'<span class="pill warn">לא הגיש</span>'}</div>
+      <small class="muted">${esc(deps||'בלי מחלקה')}${at?` · סימן ${ids.length} משמרות${mx!=null?` · רוצה עד ${mx} משמרות השבוע`:''}`:''}</small>
+      ${at?(ids.length?`<div style="font-size:.88rem;line-height:1.7">${Object.keys(days).sort().map(d=>`<div><b>${DAYS[dow(d)]} ${dm(d)}:</b> ${days[d].map(s=>`${KMAP[s.kind]?.n||''} ${s.start}–${s.end}${S.dept==='all'&&myDEPTS().length>1?' · '+(DMAP[s.dept]?.n||''):''}`).join(' | ')}</div>`).join('')}</div>`:'<small style="color:var(--bad)">הגיש בלי לסמן אף משמרת (לא זמין השבוע)</small>'):''}
+      ${a.note&&at?`<small>📝 ${esc(a.note)}</small>`:''}</div>`};
+  return sheetHead('מה העובדים הגישו',`שבוע ${weekLabel(w)} · הגישו ${sub.length} מתוך ${act.length}`)+`
+  <div class="seg" role="group" style="margin-bottom:8px"><button data-act="subs-f" data-v="sub" aria-pressed="${f==='sub'}">הגישו (${sub.length})</button><button data-act="subs-f" data-v="no" aria-pressed="${f==='no'}">לא הגישו (${nosub.length})</button><button data-act="subs-f" data-v="all" aria-pressed="${f==='all'}">כולם (${act.length})</button></div>
+  ${list.length?`<div class="plist">${list.map(card).join('')}</div>`:`<p class="muted">${f==='no'?'כולם הגישו.':'אין עובדים להצגה.'}</p>`}
+  <div class="actions"><button class="btn pri" data-act="close">סגירה</button></div>`}
 function vSched(){
   const w=S.week,c=cfg(),sh=weekShifts(),act=Object.keys(S.emps).filter(inRoster);
   const submitted=act.filter(u=>S.avail[u]?.sub?.[w]).length;
@@ -611,6 +626,7 @@ function vSched(){
       ${S.deptOnly?(S.sched.published?'':'<span class="muted" style="align-self:center">מנהל המלון מפרסם את הסידור</span>'):`<button class="btn" data-act="publish">${S.sched.published?'ביטול פרסום':'פרסום לעובדים'}</button>`}
       ${S.sched.published&&sh.length?'<button class="btn" data-act="print">PDF להדפסה</button><button class="btn ghost" data-act="print-png">תמונה</button><button class="btn brass" data-act="print-share">שליחת הסידור בוואטסאפ</button>':''}
       ${isOpen&&!S.sched.published&&act.length>submitted?`<button class="btn" data-act="remind-open">תזכורת למי שלא הגיש (${act.length-submitted})</button>`:''}
+      <button class="btn" data-act="subs-open">מה העובדים הגישו (${submitted})</button>
       <button class="btn brass" data-act="send">שליחה לעובדים</button>
       ${isOpen||S.deptOnly?'':'<button class="btn" data-act="openweek">פתיחת השבוע להגשה</button>'}
       <button class="btn ghost" data-act="clear" ${S.deptOnly?'hidden':''}>${S.confirm==='clear'?'לחיצה נוספת תנקה את השיבוץ':'ניקוי שיבוץ'}</button>
@@ -2262,9 +2278,9 @@ function vProfile(){
 /* ---------- sheets ---------- */
 function renderSheet(){
   const el=$('#sheet');if(!S.sheet){el.hidden=true;el.innerHTML='';return}
-  let h='';if(S.sheet.type==='perm')h=sheetPerm();else if(S.sheet.type==='cell')h=sheetCell();else if(S.sheet.type==='emp')h=sheetEmp();else if(S.sheet.type==='send')h=sheetSend();else if(S.sheet.type==='remind')h=sheetRemind();else if(S.sheet.type==='camp')h=sheetCamp();else if(S.sheet.type==='sup')h=sheetSup();else if(S.sheet.type==='inv')h=sheetInv();else if(S.sheet.type==='stock')h=sheetStock();else if(S.sheet.type==='preq')h=sheetPreq();else if(S.sheet.type==='swap')h=sheetSwap();else if(S.sheet.type==='iospush')h=sheetIosPush();else if(S.sheet.type==='pushask')h=sheetPushAsk();else if(S.sheet.type==='srview')h=sheetSrView();else if(S.sheet.type==='bkauto')h=sheetBkAuto();else if(S.sheet.type==='metahelp')h=sheetMetaHelp();else if(S.sheet.type==='spa')h=sheetSpa();else if(S.sheet.type==='vchnew')h=sheetVchNew();else if(S.sheet.type==='vch')h=sheetVch();else if(S.sheet.type==='hk')h=sheetHk();else if(S.sheet.type==='lead')h=sheetLead();else if(S.sheet.type==='client')h=sheetClient();else if(S.sheet.type==='hkooo')h=sheetHkOoo();
+  let h='';if(S.sheet.type==='subs')h=sheetSubs();else if(S.sheet.type==='perm')h=sheetPerm();else if(S.sheet.type==='cell')h=sheetCell();else if(S.sheet.type==='emp')h=sheetEmp();else if(S.sheet.type==='send')h=sheetSend();else if(S.sheet.type==='remind')h=sheetRemind();else if(S.sheet.type==='camp')h=sheetCamp();else if(S.sheet.type==='sup')h=sheetSup();else if(S.sheet.type==='inv')h=sheetInv();else if(S.sheet.type==='stock')h=sheetStock();else if(S.sheet.type==='preq')h=sheetPreq();else if(S.sheet.type==='swap')h=sheetSwap();else if(S.sheet.type==='iospush')h=sheetIosPush();else if(S.sheet.type==='pushask')h=sheetPushAsk();else if(S.sheet.type==='srview')h=sheetSrView();else if(S.sheet.type==='bkauto')h=sheetBkAuto();else if(S.sheet.type==='metahelp')h=sheetMetaHelp();else if(S.sheet.type==='spa')h=sheetSpa();else if(S.sheet.type==='vchnew')h=sheetVchNew();else if(S.sheet.type==='vch')h=sheetVch();else if(S.sheet.type==='hk')h=sheetHk();else if(S.sheet.type==='lead')h=sheetLead();else if(S.sheet.type==='client')h=sheetClient();else if(S.sheet.type==='hkooo')h=sheetHkOoo();
   if(!h){S.sheet=null;el.hidden=true;return}
-  el.innerHTML=`<div class="panel${S.sheet.type==='srview'?' big':''}" role="dialog" aria-modal="true">${h}</div>`;el.hidden=false;
+  el.innerHTML=`<div class="panel${S.sheet.type==='srview'||S.sheet.type==='subs'?' big':''}" role="dialog" aria-modal="true">${h}</div>`;el.hidden=false;
 }
 const sheetHead=(t,s)=>`<div class="panel-h"><div><h2>${t}</h2>${s?`<p class="muted">${s}</p>`:''}</div><button class="x" data-act="close" aria-label="סגירה">×</button></div>`;
 function sheetCell(){
@@ -2983,6 +2999,8 @@ const ACT={
       S.db.doc('invoiceImgs/'+iid).set({data:invImg,hotel:h,at:now}).then(()=>S.db.doc('invoices/'+iid).set(inv)).catch(e=>toast('החשבונית לא נשמרה: '+errMsg(mapErr(e))))}
     S.srInv=null;const k=h+'|'+doc.month;S.sreps=S.sreps||{};if(S.sreps[k]&&!S.sreps[k].__err)S.sreps[k]={...S.sreps[k],[id]:doc};save('shiftReports/'+id,doc);S.drafts.sr=null;if((S.srDraft||{})[h]&&S.srDraft[h].at){S.srDraft[h]={};fdb.doc('srDrafts/'+S.uid+'__'+h).delete().catch(()=>{})}S.srMonth=doc.month;render();toast('הדוח נשלח. תודה!')},
   'sr-inv-x':()=>{S.srInv=null;render()},
+  'subs-open':()=>{S.subsF=S.subsF||'sub';S.sheet={type:'subs'};render()},
+  'subs-f':D=>{S.subsF=D.v;render()},
   'sr-view':D=>{S.confirm=null;S.sheet={type:'srview',id:D.id};render()},
   'sr-del':D=>{if(S.confirm!=='sr:'+D.id){S.confirm='sr:'+D.id;render();return}S.confirm=null;for(const k in (S.sreps||{}))if(S.sreps[k][D.id]){const c={...S.sreps[k]};delete c[D.id];S.sreps[k]=c}save('shiftReports/'+D.id,null);render();toast('הדוח נמחק')},
   'preq-open':D=>{S.drafts.pq=null;S.sheet={type:'preq',id:D.id};render()},

@@ -947,7 +947,7 @@ function vCmp(){const hs=cmpHotels();if(!hs.length)return wrap(emptyBox('אין 
   const chips=hs.length>1?`<div class="chips" style="gap:6px">${hs.map(x=>`<button class="dchip ${x===h?'':'off'}" style="--h:var(--brass)" data-act="cmp-hotel" data-h="${x}">${esc(hotelName(x))}</button>`).join('')}</div>`:'';
   const nav=`<div class="actions" style="align-items:center"><button class="btn sm" data-act="cmp-month" data-d="-1" aria-label="חודש קודם">›</button><b>${HE_MON[+m.slice(5)-1]} ${m.slice(0,4)}</b><button class="btn sm" data-act="cmp-month" data-d="1" aria-label="חודש הבא">‹</button></div>`;
   const head=`<section class="head"><div class="head-t"><h1>תלונות אורחים · ${esc(hotelName(h))}</h1>${nav}</div>${chips}</section>`;
-  if(!D)return wrap(head+'<p class="muted">טוען…</p>');if(dl&&dl.__err)return wrap(head+`<div class="notice">לא הצלחתי לטעון: ${esc(dl.__err)}</div>`);if(D.__err)return wrap(head+'<div class="notice">אין גישה לתלונות של המלון הזה.</div>');
+  if(!D)return wrap(head+'<p class="muted">טוען…</p>');if(D.__err)return wrap(head+'<div class="notice">אין גישה לתלונות של המלון הזה.</div>');
   const all=Object.entries(D).sort(([,a],[,b])=>String(b.date).localeCompare(String(a.date))||(b.createdAt||0)-(a.createdAt||0));
   const open=all.filter(([,c])=>c.status!=='done'),byRoom={},byCl={};all.forEach(([,c])=>{byRoom[c.room]=(byRoom[c.room]||0)+1;if(c.cleanerName)byCl[c.cleanerName]=(byCl[c.cleanerName]||0)+1});
   const rep=Object.entries(byRoom).filter(([,n])=>n>1).sort((a,b)=>b[1]-a[1]),topCl=Object.entries(byCl).sort((a,b)=>b[1]-a[1])[0];
@@ -2020,7 +2020,7 @@ function vHk(){const hs=hkHotels();if(!hs.length)return wrap(emptyBox('אין מ
   if(!hs.includes(S.hkH))S.hkH=hs.includes(S.hotel)?S.hotel:hs[0];const h=S.hkH,dl=hkDayD(h),d=hkToday(h),D=dl?hkSub(h,d)||null:null,full=hkFull(h),lead=hkLead(h);
   const chips=hs.length>1?`<div class="chips" style="gap:6px">${hs.map(x=>`<button class="dchip ${x===h?'':'off'}" style="--h:var(--brass)" data-act="hk-hotel" data-h="${x}">${esc(hotelName(x))}</button>`).join('')}</div>`:'';
   const head=`<div class="page-h"><div><h1>משק</h1><p class="muted">${esc(hotelName(h))} · יום ${DAYS[dow(d)]} ${dm(d)}</p></div></div>${chips}${dl&&d<todayISO()?`<div class="notice" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><span>הלוח עדיין מציג את יום ${DAYS[dow(d)]} ${dm(d)}. היום החדש נפתח רק בלחיצה על הכפתור, ואז מצבי הניקיון ו-OD עוברים ליום החדש.</span>${full?`<button class="btn pri" data-act="hk-newday" data-h="${h}">${S.confirm==='hknd:'+h?'לחיצה נוספת תפתח את היום':'מעבר ליום חדש · '+dm(todayISO())}</button>`:'<span class="muted">הקבלה או המנהל פותחים את היום החדש.</span>'}</div>`:''}`;
-  if(!D)return wrap(head+'<p class="muted">טוען…</p>');if(D.__err)return wrap(head+`<div class="notice">לא הצלחתי לטעון את החדרים: ${esc(D.__err)}</div>`);
+  if(dl&&dl.__err)return wrap(head+`<div class="notice">לא הצלחתי לטעון: ${esc(dl.__err)}</div>`);if(!D)return wrap(head+'<p class="muted">טוען…</p>');if(D.__err)return wrap(head+`<div class="notice">לא הצלחתי לטעון את החדרים: ${esc(D.__err)}</div>`);
   const R=hkRooms(h),all=R.units;
   if(!all.length)return wrap(head+emptyBox('עוד לא הוגדרו חדרים למלון הזה','בעל המערכת מגדיר את רשימת החדרים בעמוד ההרשאות, בכרטיס המלונות.'));
   if(!lead&&!S.hkBoard)return wrap(head+hkChkHTML(h,D,R)+hkWorkerHTML(h,D,R)+'<div class="actions"><button class="btn ghost" data-act="hk-board">הצגת לוח כל החדרים</button></div>');

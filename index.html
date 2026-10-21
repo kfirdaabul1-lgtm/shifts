@@ -863,7 +863,6 @@ function sheetVchNew(){const g=(k,d)=>dv('vchn',k,d),c=S.sheet.cmp||{},type=g('t
   <div class="row"><label class="f">שם האורח<input type="text" data-f="vchn.name" value="${esc(g('name',''))}"></label><label class="f">טלפון (לוואטסאפ)<input type="tel" dir="ltr" data-f="vchn.phone" value="${esc(g('phone',''))}"></label></div>
   <div class="row"><label class="f">חדר<input type="text" data-f="vchn.room" value="${esc(g('room',c.room||''))}"></label>${hs.length>1?`<label class="f">מלון<select data-f="vchn.hotel">${hs.map(h=>`<option value="${h}" ${g('hotel',c.hotel||S.hotel)===h?'selected':''}>${esc(hotelName(h))}</option>`).join('')}</select></label>`:''}</div>
   ${hotelIds().length>1?`<div class="f"><span>תקף במלונות</span><div class="chips" style="gap:6px;margin-top:4px"><button class="dchip ${(g('vh',[])||[]).length?'off':''}" data-act="vchn-vh" data-h="">כל המלונות</button>${hotelIds().map(h=>`<button class="dchip ${(g('vh',[])||[]).includes(h)?'':'off'}" style="--h:var(--brass)" data-act="vchn-vh" data-h="${h}">${esc(hotelName(h))}</button>`).join('')}</div></div>`:''}
-  <label class="f">סיבה / הערה<input type="text" data-f="vchn.reason" value="${esc(g('reason',c.note||''))}" placeholder="לא חובה"></label>
   <div class="actions"><button class="btn pri" data-act="vch-create">הנפקת שובר</button></div>`}
 function sheetVch(){const id=S.sheet.id,v=(S.vchs||{})[id];if(!v)return sheetHead('שובר','')+'<p class="muted">השובר לא נמצא.</p>';
   const st=vchStatus(v),[sn,sc]=VCH_ST[st]||[st,''],can=vchCan(v);setTimeout(()=>vchQr(id),0);

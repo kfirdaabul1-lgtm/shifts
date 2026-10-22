@@ -433,16 +433,16 @@ exports.backupWatch = functions.region(REGION).pubsub.schedule('15 9 * * *').tim
 exports.onHkCall = trig('hkCalls/{id}').onWrite(async (ch, ctx) => {
   const a = ch.before.exists ? ch.before.data() : null, b = ch.after.exists ? ch.after.data() : null;
   if (!b) return;
-  const what = HK_CALL_TXT(b);
+  const what = HK_CALL_TXT(b), where = b.kind === 'pub' ? (b.area || 'שטח ציבורי') : 'חדר ' + (b.room || '');
   if (!a && b.status === 'open' && b.to) {
-    return sendTo([b.to], { title: `קריאה למשק · חדר ${b.room || ''}`, body: what + (b.openedByName ? ` · מ${b.openedByName}` : ''), hash: '', tag: 'call-' + ctx.params.id });
+    return sendTo([b.to], { title: b.kind === 'pub' ? `קריאת שטחים ציבוריים · ${where}` : `קריאה למשק · ${where}`, body: what + (b.openedByName ? ` · מ${b.openedByName}` : ''), hash: '', tag: 'call-' + ctx.params.id });
   }
   if (a && a.status !== 'done' && b.status === 'done') {
     const st = await stationsOf(b.hotel);
-    return sendTo([...st, b.openedBy].filter((u) => u && u !== b.to), { title: `חדר ${b.room || ''} · הקריאה טופלה`, body: `${b.toName || 'העובד'} · ${what}${b.mins != null ? ` · אחרי ${b.mins} דק׳` : ''}`, hash: '#front', tag: 'calldone-' + ctx.params.id });
+    return sendTo([...st, b.openedBy].filter((u) => u && u !== b.to), { title: `${where} · הקריאה טופלה`, body: `${b.toName || 'העובד'} · ${what}${b.mins != null ? ` · אחרי ${b.mins} דק׳` : ''}`, hash: '#front', tag: 'calldone-' + ctx.params.id });
   }
 });
-const HK_CALL_N = { towels: 'מגבות לחדר', sheets: 'החלפת מצעים', wc: 'לנקות שירותים', bins: 'להחליף פחים', floor: 'לנקות רצפה', full: 'ניקוי מלא לחדר' };
+const HK_CALL_N = { towels: 'מגבות לחדר', sheets: 'החלפת מצעים', wc: 'לנקות שירותים', bins: 'להחליף פחים', floor: 'לנקות רצפה', full: 'ניקוי מלא לחדר', spill: 'ניקוי שפיכה / לכלוך', glass: 'ניקוי זכוכית / חלונות', area: 'ניקוי כללי של השטח' };
 function HK_CALL_TXT(c) { return (c.tasks || []).filter((k) => k !== 'other').map((k) => HK_CALL_N[k] || k).concat(c.note ? [c.note] : []).join(' · '); }
 
 // ---------- invoice paid from the till (shift report) → push to whoever approves expenses for that hotel ----------

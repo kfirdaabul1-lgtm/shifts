@@ -1,0 +1,20 @@
+name: Housekeeping new day
+on:
+  workflow_dispatch:
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - name: Install
+        run: cd functions && npm install --omit=dev
+      - name: Change the housekeeping day
+        env:
+          KEY: ${{ secrets.FIREBASE_DEPLOY_KEY }}
+        run: |
+          echo "$KEY" > "$RUNNER_TEMP/key.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/key.json"
+          cd functions && node hk-newday.js
+          rm -f "$RUNNER_TEMP/key.json"

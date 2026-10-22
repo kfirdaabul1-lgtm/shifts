@@ -159,7 +159,7 @@ exports.mirrorShiftReport = trig('shiftReports/{id}').onWrite(async (ch, ctx) =>
 exports.onHkAssign = trig('hk/{id}').onWrite(async (ch) => {
   if (!ch.after.exists) return;
   const b = (ch.before.exists && ch.before.data().asg) || {}, a = ch.after.data() || {}, asg = a.asg || {};
-  const grp = a.grp || {}, vip = a.vip || {}, bk = a.bk || {}, clean = a.clean || {}, pax = a.pax || {}, twin = a.twin || {}, cot = a.cot || {}, wine = a.wine || {}, bal = a.bal || {}, trt = a.trt || {};
+  const grp = a.grp || {}, vip = a.vip || {}, bk = a.bk || {}, clean = a.clean || {}, pax = a.pax || {}, twin = a.twin || {}, cot = a.cot || {}, wine = a.wine || {}, bal = a.bal || {}, trt = a.trt || {}, pri = a.pri || {};
   const per = {};
   for (const [room, uid] of Object.entries(asg)) if (uid && b[room] !== uid) (per[uid] = per[uid] || []).push(room);
   // a refresh / full refresh added to a room that was already assigned → tell its worker too
@@ -169,11 +169,18 @@ exports.onHkAssign = trig('hk/{id}').onWrite(async (ch) => {
     const hn0 = await hotelName(a.hotel);
     await Promise.all(Object.entries(trtNew).map(([u, rooms]) => sendTo([u], { title: 'Refresh לחדר', body: `${hn0 ? hn0 + ': ' : ''}` + rooms.map((r) => `חדר ${r}: ${a.trt[r] === 'full' ? 'Full refresh' : 'Refresh'}`).join(', '), hash: '#hk', tag: 'hktrt-' + u + '-' + rooms.join('-') })));
   }
+  // a room marked "handle first" (pri) that is already assigned → tell its worker right away
+  const bp = (ch.before.exists && ch.before.data().pri) || {}, priNew = {};
+  for (const [room, v] of Object.entries(pri)) if (v && !bp[room] && asg[room] && b[room] === asg[room]) (priNew[asg[room]] = priNew[asg[room]] || []).push(room);
+  if (Object.keys(priNew).length) {
+    const hn1 = await hotelName(a.hotel);
+    await Promise.all(Object.entries(priNew).map(([u, rooms]) => sendTo([u], { title: '❗ חדר דחוף · לטפל בו קודם', body: `${hn1 ? hn1 + ': ' : ''}` + rooms.map((r) => 'חדר ' + r).join(', ') + ' – חשוב לטפל לפני שאר החדרים', hash: '#hk', tag: 'hkpri-' + u + '-' + rooms.join('-') })));
+  }
   const uids = Object.keys(per); if (!uids.length) return;
   const hn = await hotelName(a.hotel);
   await Promise.all(uids.map((u) => {
-    const rooms = per[u].sort((x, y) => String(x).localeCompare(String(y), 'he', { numeric: true }));
-    const txt = rooms.map((r) => r + (vip[r] ? ' VIP' : '') + (bk[r] ? ' Booking' : '') + (grp[r] ? ' Group' : '') + (pax[r] ? ' ' + pax[r] + ' אורחים' : '') + (twin[r] ? ' Split bed' : '') + (trt[r] ? (trt[r] === 'full' ? ' Full refresh' : ' Refresh') : '') + (cot[r] ? ' Baby cot' : '') + (wine[r] ? ' יין' : '') + (bal[r] ? ' בלונים' : '') + (clean[r] === 'vd' ? ' (VD)' : '')).join(', ');
+    const rooms = per[u].sort((x, y) => (!!pri[y] - !!pri[x]) || String(x).localeCompare(String(y), 'he', { numeric: true }));
+    const txt = rooms.map((r) => r + (pri[r] ? ' ❗לטפל קודם' : '') + (vip[r] ? ' VIP' : '') + (bk[r] ? ' Booking' : '') + (grp[r] ? ' Group' : '') + (pax[r] ? ' ' + pax[r] + ' אורחים' : '') + (twin[r] ? ' Split bed' : '') + (trt[r] ? (trt[r] === 'full' ? ' Full refresh' : ' Refresh') : '') + (cot[r] ? ' Baby cot' : '') + (wine[r] ? ' יין' : '') + (bal[r] ? ' בלונים' : '') + (clean[r] === 'vd' ? ' (VD)' : '')).join(', ');
     return sendTo([u], { title: rooms.length > 1 ? `יש לך ${rooms.length} חדרים לסדר` : 'יש לך חדר לסדר', body: `${hn ? hn + ': ' : ''}חדר ${txt}`, hash: '#hk', tag: 'hk-' + u + '-' + a.date });
   }));
 });

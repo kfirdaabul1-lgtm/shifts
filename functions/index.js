@@ -162,6 +162,13 @@ exports.onHkAssign = trig('hk/{id}').onWrite(async (ch) => {
   const grp = a.grp || {}, vip = a.vip || {}, bk = a.bk || {}, clean = a.clean || {}, pax = a.pax || {}, twin = a.twin || {}, cot = a.cot || {}, wine = a.wine || {}, bal = a.bal || {}, trt = a.trt || {};
   const per = {};
   for (const [room, uid] of Object.entries(asg)) if (uid && b[room] !== uid) (per[uid] = per[uid] || []).push(room);
+  // a refresh / full refresh added to a room that was already assigned → tell its worker too
+  const bt = (ch.before.exists && ch.before.data().trt) || {}, trtNew = {};
+  for (const [room, v] of Object.entries(a.trt || {})) if (v && bt[room] !== v && asg[room] && b[room] === asg[room]) (trtNew[asg[room]] = trtNew[asg[room]] || []).push(room);
+  if (Object.keys(trtNew).length) {
+    const hn0 = await hotelName(a.hotel);
+    await Promise.all(Object.entries(trtNew).map(([u, rooms]) => sendTo([u], { title: 'Refresh לחדר', body: `${hn0 ? hn0 + ': ' : ''}` + rooms.map((r) => `חדר ${r}: ${a.trt[r] === 'full' ? 'Full refresh' : 'Refresh'}`).join(', '), hash: '#hk', tag: 'hktrt-' + u + '-' + rooms.join('-') })));
+  }
   const uids = Object.keys(per); if (!uids.length) return;
   const hn = await hotelName(a.hotel);
   await Promise.all(uids.map((u) => {

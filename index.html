@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202610221045"></script>
+<script src="i18n.js?v=202610221100"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -2183,6 +2183,16 @@ function faultRowHTML(id,f,h,full){const rec=f.room&&recurRooms(faultsOf(h).map(
     <small><b style="color:var(--bad)">פתוחה ${ageText(f.openedAt||Date.now())}</b> · נפתחה ${new Date(f.openedAt||0).toLocaleDateString('he-IL')}${f.openedByName?' · '+esc(f.openedByName):''}${f.source==='report'?' · מדוח משמרת':''}</small>
 </span>
     ${full?`<span class="actions"><button class="btn sm pri" data-act="fault-done" data-id="${id}" data-h="${h}">${S.confirm==='fd:'+id?'לחיצה נוספת תסגור':'תוקן'}</button>${maintBoss(h)?`<button class="btn sm ghost" data-act="fault-del" data-id="${id}" data-h="${h}">${S.confirm==='fx:'+id?'לחיצה נוספת תמחק':'מחיקה'}</button>`:''}</span>`:`<span class="pill warn">פתוחה ${ageText(f.openedAt||Date.now())}</span>`}</div>`}
+// maintenance: the housekeeping board, only rooms marked OOO / OD (clean status) or RES (occupancy); tap a room = new fault for it
+function maintHkHTML(h){const d=hkToday(h),D=hkSub(h,d);if(!D)return `<div class="card"><h3>חדרים במשק</h3><p class="muted">טוען…</p></div>`;if(D.__err)return '';
+  const R=hkRooms(h),f=S.mhkF||'all',cl=D.clean||{},is=(r,k)=>k==='res'?occL((D.occ||{})[r]).includes('res'):cl[r]===k;
+  const rooms=R.units.filter(r=>is(r,'ooo')||is(r,'od')||is(r,'res')),cnt=k=>rooms.filter(r=>is(r,k)).length,shown=rooms.filter(r=>f==='all'||is(r,f));
+  const fault=r=>{const x=faultsOf(h).find(([,y])=>y.status!=='done'&&String(y.room)===String(r));return x?x[1].desc||'':''};
+  const tile=r=>{const c=cl[r],o=(D.occ||{})[r];return `<button class="hk-room hk-${c||'none'}" data-act="mhk-room" data-r="${esc(r)}" title="${esc(fault(r)||'פתיחת תקלה לחדר')}"><b>${esc(r)}</b><span class="hk-c">${c&&HK_CN[c]?HK_CN[c][1]:'—'}</span>${occL(o).length?`<span class="hk-ol">${occTags(o)}</span>`:''}${c==='ooo'&&fault(r)?`<span class="hk-a">${esc(String(fault(r)).slice(0,14))}</span>`:''}</button>`};
+  const chip=(k,n)=>`<button class="hk-k ${f===k?'on':''}" data-act="mhk-f" data-v="${k}"><span>${n}</span><b>${k==='all'?rooms.length:cnt(k)}</b></button>`;
+  return `<div class="card"><h3>חדרים במשק · ${dm(d)}</h3><p class="muted" style="font-size:.85rem;margin:0 0 6px">רק חדרים שמסומנים OOO, OD או RES. לחיצה על חדר פותחת עבורו תקלה חדשה.</p>
+  <div class="hk-ks">${chip('all','הכול')}${chip('ooo','OOO · תקלה')}${chip('od','OD · תפוס')}${chip('res','RES · הזמנה')}</div>
+  ${shown.length?`<div class="hk-grid" style="margin-top:8px">${shown.map(tile).join('')}</div>`:'<p class="muted">אין כרגע חדרים כאלה.</p>'}</div>`}
 function vMaint(){const hs=scopeHs();if(!hs.length)return wrap(emptyBox('אין מלונות בהרשאה',''));if(!hs.includes(S.hotel))S.hotel=hs[0];const h=S.hotel,F=faultsSub(h);
   const chips=hs.length>1?`<div class="chips" style="gap:6px">${hs.map(x=>`<button class="dchip ${x===h?'':'off'}" style="--h:var(--brass)" data-act="gm-hotel" data-h="${x}">${esc(hotelName(x))}</button>`).join('')}</div>`:'';
   const all=faultsOf(h),open=all.filter(([,f])=>f.status!=='done').sort(([,a],[,b])=>(a.openedAt||0)-(b.openedAt||0)),late=open.filter(([,f])=>faultLate(f));
@@ -2197,7 +2207,7 @@ function vMaint(){const hs=scopeHs();if(!hs.length)return wrap(emptyBox('אין 
     <div><button class="btn pri" data-act="fault-add" data-h="${h}">פתיחת תקלה</button></div></div>`;
   const list=`<div class="card"><h3>תקלות פתוחות · ${open.length}</h3>${!F?'<p class="muted">טוען…</p>':open.length?`<div class="plist">${open.map(([id,f])=>faultRowHTML(id,f,h,true)).join('')}</div>`:'<p class="muted">אין תקלות פתוחות 🎉</p>'}</div>`;
   const closed=done.length?`<div class="card"><h3>תוקנו לאחרונה</h3><div class="plist">${done.slice(0,20).map(([,f])=>`<div class="prow"><span class="who"><b>${f.room?`חדר ${esc(f.room)} · `:''}${esc(f.desc||'')}</b><small>תוקנה ${new Date(f.doneAt||0).toLocaleDateString('he-IL')} · אחרי ${ageText(Date.now()-((f.doneAt||0)-(f.openedAt||0)))}${f.fixNote?' · '+esc(f.fixNote):''}</small></span><span class="pill ok">תוקנה</span></div>`).join('')}</div></div>`:'';
-  return wrap(head+recurCardHTML(all.map(([,f])=>f))+form+list+closed)}
+  return wrap(head+maintHkHTML(h)+recurCardHTML(all.map(([,f])=>f))+form+list+closed)}
 // shift-report faults open maintenance faults (once per hotel + room + description)
 async function faultsFromReport(h,rows,name){if(!rows.length)return;let open=[];try{open=(await S.db.collection('faults').where('hotel','==',h).where('status','==','open').get()).docs.map(d=>d.data())}catch(_){ }
   for(const r of rows){if(open.some(f=>String(f.room||'')===r.room&&String(f.desc||'').trim()===r.note))continue;
@@ -3013,6 +3023,8 @@ const ACT={
     fdb.doc('srDrafts/'+S.uid+'__'+h).set({hotel:h,by:S.uid,data,at}).then(()=>toast('הטיוטה נשמרה. הדוח עוד לא נשלח'),e=>toast('הטיוטה לא נשמרה: '+errMsg(mapErr(e))))},
   'sr-draft-del':D=>{const h=D.h;if(S.confirm!=='srd:'+h){S.confirm='srd:'+h;render();return}S.confirm=null;(S.srDraft||(S.srDraft={}))[h]={};S.drafts.sr=null;render();fdb.doc('srDrafts/'+S.uid+'__'+h).delete().then(()=>toast('הטיוטה נמחקה'),()=>{})},
   'fcmp-send':D=>frontCmpSend(D.h),
+  'mhk-f':D=>{S.mhkF=D.v;render()},
+  'mhk-room':D=>{(S.drafts.flt||(S.drafts.flt={})).room=String(D.r);render();setTimeout(()=>{const el=document.getElementById('fl_desc');if(el){el.scrollIntoView({block:'center'});el.focus()}},50)},
   'hk-chk':D=>{const h=D.h,r=String(D.r),d=hkToday(h),Dd=(S.hkDays||{})[h+'|'+d]||{},now=Date.now(),who=S.meName||S.email||'';
     S.hkDays[h+'|'+d]={...Dd,clean:{...(Dd.clean||{}),[r]:'vc'},chk:{...(Dd.chk||{}),[r]:S.uid}};render();
     fdb.doc('hk/'+hkDocId(h,d)).set({hotel:h,date:d,updatedAt:now,lastBy:S.uid,clean:{[r]:'vc'},cleanBy:{[r]:who},cleanAt:{[r]:now},chk:{[r]:S.uid},chkBy:{[r]:who},chkAt:{[r]:now}},{merge:true}).then(()=>toast(`חדר ${r} אושר · VC`),e=>{toast('השמירה נכשלה: '+errMsg(mapErr(e)));S.hkDays[h+'|'+d]=Dd;render()})},

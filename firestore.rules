@@ -431,11 +431,11 @@ service cloud.firestore {
       allow delete: if signedIn() && hkFullIn(resource.data.hotel);
     }
     match /hkday/{h} {
-      allow read: if hkFullIn(h) || hkWorkIn(h);
+      allow read: if hkFullIn(h) || hkWorkIn(h) || maintIn(h);
       allow write: if hkFullIn(h);
     }
     match /hk/{id} {
-      allow read: if signedIn() && hkWorkIn(id.split('__')[0]);
+      allow read: if signedIn() && (hkWorkIn(id.split('__')[0]) || maintIn(id.split('__')[0]));
       allow create: if request.resource.data.hotel == id.split('__')[0] && (hkFullIn(request.resource.data.hotel)
         || (hkLeadIn(request.resource.data.hotel) && request.resource.data.keys().hasOnly(['hotel', 'date', 'carried', 'lastBy', 'clean', 'cleanBy', 'cleanAt', 'start', 'done', 'doneBy', 'asg', 'asgName', 'asgAt', 'note', 'noteBy', 'noteAt', 'chk', 'chkBy', 'chkAt', 'back', 'updatedAt']))
         || (hkWorkIn(request.resource.data.hotel) && request.resource.data.keys().hasOnly(['hotel', 'date', 'carried', 'lastBy', 'clean', 'cleanBy', 'cleanAt', 'start', 'done', 'doneBy', 'note', 'noteBy', 'noteAt', 'chk', 'chkBy', 'chkAt', 'back', 'updatedAt'])));
@@ -461,7 +461,7 @@ service cloud.firestore {
     }
     // רשימת החדרים של כל מלון
     match /hkcfg/{h} {
-      allow read: if signedIn() && hkWorkIn(h);
+      allow read: if signedIn() && (hkWorkIn(h) || maintIn(h));
       allow write: if isOwner();
     }
 

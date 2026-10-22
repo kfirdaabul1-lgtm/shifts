@@ -191,7 +191,7 @@ async function hkCarry(h, today, yday) {
   let n = 0;
   for (const [r, c] of Object.entries(yc)) {
     // every room keeps yesterday's status; only VC (clean) becomes VI (clean since yesterday)
-    if (c && !cur[r]) { o.clean[r] = c === 'vc' ? 'vi' : c; o.cleanBy[r] = 'אוטומטי'; o.cleanAt[r] = now; n++; }
+    if (c && !cur[r]) { o.clean[r] = c === 'vc' ? 'vi' : c === 'oc' ? 'od' : c; o.cleanBy[r] = 'אוטומטי'; o.cleanAt[r] = now; n++; }
   }
   // OD is a clean status now, so it is carried above with the others; occupancy marks reset
   await ref.set(o, { merge: true });
@@ -223,7 +223,7 @@ exports.onFaultDone = trig('faults/{id}').onUpdate(async (ch) => {
 });
 
 // housekeeping: every cleaning update (status or "started cleaning") → the hotel's reception desk, except its own changes
-const HK_TXT = { vc: 'VC · חדר נקי', vi: 'VI · נקי מאתמול', vd: 'VD · חדר מלוכלך', od: 'OD · תפוס מלוכלך', ooo: 'OOO · תקלה תחזוקתית' };
+const HK_TXT = { vc: 'VC · חדר נקי', vi: 'VI · נקי מאתמול', vd: 'VD · חדר מלוכלך', od: 'OD · תפוס מלוכלך', oc: 'OC · תפוס נקי', ooo: 'OOO · תקלה תחזוקתית' };
 exports.onHkUpdate = trig('hk/{id}').onWrite(async (ch) => {
   if (!ch.after.exists) return;
   const b = ch.before.exists ? ch.before.data() : {}, a = ch.after.data() || {};
@@ -457,7 +457,7 @@ exports.onHkVacant = trig('hk/{id}').onWrite(async (ch) => {
   for (const [r, v] of Object.entries(bo)) if (has(v) && !has(ao[r]) && asg[r]) (per[asg[r]] = per[asg[r]] || []).push(r);
   // OD is now a clean status: OD → anything else (not by the assigned worker themself) = the room is free to clean
   const bc = ch.before.data().clean || {}, ac = a.clean || {};
-  for (const [r, v] of Object.entries(bc)) if (v === 'od' && ac[r] !== 'od' && asg[r] && a.lastBy !== asg[r] && !(per[asg[r]] || []).includes(r)) (per[asg[r]] = per[asg[r]] || []).push(r);
+  for (const [r, v] of Object.entries(bc)) if ((v === 'od' || v === 'oc') && ac[r] !== 'od' && ac[r] !== 'oc' && asg[r] && a.lastBy !== asg[r] && !(per[asg[r]] || []).includes(r)) (per[asg[r]] = per[asg[r]] || []).push(r);
   const uids = Object.keys(per); if (!uids.length) return;
   const hn = await hotelName(a.hotel);
   return Promise.all(uids.map((u) => sendTo([u], { title: per[u].length > 1 ? 'חדרים התפנו' : 'החדר התפנה', body: `${hn ? hn + ': ' : ''}חדר ${per[u].join(', ')} ריק עכשיו, אפשר לנקות`, hash: '#hk', tag: 'hkv-' + u + '-' + per[u].join('-') })));

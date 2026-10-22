@@ -277,9 +277,10 @@ const isoAdd = (iso, n) => { const d = new Date(iso + 'T12:00:00Z'); d.setUTCDat
 const weekOfISO = (iso) => isoAdd(iso, -new Date(iso + 'T12:00:00Z').getUTCDay());
 const actVal = (acts, types) => { for (const t of types) { const a = (acts || []).find((x) => x.action_type === t); if (a) return Math.round(+a.value || 0); } return 0; };
 async function metaInsights(cfg) {
-  const acc = String(cfg.adAccount || '').replace(/^act_/, '').trim(); if (!acc) return { campaigns: 0 };
-  const until = ilDate(new Date()), since = weekOfISO(isoAdd(until, -35));
-  const rows = await graphAll('act_' + acc + '/insights', cfg.token, { level: 'campaign', time_increment: '1', time_range: { since, until }, fields: 'campaign_id,campaign_name,spend,impressions,clicks,actions', limit: '500' });
+  // one or more ad accounts (one per hotel's business portfolio), comma separated
+  const accs = String(cfg.adAccount || '').split(/[^0-9]+/).filter(Boolean); if (!accs.length) return { campaigns: 0 };
+  const until = ilDate(new Date()), since = weekOfISO(isoAdd(until, -35)), rows = [];
+  for (const acc of accs) rows.push(...await graphAll('act_' + acc + '/insights', cfg.token, { level: 'campaign', time_increment: '1', time_range: { since, until }, fields: 'campaign_id,campaign_name,spend,impressions,clicks,actions', limit: '500' }));
   const by = {};
   rows.forEach((r) => {
     const w = weekOfISO(r.date_start), k = r.campaign_id + '_' + w;

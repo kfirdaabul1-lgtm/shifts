@@ -186,17 +186,25 @@ async function hkCarry(h, today, yday) {
     // every room keeps yesterday's status; only VC (clean) becomes VI (clean since yesterday)
     if (c && !cur[r]) { o.clean[r] = c === 'vc' ? 'vi' : c; o.cleanBy[r] = 'אוטומטי'; o.cleanAt[r] = now; n++; }
   }
-  // OD (occupied, 'oc' in the comma list) also carries over; the other occupancy marks reset
-  const yo = y.occ || {}, co = td.occ || {};
-  o.occ = {}; o.occBy = {}; o.occAt = {};
-  for (const [r, v] of Object.entries(yo)) if (String(v || '').split(',').includes('oc') && !co[r]) { o.occ[r] = 'oc'; o.occBy[r] = 'אוטומטי'; o.occAt[r] = now; n++; }
+  // OD is a clean status now, so it is carried above with the others; occupancy marks reset
   await ref.set(o, { merge: true });
   return n;
 }
-exports.hkNightly = functions.region(REGION).pubsub.schedule('1 0 * * *').timeZone('Asia/Jerusalem').onRun(async () => {
-  const today = ilDate(new Date()), yday = ilDate(new Date(Date.now() - 12 * 3600 * 1000));
-  // the housekeeping day now changes only when reception/managers press "מעבר ליום חדש" in the app (hkday/{hotel}), so nothing is carried here any more
-  void today; void yday; void hkCarry; return null;
+// every day at 05:00 Israel time the housekeeping day changes automatically (owner's wish): carry the clean statuses
+// (VC → VI, OD and the rest stay) from the board's current day to today and move hkday/{hotel} to today
+exports.hkNightly = functions.region(REGION).pubsub.schedule('0 5 * * *').timeZone('Asia/Jerusalem').onRun(async () => {
+  const today = ilDate(new Date());
+  const hs = await db.collection('hotels').get();
+  for (const d of hs.docs) {
+    try {
+      const ref = db.doc('hkday/' + d.id), cur = await ref.get(), from = (cur.exists && cur.data().date) || ilDate(new Date(Date.now() - 24 * 3600e3));
+      if (from >= today) continue;
+      const n = await hkCarry(d.id, today, from);
+      await ref.set({ hotel: d.id, date: today, from, by: 'auto', byName: 'אוטומטי 05:00', at: Date.now() });
+      console.log('hk day', d.id, from, '->', today, n);
+    } catch (e) { console.error('hk day', d.id, e); }
+  }
+  return null;
 });
 
 // maintenance: a fault fixed → the hotel's reception desk

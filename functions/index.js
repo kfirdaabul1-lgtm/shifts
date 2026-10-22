@@ -352,26 +352,41 @@ async function metaLeads(cfg) {
   }
   return { pages: pages.map((p) => p.name), forms, newLeads: fresh.length, leadsAt: started };
 }
-async function metaRun(full) {
-  const ref = db.doc('metacfg/main'), s = await ref.get(); if (!s.exists) return;
-  const cfg = s.data() || {}; if (!cfg.token) return;
-  const st = { ...(cfg.status || {}), at: Date.now(), ok: true, err: '', leadErr: '', insErr: '' }, up = {};
-  try { const me = await graph('me', cfg.token, { fields: 'id,name' }); st.user = me.name || me.id; }
-  catch (e) { st.ok = false; st.err = String(e.message || e); await ref.set({ status: st }, { merge: true }); return; }
-  try { const r = await metaLeads(cfg); st.pages = r.pages; st.forms = r.forms; st.newLeads = r.newLeads; st.leadsTotal = (cfg.status && cfg.status.leadsTotal || 0) + r.newLeads; up.leadsAt = r.leadsAt; }
+// every connection (one per hotel's business portfolio) runs on its own; legacy single token = connection 'main'
+function metaConnList(cfg) {
+  const out = { ...(cfg.conns || {}) };
+  if (cfg.token && !out.main) out.main = { name: 'חיבור 1', token: cfg.token, adAccount: cfg.adAccount || '' };
+  return Object.entries(out).filter(([, x]) => x && x.token);
+}
+async function metaRunOne(cfg, id, conn, full) {
+  const rt = (cfg.cst && cfg.cst[id]) || (id === 'main' ? { status: cfg.status, leadsAt: cfg.leadsAt, insAt: cfg.insAt } : {}) || {};
+  const prev = rt.status || {}, st = { ...prev, at: Date.now(), ok: true, err: '', leadErr: '', insErr: '' }, out = { leadsAt: rt.leadsAt || 0, insAt: rt.insAt || 0 };
+  const c = { token: conn.token, adAccount: conn.adAccount, leadsAt: rt.leadsAt };
+  try { const me = await graph('me', c.token, { fields: 'id,name' }); st.user = me.name || me.id; }
+  catch (e) { st.ok = false; st.err = String(e.message || e); return { ...out, status: st }; }
+  try { const r = await metaLeads(c); st.pages = r.pages; st.forms = r.forms; st.newLeads = r.newLeads; st.leadsTotal = (prev.leadsTotal || 0) + r.newLeads; out.leadsAt = r.leadsAt; }
   catch (e) { st.leadErr = String(e.message || e); }
-  if (full || !cfg.insAt || Date.now() - cfg.insAt > 3 * 3600e3) {
-    try { const r = await metaInsights(cfg); st.campaigns = r.campaigns; st.reports = r.reports; up.insAt = Date.now(); }
-    catch (e) { st.insErr = String(e.message || e); up.insAt = Date.now(); }
+  if (full || !rt.insAt || Date.now() - rt.insAt > 3 * 3600e3) {
+    try { const r = await metaInsights(c); st.campaigns = r.campaigns; st.reports = r.reports; }
+    catch (e) { st.insErr = String(e.message || e); }
+    out.insAt = Date.now();
   }
   st.ok = !st.leadErr && !st.insErr;
-  await ref.set({ ...up, status: st }, { merge: true });
+  return { ...out, status: st };
 }
-exports.metaPoll = functions.region(REGION).runWith({ timeoutSeconds: 300 }).pubsub.schedule('every 15 minutes').onRun(() => metaRun(false));
-exports.onMetaCfg = functions.region(REGION).runWith({ timeoutSeconds: 300 }).firestore.document('metacfg/main').onWrite(async (ch) => {
+async function metaRun(full) {
+  const ref = db.doc('metacfg/main'), s = await ref.get(); if (!s.exists) return;
+  const cfg = s.data() || {}, list = metaConnList(cfg); if (!list.length) return;
+  const cst = {};
+  for (const [id, conn] of list) { try { cst[id] = await metaRunOne(cfg, id, conn, full); } catch (e) { cst[id] = { status: { at: Date.now(), ok: false, err: String(e.message || e) } }; } }
+  await ref.set({ cst }, { merge: true });
+}
+exports.metaPoll = functions.region(REGION).runWith({ timeoutSeconds: 540 }).pubsub.schedule('every 15 minutes').onRun(() => metaRun(false));
+exports.onMetaCfg = functions.region(REGION).runWith({ timeoutSeconds: 540 }).firestore.document('metacfg/main').onWrite(async (ch) => {
   const a = ch.before.exists ? ch.before.data() : {}, b = ch.after.exists ? ch.after.data() : null;
-  if (!b || !b.token) return;
-  if (a.token === b.token && a.adAccount === b.adAccount && a.syncReq === b.syncReq) return; // our own status writes
+  if (!b) return;
+  const key = (x) => JSON.stringify([x.token || '', x.adAccount || '', x.syncReq || 0, Object.entries(x.conns || {}).map(([k, v]) => [k, v && v.token, v && v.adAccount]).sort()]);
+  if (key(a) === key(b)) return; // our own status writes
   return metaRun(true);
 });
 

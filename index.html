@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202610221235"></script>
+<script src="i18n.js?v=202610221245"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -2523,20 +2523,22 @@ function setup() {
 /* ---------- Meta (Facebook / Instagram) connection: metacfg/main {token, adAccount, syncReq, status} — owner only; functions metaPoll/onMetaCfg do the work ---------- */
 function metaCfgLoad(){if(!S.isOwner||S.metaLive)return;S.metaLive=true;
   fdb.doc('metacfg/main').onSnapshot(d=>{S.metaCfg=d.exists?d.data():null;render()},()=>{S.metaCfg=null;render()})}
+// several Meta connections (one per hotel's business portfolio): metacfg/main.conns {id:{name, token, adAccount}}, runtime per connection in cst {id:{status, leadsAt, insAt}}
+// (an older single connection lives in the top-level token/adAccount/status and shows as connection 'main')
+function metaConns(c){c=c||{};const out={...(c.conns||{})};if(c.token&&!out.main)out.main={name:'חיבור 1',token:c.token,adAccount:c.adAccount||''};return out}
+const metaStat=(c,id)=>((c&&c.cst&&c.cst[id]&&c.cst[id].status)||(id==='main'&&c&&c.status)||{});
 function metaCfgHTML(){metaCfgLoad();const c=S.metaCfg;if(c===undefined)return `<div class="card"><h3>חיבור Meta (פייסבוק ואינסטגרם)</h3><p class="muted">טוען…</p></div>`;
-  const st=(c&&c.status)||{},has=!!(c&&c.token),when=t=>t?new Date(t).toLocaleString('he-IL',{dateStyle:'short',timeStyle:'short'}):'';
-  const stat=!has?'<p class="muted" style="font-size:.9rem">עוד לא מחובר.</p>':!st.at?'<div class="notice">נשמר. בודק את החיבור… (עד דקה)</div>'
-    :st.err?`<div class="notice bad">החיבור נכשל: ${esc(st.err)}</div>`
-    :`<p style="font-size:.9rem;line-height:1.8;margin:6px 0">✅ מחובר${st.user?` כ-<b>${esc(st.user)}</b>`:''} · בדיקה אחרונה ${when(st.at)}<br>
-      דפים: ${(st.pages||[]).length?esc((st.pages||[]).join(', ')):'<span class="muted">אין דפים משויכים</span>'} · טפסי לידים: ${+st.forms||0}<br>
-      לידים שנכנסו מ-Meta: <b>${+st.leadsTotal||0}</b> · קמפיינים בחודש האחרון: <b>${+st.campaigns||0}</b></p>
-      ${st.leadErr?`<div class="notice bad">לידים: ${esc(st.leadErr)}</div>`:''}${st.insErr?`<div class="notice bad">נתוני מודעות: ${esc(st.insErr)}</div>`:''}`;
-  const d=S.drafts.meta||{};
-  return `<div class="card"><h3>חיבור Meta (פייסבוק ואינסטגרם)</h3><p class="muted" style="font-size:.85rem">לידים מטפסי המודעות נכנסים לבד ל"לידים ומכירות" (בדיקה כל 15 דקות) עם שם הקמפיין, ומי שמטפל באירועים מקבל התראה. נתוני המודעות (הוצאה, חשיפות, קליקים, לידים) נכנסים לבד לדוחות השבועיים בסושיאל מדיה.</p>
-  ${stat}
-  <label class="f">מפתח גישה של משתמש המערכת (Token)<input type="password" dir="ltr" autocomplete="off" data-f="meta.token" value="${esc(d.token??'')}" placeholder="${has?'שמור. מדביקים רק כדי להחליף':'EAA…'}"></label>
-  <label class="f">מספרי חשבונות המודעות (Ad account ID). כמה חשבונות מפרידים בפסיק<input type="text" dir="ltr" data-f="meta.adAccount" value="${esc(d.adAccount??(c&&c.adAccount)??'')}" placeholder="למשל 1234567890, 9876543210"></label>
-  <div class="actions"><button class="btn pri" data-act="meta-save">שמירה וחיבור</button>${has?`<button class="btn" data-act="meta-sync">סנכרון עכשיו</button><button class="btn ghost" data-act="meta-off">${S.confirm==='metaoff'?'לחיצה נוספת תנתק':'ניתוק'}</button>`:''}<button class="btn ghost" data-act="meta-help">איך משיגים את המפתח?</button></div></div>`}
+  const when=t=>t?new Date(t).toLocaleString('he-IL',{dateStyle:'short',timeStyle:'short'}):'',C=metaConns(c),ids=Object.keys(C).sort();if(S.metaNew&&!ids.includes(S.metaNew))ids.push(S.metaNew);
+  const block=id=>{const x=C[id]||{},st=metaStat(c,id),has=!!x.token,g=(k,dflt)=>dv('mc_'+id,k,dflt);
+    const stat=!has?'':!st.at?'<div class="notice">נשמר. בודק את החיבור… (עד דקה)</div>':st.err?`<div class="notice bad">החיבור נכשל: ${esc(st.err)}</div>`
+      :`<p style="font-size:.88rem;line-height:1.8;margin:6px 0">✅ מחובר${st.user?` כ-<b>${esc(st.user)}</b>`:''} · בדיקה אחרונה ${when(st.at)}<br>דפים: ${(st.pages||[]).length?esc((st.pages||[]).join(', ')):'<span class="muted">אין דפים משויכים</span>'} · טפסי לידים: ${+st.forms||0}<br>לידים שנכנסו: <b>${+st.leadsTotal||0}</b> · קמפיינים בחודש האחרון: <b>${+st.campaigns||0}</b></p>${st.leadErr?`<div class="notice bad">לידים: ${esc(st.leadErr)}</div>`:''}${st.insErr?`<div class="notice bad">נתוני מודעות: ${esc(st.insErr)}</div>`:''}`;
+    return `<div class="card" style="background:var(--sunk);border:0"><div class="row" style="align-items:flex-end"><label class="f">שם החיבור (למשל שם המלון)<input type="text" data-f="mc_${id}.name" value="${esc(g('name',x.name||''))}" placeholder="למשל The Gutman"></label></div>${stat}
+      <label class="f">מפתח גישה של משתמש המערכת (Token)<input type="password" dir="ltr" autocomplete="off" data-f="mc_${id}.token" value="${esc(g('token',''))}" placeholder="${has?'שמור. מדביקים רק כדי להחליף':'EAA…'}"></label>
+      <label class="f">מספרי חשבונות המודעות (Ad account ID). כמה חשבונות מפרידים בפסיק<input type="text" dir="ltr" data-f="mc_${id}.adAccount" value="${esc(g('adAccount',x.adAccount||''))}" placeholder="למשל 1234567890"></label>
+      <div class="actions"><button class="btn pri" data-act="meta-save" data-id="${id}">${has?'שמירה':'שמירה וחיבור'}</button>${has?`<button class="btn ghost" data-act="meta-off" data-id="${id}">${S.confirm==='metaoff:'+id?'לחיצה נוספת תנתק':'ניתוק'}</button>`:''}</div></div>`};
+  return `<div class="card"><h3>חיבור Meta (פייסבוק ואינסטגרם)</h3><p class="muted" style="font-size:.85rem">לידים מטפסי המודעות נכנסים לבד ל"לידים ומכירות" (בדיקה כל 15 דקות) עם שם הקמפיין, ומי שמטפל באירועים מקבל התראה. נתוני המודעות נכנסים לבד לדוחות השבועיים בסושיאל מדיה. אפשר חיבור נפרד לכל מלון (לכל Business portfolio מפתח משלו).</p>
+  ${ids.length?ids.map(block).join(''):'<p class="muted" style="font-size:.9rem">עוד לא מחובר.</p>'}
+  <div class="actions"><button class="btn" data-act="meta-new">+ ${ids.length?'חיבור נוסף (מלון נוסף)':'חיבור ראשון'}</button>${ids.some(id=>C[id]&&C[id].token)?'<button class="btn" data-act="meta-sync">סנכרון עכשיו</button>':''}<button class="btn ghost" data-act="meta-help">איך משיגים את המפתח?</button></div></div>`}
 function sheetMetaHelp(){return sheetHead('חיבור Meta · הוראות','הגדרה חד־פעמית, בערך 15 דקות, עדיף ממחשב.')+`
   <ol style="padding-inline-start:20px;line-height:1.9;margin:0">
    <li>נכנסים ל-<a href="https://business.facebook.com/settings" target="_blank" rel="noopener"><b>business.facebook.com/settings</b></a> (הגדרות העסק) עם החשבון שמנהל את הדף ואת חשבון המודעות.</li>
@@ -2987,11 +2989,15 @@ const ACT={
     for(const [rid,r] of lines){const doc={...r,status:'ordered',orderedAt:Date.now(),handledBy:S.uid};S.preqAll[h]={...S.preqAll[h],[rid]:doc};save('purchaseReqs/'+rid,doc)}render();toast(`סומן שהוזמן · ${lines.length} פריטים`)},
   'backup-now':()=>backupNow(),
   'meta-help':()=>{S.sheet={type:'metahelp'};render()},
-  'meta-save':async()=>{const d=S.drafts.meta||{},c=S.metaCfg||{},token=String(d.token??'').trim()||c.token||'',acc=String(d.adAccount??c.adAccount??'').replace(/act_/gi,'').split(/[^0-9]+/).filter(Boolean).join(',');
-    if(!token){toast('צריך להדביק את המפתח');return}if(!/^EA/.test(token)&&!c.token){toast('המפתח אמור להתחיל ב-EAA');return}
-    try{await fdb.doc('metacfg/main').set({token,adAccount:acc,syncReq:Date.now(),by:S.uid,status:{}},{merge:true});S.drafts.meta=null;render();toast('נשמר. החיבור נבדק עכשיו')}catch(e){toast('לא הצלחתי לשמור: '+errMsg(mapErr(e)))}},
+  'meta-new':()=>{S.metaNew='c'+Date.now().toString(36);render()},
+  'meta-save':async D=>{const id=D.id,d=S.drafts['mc_'+id]||{},c=S.metaCfg||{},C=metaConns(c),x=C[id]||{},token=String(d.token??'').trim()||x.token||'',acc=String(d.adAccount??x.adAccount??'').replace(/act_/gi,'').split(/[^0-9]+/).filter(Boolean).join(','),name=String(d.name??x.name??'').trim();
+    if(!token){toast('צריך להדביק את המפתח');return}if(!/^EA/.test(token)&&!x.token){toast('המפתח אמור להתחיל ב-EAA');return}
+    const FV=firebase.firestore.FieldValue,conns={...C,[id]:{name,token,adAccount:acc}},up={conns,syncReq:Date.now(),by:S.uid};
+    if(c.token){up.token=FV.delete();up.adAccount=FV.delete();up.cst={...(c.cst||{}),main:{status:c.status||{},leadsAt:c.leadsAt||0,insAt:c.insAt||0}}}
+    try{await fdb.doc('metacfg/main').set(up,{merge:true});S.drafts['mc_'+id]=null;if(S.metaNew===id)S.metaNew='';render();toast('נשמר. החיבור נבדק עכשיו')}catch(e){toast('לא הצלחתי לשמור: '+errMsg(mapErr(e)))}},
   'meta-sync':async()=>{try{await fdb.doc('metacfg/main').set({syncReq:Date.now()},{merge:true});toast('מסנכרן… התוצאה תופיע כאן תוך דקה')}catch(e){toast('לא הצלחתי: '+errMsg(mapErr(e)))}},
-  'meta-off':async()=>{if(S.confirm!=='metaoff'){S.confirm='metaoff';render();return}S.confirm=null;try{await fdb.doc('metacfg/main').delete();toast('Meta נותק')}catch(e){toast('לא הצלחתי: '+errMsg(mapErr(e)))}},
+  'meta-off':async D=>{const id=D.id;if(S.confirm!=='metaoff:'+id){S.confirm='metaoff:'+id;render();return}S.confirm=null;const c=S.metaCfg||{},FV=firebase.firestore.FieldValue;
+    try{if(id==='main'&&c.token)await fdb.doc('metacfg/main').update({token:FV.delete(),adAccount:FV.delete(),status:FV.delete()});else await fdb.doc('metacfg/main').update({['conns.'+id]:FV.delete(),['cst.'+id]:FV.delete()});toast('החיבור נותק')}catch(e){toast('לא הצלחתי: '+errMsg(mapErr(e)))}},
   'bk-auto':async()=>{if(!(S.bkCfg&&S.bkCfg.key)){const key=bkKey();try{await fdb.doc('backupcfg/main').set({key,createdAt:Date.now(),by:S.uid},{merge:true});S.bkCfg={...(S.bkCfg||{}),key}}catch(e){toast('לא הצלחתי לשמור: '+errMsg(mapErr(e)));return}}S.sheet={type:'bkauto'};render()},
   'bk-rekey':async()=>{if(S.confirm!=='bkrekey'){S.confirm='bkrekey';render();return}S.confirm=null;const key=bkKey();try{await fdb.doc('backupcfg/main').set({key,createdAt:Date.now(),by:S.uid},{merge:true});S.bkCfg={...(S.bkCfg||{}),key};S.sheet={type:'bkauto'};render();toast('המפתח הוחלף. המפתח הישן כבר לא עובד, צריך להדביק את הקוד החדש בסקריפט')}catch(e){toast('לא הצלחתי לשמור: '+errMsg(mapErr(e)))}},
   'bk-copy':async()=>{const t=bkScript(S.bkCfg.key);try{await navigator.clipboard.writeText(t);toast('הקוד הועתק')}catch(_){const ta=$('#bk_code');if(ta){ta.focus();ta.select()}toast('סמנו את הקוד והעתיקו ידנית')}},

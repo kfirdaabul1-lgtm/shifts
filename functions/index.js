@@ -324,6 +324,27 @@ function metaLeadDoc(m, form, pageName) {
     metaLeadId: m.id, metaForm: form.id, createdAt: m.created_time ? Date.parse(m.created_time) || now : now, createdBy: 'meta', updatedAt: now,
   };
 }
+// quote validity: createdAt + validDays. Two days before it ends, remind everyone with the events app (09:00 Israel).
+exports.quoteExpiry = functions.region(REGION).pubsub.schedule('0 9 * * *').timeZone('Asia/Jerusalem').onRun(async () => {
+  const today = ilDate(new Date()), target = isoAdd(today, 2);
+  const qs = await db.collection('quotes').get(), due = [];
+  qs.forEach((d) => {
+    const q = d.data() || {};
+    if (q.kind === 'group' || q.status === 'approved' || q.status === 'declined') return;
+    const c = String(q.createdAt || '').slice(0, 10); if (!/^\d{4}-\d{2}-\d{2}$/.test(c)) return;
+    const vd = Number(q.validDays) || 14;
+    if (isoAdd(c, vd) === target) due.push({ id: d.id, ...q });
+  });
+  if (!due.length) return null;
+  const people = await eventsPeople();
+  const dm = (iso) => (iso ? iso.slice(8, 10) + '/' + iso.slice(5, 7) : '');
+  await Promise.all(due.map((q) => sendTo(people, {
+    title: `הצעה #${q.num || ''} פגה בעוד יומיים`,
+    body: `${(q.client && q.client.name) || 'ללא שם'}${q.event && q.event.date ? ' · אירוע ' + dm(q.event.date) : ''} · ההצעה בתוקף עד ${dm(target)}. כדאי לחזור ללקוח.`,
+    hash: 'events.html#q=' + q.id, tag: 'qexp-' + q.id,
+  })));
+  return null;
+});
 async function eventsPeople() {
   const out = new Set(), rs = await db.collection('roles').get();
   rs.forEach((d) => { const r = d.data() || {}; if (!r.station && r.apps && r.apps.events) out.add(d.id); });

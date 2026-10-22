@@ -1,4 +1,4 @@
-<!doctype html><html lang="he" dir="rtl"><head><meta name="theme-color" content="#1f5f6b"><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style><script src="i18n.js?v=202610221415"></script></head><body>
+<!doctype html><html lang="he" dir="rtl"><head><meta name="theme-color" content="#1f5f6b"><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style><script src="i18n.js?v=202610221430"></script></head><body>
 <style>
 .evtop{background:var(--surface);border-bottom:1px solid var(--line)}
 .evtop-in{max-width:1240px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:10px;padding-block:6px;padding-left:max(10px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
@@ -453,7 +453,7 @@ table.ctable{border-collapse:collapse;width:100%;min-width:620px;font-size:14px;
           </div>
           <label class="f">הערה בדרישה<input id="prNote" placeholder="לדוגמה: מקדמה לשריון התאריך"></label>
           <div class="meta" id="prSum" style="font-size:13px;color:var(--muted);margin:2px 0 8px"></div>
-          <div class="actions"><button class="btn" id="prPdf">PDF דרישת תשלום</button><a class="btn" id="prWa" href="#" target="_blank" rel="noopener">שליחה בוואטסאפ</a><button class="btn ghost" id="prCopy">העתק נוסח</button></div>
+          <div class="actions"><button class="btn" id="prPdf">PDF דרישת תשלום</button><a class="btn" id="prWa" href="#" target="_blank" rel="noopener">שליחה בוואטסאפ</a><a class="btn" id="prOl" href="#" target="_blank" rel="noopener">שליחה ב-Outlook</a><a class="btn" id="prGm" href="#" target="_blank" rel="noopener">שליחה ב-Gmail</a><button class="btn ghost" id="prCopy">העתק נוסח</button></div>
           <div id="prList"></div>
         </div>
         <div style="position:absolute;left:-20000px;top:0;width:794px" aria-hidden="true"><div class="paperwrap"><div class="doc" id="payDoc"></div></div></div>
@@ -465,6 +465,7 @@ table.ctable{border-collapse:collapse;width:100%;min-width:620px;font-size:14px;
           <button class="btn" id="btnPdf">הורד PDF</button>
           <a class="btn" id="btnWa" href="#" target="_blank" rel="noopener">שלח בוואטסאפ</a>
           <a class="btn" id="btnGmail" href="#" target="_blank" rel="noopener">שלח ב-Gmail</a>
+          <a class="btn" id="btnOutlook" href="#" target="_blank" rel="noopener">שלח ב-Outlook</a>
           <button class="btn ghost" id="btnCopy">העתק נוסח הודעה</button>
         </div>
         <div class="meta" id="sendNote" style="font-size:13px;color:var(--muted)"></div>
@@ -1284,6 +1285,7 @@ function renderPayReq(){
   $('#prAmtL').hidden=$('#prMode').value!=='part';
   const amt=prAmount(),bal=Math.max(0,balance(cur));
   $('#prSum').textContent=bal>0.5?`יתרה פתוחה: ${money(bal)} · הדרישה: ${money(amt)}`:'אין יתרה פתוחה בהצעה הזו.';
+  {const su=`דרישת תשלום ${prNum()} – ${venueOf(cur.event.venue).name}`,t=prText();$('#prOl').href=olLink(cur.client.email,su,t);$('#prGm').href=`https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(cur.client.email||'')}&su=${encodeURIComponent(su)}&body=${encodeURIComponent(t)}`}
   $('#prWa').href=`https://wa.me/${waPhone(cur.client.phone)}?text=${encodeURIComponent(prText())}`;
   const rs=cur.payReqs||[];
   $('#prList').innerHTML=rs.length?`<div class="totals" style="margin-top:10px">${rs.slice().reverse().map(r=>`<div><span>דרישה ${esc(r.num||'')} · ${fmtDate(String(r.at||'').slice(0,10))}${r.due?' · עד '+fmtDate(r.due):''}${r.note?' · '+esc(r.note):''}</span><span>${money(r.amount)}</span></div>`).join('')}</div>`:'';
@@ -1307,6 +1309,7 @@ async function prRecord(){
 ['prMode','prAmt','prDue','prNote'].forEach(id=>$('#'+id).addEventListener('input',renderPayReq));
 $('#prMode').addEventListener('change',renderPayReq);
 $('#prWa').addEventListener('click',e=>{if(!prCheck()){e.preventDefault();return}if(!cur.client.phone){e.preventDefault();toast('הזן טלפון של הלקוח');$('#cPhone').focus();return}prRecord()});
+['prOl','prGm'].forEach(id=>$('#'+id).addEventListener('click',e=>{if(!prCheck()){e.preventDefault();return}if(!cur.client.email){e.preventDefault();toast('הזן אימייל של הלקוח');$('#cEmail').focus();return}prRecord()}));
 $('#prCopy').addEventListener('click',async()=>{if(!prCheck())return;try{await navigator.clipboard.writeText(prText());toast('הנוסח הועתק')}catch(_){toast('ההעתקה לא הצליחה')}prRecord()});
 $('#prPdf').addEventListener('click',async e=>{
   if(!prCheck())return;
@@ -1331,12 +1334,15 @@ function msgText(){
   const where=v.name+(q.event.area?` (${q.event.area})`:'');
   return `שלום ${q.client.name||''},\n\n${isOrder(q)?'מצורפת הזמנת האירוע':'תודה על הפנייה! מצורפת הצעת מחיר'}${q.num?` מס' ${q.num}`:''} ל${q.event.type} ב${where}${q.event.date?(evDays(q.event)>1?`, בתאריכים ${evDateTxt(q.event)}`:`, בתאריך ${fmtDate(q.event.date)}`):''}.\n\nמספר אורחים: ${q.event.guests||0}\nסה״כ: ${money(c.total)} כולל מע״מ\n${isOrder(q)?'האירוע אושר ושוריין, תודה!':`ההצעה בתוקף עד ${fmtDate(addDays(q.createdAt||today(),q.validDays))}.`}${(()=>{const ms=quoteMenus(q);const ex=ms.map(m=>m.subtitle||m.title);if(q.contract&&q.contract.text)ex.push('החוזה');return ex.length?`\nמצורפים גם: ${ex.join(', ')}.`:''})()}${signLink?`\n\nלצפייה בהצעה ולאישור בחתימה דיגיטלית:\n${signLink}`:''}\n\nנשמח לענות על כל שאלה,\n${b.contact||b.name||''}${b.phone?'\n'+b.phone:''}`.trim();
 }
+// Outlook on the web compose window (work/school accounts; personal accounts are redirected by Microsoft)
+const olLink=(to,su,body)=>`https://outlook.office.com/mail/deeplink/compose?to=${encodeURIComponent(to||'')}&subject=${encodeURIComponent(su)}&body=${encodeURIComponent(body)}`;
 function waPhone(p){let d=String(p||'').replace(/\D/g,'');if(d.startsWith('0'))d='972'+d.slice(1);return d}
 function updateLinks(){
   const t=msgText();const ph=waPhone(cur.client.phone);
   $('#btnWa').href=`https://wa.me/${ph}?text=${encodeURIComponent(t)}`;
   const su=`הצעת מחיר${cur.num?' '+cur.num:''} – ${venueOf(cur.event.venue).name}`;
   $('#btnGmail').href=`https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(cur.client.email||'')}&su=${encodeURIComponent(su)}&body=${encodeURIComponent(t)}`;
+  $('#btnOutlook').href=olLink(cur.client.email,su,t);
 }
 let draftT;
 function refresh(skipItems){renderBizLine();renderClash();renderContractDoc();renderContractPick();renderAuthor();watchHistory();renderTotals();renderPayments();renderPayReq();renderDoc();renderMenuDoc();renderMenuPick();updateLinks();scheduleSignLink();renderSignUI();clearTimeout(draftT);draftT=setTimeout(()=>lsSet('quoteDraft',cur),400)}
@@ -1406,6 +1412,7 @@ $('#btnSave').addEventListener('click',async e=>{
 $('#btnReset').addEventListener('click',()=>{cur=blankQuote();viewingVer=null;qkOpen=false;autoContract();fillForm();toast('נפתחה הצעה ריקה')});
 async function markSent(){if(cur.id&&cur.status==='draft'){cur.status='sent';try{await saveQuote(cur,'sent');renderAuthor()}catch(e){}}}
 $('#btnWa').addEventListener('click',e=>{if(!cur.client.phone){e.preventDefault();toast('הזן טלפון של הלקוח כדי לשלוח בוואטסאפ');$('#cPhone').focus();return}markSent()});
+$('#btnOutlook').addEventListener('click',e=>{if(!cur.client.email){e.preventDefault();toast('הזן אימייל של הלקוח כדי לשלוח במייל');$('#cEmail').focus();return}markSent()});
 $('#btnGmail').addEventListener('click',e=>{if(!cur.client.email){e.preventDefault();toast('הזן אימייל של הלקוח כדי לשלוח במייל');$('#cEmail').focus();return}markSent()});
 $('#btnCopy').addEventListener('click',async()=>{
   const t=msgText();

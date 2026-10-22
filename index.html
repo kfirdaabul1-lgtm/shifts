@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202610221330"></script>
+<script src="i18n.js?v=202610221345"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1530,7 +1530,7 @@ function vGm(){const hs=scopeHs();if(!hs.length)return wrap(emptyBox('אין מ�
   const toApprove=invs.filter(([,v])=>invStatus(v)==='open');
   const items=Object.entries(G.stock||{}),low=items.filter(([,x])=>isLow(x)),preqs=Object.entries(G.preqs||{}).filter(([,r])=>r.status==='pending');
   const sreqs=Object.entries(G.reqs||{}).filter(([,r])=>r.status==='pending').sort(([,a],[,b])=>(a.createdAt||0)-(b.createdAt||0));
-  const evs=(G.quotes||[]).filter(q=>q.status!=='declined'&&q.event&&q.event.date>=w&&q.event.date<=addDays(w,6)&&evForHotel(q,h)).sort((a,b)=>String(a.event.date+(a.event.start||'')).localeCompare(String(b.event.date+(b.event.start||''))));
+  const evs=(G.quotes||[]).filter(q=>q.status!=='declined'&&q.event&&q.event.date&&q.event.date<=addDays(w,6)&&evEndD(q.event)>=w&&evForHotel(q,h)).sort((a,b)=>String(a.event.date+(a.event.start||'')).localeCompare(String(b.event.date+(b.event.start||''))));
   const nav=`<div class="actions" style="align-items:center"><button class="btn sm" data-act="gm-month" data-d="-1" aria-label="חודש קודם">›</button><b>${monLabel(M)}</b><button class="btn sm" data-act="gm-month" data-d="1" aria-label="חודש הבא">‹</button></div>`;
   const chips=hs.length>1?`<div class="chips" style="gap:6px">${hs.map(x=>`<button class="dchip ${x===h?'':'off'}" style="--h:var(--brass)" data-act="gm-hotel" data-h="${x}">${esc(hotelName(x))}</button>`).join('')}</div>`:'';
   const pendN=preqs.length+sreqs.length+toApprove.length;
@@ -1684,7 +1684,7 @@ function briefText(h,d,daily,evs,crew){const DAILY=dailyRows(h);return `בריף
 function vBrief(){const hs=scopeHs();if(!hs.length)return wrap(emptyBox('אין מלונות בהרשאה','בעל המערכת יכול להוסיף לך מלון בעמוד ההרשאות.'));
   if(!hs.includes(S.hotel))S.hotel=hs[0];const h=S.hotel,d=S.briefDate||(S.briefDate=todayISO()),B=briefLoad(h,d);
   const sched=B.sched||{},daily=(sched.daily||{})[d]||{},ready=B.shifts&&B.sched;
-  const evs=(S.bQuotes||[]).filter(q=>q.status!=='declined'&&q.event&&q.event.date===d&&evForHotel(q,h)).sort((a,b)=>String(a.event.start||'').localeCompare(String(b.event.start||'')));
+  const evs=(S.bQuotes||[]).filter(q=>q.status!=='declined'&&q.event&&q.event.date&&q.event.date<=d&&evEndD(q.event)>=d&&evForHotel(q,h)).sort((a,b)=>String(a.event.start||'').localeCompare(String(b.event.start||'')));
   const rq=B.reqs||[],rqExt={};for(const r of rq)if(r.type==='extend')(rqExt[r.shift]||(rqExt[r.shift]={}))[r.uid]=r.newEnd;
   const crewMap={};for(const [id,s] of Object.entries(B.shifts||{})){if(!(+s.need))continue;let a=((sched.assign||{})[id]||[]).filter(u=>!rq.some(r=>r.type!=='extend'&&((r.from===id&&r.uid===u)||(r.type==='swap'&&r.to&&r.to===id&&r.peer===u))));
     for(const r of rq)if(r.type!=='extend'){if(r.to===id&&!a.includes(r.uid))a=[...a,r.uid];if(r.type==='swap'&&r.from===id&&r.peer&&!a.includes(r.peer))a=[...a,r.peer]}
@@ -1741,7 +1741,7 @@ function vFront(){const hs=scopeHs();if(!hs.length)return wrap(emptyBox('אין 
   const nav=`<div class="actions" style="align-items:center"><button class="btn sm" data-act="week" data-d="-7" aria-label="שבוע קודם">›</button><b class="mono">${weekLabel(w)}</b><button class="btn sm" data-act="week" data-d="7" aria-label="שבוע הבא">‹</button></div>`;
   const head=`<section class="head"><div class="head-t"><h1>קבלה · ${esc(hotelName(h))}</h1>${nav}</div>${chips}</section>`;
   const daily=`<div class="card"><h3>10days</h3><p class="muted" style="font-size:.85rem">מקלידים לכל יום כמה צ׳ק אין, צ׳ק אאוט, ארוחות בוקר, ארוחות ערב ורפרש, ולוחצים "שליחה". הנתונים עוברים לבריף היומי ולמנהלים.</p>${dailyTable(true)}<div class="actions" style="margin-top:10px"><button class="btn pri" data-act="daily-send">שליחה</button></div></div>`;
-  const evs=(S.bQuotes||[]).filter(q=>q.status!=='declined'&&q.event&&q.event.date>=w&&q.event.date<=addDays(w,6)&&evForHotel(q,h)).sort((a,b)=>String(a.event.date+(a.event.start||'')).localeCompare(String(b.event.date+(b.event.start||''))));
+  const evs=(S.bQuotes||[]).filter(q=>q.status!=='declined'&&q.event&&q.event.date&&q.event.date<=addDays(w,6)&&evEndD(q.event)>=w&&evForHotel(q,h)).sort((a,b)=>String(a.event.date+(a.event.start||'')).localeCompare(String(b.event.date+(b.event.start||''))));
   const evCard=`<div class="card"><h3>אירועים השבוע · ${evs.length}</h3>${S.bQuotes===null?'<p class="muted">אין לך גישה לאירועים.</p>':evs.length?`<div class="plist">${evs.map(q=>`<div class="prow"><span class="who"><b>יום ${DAYS[dow(q.event.date)]} ${dm(q.event.date)} · ${esc(q.event.start||'')}${q.event.end?'–'+esc(q.event.end):''} · ${esc(q.client?.name||'ללא שם')}</b><small>${esc(EV_VENUE[q.event.venue]||'')}${' · '+esc(spaceLabel(q))} · ${esc(q.event.type||'')} · ${+q.event.guests||0} אורחים</small></span>${q.kind==='group'?'<span class="pill" style="background:#2a6fbf;color:#fff">קבוצת מלון</span>':q.status==='approved'?'<span class="pill ok">סגור</span>':'<span class="pill">טנטטיב</span>'}</div>`).join('')}</div>`:'<p class="muted">אין אירועים השבוע.</p>'}</div>`;
   const sh=weekShifts(),depts=DEPTS.filter(d=>sh.some(([,s])=>s.dept===d.k));
   const sched=`<h2 style="margin-top:8px">סידור העבודה</h2>${S.sched.published?'':'<p class="muted" style="font-size:.85rem">הסידור לשבוע הזה עוד לא פורסם, מוצג השיבוץ הנוכחי.</p>'}`+
@@ -2721,6 +2721,8 @@ async function quotesQ(){const db=S.db,all=db.collection('quotes');if(S.isOwner|
   for(const h of hs){let st=S.settingsAll[h];if(!st){try{const d=await db.doc('settings/'+h).get();st=d.exists?d.data():{};if(d.exists)S.settingsAll[h]=st}catch(_){st={}}}
     (st.venues||[]).forEach(x=>vs.add(x))}
   return vs.size?all.where('event.venue','in',[...vs].slice(0,30)):null}
+// multi-day events (events.html event.endDate)
+const evEndD=e=>(e&&e.endDate&&e.date&&e.endDate>e.date)?e.endDate:((e&&e.date)||'');
 function subQuotes(){if(S.live.bquotes)return;S.live.bquotes=true;quotesQ().then(q=>{if(!q){S.bQuotes=[];render();return}q.onSnapshot(x=>{S.bQuotes=x.docs.map(d=>d.data());render()},()=>{S.bQuotes=null;render()})})}
 function setHotel(h){S.hotel=h;setTimeout(checkJoinCodes,0);try{localStorage.setItem('hs_hotel',h)}catch(_){ }S.dept='all';S.sheet=null;S.confirm=null;['set','cost','send','times'].forEach(k=>S.drafts[k]=null);render();window.scrollTo(0,0)}
 function setAssign(id,list){S.sched={...S.sched,assign:{...(S.sched.assign||{}),[id]:list}};saveSched();render()}

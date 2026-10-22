@@ -1,4 +1,4 @@
-<!doctype html><html lang="he" dir="rtl"><head><meta name="theme-color" content="#1f5f6b"><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style><script src="i18n.js?v=202610221330"></script></head><body>
+<!doctype html><html lang="he" dir="rtl"><head><meta name="theme-color" content="#1f5f6b"><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style><script src="i18n.js?v=202610221345"></script></head><body>
 <style>
 .evtop{background:var(--surface);border-bottom:1px solid var(--line)}
 .evtop-in{max-width:1240px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:10px;padding-block:6px;padding-left:max(10px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
@@ -363,6 +363,7 @@ table.ctable{border-collapse:collapse;width:100%;min-width:620px;font-size:14px;
           <label class="f">סוג אירוע<select id="eType">
             <option>אירוע חברה</option><option>חתונה</option><option>בר / בת מצווה</option><option>יום הולדת</option><option>אירוע פרטי</option><option>השקה</option><option>אחר</option></select></label>
           <label class="f">תאריך<input id="eDate" type="date"></label>
+          <label class="f">עד תאריך <span style="font-weight:400;color:var(--muted)">(אירוע של כמה ימים)</span><input id="eEndDate" type="date"></label>
         </div>
         <div class="row">
           <label class="f">שעת התחלה<input id="eStart" type="time"></label>
@@ -1039,6 +1040,12 @@ const uid=()=>Math.random().toString(36).slice(2,10)+Date.now().toString(36).sli
 const money=n=>'₪'+(Math.round((n||0)*100)/100).toLocaleString('he-IL',{minimumFractionDigits:0,maximumFractionDigits:2});
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const fmtDate=d=>{if(!d)return '';const [y,m,dd]=d.split('-');return `${dd}/${m}/${y}`};
+// multi-day events: event.endDate (optional, after event.date)
+const evEnd=e=>(e&&e.endDate&&e.date&&e.endDate>e.date)?e.endDate:((e&&e.date)||'');
+const evDays=e=>{if(!e||!e.date)return 1;const a=Date.parse(e.date+'T00:00:00Z'),b=Date.parse(evEnd(e)+'T00:00:00Z');return isNaN(a)||isNaN(b)?1:Math.round((b-a)/864e5)+1};
+const evDateTxt=(e,none)=>!e||!e.date?(none||''):(evDays(e)>1?`${fmtDate(e.date)} – ${fmtDate(evEnd(e))} (${evDays(e)} ימים)`:fmtDate(e.date));
+const onDay=(q,iso)=>!!(q&&q.event&&q.event.date)&&iso>=q.event.date&&iso<=evEnd(q.event);
+const UNIT_L={guest:'לאורח',gday:'לאורח ליום',day:'ליום',fixed:'קבוע'};
 const today=()=>{const d=new Date();return d.toISOString().slice(0,10)};
 const addDays=(iso,n)=>{const d=new Date(iso+'T12:00:00');d.setDate(d.getDate()+Number(n||0));return d.toISOString().slice(0,10)};
 const soft=h=>{const n=parseInt(h.slice(1),16);return `rgba(${n>>16},${(n>>8)&255},${n&255},0.09)`};
@@ -1070,7 +1077,7 @@ function blankQuote(){
 function calc(q){
   const g=Number(q.event.guests)||0;
   let sub=0;
-  const lines=q.items.map(it=>{const qty=it.unit==='guest'?g:(Number(it.qty)||0);const dp=Math.min(100,Math.max(0,Number(it.disc)||0));const t=qty*(Number(it.price)||0)*(1-dp/100);sub+=t;return {...it,qty,disc:dp,total:t}});
+  const lines=q.items.map(it=>{const D=evDays(q.event),qty=it.unit==='guest'?g:it.unit==='gday'?g*D:it.unit==='day'?(Number(it.qty)||0)*D:(Number(it.qty)||0);const dp=Math.min(100,Math.max(0,Number(it.disc)||0));const t=qty*(Number(it.price)||0)*(1-dp/100);sub+=t;return {...it,qty,disc:dp,total:t}});
   const disc=sub*(Number(q.discount)||0)/100;
   const after=sub-disc;const r=(Number(settings.vatRate)||0)/100;
   let net,vat,total;
@@ -1096,10 +1103,11 @@ $('#payList').addEventListener('click',e=>{const d=e.target.closest('[data-payde
 
 /* ---------- form binding ---------- */
 const F={cName:['client','name'],cCompany:['client','company'],cPhone:['client','phone'],cEmail:['client','email'],
-  eType:['event','type'],eDate:['event','date'],eStart:['event','start'],eEnd:['event','end'],eGuests:['event','guests']};
+  eType:['event','type'],eDate:['event','date'],eEndDate:['event','endDate'],eStart:['event','start'],eEnd:['event','end'],eGuests:['event','guests']};
 function fillForm(){
   migrateQuoteMenus(cur);
   for(const [id,[a,b]] of Object.entries(F)){$('#'+id).value=cur[a][b]??''}
+  $('#eEndDate').min=cur.event.date||'';
   for(const [id,k] of MINS)$('#'+id).value=(cur.mins||{})[k]??'';
   $('#disc').value=cur.discount||0;$('#valid').value=cur.validDays;$('#vatIncl').checked=!!cur.vatIncluded;$('#notes').value=cur.notes||'';
   $('#editTitle').textContent=cur.num?`עריכת ${isOrder(cur)?'הזמנת אירוע':'הצעה'} מס' ${cur.num}`:'הצעה חדשה';
@@ -1111,7 +1119,7 @@ const MINS=[['minBar','bar'],['minTickets','tickets'],['minRev','revenue']];
 const minsHTML=q=>{const m=q.mins||{},p=[];if(m.bar!==''&&m.bar!=null&&+m.bar>0)p.push('מינימום בר: '+money(+m.bar));if(+m.tickets>0)p.push('מינימום כרטיסים: '+(+m.tickets));if(+m.revenue>0)p.push('מינימום הכנסות: '+money(+m.revenue));return p.length?`<div class="notes"><div class="lbl">התחייבויות מינימום</div>${p.join(' · ')}</div>`:''};
 for(const [id,k] of MINS)$('#'+id).addEventListener('input',e=>{const v=e.target.value;const m={...(cur.mins||{})};if(v===''||!(+v>0))delete m[k];else m[k]=Number(v);cur.mins=m;refresh()});
 for(const [id,[a,b]] of Object.entries(F)){
-  $('#'+id).addEventListener('input',e=>{cur[a][b]=id==='eGuests'?Number(e.target.value):e.target.value;if(id==='eGuests')renderItems();refresh()});
+  $('#'+id).addEventListener('input',e=>{cur[a][b]=id==='eGuests'?Number(e.target.value):e.target.value;if(id==='eDate')$('#eEndDate').min=e.target.value||'';if(id==='eGuests'||id==='eDate'||id==='eEndDate')renderItems();refresh()});
 }
 $('#disc').addEventListener('input',e=>{cur.discount=Number(e.target.value)||0;refresh()});
 $('#valid').addEventListener('input',e=>{cur.validDays=Number(e.target.value)||0;refresh()});
@@ -1149,7 +1157,7 @@ $('#venues').addEventListener('click',e=>{const b=e.target.closest('[data-v]');i
 function catForVenue(){return settings.catalog.filter(c=>!c.venue||c.venue==='all'||c.venue===cur.event.venue)}
 function renderCatPick(){
   const list=catForVenue();
-  $('#catPick').innerHTML=`<option value="">+ הוסף פריט מהקטלוג…</option>`+list.map(c=>`<option value="${c.id}">${esc(c.name)} · ${money(c.price)}${c.unit==='guest'?' לאורח':''}</option>`).join('');
+  $('#catPick').innerHTML=`<option value="">+ הוסף פריט מהקטלוג…</option>`+list.map(c=>`<option value="${c.id}">${esc(c.name)} · ${money(c.price)}${c.unit&&c.unit!=='fixed'&&UNIT_L[c.unit]?' '+UNIT_L[c.unit]:''}</option>`).join('');
 }
 $('#catPick').addEventListener('change',e=>{
   const c=settings.catalog.find(x=>x.id===e.target.value);if(!c)return;
@@ -1163,9 +1171,9 @@ function renderItems(){
   if(!cur.items.length){$('#items').innerHTML=`<div class="meta" style="color:var(--muted);font-size:14px">עדיין אין פריטים. בחר מהקטלוג או הוסף שורה חופשית.</div>`;return}
   $('#items').innerHTML=cur.items.map((it,i)=>`<div class="item" data-i="${i}">
     <input class="nm" id="it-n-${it.id}" data-k="name" value="${esc(it.name)}" placeholder="שם הפריט" aria-label="שם הפריט">
-    <select id="it-u-${it.id}" data-k="unit" aria-label="יחידה"><option value="guest" ${it.unit==='guest'?'selected':''}>לאורח</option><option value="fixed" ${it.unit!=='guest'?'selected':''}>קבוע</option></select>
+    <select id="it-u-${it.id}" data-k="unit" aria-label="יחידה">${['guest','gday','day','fixed'].map(u=>`<option value="${u}" ${(UNIT_L[it.unit]?it.unit:'fixed')===u?'selected':''}>${UNIT_L[u]}</option>`).join('')}</select>
     <input id="it-p-${it.id}" data-k="price" type="number" min="0" inputmode="decimal" value="${it.price}" aria-label="מחיר">
-    <input id="it-q-${it.id}" data-k="qty" type="number" min="0" inputmode="numeric" value="${it.unit==='guest'?g:it.qty}" ${it.unit==='guest'?'disabled title="לפי מספר האורחים"':''} aria-label="כמות">
+    <input id="it-q-${it.id}" data-k="qty" type="number" min="0" inputmode="numeric" value="${it.unit==='guest'||it.unit==='gday'?g:it.qty}" ${it.unit==='guest'||it.unit==='gday'?'disabled title="לפי מספר האורחים"':''} aria-label="כמות">
     <input id="it-d-${it.id}" data-k="disc" type="number" min="0" max="100" step="0.5" inputmode="decimal" value="${it.disc||''}" placeholder="% הנחה" title="הנחה לפריט (%)" aria-label="הנחה לפריט באחוזים">
     <button class="btn x" data-del="${i}" aria-label="הסר שורה">✕</button>
     <div class="lt" id="lt-${i}"></div></div>`).join('');
@@ -1206,10 +1214,10 @@ function renderDoc(){
   <div class="vband"><b>${v.name}</b>${[v.place,esc(q.event.area||'')].filter(Boolean).join(' · ')}</div>
   <div class="two">
     <div><div class="lbl">לכבוד</div><div><b>${esc(q.client.name)||'—'}</b></div>${q.client.company?`<div>${esc(q.client.company)}</div>`:''}<div dir="ltr" style="text-align:right">${esc(q.client.phone)}</div><div dir="ltr" style="text-align:right">${esc(q.client.email)}</div></div>
-    <div><div class="lbl">פרטי האירוע</div><div>${esc(q.event.type)}</div><div>${q.event.date?fmtDate(q.event.date):'תאריך יתואם'}${hours?' · '+hours:''}</div><div>${q.event.guests||0} אורחים</div></div>
+    <div><div class="lbl">פרטי האירוע</div><div>${esc(q.event.type)}</div><div>${evDateTxt(q.event,'תאריך יתואם')}${hours?' · '+hours+(evDays(q.event)>1?' בכל יום':''):''}</div><div>${q.event.guests||0} אורחים</div></div>
   </div>
   ${(()=>{const hd=c.lines.some(l=>l.disc);return `<table><thead><tr><th>פריט</th><th>יחידה</th><th class="n">כמות</th><th class="n">מחיר</th>${hd?'<th class="n">הנחה</th>':''}<th class="n">סה״כ</th></tr></thead><tbody>
-  ${c.lines.length?c.lines.map(l=>`<tr><td>${esc(l.name)||'—'}</td><td>${l.unit==='guest'?'לאורח':'קבוע'}</td><td class="n">${l.qty}</td><td class="n">${money(l.price)}</td>${hd?`<td class="n">${l.disc?l.disc+'%':'—'}</td>`:''}<td class="n">${money(l.total)}</td></tr>`).join(''):`<tr><td colspan="${hd?6:5}" class="empty">הפריטים יופיעו כאן</td></tr>`}`})()}
+  ${c.lines.length?c.lines.map(l=>`<tr><td>${esc(l.name)||'—'}</td><td>${UNIT_L[l.unit]||'קבוע'}${(l.unit==='gday'||l.unit==='day')&&evDays(q.event)>1?' × '+evDays(q.event):''}</td><td class="n">${l.qty}</td><td class="n">${money(l.price)}</td>${hd?`<td class="n">${l.disc?l.disc+'%':'—'}</td>`:''}<td class="n">${money(l.total)}</td></tr>`).join(''):`<tr><td colspan="${hd?6:5}" class="empty">הפריטים יופיעו כאן</td></tr>`}`})()}
   </tbody></table>
   <div class="tot">
     <div><span>סכום ביניים</span><span>${money(c.sub)}</span></div>
@@ -1229,7 +1237,7 @@ function renderDoc(){
 function msgText(){
   const q=cur,c=calc(q),v=venueOf(q.event.venue),b=bizOf(q.event.venue);
   const where=v.name+(q.event.area?` (${q.event.area})`:'');
-  return `שלום ${q.client.name||''},\n\n${isOrder(q)?'מצורפת הזמנת האירוע':'תודה על הפנייה! מצורפת הצעת מחיר'}${q.num?` מס' ${q.num}`:''} ל${q.event.type} ב${where}${q.event.date?`, בתאריך ${fmtDate(q.event.date)}`:''}.\n\nמספר אורחים: ${q.event.guests||0}\nסה״כ: ${money(c.total)} כולל מע״מ\n${isOrder(q)?'האירוע אושר ושוריין, תודה!':`ההצעה בתוקף עד ${fmtDate(addDays(q.createdAt||today(),q.validDays))}.`}${(()=>{const ms=quoteMenus(q);const ex=ms.map(m=>m.subtitle||m.title);if(q.contract&&q.contract.text)ex.push('החוזה');return ex.length?`\nמצורפים גם: ${ex.join(', ')}.`:''})()}${signLink?`\n\nלצפייה בהצעה ולאישור בחתימה דיגיטלית:\n${signLink}`:''}\n\nנשמח לענות על כל שאלה,\n${b.contact||b.name||''}${b.phone?'\n'+b.phone:''}`.trim();
+  return `שלום ${q.client.name||''},\n\n${isOrder(q)?'מצורפת הזמנת האירוע':'תודה על הפנייה! מצורפת הצעת מחיר'}${q.num?` מס' ${q.num}`:''} ל${q.event.type} ב${where}${q.event.date?(evDays(q.event)>1?`, בתאריכים ${evDateTxt(q.event)}`:`, בתאריך ${fmtDate(q.event.date)}`):''}.\n\nמספר אורחים: ${q.event.guests||0}\nסה״כ: ${money(c.total)} כולל מע״מ\n${isOrder(q)?'האירוע אושר ושוריין, תודה!':`ההצעה בתוקף עד ${fmtDate(addDays(q.createdAt||today(),q.validDays))}.`}${(()=>{const ms=quoteMenus(q);const ex=ms.map(m=>m.subtitle||m.title);if(q.contract&&q.contract.text)ex.push('החוזה');return ex.length?`\nמצורפים גם: ${ex.join(', ')}.`:''})()}${signLink?`\n\nלצפייה בהצעה ולאישור בחתימה דיגיטלית:\n${signLink}`:''}\n\nנשמח לענות על כל שאלה,\n${b.contact||b.name||''}${b.phone?'\n'+b.phone:''}`.trim();
 }
 function waPhone(p){let d=String(p||'').replace(/\D/g,'');if(d.startsWith('0'))d='972'+d.slice(1);return d}
 function updateLinks(){
@@ -1423,7 +1431,7 @@ function renderList(){
   if(!rows.length){$('#qlist').innerHTML=`<div class="emptyst">אין הצעות שמתאימות לסינון.</div>`;return}
   $('#qlist').innerHTML=rows.map(q=>{const v=venueOf(q.event.venue),c=calc(q);return `<div class="q" style="--tone:var(${v.tone})">
     <div style="min-width:0"><h4>${esc(q.client.name)||'ללא שם'} <span style="color:var(--muted);font-weight:500;font-size:13px">#${q.num}</span></h4>
-    <div class="meta">${v.name}${areaLabel(q)?' · '+esc(areaLabel(q)):''} · ${esc(q.event.type)} · ${q.event.date?fmtDate(q.event.date):'ללא תאריך'} · ${q.event.guests||0} אורחים</div>${q.createdBy?`<div class="by">הוציא/ה: <b>${esc(who(q.createdBy))}</b>${q.updatedBy&&q.updatedAt?` · עודכן ${fmtStamp(q.updatedAt)} ע״י ${esc(who(q.updatedBy))}`:''}</div>`:''}</div>
+    <div class="meta">${v.name}${areaLabel(q)?' · '+esc(areaLabel(q)):''} · ${esc(q.event.type)} · ${evDateTxt(q.event,'ללא תאריך')} · ${q.event.guests||0} אורחים</div>${q.createdBy?`<div class="by">הוציא/ה: <b>${esc(who(q.createdBy))}</b>${q.updatedBy&&q.updatedAt?` · עודכן ${fmtStamp(q.updatedAt)} ע״י ${esc(who(q.updatedBy))}`:''}</div>`:''}</div>
     <div><div class="amt">${money(c.total)}</div>${(q.payments||[]).length?`<div style="text-align:left;font-size:12px;color:var(--muted)">שולם ${money(paid(q))} · ${balance(q)>0.5?`נשאר <b style="color:var(--fg)">${money(balance(q))}</b>`:'שולם במלואו'}</div>`:''}<div style="text-align:left;margin-top:4px"><span class="chip st-${q.status}">${STATUS[q.status]||''}${q.signature?' · חתומה':''}</span></div></div>
     <div class="acts">
       <button class="btn sm" data-open="${q.id}">פתח</button>
@@ -1458,7 +1466,7 @@ function renderCatalog(){
   if(!settings.catalog.length){$('#catalog').innerHTML=`<div class="meta" style="color:var(--muted);font-size:14px">הקטלוג ריק. הוסף פריטים שחוזרים בהצעות.</div>`;return}
   $('#catalog').innerHTML=settings.catalog.map((c,i)=>`<div class="cat" data-i="${i}">
     <input class="nm" id="c-n-${c.id}" data-k="name" value="${esc(c.name)}" placeholder="שם הפריט" aria-label="שם">
-    <select id="c-u-${c.id}" data-k="unit" aria-label="יחידה"><option value="guest" ${c.unit==='guest'?'selected':''}>לאורח</option><option value="fixed" ${c.unit!=='guest'?'selected':''}>קבוע</option></select>
+    <select id="c-u-${c.id}" data-k="unit" aria-label="יחידה">${['guest','gday','day','fixed'].map(u=>`<option value="${u}" ${(UNIT_L[c.unit]?c.unit:'fixed')===u?'selected':''}>${UNIT_L[u]}</option>`).join('')}</select>
     <input id="c-p-${c.id}" data-k="price" type="number" min="0" value="${c.price}" aria-label="מחיר">
     <select class="vs" id="c-v-${c.id}" data-k="venue" aria-label="לוקיישן"><option value="all">כל הלוקיישנים</option>${VENUES.map(v=>`<option value="${v.id}" ${c.venue===v.id?'selected':''}>${v.name}</option>`).join('')}</select>
     <button class="btn x" data-cdel="${i}" aria-label="הסר">✕</button></div>`).join('');
@@ -1494,8 +1502,8 @@ function snapshot(q){
   return {id:q.id,n:q.num,c:q.createdAt||today(),v:addDays(q.createdAt||today(),q.validDays),vt:v.hex,vts:soft(v.hex),
     b:{name:b.name,phone:b.phone,email:b.email,contact:b.contact,tax:b.tax},
     cl:{name:q.client.name,company:q.client.company},
-    e:{type:q.event.type,date:q.event.date,start:q.event.start,end:q.event.end,guests:Number(q.event.guests)||0,vid:v.id,venueName:v.name,place:[v.place,q.event.area].filter(Boolean).join(' · '),area:''},
-    it:c.lines.map(l=>[l.name,l.unit==='guest'?1:0,l.qty,r2(l.price),r2(l.total),l.disc||0]),
+    e:{type:q.event.type+(evDays(q.event)>1?` · ${evDays(q.event)} ימים עד ${fmtDate(evEnd(q.event))}`:''),date:q.event.date,endDate:evEnd(q.event),start:q.event.start,end:q.event.end,guests:Number(q.event.guests)||0,vid:v.id,venueName:v.name,place:[v.place,q.event.area].filter(Boolean).join(' · '),area:''},
+    it:c.lines.map(l=>[l.name+((l.unit==='gday'||l.unit==='day')&&evDays(q.event)>1?` (${UNIT_L[l.unit]} × ${evDays(q.event)})`:''),l.unit==='guest'||l.unit==='gday'?1:0,l.qty,r2(l.price),r2(l.total),l.disc||0]),
     sub:r2(c.sub),dsc:r2(c.disc),dp:Number(q.discount)||0,net:r2(c.net),vat:r2(c.vat),vr:settings.vatRate,total:r2(c.total),
     notes:q.notes||'',terms:b.terms||'',
     ms:quoteMenus(q).map(m=>({t:m.title,s:m.subtitle,x:m.sections.map(x=>[x.title,x.note,x.items.map(i=>[i.n,i.d])])})),
@@ -1786,6 +1794,7 @@ $('#mCards').addEventListener('click',async e=>{
 /* ---------- scheduling: occupancy & clashes ---------- */
 function areaKeys(q){const a=qAreas(q);return a.length?a:['all']}
 function toMin(t){const m=/^(\d{1,2}):(\d{2})/.exec(t||'');return m?(+m[1])*60+(+m[2]):null}
+function evRanges(q){const r=evRange(q);if(!r)return [];const n=evDays(q.event),out=[];for(let i=0;i<n;i++)out.push([r[0]+i*1440,r[1]+i*1440]);return out}
 function evRange(q){
   if(!q||!q.event||!q.event.date)return null;
   const day=Math.round(Date.parse(q.event.date+'T00:00:00Z')/60000);if(isNaN(day))return null;
@@ -1795,8 +1804,8 @@ function evRange(q){
 }
 const isTent=q=>q.status!=='approved';
 function clashesFor(q,pool){
-  const r=evRange(q);if(!r)return [];const A=areaKeys(q);
-  return (pool||quotes).filter(o=>o.id!==q.id&&o.status!=='declined'&&o.event&&o.event.venue===q.event.venue&&areaKeys(o).some(k=>A.includes(k))).filter(o=>{const x=evRange(o);return x&&x[0]<r[1]&&x[1]>r[0]});
+  const rs=evRanges(q);if(!rs.length)return [];const A=areaKeys(q);
+  return (pool||quotes).filter(o=>o.id!==q.id&&o.status!=='declined'&&o.event&&o.event.venue===q.event.venue&&areaKeys(o).some(k=>A.includes(k))).filter(o=>evRanges(o).some(x=>rs.some(r=>x[0]<r[1]&&x[1]>r[0])));
 }
 const hoursOf=q=>(q.event.start||q.event.end)?`${q.event.start||'?'}–${q.event.end||'?'}`:'כל היום';
 function renderClash(){
@@ -1809,7 +1818,7 @@ function renderClash(){
     el.innerHTML=`<b class="t">⚠ החלל כבר תפוס בזמן הזה</b>`+list.map(o=>`<div class="ci"><span>${esc(venueOf(o.event.venue).name)}${areaLabel(o)?' · '+esc(areaLabel(o)):''} · <b>${hoursOf(o)}</b></span><span>${esc(o.client.name)||'ללא שם'} · ${isGroup(o)?'קבוצת מלון':'הצעה #'+o.num}</span><span class="chip ${o.status==='approved'?'st-approved':'st-sent'}">${isGroup(o)?'קבוצה':o.status==='approved'?'סגור':'טנטטיב'}</span>${o.createdBy?`<span style="color:var(--muted);font-size:13px">הוציא/ה: ${esc(who(o.createdBy))}</span>`:''}</div>`).join('')
       +`<span style="font-size:13px">בדוק מול ${list.length>1?'מי שהוציאו את ההצעות':'מי שהוציא את ההצעה'} לפני שליחה ללקוח, או בחר תאריך, שעה או חלל אחר.</span>`;
   }else el.hidden=true;
-  const same=cur.event.date?quotes.filter(o=>o.id!==cur.id&&o.status!=='declined'&&o.event&&o.event.venue===cur.event.venue&&o.event.date===cur.event.date&&!list.includes(o)):[];
+  const same=cur.event.date?quotes.filter(o=>o.id!==cur.id&&o.status!=='declined'&&o.event&&o.event.venue===cur.event.venue&&o.event.date<=evEnd(cur.event)&&evEnd(o.event)>=cur.event.date&&!list.includes(o)):[];
   $('#dayInfo').textContent=!cur.event.date?'':(same.length?`באותו יום ב${venueOf(cur.event.venue).name} יש עוד ${same.length===1?'אירוע':same.length+' אירועים'} בלי התנגשות (שעות או חלל אחר): ${same.map(o=>hoursOf(o)+(areaLabel(o)?' ('+areaLabel(o)+')':'')).join(', ')}`:(list.length?'':`${venueOf(cur.event.venue).name} פנוי בתאריך הזה.`));
 }
 
@@ -1864,9 +1873,9 @@ function renderBoard(){
   $('#bDay').textContent=`יום ${HE_DAYS[wd]} ${d.getDate()} ב${HE_MONTHS[d.getMonth()]} ${d.getFullYear()}`;$('#bDate').value=bDate;
   const live=quotes.filter(q=>q.status!=='declined'&&q.event&&q.event.date);
   const ws=isoAdd(bDate,-wd);
-  $('#bWeek').innerHTML=Array.from({length:7},(_,i)=>{const iso=isoAdd(ws,i),n=live.filter(q=>q.event.date===iso).length,dd=new Date(iso+'T12:00:00');
+  $('#bWeek').innerHTML=Array.from({length:7},(_,i)=>{const iso=isoAdd(ws,i),n=live.filter(q=>onDay(q,iso)).length,dd=new Date(iso+'T12:00:00');
     return `<button class="wd ${n?'has':''}" data-day="${iso}" aria-pressed="${iso===bDate}">${HE_DAYS[i]}<b>${dd.getDate()}/${dd.getMonth()+1}</b><span>${n?n+' אירועים':'פנוי'}</span></button>`}).join('');
-  const dayEv=live.filter(q=>q.event.date===bDate);
+  const dayEv=live.filter(q=>onDay(q,bDate));
   const H=(TL_TO-TL_FROM)/60*HH;
   const cols=`64px repeat(${SPACES.length},minmax(118px,1fr))`;
   let h=`<div class="hd tc" style="grid-row:1/3;grid-column:1">שעה</div>`;
@@ -1883,7 +1892,7 @@ function renderBoard(){
       const a=Math.max(s0,TL_FROM),b=Math.min(e0,TL_TO);if(b<=a)continue;
       const cl=clashesFor(q,live).length>0;
       if(isGroup(q)){col+=`<button class="ev grp ${cl?'clashing':''}" style="--tone:var(${sp.v.tone});top:${(a-TL_FROM)/60*HH+1}px;height:${Math.max(22,(b-a)/60*HH-2)}px" data-opengrp="${q.id}" title="קבוצה: ${esc(q.client.name)} · ${hoursOf(q)}"><b>${hoursOf(q)}</b> ${esc(q.client.name)||'קבוצה'}<small>קבוצת מלון · ללא תשלום${q.event.guests?' · '+q.event.guests+' אנשים':''}${cl?' · התנגשות':''}</small></button>`;continue}
-      col+=`<button class="ev ${q.status==='approved'?'st-ok':'st-tent'} ${cl?'clashing':''}" style="--tone:var(${sp.v.tone});top:${(a-TL_FROM)/60*HH+1}px;height:${Math.max(22,(b-a)/60*HH-2)}px" data-openq="${q.id}" title="${esc(q.client.name)} · ${hoursOf(q)} · #${q.num}"><b>${hoursOf(q)}</b> ${esc(q.client.name)||'ללא שם'}<small>#${q.num} · ${q.status==='approved'?'סגור':'טנטטיב'} · ${q.event.guests||0} אורחים${cl?' · התנגשות':''}</small></button>`;
+      col+=`<button class="ev ${q.status==='approved'?'st-ok':'st-tent'} ${cl?'clashing':''}" style="--tone:var(${sp.v.tone});top:${(a-TL_FROM)/60*HH+1}px;height:${Math.max(22,(b-a)/60*HH-2)}px" data-openq="${q.id}" title="${esc(q.client.name)} · ${hoursOf(q)} · #${q.num}"><b>${hoursOf(q)}</b> ${esc(q.client.name)||'ללא שם'}<small>#${q.num}${evDays(q.event)>1?` · יום ${Math.round((Date.parse(bDate)-Date.parse(q.event.date))/864e5)+1}/${evDays(q.event)}`:''} · ${q.status==='approved'?'סגור':'טנטטיב'} · ${q.event.guests||0} אורחים${cl?' · התנגשות':''}</small></button>`;
     }
     if(nowM!=null&&nowM>=TL_FROM)col+=`<div class="now" style="top:${(nowM-TL_FROM)/60*HH}px"></div>`;
     h+=col+'</div>';
@@ -1980,7 +1989,7 @@ const PH=['שם העסק','ח.פ העסק','לוקיישן','שם הלקוח','�
 function phValues(q){
   const b=bizOf(q.event.venue),v=venueOf(q.event.venue),c=calc(q);
   return {'שם העסק':b.name||v.name,'ח.פ העסק':b.tax||'','לוקיישן':v.name+(q.event.area?' – '+q.event.area:''),'שם הלקוח':q.client.name||'','חברת הלקוח':q.client.company||'',
-    'סוג האירוע':q.event.type||'','תאריך האירוע':q.event.date?fmtDate(q.event.date):'________','שעות האירוע':(q.event.start||q.event.end)?`${q.event.start||''}–${q.event.end||''}`:'________',
+    'סוג האירוע':q.event.type||'','תאריך האירוע':q.event.date?evDateTxt(q.event):'________','שעות האירוע':(q.event.start||q.event.end)?`${q.event.start||''}–${q.event.end||''}`:'________',
     'מספר אורחים':String(q.event.guests||0),'סכום כולל':money(c.total),'מספר הצעה':String(q.num||'—'),'תוקף':String(q.validDays||'')};
 }
 function fillPh(text,q){const vals=phValues(q);return String(text).replace(/\{\{\s*([^}]+?)\s*\}\}/g,(m,k)=>k in vals?vals[k]:m)}

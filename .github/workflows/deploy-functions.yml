@@ -28,6 +28,6 @@ jobs:
             msg=$(sed 's/%/%25/g' "$RUNNER_TEMP/err.txt" | cut -c1-400 | awk '{printf "%s%%0A", $0}')
             echo "::error title=Deploy failed::$msg"
           fi
-          if [ "$rc" = "0" ]; then (cd functions && node backfill.js); fi
+          if [ "$rc" = "0" ]; then (cd functions && node backfill.js; node check-backup.js); fi
           rm -f "$RUNNER_TEMP/key.json"
           exit $rc

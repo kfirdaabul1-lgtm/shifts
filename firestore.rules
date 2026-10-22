@@ -180,8 +180,11 @@ service cloud.firestore {
     }
 
     match /roles/{uid} {
-      allow get: if signedIn() && (request.auth.uid == uid || canPerms());
-      allow list: if canPerms();
+      allow get: if signedIn() && (request.auth.uid == uid || canPerms() || (hasRole() && roleApp('hr')));
+      allow list: if canPerms() || (hasRole() && roleApp('hr'));
+      // מי שמנהל עובדים משייך תפקיד (רק הרשאות שיש לו בעצמו, באותם כללים)
+      allow create, update: if hasRole() && roleApp('hr') && grantOk(request.resource.data) && (resource == null || existingOk(resource.data)) && targetInScope(uid) && !request.resource.data.get('station', false);
+      allow delete: if hasRole() && roleApp('hr') && existingOk(resource.data) && targetInScope(uid) && !resource.data.get('station', false);
       allow create: if isOwner() || (canPerms() && grantOk(request.resource.data)
         && (targetInScope(uid) || stationOk(request.resource.data)));
       allow update: if isOwner() || (canPerms() && grantOk(request.resource.data) && existingOk(resource.data)
@@ -200,7 +203,7 @@ service cloud.firestore {
     }
     // תפקידים: תבניות הרשאות (שם + אפליקציות); אצל כל אדם roles/{uid}.job מצביע על התפקיד
     match /jobRoles/{id} {
-      allow read: if canPerms() || isOwner();
+      allow read: if canPerms() || isOwner() || (hasRole() && roleApp('hr'));
       allow create, update: if isOwner() || (canPerms() && request.resource.data.apps is map && appsWithin(request.resource.data.apps));
       allow delete: if isOwner() || canPerms();
     }

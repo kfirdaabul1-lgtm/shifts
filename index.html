@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202610221030"></script>
+<script src="i18n.js?v=202610221045"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -434,7 +434,7 @@ document.addEventListener('change',e=>{if(e.target.id==='pm_hotel'&&S.drafts.per
 document.addEventListener('change',e=>{if(e.target.id!=='sr_inv')return;const f=e.target.files&&e.target.files[0];if(!f)return;compressImage(f).then(u=>{S.srInv=u;render()},()=>toast('לא הצלחתי לקרוא את התמונה'))});
 document.addEventListener('change',e=>{const t=e.target;if(!t.matches||!t.matches('[data-spatid]')||!S.sheet||S.sheet.type!=='spa')return;const b=(S.spaBk||{})[S.sheet.id]||{},d=S.drafts.spa||(S.drafts.spa={}),ti=[...dv('spa','tid',b.tid||[])];ti[+t.dataset.spatid]=t.value;d.tid=ti;const th=[...dv('spa','ther',b.ther||[])],x=spaThers().find(y=>y.id===t.value);if(x)th[+t.dataset.spatid]=x.g;d.ther=th;t.blur();render()});
 document.addEventListener('input',e=>{const t=e.target;if(t.matches&&t.matches('[data-vchq]')){(S.vchF||(S.vchF={})).q=t.value;clearTimeout(S.vchT);S.vchT=setTimeout(()=>{const el=document.activeElement;render();const n=document.querySelector('[data-vchq]');if(n&&el&&el.matches&&el.matches('[data-vchq]')){n.focus();n.setSelectionRange(n.value.length,n.value.length)}},250)}});
-document.addEventListener('change',e=>{const t=e.target;if(t.id==='pm_job'&&S.drafts.perm){S.drafts.perm.job=t.value;render();return}if(t.matches&&t.matches('[data-f="vchr.date"]')){(S.drafts.vchr||(S.drafts.vchr={})).date=t.value;t.blur();render();return}if(t.matches&&t.matches('[data-vchst]')){(S.vchF||(S.vchF={})).st=t.value;t.blur();render()}});
+document.addEventListener('change',e=>{const t=e.target;if(t.id==='e_job'){(S.drafts.emp||(S.drafts.emp={})).job=t.value;return}if(t.matches&&t.matches('[data-f="vchr.date"]')){(S.drafts.vchr||(S.drafts.vchr={})).date=t.value;t.blur();render();return}if(t.matches&&t.matches('[data-vchst]')){(S.vchF||(S.vchF={})).st=t.value;t.blur();render()}});
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target&&e.target.id==='vch_code'){e.preventDefault();ACT['vch-find']()}});
 document.addEventListener('input',onField);document.addEventListener('change',onField);
 const isTyping=()=>{const a=document.activeElement;return a&&['INPUT','TEXTAREA','SELECT'].includes(a.tagName)&&!['checkbox','radio'].includes(a.type)};
@@ -2372,7 +2372,7 @@ function sheetEmp(){
   const manual=e.manual||isNew;
   return sheetHead(isNew?'עובד חדש':esc(e.name||'עובד'),isNew?'לעובד שלא נכנס לאפליקציה. את הזמינות שלו מסמנים כאן.':(e.manual?'נוסף ידנית':'נרשם בעצמו')+(isChain(u)?' · עובד רשת':''))+
   `<div class="row"><label class="f">שם מלא<input type="text" id="e_name" data-f="emp.name" value="${esc(dv('emp','name',e.name||''))}"></label><label class="f">טלפון<input type="tel" id="e_phone" dir="ltr" data-f="emp.phone" value="${esc(dv('emp','phone',e.phone||''))}"></label></div>
-  <div class="row"><label class="f">תפקיד<input type="text" id="e_title" data-f="emp.title" value="${esc(dv('emp','title',e.title||''))}"></label>${hrHotels().length>1||allHotelsP()?`<label class="f">מלון בית<select id="e_hotel" data-f="emp.hotel">${hrHotels().concat(allHotelsP()?[CHAIN]:[]).map(h=>`<option value="${h}" ${h===dv('emp','hotel',e.hotel||S.hrH||S.hotel)?'selected':''}>${esc(hotelName(h))}</option>`).join('')}</select></label>`:''}</div>
+  <div class="row"><label class="f">תפקיד בסידור (טקסט חופשי)<input type="text" id="e_title" data-f="emp.title" value="${esc(dv('emp','title',e.title||''))}"></label>${(()=>{const J=jobList(),cur=dv('emp','job',((S.roles||{})[S.sheet.id]||{}).job||'');return isChain(S.sheet.id)&&!allHotelsP()?'':`<label class="f">תפקיד והרשאות<select id="e_job"><option value="">בלי תפקיד</option>${J.map(([id,j])=>`<option value="${id}" ${cur===id?'selected':''}>${esc(j.name||'')}</option>`).join('')}</select></label>`})()}${!S.emps[S.sheet.id]&&(hrHotels().length>1||allHotelsP())?`<label class="f">מלון בית<select id="e_hotel" data-f="emp.hotel">${hrHotels().concat(allHotelsP()?[CHAIN]:[]).map(h=>`<option value="${h}" ${h===dv('emp','hotel',e.hotel||S.hrH||S.hotel)?'selected':''}>${esc(hotelName(h))}</option>`).join('')}</select></label>`:''}</div>
   <div class="f"><span>מחלקות</span><div class="chips" style="gap:6px">${DEPTS.map(d=>`<button class="dchip ${depts.includes(d.k)?'':'off'}" style="--h:${d.h};cursor:pointer" data-act="emp-dept" data-k="${d.k}" aria-pressed="${depts.includes(d.k)}">${d.n}</button>`).join('')}</div></div>
   <label class="f">תפקיד ניהולי<select id="e_mgmt" data-f="emp.mgmt"><option value="" ${!dv('emp','mgmt',e.mgmt||'')?'selected':''}>ללא (עובד במשמרות)</option>${Object.entries(MGMT).map(([k,n])=>`<option value="${k}" ${dv('emp','mgmt',e.mgmt||'')===k?'selected':''}>${n} · לא נספר בהגשת משמרות</option>`).join('')}</select></label>
   ${e.want?`<p class="muted" style="font-size:.85rem">העובד ביקש כ-${esc(e.want)} משמרות בשבוע.</p>`:''}
@@ -2614,7 +2614,7 @@ function stationsCardHTML(){if(!myApps().front)return '';const hs=grantableHotel
   <p class="muted" style="font-size:.82rem">שם המשתמש באנגלית או במספרים, בלי רווחים. רושמים את הסיסמה ונותנים אותה לצוות הקבלה.</p>
   <div><button class="btn pri" data-act="station-add">יצירת המשתמש</button></div></div>`}
 // job roles (תפקידים): jobRoles/{id} {name, apps, depts}; a person's role doc keeps job/jobName + personal extras (extra, extraDepts), and apps = job apps ∪ extras
-function jobsSub(){if(!S.live.jobs&&(S.can.perms||S.isOwner)){S.live.jobs=true;fdb.collection('jobRoles').onSnapshot(q=>{S.jobs=docsMap(q);render()},()=>{S.jobs={}})}return S.jobs||{}}
+function jobsSub(){if(!S.live.jobs&&(S.can.perms||S.can.hr||S.isOwner)){S.live.jobs=true;fdb.collection('jobRoles').onSnapshot(q=>{S.jobs=docsMap(q);render()},()=>{S.jobs={}})}return S.jobs||{}}
 const jobList=()=>Object.entries(jobsSub()).sort(([,a],[,b])=>String(a.name||'').localeCompare(String(b.name||''),'he'));
 function jobsCardHTML(){const J=jobList();
   return `<div class="card"><h3>תפקידים</h3><p class="muted" style="font-size:.85rem">מגדירים פעם אחת לכל תפקיד אילו הרשאות יש לו (למשל: פקיד קבלה, אחראית משק, מנהל מלון). כשנותנים לאדם תפקיד, הוא מקבל את כל ההרשאות של התפקיד. אפשר להוסיף לאדם מסוים הרשאות נוספות מעבר לתפקיד. שינוי בתפקיד מתעדכן אצל כל מי שמשויך אליו.</p>
@@ -2628,6 +2628,8 @@ function sheetJob(){const id=S.sheet.id,j=id?(jobsSub()[id]||{}):{},mine=myApps(
   ${d.apps.dept||(d.job&&((jobsSub()[d.job]||{}).apps||{}).dept)?`<div class="f"><span>מנהל מחלקה של${d.job&&((jobsSub()[d.job]||{}).depts||[]).length?' (בנוסף למחלקות של התפקיד: '+esc(((jobsSub()[d.job]||{}).depts||[]).map(x=>DMAP[x]?.n||x).join(', '))+')':''}:</span><div class="chips" style="gap:6px">${grantDepts().map(x=>`<button class="dchip ${d.depts.includes(x.k)?'':'off'}" style="--h:${x.h};cursor:pointer" data-act="job-dept" data-k="${x.k}">${x.n}</button>`).join('')}</div></div>`:''}
   <div class="actions"><button class="btn pri" data-act="job-save">שמירה</button>${id?`<button class="btn ghost" data-act="job-del">${S.confirm==='jobdel'?'לחיצה נוספת תמחק':'מחיקת התפקיד'}</button>`:''}<button class="btn ghost" data-act="close">ביטול</button></div>
   ${id&&n?'<p class="muted" style="font-size:.82rem">מחיקת תפקיד משאירה לאנשים רק את ההרשאות האישיות שלהם.</p>':''}`}
+// hotels a person's permissions cover: the registered hotel + extra hotels added on the Permissions page (chain staff = all = [])
+const roleHotelsFor=(home,extra)=>home===CHAIN?[]:[...new Set([home,...(extra||[]).filter(h=>h&&h!==CHAIN&&h!==home)])];
 // effective apps/depts of a person = job ∪ personal extras
 function jobMerge(jobId,extra,extraDepts){const j=jobId?(jobsSub()[jobId]||{}):{},apps={...(j.apps||{})};Object.keys(extra||{}).forEach(k=>{if(extra[k])apps[k]=true});
   if(apps.shifts)delete apps.dept;const depts=[...new Set([...(apps.dept?(j.depts||[]):[]),...(apps.dept?(extraDepts||[]):[])])];return {apps,depts}}
@@ -2638,6 +2640,15 @@ async function jobApply(id){let ok=0,bad=0;for(const [u,r] of Object.entries(S.r
   return {ok,bad}}
 // hotel settings page (owner's wish): hotels + event spaces, housekeeping rooms, backup (manual + automatic), import, Meta connection
 function vCfg(){return wrap(`<section class="head"><div class="head-t"><h1>הגדרות מלון</h1></div><p class="lede">כל ההגדרות הכלליות של המלונות במקום אחד. הרשאות ותפקידים נמצאים בעמוד ההרשאות, וקודי ההצטרפות בעמוד עובדים.</p></section>`+hotelsCardHTML()+hkCfgHTML()+(S.isOwner?backupHTML()+importHTML():''))}
+// employees page: give a person a job role (keeps their personal extra permissions and extra hotels)
+async function empSetJob(u,emp,job){const r=(S.roles||{})[u]||null,extra=r?(r.job?(r.extra||{}):{...roleApps(r)}):{},m=jobMerge(job,extra,r?(r.extraDepts||(r.job?[]:r.depts||[])):[]);
+  const home=emp.hotel||'main',hotels=roleHotelsFor(home,r&&r.extraHotels);
+  try{if(!Object.keys(m.apps).length){if(r){await fdb.doc('roles/'+u).delete();delete S.roles[u]}}
+    else{const doc={...(r||{}),apps:m.apps,depts:m.depts,hotels,expHotels:m.apps.exp?hotels.slice():[],name:emp.name||'',job:job||'',jobName:job?((jobsSub()[job]||{}).name||''):'',extra,extraDepts:r?(r.extraDepts||[]):[],extraHotels:(r&&r.extraHotels)||[],updatedBy:S.uid,updatedAt:Date.now()};
+      if(m.apps.dept&&home===CHAIN){toast('מנהל מחלקה צריך להיות רשום במלון מסוים');return}
+      await fdb.doc('roles/'+u).set(doc);S.roles={...(S.roles||{}),[u]:doc}}
+    render();toast(job?`${emp.name||'העובד'} קיבל את התפקיד ${(jobsSub()[job]||{}).name||''}`:'התפקיד הוסר')}
+  catch(e){toast('לא הצלחתי לעדכן את התפקיד (צריך שיהיו לך כל ההרשאות של התפקיד): '+errMsg(mapErr(e)))}}
 function vPerms(){
   const hs=peopleHotels(),ord=h=>h===CHAIN?-1:hotelIds().indexOf(h);
   const people=Object.entries(S.emps).filter(([u,e])=>!e.manual&&hs.includes(e.hotel||'main'))
@@ -2659,18 +2670,18 @@ function vPerms(){
 }
 function sheetPerm(){
   const u=S.sheet.id,e=S.emps[u];if(!e)return '';const r=S.roles[u],mine=myApps(),hs=grantableHotels(),moveHs=peopleHotels();
-  const d=S.drafts.perm||(S.drafts.perm={job:(r&&r.job)||'',apps:{...(r&&r.job?(r.extra||{}):roleApps(r))},hotels:[...((r&&r.hotels)||(allHotelsP()?[]:[e.hotel||'main']))],depts:[...((r&&r.depts)||[])],expHotels:[...((r&&r.expHotels)||[])]});
+  const d=S.drafts.perm||(S.drafts.perm={extraHotels:[...((r&&r.extraHotels)||[])],job:(r&&r.job)||'',apps:{...(r&&r.job?(r.extra||{}):roleApps(r))},hotels:[...((r&&r.hotels)||(allHotelsP()?[]:[e.hotel||'main']))],depts:[...((r&&r.depts)||[])],expHotels:[...((r&&r.expHotels)||[])]});
   const outside=r&&!allHotelsP()&&!(r.hotels||[]).length;
   // moving someone between hotels needs shift-manager rights over both hotels
   const canMove=S.can.shifts&&moveHs.includes(e.hotel||'main')&&moveHs.length>1,curH=d.hotel||e.hotel||'main';
   return sheetHead(esc(e.name||'עובד'),`${esc(hotelName(e.hotel||'main'))}${e.title?' · '+esc(e.title):''}`)+
   (canMove?`<label class="f">מלון<select id="pm_hotel">${moveHs.map(h=>`<option value="${h}" ${h===curH?'selected':''}>${esc(hotelName(h))}</option>`).join('')}</select></label>${curH!==(e.hotel||'main')?`<div class="notice">${esc(e.name||'העובד')} יעבור מ${esc(hotelName(e.hotel||'main'))} ל${esc(hotelName(curH))}. ${curH===CHAIN?'עובד רשת לא נספר בסידור העבודה ובנוכחות, וההרשאות שלו חלות על כל המלונות.':'הוא יראה את המשמרות והצוות של המלון החדש, והשכר שלו יירשם שם.'} שיבוצים שכבר נקבעו במלון הקודם נשארים.</div>`:''}`:'')+
   (outside?'<div class="notice">לאדם הזה יש הרשאה לכל המלונות, ורק מי שמנהל את כל המלונות יכול לשנות אותה.</div>':'')+
-  `${(()=>{const J=jobList();return `<label class="f">תפקיד<select id="pm_job">${['',...J.map(([id])=>id)].map(id=>`<option value="${id}" ${d.job===id?'selected':''}>${id?esc(jobsSub()[id].name||''):'בלי תפקיד (רק הרשאות אישיות)'}</option>`).join('')}</select></label>${J.length?'':'<p class="muted" style="font-size:.82rem">אפשר להגדיר תפקידים בכרטיס "תפקידים" בעמוד ההרשאות.</p>'}`})()}
+  `<div class="f"><span>תפקיד</span><div style="padding:6px 0"><b>${d.job?esc((jobsSub()[d.job]||{}).name||(r&&r.jobName)||''):'בלי תפקיד'}</b> <small class="muted">· התפקיד נקבע בכרטיס העובד בעמוד עובדים</small></div></div>
   ${d.job?'<p class="muted" style="font-size:.85rem;margin:4px 0">ההרשאות של התפקיד מסומנות ונעולות. אפשר להוסיף הרשאות אישיות נוספות.</p>':''}
   <div class="plist">${APPS.map(([k,n,desc])=>{const fj=!!(d.job&&((jobsSub()[d.job]||{}).apps||{})[k]);return `<label class="prow" style="cursor:${mine[k]&&!fj?'pointer':'default'}"><span class="who"><b>${n}${fj?' <span class="pill brass">מהתפקיד</span>':''}</b><small>${mine[k]?desc:'אין לך את ההרשאה הזו, ולכן אי אפשר לתת אותה'}</small></span><input type="checkbox" id="pa_${k}" data-act="perm-app" data-k="${k}" ${d.apps[k]||fj?'checked':''} ${mine[k]&&!outside&&!fj?'':'disabled'}></label>`}).join('')}</div>
   ${d.apps.dept?`<div class="f"><span>מנהל מחלקה של:</span><div class="chips" style="gap:6px">${grantDepts().map(x=>`<button class="dchip ${d.depts.includes(x.k)?'':'off'}" style="--h:${x.h};cursor:pointer" data-act="perm-dept" data-k="${x.k}" aria-pressed="${d.depts.includes(x.k)}">${x.n}</button>`).join('')}</div></div>`:''}
-  <div class="notice" style="font-size:.88rem">ההרשאות חלות על ${curH===CHAIN?'<b>כל המלונות</b> (עובד רשת)':`המלון שבו העובד רשום: <b>${esc(hotelName(curH))}</b>`}.</div>
+  ${curH===CHAIN?'<div class="notice" style="font-size:.88rem">ההרשאות חלות על <b>כל המלונות</b> (עובד רשת).</div>':(()=>{const ex=d.extraHotels||[],opts=grantableHotels().filter(x=>x!==curH);return `<div class="f"><span>ההרשאות חלות על המלון שבו העובד רשום: <b>${esc(hotelName(curH))}</b>${opts.length?', ועל המלונות הנוספים שמסמנים כאן:':'.'}</span>${opts.length?`<div class="chips" style="gap:6px;margin-top:4px">${opts.map(x=>`<button class="dchip ${ex.includes(x)?'':'off'}" style="--h:var(--brass);cursor:pointer" data-act="perm-xh" data-h="${x}">${esc(hotelName(x))}</button>`).join('')}</div>`:''}</div>`})()}
   <p class="muted" style="font-size:.82rem">השינוי נכנס לתוקף כשהאדם מרענן את האתר.</p>
   <div class="actions"><button class="btn pri" data-act="perm-save" ${outside?'disabled':''}>שמירה</button><button class="btn ghost" data-act="close">ביטול</button></div>`;
 }
@@ -2774,7 +2785,7 @@ const ACT={
     if(!S.can.hr){toast('רק מי שיש לו הרשאת עובדים מקים ועורך עובדים');return}
     if(isChain(u)&&!allHotelsP()){toast('רק מי שמנהל את כל המלונות יכול לערוך עובד רשת');return}
     const name=String(d.name??e.name??'').trim();if(!name){toast('צריך למלא שם');return}
-    const emp={...e,name,phone:String(d.phone??e.phone??'').trim(),title:String(d.title??e.title??'').trim(),depts:d.depts??e.depts??[],mgmt:d.mgmt??e.mgmt??'',hotel:d.hotel??e.hotel??S.hrH??S.hotel,manual:e.manual??!S.emps[u],createdAt:e.createdAt||Date.now()};
+    const emp={...e,name,phone:String(d.phone??e.phone??'').trim(),title:String(d.title??e.title??'').trim(),depts:d.depts??e.depts??[],mgmt:d.mgmt??e.mgmt??'',hotel:S.emps[u]?(e.hotel||'main'):(d.hotel??S.hrH??S.hotel),manual:e.manual??!S.emps[u],createdAt:e.createdAt||Date.now()};
     const mg={...m,payType:d.payType??m.payType??'hourly',rate:+(d.rate??m.rate??0)||0,monthly:+(d.monthly??m.monthly??0)||0,maxShifts:+(d.maxShifts??m.maxShifts??6)||0,minShifts:Math.max(0,+(d.minShifts??m.minShifts??0)||0),freeShifts:+(d.freeShifts??m.freeShifts??3)||0,volUnit:d.volUnit??m.volUnit??'shift',housing:+(d.housing??m.housing??0)||0,active:!!(d.active??(m.active!==false))};
     mg.hotel=emp.hotel||'main';
     if(emp.hotel===CHAIN&&!allHotelsP()){toast('רק מי שמנהל את כל המלונות יכול להעביר לרשת');return}
@@ -2783,7 +2794,8 @@ const ACT={
     S.emps[u]=emp;S.mgr[u]=mg;save('employees/'+u,emp);save('mgr/'+u,mg);
     if(movedH){if(S.avail[u]){S.avail[u]={...S.avail[u],hotel:emp.hotel};save('avail/'+u,S.avail[u])}
       // permissions follow the person's hotel (chain staff = all hotels)
-      const r=S.roles[u];if(r&&!r.station&&S.can.perms){const hs=emp.hotel===CHAIN?[]:[emp.hotel];const nr={...r,hotels:hs,expHotels:roleApps(r).exp?hs.slice():[],updatedBy:S.uid,updatedAt:Date.now()};S.roles[u]=nr;save('roles/'+u,nr)}}
+      const r=S.roles[u];if(r&&!r.station&&S.can.perms){const hs=roleHotelsFor(emp.hotel,r.extraHotels);const nr={...r,hotels:hs,expHotels:roleApps(r).exp?hs.slice():[],updatedBy:S.uid,updatedAt:Date.now()};S.roles[u]=nr;save('roles/'+u,nr)}}
+    if('job' in d&&d.job!==(((S.roles||{})[u]||{}).job||''))empSetJob(u,emp,d.job);
     const wasNew=!e.name;S.drafts.emp=null;if(!wasNew||!emp.manual)S.sheet=null;render();toast(wasNew?'העובד נוסף. אפשר לסמן לו זמינות למטה.':'נשמר')},
   'emp-del':()=>{if(!S.can.hr)return;if(S.confirm!=='del'){S.confirm='del';render();return}const u=S.sheet.id;S.confirm=null;S.sheet=null;
     delete S.emps[u];delete S.avail[u];save('employees/'+u,null);if(!S.empLite){delete S.mgr[u];save('mgr/'+u,null)}save('avail/'+u,null);render();toast('העובד נמחק')},
@@ -3092,7 +3104,7 @@ const ACT={
   'ceo-reload':()=>{if(S.ceo){S.ceo.data=null;ceoLoad(S.ceo.year)}},
   menu:()=>{S.menu=!S.menu;render()},
   'menu-close':()=>{S.menu=false;render()},
-  'perm-job':(D,t)=>{const d=S.drafts.perm;if(!d)return;d.job=t.value;render()},
+  'perm-xh':D=>{const d=S.drafts.perm;if(!d)return;const x=d.extraHotels||(d.extraHotels=[]);d.extraHotels=x.includes(D.h)?x.filter(y=>y!==D.h):[...x,D.h];render()},
   'job-new':()=>{S.drafts.job=null;S.confirm=null;S.sheet={type:'job',id:''};render()},
   'job-open':D=>{S.drafts.job=null;S.confirm=null;S.sheet={type:'job',id:D.id};render()},
   'job-app':(D,t)=>{const d=S.drafts.job;if(!d)return;d.apps[D.k]=t.checked;if(D.k==='shifts'&&t.checked)d.apps.dept=false;if(D.k==='dept'&&t.checked)d.apps.shifts=false;render()},
@@ -3116,7 +3128,7 @@ const ACT={
   'perm-save':()=>{const u=S.sheet.id,d=S.drafts.perm,e=S.emps[u];if(!d||!e)return;const mine=myApps();
     const extra={},ja=d.job?((jobsSub()[d.job]||{}).apps||{}):{};for(const [k] of APPS)if(d.apps[k]&&mine[k]&&!ja[k])extra[k]=true;const jm=jobMerge(d.job,extra,d.depts),apps=jm.apps;
     // permissions always apply to the hotel the person is registered in (chain staff = all hotels)
-    const th=(d.hotel&&S.can.shifts&&peopleHotels().includes(d.hotel))?d.hotel:(e.hotel||'main'),hotels=th===CHAIN?[]:[th];
+    const th=(d.hotel&&S.can.shifts&&peopleHotels().includes(d.hotel))?d.hotel:(e.hotel||'main'),xh=(d.extraHotels||[]).filter(x=>grantableHotels().includes(x)&&x!==th),hotels=roleHotelsFor(th,xh);
     if(th===CHAIN?!allHotelsP():!grantableHotels().includes(th)){toast('אין לך הרשאה למלון של העובד הזה');return}
     let moved='';const from=e.hotel||'main';
     if(d.hotel&&d.hotel!==from&&S.can.shifts&&peopleHotels().includes(d.hotel)){const to=d.hotel;moved=to;
@@ -3126,9 +3138,9 @@ const ACT={
     if(!Object.keys(apps).length){if(S.roles[u]){delete S.roles[u];save('roles/'+u,null)}}
     else{if(apps.dept&&!hotels.length){toast('מנהל מחלקה צריך להיות רשום במלון מסוים, לא ברשת');return}
       if(apps.dept&&!jm.depts.length){toast('צריך לבחור לפחות מחלקה אחת');return}
-      const expHotels=apps.exp?hotels.slice():[];if(apps.exp&&(th===CHAIN?!expAllP():!grantExpHotels().includes(th))){toast('אין לך הרשאת הוצאות למלון של העובד הזה');return}
+      const expHotels=apps.exp?hotels.filter(x=>th===CHAIN||expAllP()||grantExpHotels().includes(x)):[];if(apps.exp&&(th===CHAIN?!expAllP():!grantExpHotels().includes(th))){toast('אין לך הרשאת הוצאות למלון של העובד הזה');return}
       const mg=apps.gm?'gm':apps.ceo?'ceo':'';if((e.mgmt||'')!==mg&&(S.isOwner||(S.can.shifts&&grantableHotels().includes(e.hotel||'main')))){S.emps[u]={...S.emps[u],mgmt:mg};save('employees/'+u,S.emps[u])}
-      const doc={apps,hotels,depts:apps.dept?jm.depts:[],expHotels,name:e.name||'',job:d.job||'',jobName:d.job?((jobsSub()[d.job]||{}).name||''):'',extra,extraDepts:d.job?d.depts.filter(x=>grantDepts().some(g=>g.k===x)):[],updatedBy:S.uid,updatedAt:Date.now()};S.roles[u]=doc;save('roles/'+u,doc)}
+      const doc={apps,hotels,depts:apps.dept?jm.depts:[],expHotels,name:e.name||'',job:d.job||'',jobName:d.job?((jobsSub()[d.job]||{}).name||''):'',extraHotels:th===CHAIN?[]:xh,extra,extraDepts:d.job?d.depts.filter(x=>grantDepts().some(g=>g.k===x)):[],updatedBy:S.uid,updatedAt:Date.now()};S.roles[u]=doc;save('roles/'+u,doc)}
     S.sheet=null;S.drafts.perm=null;render();toast(moved?`${e.name||'העובד'} הועבר ל${hotelName(moved)}`:`ההרשאות של ${e.name||'העובד'} נשמרו`)},
   'bg-close':(D,t,e)=>{if(e.target===t)ACT.close()},
 };
@@ -3154,7 +3166,7 @@ async function migrateHotelFields(){
     for(const d of sh.docs){const x=d.data();if(!x.hotel)save('shifts/'+d.id,{...x,hotel:'main'})}
     // roles follow the person's registered hotel (chain staff = all hotels)
     const rs=await S.db.collection('roles').get();
-    for(const d of rs.docs){const r=d.data(),h=home[d.id];if(r.station||!h)continue;const hs=h===CHAIN?[]:[h],ex=(r.apps||{}).exp?hs.slice():[];
+    for(const d of rs.docs){const r=d.data(),h=home[d.id];if(r.station||!h)continue;const hs=roleHotelsFor(h,r.extraHotels),ex=(r.apps||{}).exp?hs.slice():[];
       if(JSON.stringify(r.hotels||[])!==JSON.stringify(hs)||JSON.stringify(r.expHotels||[])!==JSON.stringify(ex))save('roles/'+d.id,{...r,hotels:hs,expHotels:ex})}
   }catch(_){ }
 }
@@ -3255,7 +3267,7 @@ async function start(u){
   try{const r=await db.doc('roles/'+u.uid).get();if(r.exists)S.role=r.data()}catch(_){ }
   // permissions apply only to the hotel the person is registered in (chain staff = all hotels), also for roles saved before that rule
   if(S.role&&!S.isOwner&&!S.role.station){try{const m=await db.doc('employees/'+u.uid).get();const hh=m.exists?(m.data().hotel||'main'):null;
-    if(hh){const hs=hh===CHAIN?[]:[hh];S.role={...S.role,hotels:hs,expHotels:(S.role.apps||{}).exp?hs.slice():[]}}}catch(_){ }}
+    if(hh){const hs=hh===CHAIN?[]:[...new Set([hh,...(S.role.extraHotels||[]).filter(x=>x&&x!==CHAIN)])];S.role={...S.role,hotels:hs,expHotels:(S.role.apps||{}).exp?hs.slice():[]}}}catch(_){ }}
   // what this person may use: managing shifts, the quotes app, managing permissions (set in the permissions page)
   const apps=S.role?(S.role.apps||{shifts:true}):{};
   S.can={hkchk:S.isOwner||!!apps.hkchk,vch:S.isOwner||!!apps.vch,vchr:S.isOwner||!!apps.vchr,cmp:S.isOwner||!!apps.cmp,spa:S.isOwner||!!apps.spa,hr:S.isOwner||!!apps.hr,shifts:S.isOwner||!!apps.shifts,events:S.isOwner||!!apps.events,perms:S.isOwner||!!apps.perms,ceo:S.isOwner||!!apps.ceo,mkt:S.isOwner||!!apps.mkt,exp:S.isOwner||!!apps.exp,gm:S.isOwner||!!apps.gm,brief:S.isOwner||!!apps.brief||!!apps.gm,front:S.isOwner||!!apps.front,dept:!S.isOwner&&!apps.shifts&&!!apps.dept};
@@ -3321,7 +3333,7 @@ async function start(u){
   const availQ=()=>S.scoped?db.collection('avail').where('hotel','in',S.role.hotels.concat([CHAIN]).slice(0,30)):db.collection('avail');
   if(S.admin||S.can.hr){if(!S.deptOnly||S.can.hr)scopedQ('mgr').onSnapshot(q=>{S.mgr=docsMap(q);render()},onErr);availQ().onSnapshot(q=>{S.avail=docsMap(q);render()},onErr)}
   if(!S.admin){db.doc('avail/'+S.uid).onSnapshot(s=>{if(s.exists)S.avail[S.uid]=s.data();render()},onErr)}
-  if(S.can.perms)db.collection('roles').onSnapshot(q=>{S.roles=docsMap(q);render()},onErr);
+  if(S.can.perms||S.can.hr)db.collection('roles').onSnapshot(q=>{S.roles=docsMap(q);render()},onErr);
   if(S.isOwner){migrateHotelFields();setTimeout(srPubBackfill,4000)}
   if(S.admin){const hs=visibleHotels().slice(0,30);db.collection('requests').where('hotel','in',hs).onSnapshot(q=>{S.reqs=docsMap(q);S.reqVer++;alertTick()},onErr)}
   else{let own={},hot={},peer={};const mix=()=>{S.reqs={...hot,...peer,...own};S.reqVer++;alertTick()};

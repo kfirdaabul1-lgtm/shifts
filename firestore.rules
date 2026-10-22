@@ -194,9 +194,15 @@ service cloud.firestore {
     match /joinCodes/{code} {
       allow get: if signedIn();
       allow list: if shiftsAllHotels();
-      allow create: if manages(request.resource.data.hotel);
-      allow update: if manages(resource.data.hotel) && manages(request.resource.data.hotel);
-      allow delete: if manages(resource.data.hotel);
+      allow create: if manages(request.resource.data.hotel) || hrIn(request.resource.data.hotel);
+      allow update: if (manages(resource.data.hotel) && manages(request.resource.data.hotel)) || (hrIn(resource.data.hotel) && hrIn(request.resource.data.hotel));
+      allow delete: if manages(resource.data.hotel) || hrIn(resource.data.hotel);
+    }
+    // תפקידים: תבניות הרשאות (שם + אפליקציות); אצל כל אדם roles/{uid}.job מצביע על התפקיד
+    match /jobRoles/{id} {
+      allow read: if canPerms() || isOwner();
+      allow create, update: if isOwner() || (canPerms() && request.resource.data.apps is map && appsWithin(request.resource.data.apps));
+      allow delete: if isOwner() || canPerms();
     }
 
     match /employees/{uid} {
@@ -254,6 +260,9 @@ service cloud.firestore {
     match /settings/{h} {
       allow read: if seesHotel(h) || canCeo() || (isEmployee() && h == myHotel());
       allow write: if manages(h);
+      // מי שמנהל עובדים יוצר/מחליף את קוד ההצטרפות בלבד
+      allow create: if hrIn(h) && request.resource.data.keys().hasOnly(['joinCode']);
+      allow update: if hrIn(h) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['joinCode']);
     }
 
     match /hotels/{h} {

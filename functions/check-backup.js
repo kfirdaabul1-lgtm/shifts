@@ -23,5 +23,5 @@ async function grant() {
   let r = await call('wrong-key-check');
   note('Backup probe', `status ${r.s} · ${r.head.replace(/<[^>]+>/g, ' ').trim().slice(0, 60)}`);
   if (r.s !== 403 || r.head.trim() !== 'forbidden') { note('Backup invoker', await grant().catch((e) => 'grant failed: ' + e.message)); await new Promise((x) => setTimeout(x, 20000)); r = await call('wrong-key-check'); note('Backup probe 2', `status ${r.s} · ${r.head.replace(/<[^>]+>/g, ' ').trim().slice(0, 60)}`); }
-  if (c.key) { const ok = await call(c.key); note('Backup real call', `status ${ok.s} · ${ok.len} bytes`); const d2 = (await db.doc('backupcfg/main').get()).data() || {}; note('Backup lastAt after', d2.lastAt ? new Date(d2.lastAt).toISOString() + ' · ' + d2.lastCount + ' docs' : 'never'); }
+  // no real call here: a real call would update lastAt and hide a broken Apps Script schedule
 })().catch((e) => { note('Backup check error', e.message); });

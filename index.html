@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202610221530"></script>
+<script src="i18n.js?v=202610221540"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -857,7 +857,19 @@ function sheetGrp(){const id=S.sheet.id,x=(S.grps||{})[id]||{},isNew=!(S.grps||{
   <div class="row"><label class="f">עמלת סוכן (%)<input type="number" min="0" max="100" step="any" inputmode="decimal" data-f="grp.comm" value="${esc(g('comm',(S.agents||{})[cur.agentId]?.comm??''))}"></label><label class="f">מקדמה ששולמה<input type="number" min="0" step="any" inputmode="decimal" data-f="grp.deposit" value="${esc(g('deposit',''))}"></label></div>
   <div class="card" style="margin:8px 0;padding:10px 12px"><div class="totals" id="grpTot">${grpTotHTML(cur)}</div></div>
   <label class="f">הערות<textarea rows="3" data-f="grp.notes">${esc(g('notes',''))}</textarea></label>
-  <div class="actions"><button class="btn pri" data-act="grp-save">שמירה</button>${isNew?'':`<a class="btn" href="https://wa.me/${ph}?text=${encodeURIComponent(grpOfferText(cur))}" target="_blank" rel="noopener">שליחת ההצעה בוואטסאפ</a><button class="btn ghost" data-act="grp-copy">העתקת ההצעה</button><button class="btn ghost" data-act="grp-del">${S.confirm==='grp-del'?'לחיצה נוספת תמחק':'מחיקה'}</button>`}</div>`}
+  ${grpHallsHTML(id,x,isNew)}
+  <div class="actions" style="margin-top:12px"><button class="btn pri" data-act="grp-save">שמירה</button>${isNew?'':`<a class="btn" href="https://wa.me/${ph}?text=${encodeURIComponent(grpOfferText(cur))}" target="_blank" rel="noopener">שליחת ההצעה בוואטסאפ</a><button class="btn ghost" data-act="grp-copy">העתקת ההצעה</button><button class="btn ghost" data-act="grp-del">${S.confirm==='grp-del'?'לחיצה נוספת תמחק':'מחיקה'}</button>`}</div>`}
+// group halls → a "hotel group" on the events board: quotes/grp_<groupId>_<n> {kind:'group', status:'approved', group:{note, groupId}}
+function grpSpaces(h){let sp=[];try{sp=hotelSpaces(h)||[]}catch(_){sp=[]}if(!sp.length)sp=Object.entries(EV_SPACES).flatMap(([v,as])=>as.map(a=>v+'|'+a));return sp}
+const hallLabel=sp=>{const [v,a]=String(sp).split('|');return (EV_VENUE[v]||v)+(a&&a!==(EV_VENUE[v]||'')?' · '+a:'')};
+function grpHallsHTML(id,x,isNew){const halls=x.halls||[],g=(k,d)=>dv('gh',k,d),sps=grpSpaces(x.hotel||grpHs()[0]);
+  if(isNew)return `<h3 style="margin:12px 0 4px">אולמות</h3><p class="muted" style="font-size:.85rem">אחרי שמירת הקבוצה אפשר להוסיף לה אולמות, והם ייכנסו ללוח האירועים כקבוצת מלון.</p>`;
+  return `<h3 style="margin:12px 0 4px">אולמות · ${halls.length}</h3><p class="muted" style="font-size:.85rem;margin:0 0 6px">כל אולם שמוסיפים נכנס ללוח האירועים כ"קבוצת מלון" (בלי חיוב), כדי שאף אחד לא יתפוס את החלל.</p>
+  ${halls.length?`<div class="plist">${halls.map((hl,i)=>`<div class="prow"><span class="who"><b>${esc(hallLabel(hl.space))}</b><small>${hl.date?dm(hl.date):''} · ${esc(hl.start||'')}–${esc(hl.end||'')}${+hl.guests?' · '+(+hl.guests)+' אנשים':''}${hl.note?' · '+esc(hl.note):''}</small></span><button class="btn sm ghost" data-act="gh-del" data-i="${i}">${S.confirm==='gh:'+i?'לחיצה נוספת תסיר':'הסרה'}</button></div>`).join('')}</div>`:''}
+  <div class="row" style="margin-top:8px"><label class="f">אולם / חלל<select data-f="gh.space"><option value="">בוחרים…</option>${sps.map(sp=>`<option value="${esc(sp)}" ${g('space','')===sp?'selected':''}>${esc(hallLabel(sp))}</option>`).join('')}</select></label><label class="f">תאריך<input type="date" data-f="gh.date" value="${esc(g('date',x.ci||''))}" min="${esc(x.ci||'')}" max="${esc(x.co||'')}"></label></div>
+  <div class="row"><label class="f">משעה<input type="time" data-f="gh.start" value="${esc(g('start','09:00'))}"></label><label class="f">עד שעה<input type="time" data-f="gh.end" value="${esc(g('end','13:00'))}"></label><label class="f">אנשים<input type="number" min="0" inputmode="numeric" data-f="gh.guests" value="${esc(g('guests',x.pax||''))}"></label></div>
+  <label class="f">הערה<input type="text" data-f="gh.note" value="${esc(g('note',''))}" placeholder="למשל ישיבת בוקר, ארוחת ערב"></label>
+  <div class="actions"><button class="btn" data-act="gh-add">+ הוספת אולם ללוח האירועים</button></div>`}
 function grpTotHTML(cur){const c=grpCalc(cur);return `<div><span>${c.n} לילות × ${+cur.rooms||0} חדרים = ${c.roomNights} לילות חדר × ${grpMoney(cur.rate,cur.cur)}</span><span>${grpMoney(c.lodging,cur.cur)}</span></div>
     ${c.board?`<div><span>ארוחות (${+cur.pax||0} אורחים × ${c.n} לילות)</span><span>${grpMoney(c.board,cur.cur)}</span></div>`:''}${c.extras?`<div><span>תוספות</span><span>${grpMoney(c.extras,cur.cur)}</span></div>`:''}
     <div class="grand"><span>סה״כ הצעה</span><span>${grpMoney(c.total,cur.cur)}</span></div>
@@ -3012,8 +3024,20 @@ const ACT={
     if(isNew){doc.createdAt=now;doc.createdBy=S.uid;doc.createdByName=S.meName||''}
     S.grps={...S.grps,[id]:doc};S.sheet=null;S.drafts.grp=null;render();
     fdb.doc('groups/'+id).set(doc).then(()=>toast('הקבוצה נשמרה'),e=>toast('השמירה נכשלה: '+errMsg(mapErr(e))))},
+  'gh-add':()=>{const id=S.sheet.id,x=(S.grps||{})[id];if(!x){toast('קודם שומרים את הקבוצה');return}
+    const g=(k,d)=>String(dv('gh',k,d)).trim(),space=g('space',''),date=g('date',x.ci||''),start=g('start','09:00'),end=g('end','13:00'),guests=Math.max(0,+g('guests',x.pax||0)||0),note=g('note','');
+    if(!space){toast('צריך לבחור אולם');return}if(!/^\d{4}-\d{2}-\d{2}$/.test(date)){toast('צריך לבחור תאריך');return}
+    const [venue,area]=space.split('|'),n=(x.hallSeq||0)+1,qid='grp_'+id+'_'+n,now=Date.now();
+    const q={id:qid,kind:'group',status:'approved',num:null,client:{name:x.name||'קבוצה',company:x.agentName||'',phone:'',email:''},group:{note:[note,x.agentName?'סוכן: '+x.agentName:''].filter(Boolean).join(' · '),groupId:id},items:[],payments:[],
+      event:{type:'קבוצת מלון',venue,areas:area?[area]:[],area:area||'',date,start,end,guests},createdAt:todayISO(),updatedAt:new Date(now).toISOString(),createdBy:S.uid,updatedBy:S.uid};
+    const hall={space,date,start,end,guests,note,qid},halls=[...(x.halls||[]),hall];
+    S.grps={...S.grps,[id]:{...x,halls,hallSeq:n}};S.drafts.gh=null;render();
+    fdb.doc('quotes/'+qid).set(q).then(()=>fdb.doc('groups/'+id).set({halls,hallSeq:n,updatedAt:now},{merge:true})).then(()=>toast('האולם נכנס ללוח האירועים'),e=>{toast('לא הצלחתי: '+errMsg(mapErr(e)));S.grps={...S.grps,[id]:x};render()})},
+  'gh-del':D=>{const id=S.sheet.id,x=(S.grps||{})[id];if(!x)return;const i=+D.i;if(S.confirm!=='gh:'+i){S.confirm='gh:'+i;render();return}S.confirm=null;
+    const hl=(x.halls||[])[i];if(!hl)return;const halls=(x.halls||[]).filter((_,j)=>j!==i);S.grps={...S.grps,[id]:{...x,halls}};render();
+    (hl.qid?fdb.doc('quotes/'+hl.qid).delete():Promise.resolve()).then(()=>fdb.doc('groups/'+id).set({halls,updatedAt:Date.now()},{merge:true})).then(()=>toast('האולם הוסר מלוח האירועים'),e=>toast('לא הצלחתי: '+errMsg(mapErr(e))))},
   'grp-copy':async()=>{const x={...((S.grps||{})[S.sheet.id]||{}),...(S.drafts.grp||{})};try{await navigator.clipboard.writeText(grpOfferText(x));toast('ההצעה הועתקה')}catch(_){toast('ההעתקה לא הצליחה')}},
-  'grp-del':()=>{if(S.confirm!=='grp-del'){S.confirm='grp-del';render();return}S.confirm=null;const id=S.sheet.id,c={...S.grps};delete c[id];S.grps=c;S.sheet=null;render();fdb.doc('groups/'+id).delete().then(()=>toast('הקבוצה נמחקה'),e=>toast('לא הצלחתי: '+errMsg(mapErr(e))))},
+  'grp-del':()=>{if(S.confirm!=='grp-del'){S.confirm='grp-del';render();return}S.confirm=null;const id=S.sheet.id,c={...S.grps},hl=((c[id]||{}).halls||[]);delete c[id];S.grps=c;S.sheet=null;render();hl.forEach(h=>h.qid&&fdb.doc('quotes/'+h.qid).delete().catch(()=>{}));fdb.doc('groups/'+id).delete().then(()=>toast('הקבוצה נמחקה'),e=>toast('לא הצלחתי: '+errMsg(mapErr(e))))},
   'agent-new':()=>{S.drafts.agent=null;S.confirm=null;S.sheet={type:'agent',id:'a'+Date.now().toString(36)+Math.random().toString(36).slice(2,6)};render()},
   'agent-open':D=>{S.drafts.agent=null;S.confirm=null;S.sheet={type:'agent',id:D.id};render()},
   'agent-save':()=>{const id=S.sheet.id,x=(S.agents||{})[id]||{},isNew=!(S.agents||{})[id],g=k=>String(dv('agent',k,x[k]??'')).trim(),now=Date.now();

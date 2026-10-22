@@ -333,6 +333,9 @@ service cloud.firestore {
       allow read: if canEvents() || canCeo()
         || ((gmRole() || briefRole() || (hasRole() && roleApp('front'))) && (roleHotels().size() == 0 || hotelVenueOk(resource.data.event.venue)));
       allow write: if canEvents();
+      // the groups page puts a group's halls on the events board as hotel groups (ids grp_<groupId>_<n>)
+      allow create, update: if canGrp() && id.matches('grp_.*') && request.resource.data.kind == 'group';
+      allow delete: if canGrp() && id.matches('grp_.*') && resource.data.kind == 'group';
       match /versions/{v} { allow read, write: if canEvents(); }
     }
 

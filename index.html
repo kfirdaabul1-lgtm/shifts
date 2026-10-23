@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202610231650"></script>
+<script src="i18n.js?v=202610231720"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -90,7 +90,7 @@ main{padding-block:20px 64px}
 .pill.bad{background:var(--bad-bg);color:var(--bad)}
 .pill.brass{background:var(--brass-bg);color:var(--brass)}
 label.f{display:flex;flex-direction:column;gap:4px;font-size:.85rem;color:var(--muted);min-width:0}
-input[type=text],input[type=tel],input[type=number],input[type=time],input[type=url],textarea,select{font:inherit;font-size:.95rem;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:8px 10px;width:100%}
+input[type=text],input[type=tel],input[type=number],input[type=time],input[type=url],input[type=email],input[type=password],textarea,select{font:inherit;font-size:.95rem;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:8px 10px;width:100%}
 textarea{min-height:84px;resize:vertical}
 .row{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
 .check{display:flex;align-items:center;gap:8px;font-size:.92rem}
@@ -527,7 +527,7 @@ function renderDrawer(){const el=$('#drawer');if(!S.menu||S.auth!=='in'){el.inne
   const items=S.pmode?[['org','רשתות ומלונות','data-act="ptab" data-t="pchains"',S.tab==='pchains'],['perms','הרשאות רשתות','data-act="ptab" data-t="pperms"',S.tab==='pperms'],['hr','תפקידים','data-act="ptab" data-t="pjobs"',S.tab==='pjobs'],['ceo','גיבויים','data-act="ptab" data-t="pbk"',S.tab==='pbk']]:S.registering?[]:S.station?[['front','קבלה','data-act="app-front"',S.tab==='front'],['hk','משק','data-act="app-hk"',S.tab==='hk'],['pub','שטחים ציבוריים','data-act="app-pub"',S.tab==='pub']].filter(x=>S.can[x[0]]):[['shifts','סידור עבודה','data-act="app-shifts"',!APPTABS.includes(S.tab)],S.can.hr&&['hr','עובדים','data-act="app-hr"',S.tab==='hr'],S.can.events&&['events','אירועים','href="events.html"',false],S.can.spa&&['spa','ספא','data-act="app-spa"',S.tab==='spa'],S.can.grp&&['grp','קבוצות','data-act="app-grp"',S.tab==='grp'],S.can.events&&['leads','לידים ומכירות','data-act="app-leads"',S.tab==='leads'],S.can.front&&['front','קבלה','data-act="app-front"',S.tab==='front'],S.can.brief&&['brief','בריף יומי','data-act="app-brief"',S.tab==='brief'],S.can.gm&&['gm','מנהל מלון','data-act="app-gm"',S.tab==='gm'],S.can.ceo&&['ceo','מבט מנכ״ל','data-act="app-ceo"',S.tab==='ceo'],S.can.fin&&['fin','כספים'+(finPendingAll()?` (${finPendingAll()})`:''),'data-act="app-fin"',S.tab==='fin'],S.can.hk&&['hk','משק','data-act="app-hk"',S.tab==='hk'],S.can.pub&&['pub','שטחים ציבוריים','data-act="app-pub"',S.tab==='pub'],S.can.cmp&&['cmp','תלונות אורחים','data-act="app-cmp"',S.tab==='cmp'],(S.can.vch||S.can.vchr)&&['vch','שוברים','data-act="app-vch"',S.tab==='vch'],S.can.maint&&['maint','אחזקה'+((S.can.gm||S.can.shifts||S.isOwner)&&openFaultsN()?` (${openFaultsN()} פתוחות)`:''),'data-act="app-maint"',S.tab==='maint'],S.can.stock&&['stock','מלאי'+((S.can.gm||S.can.shifts||S.isOwner)&&lowItems().length?` (${lowItems().length} במינימום)`:''),'data-act="app-stock"',S.tab==='stock'],S.can.mkt&&['mkt','סושיאל מדיה','data-act="app-mkt"',S.tab==='mkt'],S.can.exp&&['exp','הוצאות','data-act="app-exp"',S.tab==='exp'],(S.isOwner||S.can.shifts)&&['cfg','הגדרות מלון','data-act="app-cfg"',S.tab==='cfg'],(S.isOwner||S.can.perms)&&['org','הגדרות רשת','data-act="app-org"',S.tab==='org']].filter(Boolean);
   el.innerHTML=`<div class="drawer-bg" data-act="menu-close"></div><nav class="drawer" aria-label="אפליקציות">
     <div class="drawer-h"><b>${esc(S.pmode?platName():appName())}</b><button class="x" data-act="menu-close" aria-label="סגירה">×</button></div>
-    <div class="drawer-who">${esc(S.meName||'')}${S.meName&&(S.email||S.phone)?'<br>':''}<bdi>${esc(S.email||S.phone||'')}</bdi></div>
+    <div class="drawer-who">${esc(S.meName||'')}${S.meName&&(S.email||S.phone)?'<br>':''}<bdi>${esc(String(S.email||S.phone||'').replace('@'+USER_DOMAIN,''))}</bdi></div>
     ${items.map(([k,n,attr,cur])=>attr.startsWith('href')?`<a class="item" ${attr}>${ICO[k]}${n}</a>`:`<button class="item" ${attr} ${cur?'aria-current="page"':''}>${ICO[k]}${n}</button>`).join('')}
     ${pushOffered()?'<button class="item" data-act="notif-on">🔔 הפעלת התראות</button>':''}
     <span class="sp"></span><button class="item" data-act="logout">${ICO.out}יציאה</button></nav>`}
@@ -2686,10 +2686,16 @@ function vLogin(){const ph=!!CFG.enablePhone;
       :`<label class="f">או כניסה עם קישור למייל, בלי סיסמה<input type="email" id="lg_email" data-f="login.email" dir="ltr" autocomplete="email" placeholder="name@gmail.com" value="${esc(dv('login','email',''))}"></label><button class="btn" data-act="email-send">שליחת קישור כניסה</button>`}
     ${ph?`<div class="sep"></div>${S.phoneSent?`<label class="f">הקוד שקיבלת ב-SMS<input type="text" id="lg_code" inputmode="numeric" autocomplete="one-time-code" data-f="login.code" dir="ltr"></label><button class="btn" data-act="phone-verify">כניסה</button>`:`<label class="f">או כניסה עם מספר טלפון<input type="tel" id="lg_phone" data-f="login.phone" dir="ltr" placeholder="050-1234567" value="${esc(dv('login','phone',''))}"></label><button class="btn" data-act="phone-send">שליחת קוד ב-SMS</button>`}`:''}
     <div class="sep"></div>
-    <details ${dv('login','user','')?'open':''}><summary style="cursor:pointer;font-weight:600">כניסת עמדת קבלה (שם משתמש וסיסמה)</summary>
-      <div class="stack" style="gap:10px;margin-top:10px"><label class="f">שם משתמש<input type="text" id="lg_user" data-f="login.user" dir="ltr" autocomplete="username" autocapitalize="none" value="${esc(dv('login','user',''))}"></label>
-      <label class="f">סיסמה<input type="password" id="lg_pass" data-f="login.pass" dir="ltr" autocomplete="current-password"></label>
-      <button class="btn" data-act="station-login">כניסה</button></div></details>
+    <details ${dv('login','user','')||S.pwMode?'open':''}><summary style="cursor:pointer;font-weight:600">כניסה עם שם משתמש וסיסמה</summary>
+      <div class="stack" style="gap:10px;margin-top:10px">
+      <div class="chips" style="gap:6px"><button type="button" class="dchip ${S.pwMode!=='new'?'':'off'}" data-act="pw-mode" data-v="in">כניסה</button><button type="button" class="dchip ${S.pwMode==='new'?'':'off'}" data-act="pw-mode" data-v="new">משתמש חדש</button></div>
+      <label class="f">מייל או שם משתמש<input type="text" id="lg_user" data-f="login.user" dir="ltr" autocomplete="username" autocapitalize="none" value="${esc(dv('login','user',''))}"></label>
+      <label class="f">סיסמה<input type="password" id="lg_pass" data-f="login.pass" dir="ltr" autocomplete="${S.pwMode==='new'?'new-password':'current-password'}"></label>
+      ${S.pwMode==='new'?`<label class="f">הסיסמה שוב<input type="password" id="lg_pass2" data-f="login.pass2" dir="ltr" autocomplete="new-password"></label>
+      <p class="muted" style="font-size:.8rem;margin:0">שם משתמש: אותיות באנגלית, ספרות, נקודה או מקף. סיסמה: לפחות 6 תווים. אחרי היצירה מקלידים את קוד ההצטרפות מהמנהל.</p>
+      <button class="btn pri" data-act="pw-signup">יצירת משתמש</button>`:`<button class="btn" data-act="station-login">כניסה</button>
+      <button type="button" class="linkbtn" data-act="pw-reset">שכחתי סיסמה</button>`}
+      <p class="muted" style="font-size:.8rem;margin:0">גם עמדת הקבלה נכנסת מכאן, עם שם המשתמש והסיסמה שקיבלה.</p></div></details>
     <p class="muted" style="font-size:.8rem">אם הכניסה לא נפתחת, פתחו את הקישור בדפדפן עצמו (Chrome או Safari) ולא מתוך אפליקציה אחרת.</p>
   </div>`)}
 function vRegister(){const g=k=>dv('reg',k,''),depts=dv('reg','depts',[]);
@@ -3631,6 +3637,10 @@ async function loginGoogle(){const pr=new firebase.auth.GoogleAuthProvider();pr.
 // reception desk accounts: username → internal e-mail (no mail is ever sent to it)
 const STATION_DOMAIN='front.seven-collection.app';
 const stationEmail=u=>{u=String(u||'').trim().toLowerCase();return u.includes('@')?u:u+'@'+STATION_DOMAIN};
+// personal accounts with a username instead of an e-mail (no password reset by mail for those)
+const USER_DOMAIN='users.seven-collection.app';
+const userEmail=u=>{u=String(u||'').trim().toLowerCase();return u.includes('@')?u:u+'@'+USER_DOMAIN};
+const PW_ERR=e=>['auth/wrong-password','auth/user-not-found','auth/invalid-credential','auth/invalid-login-credentials','auth/invalid-email'].includes(e.code)?'שם המשתמש או הסיסמה שגויים':e.code==='auth/operation-not-allowed'?'כניסה עם סיסמה עוד לא הופעלה ב-Firebase. פנו לבעל המערכת.':e.code==='auth/too-many-requests'?'יותר מדי ניסיונות. נסו שוב בעוד כמה דקות.':e.code==='auth/email-already-in-use'?'המשתמש הזה כבר קיים. עברו ל"כניסה".':e.code==='auth/weak-password'?'הסיסמה קצרה מדי (לפחות 6 תווים)':'הפעולה נכשלה ('+(e.code||'')+')';
 const stationUserOk=u=>/^[a-z0-9][a-z0-9._-]{2,29}$/.test(String(u||'').trim().toLowerCase());
 // a second Firebase app, so creating the desk login doesn't sign the manager out
 function stationAuth(){const a=(firebase.apps||[]).find(x=>x.name==='station')||firebase.initializeApp(CFG.firebase,'station');const au=a.auth();try{au.setPersistence(firebase.auth.Auth.Persistence.NONE)}catch(_){ }return au}
@@ -3662,8 +3672,17 @@ Object.assign(ACT,{
     try{await S.db.doc('roles/'+D.u).delete();toast('המשתמש בוטל. מי שמחובר איתו ינותק ברענון הבא.')}catch(e){toast(errMsg(e))}},
   'station-login':async()=>{const u=String(dv('login','user','')).trim(),pw=String(dv('login','pass',''));if(!u||!pw){toast('צריך להקליד שם משתמש וסיסמה');return}
     try{await fauth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)}catch(_){ }
-    try{await fauth.signInWithEmailAndPassword(stationEmail(u),pw)}
-    catch(e){toast(['auth/wrong-password','auth/user-not-found','auth/invalid-credential','auth/invalid-login-credentials','auth/invalid-email'].includes(e.code)?'שם המשתמש או הסיסמה שגויים':e.code==='auth/operation-not-allowed'?'כניסה עם סיסמה עוד לא הופעלה ב-Firebase. פנו לבעל המערכת.':e.code==='auth/too-many-requests'?'יותר מדי ניסיונות. נסו שוב בעוד כמה דקות.':'הכניסה נכשלה ('+(e.code||'')+')')}},
+    const tries=u.includes('@')?[u.toLowerCase()]:[userEmail(u),stationEmail(u)];let last=null;
+    for(const em of tries){try{await fauth.signInWithEmailAndPassword(em,pw);return}catch(e){last=e;if(!['auth/user-not-found','auth/invalid-credential','auth/invalid-login-credentials','auth/wrong-password'].includes(e.code))break}}
+    toast(PW_ERR(last||{}))},
+  'pw-mode':D=>{S.pwMode=D.v;render()},
+  'pw-signup':async()=>{const u=String(dv('login','user','')).trim(),pw=String(dv('login','pass','')),pw2=String(dv('login','pass2',''));
+    if(!u)return toast('צריך מייל או שם משתמש');if(!u.includes('@')&&!/^[a-z0-9._-]{3,30}$/i.test(u))return toast('שם משתמש: 3–30 אותיות באנגלית, ספרות, נקודה או מקף');
+    if(pw.length<6)return toast('הסיסמה קצרה מדי (לפחות 6 תווים)');if(pw!==pw2)return toast('הסיסמאות לא זהות');
+    try{await fauth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)}catch(_){ }
+    try{await fauth.createUserWithEmailAndPassword(userEmail(u),pw)}catch(e){toast(PW_ERR(e))}},
+  'pw-reset':async()=>{const u=String(dv('login','user','')).trim();if(!u.includes('@'))return toast(u?'לשם משתמש בלי מייל אין איפוס במייל. פנו למנהל או לבעל המערכת.':'הקלידו את המייל שלכם ולחצו שוב');
+    try{await fauth.sendPasswordResetEmail(u.toLowerCase());toast('שלחנו מייל לאיפוס הסיסמה')}catch(e){toast(PW_ERR(e))}},
   'email-finish':()=>{const em=String(dv('login','email2','')).trim();if(em)finishEmailLink(em)},
   'phone-send':async()=>{const ph=normPhone(dv('login','phone',''));if(!ph){toast('מספר הטלפון לא תקין');return}
     try{S.recaptcha=S.recaptcha||new firebase.auth.RecaptchaVerifier('recaptcha',{size:'invisible'});S.confirmRes=await fauth.signInWithPhoneNumber(ph,S.recaptcha);S.phoneSent=true;render()}

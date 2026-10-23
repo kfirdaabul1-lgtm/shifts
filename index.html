@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202610230935"></script>
+<script src="i18n.js?v=202610230945"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -416,7 +416,7 @@ function onField(e){const f=e.target.dataset&&e.target.dataset.f;if(!f)return;co
 document.addEventListener('input',e=>{const t=e.target;if(!t.matches)return;
   if(t.matches('[data-item]')){const d=S.drafts.inv;if(!d)return;const [i,k]=t.dataset.item.split('|');d.items[+i][k]=t.value;S.pending=true}
   else if(t.matches('[data-gline]')&&S.sheet&&S.sheet.type==='grp'){const [i,k]=t.dataset.gline.split('|'),x=(S.grps||{})[S.sheet.id]||{},d=S.drafts.grp||(S.drafts.grp={});if(!d.lines)d.lines=JSON.parse(JSON.stringify(grpLines({...x,...d})));const l=d.lines[+i]||(d.lines[+i]={cat:'guest'});l[k]=t.value;
-    if(k==='type'&&t.tagName==='SELECT'){const pl=plOf((d.plId??x.plId)||''),r=pl&&(pl.rows||[]).find(r=>r.type===t.value);if(r&&(l.cat||'guest')==='guest')l.price=r.rate;render();return}
+    if(k==='type'){const pl=plOf((d.plId??x.plId)||'');if(pl){const r=plRate(pl,t.value);l.price=r==null?0:r}if(t.tagName==='SELECT'){render();return}}
     const cur={...x,...d},el=document.getElementById('grpTot');if(el)el.innerHTML=grpTotHTML(cur)}
   else if(t.matches('[data-plrow]')&&S.sheet&&S.sheet.type==='pl'){const [i,k]=t.dataset.plrow.split('|'),x=(S.pls||{})[S.sheet.id]||{},d=S.drafts.pl||(S.drafts.pl={});if(!d.rows)d.rows=JSON.parse(JSON.stringify(x.rows||[{type:'',rate:''}]));(d.rows[+i]||(d.rows[+i]={}))[k]=t.value}
   else if(t.matches('[data-srrow]')){const [l,i,k]=t.dataset.srrow.split('|'),d=S.drafts.sr||(S.drafts.sr={}),a=d[l]||(d[l]=[]);(a[+i]||(a[+i]={}))[k]=t.value}
@@ -827,7 +827,7 @@ function grpLinesHTML(cur){const L=grpLines(cur),pl=plOf(cur.plId),types=(pl&&pl
     ${rows.map(([l,i])=>`<div class="row" style="align-items:flex-end;gap:6px">${types.length&&cat==='guest'?`<label class="f">סוג חדר<select data-gline="${i}|type"><option value="">—</option>${types.map(t=>`<option value="${esc(t.type||'')}" ${l.type===t.type?'selected':''}>${esc(t.type||'')}</option>`).join('')}${l.type&&!types.some(t=>t.type===l.type)?`<option selected>${esc(l.type)}</option>`:''}</select></label>`:`<label class="f">סוג חדר<input type="text" data-gline="${i}|type" value="${esc(l.type||'')}" placeholder="למשל זוגי" list="grpTypes"></label>`}
       <label class="f" style="max-width:90px">אנשים בחדר<input type="number" min="1" inputmode="numeric" data-gline="${i}|ppr" value="${esc(l.ppr??'')}"></label>
       <label class="f" style="max-width:90px">כמות חדרים<input type="number" min="0" inputmode="numeric" data-gline="${i}|rooms" value="${esc(l.rooms??'')}"></label>
-      <label class="f" style="max-width:120px">מחיר לאדם ללילה<input type="number" min="0" step="any" inputmode="decimal" data-gline="${i}|price" value="${esc(l.price??'')}"></label>
+      ${grpMode(cur)==='free'?`<label class="f" style="max-width:120px">מחיר לאדם ללילה<input type="number" min="0" step="any" inputmode="decimal" data-gline="${i}|price" value="${esc(l.price??'')}"></label>`:`<span class="muted" style="font-size:.85rem;padding-bottom:10px;min-width:90px">${pl?(plRate(pl,l.type)==null?'אין במחירון · ₪0':grpMoney(plRate(pl,l.type),pl.cur)+' לאדם'):'בוחרים מחירון'}</span>`}
       <button class="btn sm ghost" data-act="gl-del" data-i="${i}" aria-label="הסרת שורה">✕</button></div>`).join('')}
     <div><button class="btn sm" data-act="gl-add" data-cat="${cat}">+ ${cat==='guest'?'סוג חדר':'חדר ל'+title}</button></div></div>`}).join('')}
 const grpMoney=(v,c)=>(GRP_CUR[c]||'₪')+Math.round(+v||0).toLocaleString('he-IL');
@@ -881,8 +881,11 @@ function sheetPl(){const id=S.sheet.id,x=(S.pls||{})[id]||{},isNew=!(S.pls||{})[
   ${mine.length?`<h3 style="margin:12px 0 4px">הקבוצות במחירון · ${mine.length}</h3><div class="plist">${mine.map(([gid,gr])=>{const st=GRP_STN[gr.status||'offer']||GRP_ST[0];return `<button class="prow" style="width:100%;text-align:inherit;cursor:pointer;font:inherit;color:inherit" data-act="grp-open" data-id="${gid}"><span class="who"><b>${esc(gr.name||'')}</b><small>${gr.ci?dm(gr.ci):''}–${gr.co?dm(gr.co):''} · ${esc(gr.agentName||'')} · ${grpMoney(grpCalc(gr).total,gr.cur)}</small></span><span class="pill ${st[2]}">${st[1]}</span></button>`}).join('')}</div>`:''}
   <div class="actions" style="margin-top:10px"><button class="btn pri" data-act="pl-save">שמירה</button>${isNew?'':`<button class="btn ghost" data-act="pl-del">${S.confirm==='pl-del'?'לחיצה נוספת תמחק':'מחיקה'}</button>`}</div>`}
 // price list chosen in a group fills the rate / currency / meal price (still editable)
+// pricing mode: 'pl' = prices come from the chosen price list (no price column); 'free' = a special offer typed per line
+const grpMode=c=>c.plId?'pl':c.noPl?'free':(Object.keys(S.pls||{}).length?'pl':'free');
+const plRate=(pl,type)=>{const r=pl&&(pl.rows||[]).find(r=>r.type===type);return r?+r.rate||0:null};
 function grpApplyPl(key){const d=S.drafts.grp||(S.drafts.grp={}),x=((S.grps||{})[S.sheet&&S.sheet.id])||{},cur={...x,...d},l=plOf(cur.plId);if(!l)return;
-  if(key==='plId'){d.cur=l.cur||'ils';d.lines=grpLines(cur).map(x=>{const r=(l.rows||[]).find(r=>r.type===x.type);return r&&x.cat==='guest'?{...x,price:r.rate}:x})}
+  if(key==='plId'){d.cur=l.cur||'ils';d.lines=grpLines(cur).map(x=>{const r=plRate(l,x.type);return {...x,price:r==null?0:r}})}
   if((key==='board'||key==='plId')&&cur.board&&l[cur.board]!=null&&l[cur.board]!=='')d.boardPrice=l[cur.board]}
 function grpListHTML(){const F=S.grpF||(S.grpF={when:'up',st:'all',h:'all',pl:'all'}),t=todayISO(),hs=grpHs();if(!F.pl)F.pl='all';
   let list=Object.entries(S.grps||{}).filter(([,g])=>!g.hotel||hs.includes(g.hotel)||S.isOwner);
@@ -913,7 +916,8 @@ function sheetGrp(){const id=S.sheet.id,x=(S.grps||{})[id]||{},isNew=!(S.grps||{
   <label class="f">שם הקבוצה<input type="text" data-f="grp.name" value="${esc(g('name',''))}" placeholder="למשל טיול מאורגן מצרפת"></label>
   <div class="row"><label class="f">מלון<select data-f="grp.hotel">${hs.map(h=>`<option value="${h}" ${cur.hotel===h?'selected':''}>${esc(hotelName(h))}</option>`).join('')}</select></label>
   <label class="f">סטטוס<select data-f="grp.status">${GRP_ST.map(([k,n])=>`<option value="${k}" ${(cur.status||'offer')===k?'selected':''}>${n}</option>`).join('')}</select></label></div>
-  <label class="f">מחירון<select data-f="grp.plId"><option value="">בלי מחירון</option>${Object.entries(S.pls||{}).filter(([pid,l])=>(l.active!==false||pid===cur.plId)&&(!l.hotel||l.hotel===cur.hotel)).map(([pid,l])=>`<option value="${pid}" ${cur.plId===pid?'selected':''}>${esc(l.name||'מחירון')}</option>`).join('')}</select></label>
+  <div class="f"><span>מחיר</span><div class="seg" role="group"><button data-act="grp-mode" data-v="pl" aria-pressed="${grpMode(cur)==='pl'}">לפי מחירון</button><button data-act="grp-mode" data-v="free" aria-pressed="${grpMode(cur)==='free'}">הצעה מיוחדת (בלי מחירון)</button></div></div>
+  ${grpMode(cur)==='pl'?`<label class="f">מחירון<select data-f="grp.plId"><option value="">בוחרים מחירון…</option>${Object.entries(S.pls||{}).filter(([pid,l])=>(l.active!==false||pid===cur.plId)&&(!l.hotel||l.hotel===cur.hotel)).map(([pid,l])=>`<option value="${pid}" ${cur.plId===pid?'selected':''}>${esc(l.name||'מחירון')}</option>`).join('')}</select></label>`:''}
   ${(cur.status||'offer')==='option'?`<label class="f">האופציה שמורה עד<input type="date" data-f="grp.optUntil" value="${esc(g('optUntil',''))}"></label>`:''}
   <div class="row"><label class="f">סוכן<select data-f="grp.agentId"><option value="">בלי סוכן</option>${ags.map(([aid,a])=>`<option value="${aid}" ${cur.agentId===aid?'selected':''}>${esc(a.name||'')}${a.company?' · '+esc(a.company):''}</option>`).join('')}</select></label>
   <label class="f">איש קשר בקבוצה<input type="text" data-f="grp.contact" value="${esc(g('contact',''))}" placeholder="לא חובה"></label></div>
@@ -3087,7 +3091,8 @@ const ACT={
   'app-spa':()=>{S.menu=false;setTab('spa')},
   'app-grp':()=>{S.menu=false;setTab('grp')},
   'grp-view':D=>{S.grpView=D.v;render()},
-  'gl-add':D=>{const x=(S.grps||{})[S.sheet.id]||{},d=S.drafts.grp||(S.drafts.grp={}),L=JSON.parse(JSON.stringify(d.lines||grpLines(x)));const pl=plOf((d.plId??x.plId)||''),r0=D.cat==='guest'&&pl&&(pl.rows||[])[0];L.push({cat:D.cat,type:r0?r0.type:'',ppr:D.cat==='guest'?2:1,rooms:'',price:r0?r0.rate:(D.cat==='guest'?'':0)});d.lines=L;render()},
+  'grp-mode':D=>{const d=S.drafts.grp||(S.drafts.grp={});if(D.v==='free'){d.plId='';d.noPl=true}else{d.noPl=false;const first=Object.entries(S.pls||{}).find(([,l])=>l.active!==false);if(!d.plId&&!((S.grps||{})[S.sheet.id]||{}).plId&&first){d.plId=first[0];grpApplyPl('plId')}}render()},
+  'gl-add':D=>{const x=(S.grps||{})[S.sheet.id]||{},d=S.drafts.grp||(S.drafts.grp={}),L=JSON.parse(JSON.stringify(d.lines||grpLines(x)));const pl=plOf((d.plId??x.plId)||''),r0=D.cat==='guest'&&pl&&(pl.rows||[])[0];L.push({cat:D.cat,type:r0?r0.type:'',ppr:D.cat==='guest'?2:1,rooms:'',price:r0?r0.rate:(pl?0:(D.cat==='guest'?'':0))});d.lines=L;render()},
   'gl-del':D=>{const x=(S.grps||{})[S.sheet.id]||{},d=S.drafts.grp||(S.drafts.grp={}),L=JSON.parse(JSON.stringify(d.lines||grpLines(x)));L.splice(+D.i,1);d.lines=L;render()},
   'pay-ag':D=>{(S.payF||(S.payF={})).ag=D.v;render()},
   'grp-paid':D=>{const x=(S.grps||{})[D.id];if(!x)return;if(S.confirm!=='gp:'+D.id){S.confirm='gp:'+D.id;render();return}S.confirm=null;const tot=Math.round(grpCalc(x).total*100)/100,now=Date.now();
@@ -3111,7 +3116,8 @@ const ACT={
     const name=String(g('name')).trim(),ci=String(g('ci')),co=String(g('co')),hotel=String(g('hotel')||grpHs()[0]||''),agentId=String(g('agentId')||'');
     if(!name){toast('צריך לרשום שם לקבוצה');return}if(!ci||!co){toast('צריך תאריך הגעה ותאריך עזיבה');return}if(co<=ci){toast('העזיבה צריכה להיות אחרי ההגעה');return}
     const ag=(S.agents||{})[agentId]||null,plId=String(g('plId')||''),pl=plOf(plId);
-    const doc={...x,name,hotel,agentId,agentName:ag?ag.name||'':'',contact:String(g('contact')).trim(),ci,co,lines:grpLines({...x,...(S.drafts.grp||{})}).map(l=>({cat:l.cat||'guest',type:String(l.type||'').trim(),ppr:Math.max(0,+l.ppr||0),rooms:Math.max(0,+l.rooms||0),price:Math.max(0,+l.price||0)})).filter(l=>l.rooms||l.type),cur:String(g('cur')||'ils'),board:String(g('board')||''),boardPrice:num('boardPrice'),extras:num('extras'),extrasNote:String(g('extrasNote')).trim(),comm:0,plId,plName:pl?pl.name||'':'',dueDate:String(g('dueDate')||''),deposit:num('deposit'),status:String(g('status')||'offer'),optUntil:String(g('optUntil')||''),notes:String(g('notes')).trim(),updatedAt:now,updatedBy:S.uid};
+    const doc={...x,name,hotel,agentId,agentName:ag?ag.name||'':'',contact:String(g('contact')).trim(),ci,co,lines:grpLines({...x,...(S.drafts.grp||{})}).map(l=>({cat:l.cat||'guest',type:String(l.type||'').trim(),ppr:Math.max(0,+l.ppr||0),rooms:Math.max(0,+l.rooms||0),price:Math.max(0,+l.price||0)})).filter(l=>l.rooms||l.type),cur:String(g('cur')||'ils'),board:String(g('board')||''),boardPrice:num('boardPrice'),extras:num('extras'),extrasNote:String(g('extrasNote')).trim(),comm:0,plId,plName:pl?pl.name||'':'',noPl:!plId&&!!dv('grp','noPl',x.noPl||false),dueDate:String(g('dueDate')||''),deposit:num('deposit'),status:String(g('status')||'offer'),optUntil:String(g('optUntil')||''),notes:String(g('notes')).trim(),updatedAt:now,updatedBy:S.uid};
+    if(pl)doc.lines=doc.lines.map(l=>{const r=plRate(pl,l.type);return {...l,price:r==null?0:r}});
     {const cc=grpCalc(doc);doc.rooms=cc.rooms;doc.pax=cc.pax;delete doc.rate;delete doc.roomType}
     if(isNew){doc.createdAt=now;doc.createdBy=S.uid;doc.createdByName=S.meName||''}
     S.grps={...S.grps,[id]:doc};S.sheet=null;S.drafts.grp=null;render();

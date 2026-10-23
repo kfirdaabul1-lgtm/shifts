@@ -33,6 +33,7 @@ window.SC_CHAINS = [
     legacyPresets: true
   }
   // רשת נוספת: מוסיפים כאן אובייקט עם id, appName, firebase, ownerEmail, appUrl, legacyPresets:false
+  // מלון עצמאי (לא שייך לרשת): אותו דבר עם kind: "hotel" — עובד בדיוק כמו רשת עם מלון אחד
 ];
 
 // הרשת הפעילה: ?chain=<id> בכתובת, אחרת מה שנבחר בפעם האחרונה במכשיר, אחרת הראשונה

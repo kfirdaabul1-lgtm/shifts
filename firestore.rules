@@ -70,7 +70,8 @@ service cloud.firestore {
     function allHotels() { return isOwner() || (hasRole() && roleHotels().size() == 0); }
     // ניהול סידור במלון מסוים
     // עמוד עובדים: רק מי שיש לו הרשאת עובדים מקים, עורך ומוחק עובדים ושכר (במלונות שבהרשאה)
-    function hrIn(h) { return isOwner() || (hasRole() && roleApp('hr') && (roleHotels().size() == 0 || h in roleHotels())); }
+    // chain staff (hotel 'chain') are managed by anyone with the employees app (owner, Oct 23)
+    function hrIn(h) { return isOwner() || (hasRole() && roleApp('hr') && (roleHotels().size() == 0 || h in roleHotels() || h == 'chain')); }
     function manages(h) { return isOwner() || (canShifts() && (roleHotels().size() == 0 || h in roleHotels())); }
     function shiftsAllHotels() { return isOwner() || (canShifts() && roleHotels().size() == 0); }
     // מנהל מחלקה: מסדר רק את המחלקות שלו במלונות שלו, בלי שכר
@@ -97,7 +98,7 @@ service cloud.firestore {
     // מי שרואה את נתוני המלון (עובדים, סידור, הגדרות): בעל המערכת, או הרשאה שקשורה למלון,
     // רק במלונות שבהרשאה (בלי מלונות = כל המלונות)
     function seesHotel(h) {
-      return isOwner() || (hasRole() && (roleHotels().size() == 0 || h in roleHotels())
+      return isOwner() || (h == 'chain' && hasRole() && roleApp('hr')) || (hasRole() && (roleHotels().size() == 0 || h in roleHotels())
         && (roleApp('shifts') || roleApp('dept') || roleApp('gm') || roleApp('brief') || roleApp('front') || roleApp('perms') || roleApp('hr')));
     }
     // אירועים לפי המקומות של המלון (settings.venues; מלון בלי מקומות לא רואה אירועים), עד 4 מלונות בהרשאה
@@ -174,6 +175,16 @@ service cloud.firestore {
       return r.get('station', false) == true && r.get('apps', {}).keys().hasOnly(['front']) && r.get('hotels', []).size() == 1;
     }
     function existingOk(r) { return appsWithin(r.get('apps', {'shifts': true})) && hotelsInScope(r); }
+    // the employees app may set roles of chain staff (all hotels), only with apps the granter holds
+    function chainTarget(uid) { return exists(/databases/$(database)/documents/employees/$(uid)) && get(/databases/$(database)/documents/employees/$(uid)).data.get('hotel', 'main') == 'chain'; }
+    function chainGrantOk(n) {
+      return n.apps is map
+        && n.apps.keys().hasOnly(['shifts', 'events', 'perms', 'ceo', 'dept', 'mkt', 'exp', 'gm', 'brief', 'front', 'maint', 'fin', 'hk', 'hr', 'spa', 'grp', 'cmp', 'vch', 'vchr', 'hkchk'])
+        && n.get('hotels', []) is list && n.get('hotels', []).size() == 0
+        && n.get('depts', []) is list
+        && (isOwner() || roleApp('shifts') || n.get('depts', []).hasOnly(roleDepts()))
+        && appsWithin(n.apps) && expGrantOk(n);
+    }
     function targetInScope(uid) {
       return allHotels() || (
         exists(/databases/$(database)/documents/employees/$(uid))
@@ -187,6 +198,8 @@ service cloud.firestore {
       // מי שמנהל עובדים משייך תפקיד (רק הרשאות שיש לו בעצמו, באותם כללים)
       allow create, update: if hasRole() && roleApp('hr') && grantOk(request.resource.data) && (resource == null || existingOk(resource.data)) && targetInScope(uid) && !request.resource.data.get('station', false);
       allow delete: if hasRole() && roleApp('hr') && existingOk(resource.data) && targetInScope(uid) && !resource.data.get('station', false);
+      allow create, update: if hasRole() && roleApp('hr') && chainTarget(uid) && chainGrantOk(request.resource.data) && (resource == null || appsWithin(resource.data.get('apps', {'shifts': true}))) && !request.resource.data.get('station', false);
+      allow delete: if hasRole() && roleApp('hr') && chainTarget(uid) && appsWithin(resource.data.get('apps', {'shifts': true})) && !resource.data.get('station', false);
       allow create: if isOwner() || (canPerms() && grantOk(request.resource.data)
         && (targetInScope(uid) || stationOk(request.resource.data)));
       allow update: if isOwner() || (canPerms() && grantOk(request.resource.data) && existingOk(resource.data)

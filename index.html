@@ -1135,7 +1135,7 @@ function joinCodesCardHTML(){if(!S.can.hr)return '';const hs=hrHotels().concat(S
   hs.forEach(h=>{if(!S.settingsAll[h]&&!S.live['jcs:'+h]){S.live['jcs:'+h]=true;fdb.doc('settings/'+h).get().then(d=>{if(d.exists){S.settingsAll[h]=d.data();render()}}).catch(()=>{})}});
   return `<div class="card"><h3>קודי הצטרפות</h3><p class="muted" style="font-size:.85rem">עובד חדש נכנס לאתר, מתחבר ומקליד את קוד ההצטרפות של המלון שלו, וכך הוא משויך למלון הנכון. עובד רשת (הנהלה, משרד) מקבל את קוד הרשת: הוא לא נספר בנוכחות ולא משתבץ במשמרות. החלפת קוד מבטלת את הקוד הישן.</p>
   <div class="plist">${hs.map(h=>{const code=validCode(h);return `<div class="prow" style="flex-wrap:wrap"><span class="who"><b>${h===CHAIN?'עובדי רשת':esc(hotelName(h))}</b><small>${code?`קוד: <b class="code" dir="ltr">${esc(code)}</b>`:'עוד אין קוד'}</small></span><span class="actions">${code?`<button class="btn sm ghost" data-act="jc-copy" data-c="${esc(code)}" data-h="${h}">העתקה להודעה</button>`:''}<button class="btn sm" data-act="join-new" data-h="${h}">${code?'החלפת קוד':'יצירת קוד'}</button></span></div>`}).join('')}</div></div>`}
-function vHr(){const hs=hrHotels();if(!hs.length)return wrap(emptyBox('אין מלונות בהרשאה',''));if(!hs.includes(S.hrH))S.hrH=hs.includes(S.hotel)?S.hotel:hs[0];
+function vHr(){const hs=hrHotels().concat(S.can.hr?[CHAIN]:[]);if(!hs.length)return wrap(emptyBox('אין מלונות בהרשאה',''));if(!hs.includes(S.hrH))S.hrH=hs.includes(S.hotel)?S.hotel:hs[0];
   const chips=hs.length>1?`<div class="chips" style="gap:6px;margin-bottom:6px">${hs.map(x=>`<button class="dchip ${x===S.hrH?'':'off'}" style="--h:var(--brass)" data-act="hr-hotel" data-h="${x}">${esc(hotelName(x))}</button>`).join('')}</div>`:'';
   const prev=S.hotel;S.hotel=S.hrH;let h;try{h=vStaff()}finally{S.hotel=prev}
   const top=chips+joinCodesCardHTML();return top?h.replace('<div class="wrap stack">','<div class="wrap stack">'+top):h}
@@ -3624,7 +3624,7 @@ async function start(u){
   const afterSettings=()=>{if(!S.admin&&S.tab==='avail'&&S.week!==openWeek())setWeek(openWeek());else render()};
   if(setIds()===null)db.collection('settings').onSnapshot(q=>{S.settingsAll=docsMap(q);afterSettings()},onErr);
   else for(const h of setIds())db.doc('settings/'+h).onSnapshot(d=>{if(d.exists)S.settingsAll[h]=d.data();afterSettings()},onErr);
-  ((S.admin||S.can.perms||S.can.hr)?(S.scoped?db.collection('employees').where('hotel','in',S.role.hotels.slice(0,30)):db.collection('employees')):db.collection('employees').where('hotel','==',S.myHotel||S.hotel)).onSnapshot(q=>{S.emps=docsMap(q);S.empsLoaded=true;
+  ((S.admin||S.can.perms||S.can.hr)?(S.scoped?db.collection('employees').where('hotel','in',S.role.hotels.concat(S.can.hr&&!S.role.hotels.includes(CHAIN)?[CHAIN]:[]).slice(0,30)):db.collection('employees')):db.collection('employees').where('hotel','==',S.myHotel||S.hotel)).onSnapshot(q=>{S.emps=docsMap(q);S.empsLoaded=true;
     if(!S.admin&&S.emps[S.uid]&&!isChain(S.uid)){const h=hotelOf(S.uid);if(h!==S.hotel){S.hotel=h;if(S.tab==='avail'&&S.week!==openWeek()){setWeek(openWeek());return}}}
     render()},onErr);
   const scopedQ=c=>S.scoped?db.collection(c).where('hotel','in',S.role.hotels):db.collection(c);

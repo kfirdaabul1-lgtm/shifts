@@ -563,6 +563,12 @@ service cloud.firestore {
     }
     // Meta (Facebook/Instagram) connection: system-user token, owner only; the functions (admin) read it and write status
     // chain settings (name, event venues, spa hotel): every member reads, only the owner writes
+    // username → e-mail for username/password sign-in (looked up before signing in)
+    match /usernames/{u} {
+      allow get: if true;
+      allow create: if signedIn() && request.resource.data.uid == request.auth.uid && u.matches('^[a-z0-9._-]{3,30}$');
+      allow delete: if isOwner() || (signedIn() && resource.data.uid == request.auth.uid);
+    }
     // chains/hotels registry (home database only): web config needed to open a chain, readable by anyone who has the id
     match /chains/{id} {
       allow get: if true;

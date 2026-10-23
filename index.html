@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202610231720"></script>
+<script src="i18n.js?v=202610231740"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -2675,28 +2675,37 @@ function sheetSend(){const c={...cfg(),joinCode:validCode()};
   <div class="actions"><a class="btn pri" href="https://wa.me/" target="_blank" rel="noopener" data-act="wa">שליחה בוואטסאפ</a><button class="btn" data-act="copy">העתקת ההודעה</button><button class="btn ghost" data-act="remsg">ריענון הנוסח</button></div>`}
 
 /* ---------- login, registration, roles, join codes, import ---------- */
-function vLogin(){const ph=!!CFG.enablePhone;
-  return wrap(`<section class="head" style="max-width:440px;width:100%;margin-inline:auto;padding-top:24px"><h1>כניסה ל-${esc(appName())}</h1><p class="lede">לעובדים ולמנהלים. עובד חדש? אחרי הכניסה מקלידים את קוד ההצטרפות שקיבלתם מהמנהל.</p></section>
-  <div class="card" style="max-width:440px;width:100%;margin-inline:auto">
+function vLogin(){const ph=!!CFG.enablePhone,W='max-width:440px;width:100%;margin-inline:auto';
+  if(S.authView==='up')return wrap(`<section class="head" style="${W};padding-top:24px"><h1>הרשמה ל-${esc(appName())}</h1><p class="lede">ממלאים פעם אחת. את קוד ההצטרפות מקבלים מהמנהל, והוא משייך אתכם למלון הנכון.</p></section>
+  <div class="card" style="${W}">
+    <label class="f">קוד הצטרפות למלון<input type="text" data-f="su.code" value="${esc(dv('su','code',''))}" dir="ltr" autocapitalize="characters" autocomplete="off" placeholder="למשל K7Q2MX"></label>
+    <div class="row"><label class="f">שם מלא<input type="text" data-f="su.name" value="${esc(dv('su','name',''))}" autocomplete="name"></label>
+    <label class="f">טלפון<input type="tel" data-f="su.phone" value="${esc(dv('su','phone',''))}" autocomplete="tel" dir="ltr"></label></div>
+    <label class="f">שם משתמש<input type="text" data-f="su.user" value="${esc(dv('su','user',''))}" dir="ltr" autocapitalize="none" autocomplete="username" placeholder="למשל dana.k"></label>
+    <label class="f">מייל<input type="email" data-f="su.email" value="${esc(dv('su','email',''))}" dir="ltr" autocomplete="email" placeholder="name@gmail.com"></label>
+    <div class="row"><label class="f">סיסמה<input type="password" data-f="su.pass" dir="ltr" autocomplete="new-password"></label>
+    <label class="f">הסיסמה שוב<input type="password" data-f="su.pass2" dir="ltr" autocomplete="new-password"></label></div>
+    <p class="muted" style="font-size:.8rem;margin:0">שם משתמש: אותיות באנגלית, ספרות, נקודה או מקף. סיסמה: לפחות 6 תווים. המייל משמש לאיפוס סיסמה.</p>
+    <button class="btn pri" style="justify-content:center;padding:12px" data-act="pw-signup">הרשמה</button>
+    <button type="button" class="linkbtn" data-act="auth-view" data-v="in">כבר יש לי משתמש · כניסה</button>
+  </div>`);
+  return wrap(`<section class="head" style="${W};padding-top:24px"><h1>כניסה ל-${esc(appName())}</h1><p class="lede">לעובדים ולמנהלים. עובד חדש? לוחצים "הרשמה".</p></section>
+  <div class="card" style="${W}">
     ${S.loginMsg?`<div class="notice">${S.loginMsg==='blocked'?'הדפדפן חסם את חלון הכניסה של Google. לחצו שוב על הכפתור, או היכנסו עם קישור למייל.':'הדפדפן לא מאפשר את הכניסה עם Google (למשל בגלישה בסתר). היכנסו עם קישור למייל, או פתחו את האתר בלשונית רגילה.'}</div>`:''}
+    <label class="f">שם משתמש או מייל<input type="text" id="lg_user" data-f="login.user" dir="ltr" autocomplete="username" autocapitalize="none" value="${esc(dv('login','user',''))}"></label>
+    <label class="f">סיסמה<input type="password" id="lg_pass" data-f="login.pass" dir="ltr" autocomplete="current-password"></label>
+    <button class="btn pri" style="justify-content:center;padding:12px" data-act="station-login">כניסה</button>
+    <div class="actions" style="justify-content:space-between"><button type="button" class="linkbtn" data-act="pw-reset">שכחתי סיסמה</button><button type="button" class="btn" data-act="auth-view" data-v="up">הרשמה · משתמש חדש</button></div>
+    <div class="sep"></div>
+    <details ${S.needEmail||S.emailSent||S.phoneSent?'open':''}><summary style="cursor:pointer;font-weight:600">דרכים נוספות להיכנס</summary><div class="stack" style="gap:10px;margin-top:10px">
     <button class="btn pri" style="justify-content:center;padding:12px" data-act="login-google">כניסה עם Google</button>
     <div class="sep"></div>
     ${S.needEmail?`<label class="f">כדי לסיים את הכניסה, הקלידו שוב את המייל שאליו נשלח הקישור<input type="email" id="lg_email2" data-f="login.email2" dir="ltr" autocomplete="email"></label><button class="btn pri" data-act="email-finish">סיום הכניסה</button>`
       :S.emailSent?`<div class="notice">שלחנו קישור כניסה ל-<bdi>${esc(S.emailSent)}</bdi>. פותחים את המייל בטלפון ולוחצים על הקישור. לא הגיע? בדקו בספאם.</div><button class="linkbtn" data-act="email-again">שליחה לכתובת אחרת</button>`
       :`<label class="f">או כניסה עם קישור למייל, בלי סיסמה<input type="email" id="lg_email" data-f="login.email" dir="ltr" autocomplete="email" placeholder="name@gmail.com" value="${esc(dv('login','email',''))}"></label><button class="btn" data-act="email-send">שליחת קישור כניסה</button>`}
     ${ph?`<div class="sep"></div>${S.phoneSent?`<label class="f">הקוד שקיבלת ב-SMS<input type="text" id="lg_code" inputmode="numeric" autocomplete="one-time-code" data-f="login.code" dir="ltr"></label><button class="btn" data-act="phone-verify">כניסה</button>`:`<label class="f">או כניסה עם מספר טלפון<input type="tel" id="lg_phone" data-f="login.phone" dir="ltr" placeholder="050-1234567" value="${esc(dv('login','phone',''))}"></label><button class="btn" data-act="phone-send">שליחת קוד ב-SMS</button>`}`:''}
-    <div class="sep"></div>
-    <details ${dv('login','user','')||S.pwMode?'open':''}><summary style="cursor:pointer;font-weight:600">כניסה עם שם משתמש וסיסמה</summary>
-      <div class="stack" style="gap:10px;margin-top:10px">
-      <div class="chips" style="gap:6px"><button type="button" class="dchip ${S.pwMode!=='new'?'':'off'}" data-act="pw-mode" data-v="in">כניסה</button><button type="button" class="dchip ${S.pwMode==='new'?'':'off'}" data-act="pw-mode" data-v="new">משתמש חדש</button></div>
-      <label class="f">מייל או שם משתמש<input type="text" id="lg_user" data-f="login.user" dir="ltr" autocomplete="username" autocapitalize="none" value="${esc(dv('login','user',''))}"></label>
-      <label class="f">סיסמה<input type="password" id="lg_pass" data-f="login.pass" dir="ltr" autocomplete="${S.pwMode==='new'?'new-password':'current-password'}"></label>
-      ${S.pwMode==='new'?`<label class="f">הסיסמה שוב<input type="password" id="lg_pass2" data-f="login.pass2" dir="ltr" autocomplete="new-password"></label>
-      <p class="muted" style="font-size:.8rem;margin:0">שם משתמש: אותיות באנגלית, ספרות, נקודה או מקף. סיסמה: לפחות 6 תווים. אחרי היצירה מקלידים את קוד ההצטרפות מהמנהל.</p>
-      <button class="btn pri" data-act="pw-signup">יצירת משתמש</button>`:`<button class="btn" data-act="station-login">כניסה</button>
-      <button type="button" class="linkbtn" data-act="pw-reset">שכחתי סיסמה</button>`}
-      <p class="muted" style="font-size:.8rem;margin:0">גם עמדת הקבלה נכנסת מכאן, עם שם המשתמש והסיסמה שקיבלה.</p></div></details>
-    <p class="muted" style="font-size:.8rem">אם הכניסה לא נפתחת, פתחו את הקישור בדפדפן עצמו (Chrome או Safari) ולא מתוך אפליקציה אחרת.</p>
+    </div></details>
+    <p class="muted" style="font-size:.8rem">גם עמדת הקבלה נכנסת כאן, עם שם המשתמש והסיסמה שלה. אם הכניסה לא נפתחת, פתחו את האתר בדפדפן עצמו (Chrome או Safari).</p>
   </div>`)}
 function vRegister(){const g=k=>dv('reg',k,''),depts=dv('reg','depts',[]);
   return wrap(`<section class="head"><h1>הצטרפות לסידור העבודה</h1><p class="lede">ממלאים פעם אחת את הפרטים. את קוד ההצטרפות מקבלים מהמנהל, והוא משייך אתכם למלון הנכון.</p></section>
@@ -3672,17 +3681,30 @@ Object.assign(ACT,{
     try{await S.db.doc('roles/'+D.u).delete();toast('המשתמש בוטל. מי שמחובר איתו ינותק ברענון הבא.')}catch(e){toast(errMsg(e))}},
   'station-login':async()=>{const u=String(dv('login','user','')).trim(),pw=String(dv('login','pass',''));if(!u||!pw){toast('צריך להקליד שם משתמש וסיסמה');return}
     try{await fauth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)}catch(_){ }
-    const tries=u.includes('@')?[u.toLowerCase()]:[userEmail(u),stationEmail(u)];let last=null;
+    let tries=u.includes('@')?[u.toLowerCase()]:[userEmail(u),stationEmail(u)];let last=null;
+    if(!u.includes('@')){try{const d=await fdb.doc('usernames/'+u.toLowerCase()).get();if(d.exists&&d.data().email)tries=[d.data().email,...tries]}catch(_){ }}
     for(const em of tries){try{await fauth.signInWithEmailAndPassword(em,pw);return}catch(e){last=e;if(!['auth/user-not-found','auth/invalid-credential','auth/invalid-login-credentials','auth/wrong-password'].includes(e.code))break}}
     toast(PW_ERR(last||{}))},
   'pw-mode':D=>{S.pwMode=D.v;render()},
-  'pw-signup':async()=>{const u=String(dv('login','user','')).trim(),pw=String(dv('login','pass','')),pw2=String(dv('login','pass2',''));
-    if(!u)return toast('צריך מייל או שם משתמש');if(!u.includes('@')&&!/^[a-z0-9._-]{3,30}$/i.test(u))return toast('שם משתמש: 3–30 אותיות באנגלית, ספרות, נקודה או מקף');
-    if(pw.length<6)return toast('הסיסמה קצרה מדי (לפחות 6 תווים)');if(pw!==pw2)return toast('הסיסמאות לא זהות');
+  'auth-view':D=>{S.authView=D.v;render()},
+  'pw-signup':async()=>{const d=S.drafts.su||{},code=String(d.code||'').trim().toUpperCase().replace(/\s/g,''),name=String(d.name||'').trim(),phone=String(d.phone||'').trim(),u=String(d.user||'').trim().toLowerCase(),em=String(d.email||'').trim().toLowerCase(),pw=String(d.pass||''),pw2=String(d.pass2||'');
+    if(!/^[A-Z0-9]{4,12}$/.test(code))return toast('צריך את קוד ההצטרפות שקיבלתם מהמנהל');if(!name)return toast('צריך למלא שם');
+    if(!/^[a-z0-9._-]{3,30}$/.test(u))return toast('שם משתמש: 3–30 אותיות באנגלית, ספרות, נקודה או מקף');
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em))return toast('צריך מייל תקין');if(pw.length<6)return toast('הסיסמה קצרה מדי (לפחות 6 תווים)');if(pw!==pw2)return toast('הסיסמאות לא זהות');
+    try{const x=await fdb.doc('usernames/'+u).get();if(x.exists)return toast('שם המשתמש תפוס. בחרו שם אחר.')}catch(_){ }
+    S.drafts.reg={code,name,phone};S.signingUp=true;
     try{await fauth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)}catch(_){ }
-    try{await fauth.createUserWithEmailAndPassword(userEmail(u),pw)}catch(e){toast(PW_ERR(e))}},
-  'pw-reset':async()=>{const u=String(dv('login','user','')).trim();if(!u.includes('@'))return toast(u?'לשם משתמש בלי מייל אין איפוס במייל. פנו למנהל או לבעל המערכת.':'הקלידו את המייל שלכם ולחצו שוב');
-    try{await fauth.sendPasswordResetEmail(u.toLowerCase());toast('שלחנו מייל לאיפוס הסיסמה')}catch(e){toast(PW_ERR(e))}},
+    let cred;try{cred=await fauth.createUserWithEmailAndPassword(em,pw)}catch(e){S.signingUp=false;return toast(PW_ERR(e))}
+    const uid=(cred&&cred.user&&cred.user.uid)||(fauth.currentUser&&fauth.currentUser.uid);
+    try{await fdb.doc('usernames/'+u).set({uid,email:em,at:Date.now()})}catch(_){ }
+    try{const jc=await fdb.doc('joinCodes/'+code).get();if(!jc.exists){S.signingUp=false;toast('המשתמש נוצר, אבל קוד ההצטרפות לא נמצא. בדקו אותו מול המנהל.');return}
+      await fdb.doc('employees/'+uid).set({name,phone,title:'',want:'',depts:[],hotel:jc.data().hotel||'main',joinCode:code,manual:false,createdAt:Date.now()});
+      try{await fauth.currentUser.updateProfile({displayName:name})}catch(_){ }
+      toast('נרשמת! טוען…');setTimeout(()=>location.reload(),800)}catch(e){S.signingUp=false;toast(errMsg(e))}},
+  'pw-reset':async()=>{let u=String(dv('login','user','')).trim().toLowerCase();if(!u)return toast('הקלידו את שם המשתמש או המייל ולחצו שוב');
+    if(!u.includes('@')){try{const d=await fdb.doc('usernames/'+u).get();if(d.exists&&d.data().email)u=d.data().email}catch(_){ }}
+    if(!u.includes('@'))return toast('לשם המשתמש הזה אין מייל לאיפוס. פנו למנהל.');
+    try{await fauth.sendPasswordResetEmail(u);toast('שלחנו מייל לאיפוס הסיסמה')}catch(e){toast(PW_ERR(e))}},
   'email-finish':()=>{const em=String(dv('login','email2','')).trim();if(em)finishEmailLink(em)},
   'phone-send':async()=>{const ph=normPhone(dv('login','phone',''));if(!ph){toast('מספר הטלפון לא תקין');return}
     try{S.recaptcha=S.recaptcha||new firebase.auth.RecaptchaVerifier('recaptcha',{size:'invisible'});S.confirmRes=await fauth.signInWithPhoneNumber(ph,S.recaptcha);S.phoneSent=true;render()}

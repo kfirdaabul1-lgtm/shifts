@@ -299,6 +299,12 @@ body.nocopy input,body.nocopy textarea,body.nocopy select{-webkit-user-select:te
 <script src="config.js"></script>
 <script>
 const CFG=window.APP_CONFIG||{};
+// organisation (chain) settings: config.js gives the defaults, orgcfg/main (owner, הגדרות מלון) overrides them.
+// legacyPresets:false (a new chain) = no built-in event venues, room lists or spa hotel taken from Seven's hotel names.
+const LEGACY=CFG.legacyPresets!==false;
+const DEF_VENUES=LEGACY?[{id:'sola',name:'מלון 7EVEN',areas:['סולה','Co-Work','מסעדה','בויילר','וולנס'],hex:'#b7822a'},{id:'boheme',name:'Gutman',areas:['לה בוהם','לה בוהם גארדן'],hex:'#86304a'},{id:'sevenseas',name:'7seas',areas:['גג'],hex:'#13789c'}]:[];
+const appName=()=>((typeof S!=='undefined'&&S.org&&S.org.name)||CFG.appName||'Seven Collection');
+const orgVenues=()=>{const o=(typeof S!=='undefined'&&S.org)||{};return Array.isArray(o.venues)?o.venues:DEF_VENUES};
 document.documentElement.setAttribute('dir','rtl');document.documentElement.setAttribute('lang','he');
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -468,7 +474,7 @@ async function pushEnable(){
   if(!pushSupported()){toast('הדפדפן הזה לא תומך בהתראות. נסו ב-Chrome, או באייפון דרך מסך הבית.');return}
   try{const p=await Notification.requestPermission();if(p!=='granted'){toast('ההתראות לא הופעלו. אפשר להפעיל אותן בהגדרות הדפדפן.');render();return}
     const {reg}=await pushToken();
-    try{reg.showNotification('Seven Collection',{body:'ההתראות פעילות במכשיר הזה ✓',icon:'icon-192.png',dir:'rtl',lang:'he'})}catch(_){ }
+    try{reg.showNotification(appName(),{body:'ההתראות פעילות במכשיר הזה ✓',icon:'icon-192.png',dir:'rtl',lang:'he'})}catch(_){ }
     toast('ההתראות הופעלו במכשיר הזה ✓');render()}
   catch(e){console.warn('push',e);toast('לא הצלחתי להפעיל התראות במכשיר הזה. נסו שוב או בדפדפן אחר.')}}
 // on every sign-in with permission already granted: refresh the token quietly, and show messages that arrive while the site is open
@@ -484,7 +490,7 @@ function sheetPushAsk(){return `<div style="text-align:center;padding:8px 4px 4p
   <p class="muted" style="margin:0 0 16px">${S.station?'עמדת הקבלה תקבל התראה על כל עדכון במשק ובאחזקה: חדר שנוקה, חדר שהתחילו לנקות, תקלה שנפתחה ותקלה שתוקנה.':'נעדכן אותך על סידור שפורסם, בקשות שאושרו, החלפות משמרת ומשימות שמחכות לך, גם כשהאתר סגור.'}</p>
   <div class="actions" style="justify-content:center"><button class="btn pri" data-act="push-yes">אישור</button><button class="btn" data-act="push-later">לא עכשיו</button></div></div>`}
 function sheetIosPush(){return sheetHead('התראות באייפון','')+`<p>באייפון אפשר לקבל התראות רק כשהאתר מותקן במסך הבית:</p>
-  <ol style="padding-inline-start:20px;line-height:1.9"><li>פותחים את האתר ב-<b>Safari</b>.</li><li>לוחצים על כפתור השיתוף <b>⎙</b> (ריבוע עם חץ למעלה) בתחתית המסך.</li><li>בוחרים <b>"הוסף למסך הבית"</b> ולוחצים "הוסף".</li><li>פותחים את <b>Seven</b> מהאייקון החדש במסך הבית.</li><li>בתפריט לוחצים <b>"הפעלת התראות"</b> ומאשרים.</li></ol>
+  <ol style="padding-inline-start:20px;line-height:1.9"><li>פותחים את האתר ב-<b>Safari</b>.</li><li>לוחצים על כפתור השיתוף <b>⎙</b> (ריבוע עם חץ למעלה) בתחתית המסך.</li><li>בוחרים <b>"הוסף למסך הבית"</b> ולוחצים "הוסף".</li><li>פותחים את <b>${esc(appName())}</b> מהאייקון החדש במסך הבית.</li><li>בתפריט לוחצים <b>"הפעלת התראות"</b> ומאשרים.</li></ol>
   <p class="muted" style="font-size:.85rem">צריך iOS 16.4 ומעלה. אחרי ההתקנה האתר נפתח כמו אפליקציה, בלי שורת הכתובת.</p>
   <div class="actions"><button class="btn pri" data-act="close">הבנתי</button></div>`}
 function render(){if(isTyping()){S.pending=true;return}S.pending=false;renderTop();renderDrawer();$('#main').innerHTML=callsBannerHTML()+viewHTML();renderSheet()}
@@ -493,7 +499,7 @@ function renderTop(){
   const tabs=S.admin?(S.deptOnly?[['sched','סידור'],['shifts','משמרות פתוחות']]:[['sched','סידור'],['shifts','משמרות פתוחות'],['costs','עלויות'],['settings','הגדרות']]):S.myHotel===CHAIN||isMgmt(S.uid)?[['profile','הפרופיל שלי']]:[['avail','הזמינות שלי'],['mine','המשמרות שלי'+(myPending().length?` (${myPending().length})`:'')],['profile','הפרופיל שלי']];
   const nav=S.ready&&!S.registering&&S.auth==='in'&&S.week&&S.tab!=='settings'&&!APPTABS.includes(S.tab)&&!(!S.admin&&(S.tab==='avail'||S.tab==='profile'));
   $('#top').innerHTML=`${appBarHTML()}<div class="wrap top-in">
-    <div class="brand"><span class="mark">${BELL}</span><div><div class="b1">Seven Collection</div><div class="b2">${S.auth==='in'&&!S.registering?`${esc(hotelName(S.hotel))} · ${S.station?'עמדת קבלה':S.admin?'ממשק מנהל':'ממשק עובד'}`:''}</div></div></div>
+    <div class="brand"><span class="mark">${BELL}</span><div><div class="b1">${esc(appName())}</div><div class="b2">${S.auth==='in'&&!S.registering?`${esc(hotelName(S.hotel))} · ${S.station?'עמדת קבלה':S.admin?'ממשק מנהל':'ממשק עובד'}`:''}</div></div></div>
     ${nav?`<div class="weeknav"><button data-act="week" data-d="-7" aria-label="שבוע קודם">›</button><div class="wk"><span class="wk-l">שבוע</span><b class="mono">${weekLabel(S.week)}</b></div><button data-act="week" data-d="7" aria-label="שבוע הבא">‹</button></div>`:''}
     ${S.auth==='in'?`<button class="burger" data-act="menu" aria-label="תפריט" aria-expanded="${!!S.menu}" style="position:relative">${S.ready&&alertCount()?`<span style="position:absolute;top:2px;inset-inline-end:2px;min-width:18px;height:18px;border-radius:9px;background:#c0392b;color:#fff;font:700 11px/18px system-ui;text-align:center;padding:0 4px">${alertCount()}</span>`:''}<svg width="26" height="26" viewBox="0 0 26 26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h18"/><path d="M4 13h14"/><path d="M4 19h10"/></svg></button>`:''}
   </div>
@@ -503,7 +509,7 @@ function renderTop(){
 function renderDrawer(){const el=$('#drawer');if(!S.menu||S.auth!=='in'){el.innerHTML='';return}
   const items=S.registering?[]:S.station?[['front','קבלה','data-act="app-front"',S.tab==='front'],['hk','משק','data-act="app-hk"',S.tab==='hk'],['pub','שטחים ציבוריים','data-act="app-pub"',S.tab==='pub']]:[['shifts','סידור עבודה','data-act="app-shifts"',!APPTABS.includes(S.tab)],S.can.hr&&['hr','עובדים','data-act="app-hr"',S.tab==='hr'],S.can.events&&['events','אירועים','href="events.html"',false],S.can.spa&&['spa','ספא','data-act="app-spa"',S.tab==='spa'],S.can.grp&&['grp','קבוצות','data-act="app-grp"',S.tab==='grp'],S.can.events&&['leads','לידים ומכירות','data-act="app-leads"',S.tab==='leads'],S.can.front&&['front','קבלה','data-act="app-front"',S.tab==='front'],S.can.brief&&['brief','בריף יומי','data-act="app-brief"',S.tab==='brief'],S.can.gm&&['gm','מנהל מלון','data-act="app-gm"',S.tab==='gm'],S.can.ceo&&['ceo','מבט מנכ״ל','data-act="app-ceo"',S.tab==='ceo'],S.can.fin&&['fin','כספים'+(finPendingAll()?` (${finPendingAll()})`:''),'data-act="app-fin"',S.tab==='fin'],S.can.hk&&['hk','משק','data-act="app-hk"',S.tab==='hk'],S.can.pub&&['pub','שטחים ציבוריים','data-act="app-pub"',S.tab==='pub'],S.can.cmp&&['cmp','תלונות אורחים','data-act="app-cmp"',S.tab==='cmp'],(S.can.vch||S.can.vchr)&&['vch','שוברים','data-act="app-vch"',S.tab==='vch'],S.can.maint&&['maint','אחזקה'+((S.can.gm||S.can.shifts||S.isOwner)&&openFaultsN()?` (${openFaultsN()} פתוחות)`:''),'data-act="app-maint"',S.tab==='maint'],S.can.stock&&['stock','מלאי'+((S.can.gm||S.can.shifts||S.isOwner)&&lowItems().length?` (${lowItems().length} במינימום)`:''),'data-act="app-stock"',S.tab==='stock'],S.can.mkt&&['mkt','סושיאל מדיה','data-act="app-mkt"',S.tab==='mkt'],S.can.exp&&['exp','הוצאות','data-act="app-exp"',S.tab==='exp'],S.can.perms&&['perms','הרשאות','data-act="app-perms"',S.tab==='perms'],(S.isOwner||S.can.shifts)&&['cfg','הגדרות מלון','data-act="app-cfg"',S.tab==='cfg']].filter(Boolean);
   el.innerHTML=`<div class="drawer-bg" data-act="menu-close"></div><nav class="drawer" aria-label="אפליקציות">
-    <div class="drawer-h"><b>Seven Collection</b><button class="x" data-act="menu-close" aria-label="סגירה">×</button></div>
+    <div class="drawer-h"><b>${esc(appName())}</b><button class="x" data-act="menu-close" aria-label="סגירה">×</button></div>
     <div class="drawer-who">${esc(S.meName||'')}${S.meName&&(S.email||S.phone)?'<br>':''}<bdi>${esc(S.email||S.phone||'')}</bdi></div>
     ${items.map(([k,n,attr,cur])=>attr.startsWith('href')?`<a class="item" ${attr}>${ICO[k]}${n}</a>`:`<button class="item" ${attr} ${cur?'aria-current="page"':''}>${ICO[k]}${n}</button>`).join('')}
     ${pushOffered()?'<button class="item" data-act="notif-on">🔔 הפעלת התראות</button>':''}
@@ -785,7 +791,7 @@ function payLabel(u){const m=S.mgr[u]||{};
    name, phone, notes, status booked|done|canceled, createdBy, createdByName, createdAt, updatedAt}. Access S.can.spa (owner / apps.spa);
    function onSpaNew pushes every new treatment to all spa holders. ---------- */
 // the spa belongs to the Gutman hotel: its treatments show in that hotel's daily brief
-const spaHotel=()=>hotelIds().find(h=>/גוטמן|gutman/i.test(hotelName(h)))||'';
+const spaHotel=()=>{const o=S.org||{};if(o.spaHotel!=null)return hotelIds().includes(o.spaHotel)?o.spaHotel:'';return LEGACY?(hotelIds().find(h=>/גוטמן|gutman/i.test(hotelName(h)))||''):''};
 function spaDaySub(h,d){const k='spad:'+h+'|'+d;S.spaDay=S.spaDay||{};if(S.live[k])return S.spaDay[h+'|'+d];S.live[k]=true;
   S.db.collection('spa').where('hotel','==',h).where('date','==',d).onSnapshot(q=>{S.spaDay[h+'|'+d]=Object.values(docsMap(q)).filter(b=>b.status!=='canceled').sort((a,b)=>spaMin(a.time)-spaMin(b.time));render()},()=>{S.spaDay[h+'|'+d]=null;render()});return S.spaDay[h+'|'+d]}
 const SPA_TH=[['any','לא משנה'],['m','מטפל'],['f','מטפלת']],SPA_HH=72;
@@ -1038,7 +1044,7 @@ async function vchOpenId(id){try{const d=await fdb.doc('vouchers/'+id).get();if(
 // one-time (per device) index of existing vouchers for code lookup, by issuers
 function vchCodesBackfill(){try{if(localStorage.getItem('vchCodesDone'))return}catch(_){}const V=S.vchs||{};const ops=Object.entries(V).filter(([,v])=>v.code).map(([id,v])=>fdb.doc('vchCodes/'+v.code).set({id,hotel:v.hotel||''},{merge:true}));Promise.all(ops).then(()=>{try{localStorage.setItem('vchCodesDone','1')}catch(_){}}).catch(()=>{})}
 function vchHotels(){const all=hotelIds();if(S.isOwner||!(S.role&&Array.isArray(S.role.hotels)&&S.role.hotels.length))return all;return all.filter(h=>S.role.hotels.includes(h))}
-function vchWa(v,id){const ph=normPhone(v.phone||'').replace('+','');const t=`שלום ${v.name||''},\n${v.source==='complaint'?'מצטערים על אי הנוחות. ':''}קיבלת שובר: ${v.title}${v.type==='money'?` בשווי ${ils(v.amount)}`:v.type==='pct'?` (${+v.pct}% הנחה)`:''}.${vchValid(v)?`\nתקף ב: ${vchWhere(v)}`:''}${v.noHol?'\n'+VCH_NOHOL:''}\nקוד השובר: ${v.code}${v.expires?`\nבתוקף עד ${dm(v.expires)}.${v.expires.slice(0,4)}`:''}\nלצפייה בשובר וב-QR: ${vchUrl(id)}\n${hotelName(v.hotel)||'Seven Collection'}`;
+function vchWa(v,id){const ph=normPhone(v.phone||'').replace('+','');const t=`שלום ${v.name||''},\n${v.source==='complaint'?'מצטערים על אי הנוחות. ':''}קיבלת שובר: ${v.title}${v.type==='money'?` בשווי ${ils(v.amount)}`:v.type==='pct'?` (${+v.pct}% הנחה)`:''}.${vchValid(v)?`\nתקף ב: ${vchWhere(v)}`:''}${v.noHol?'\n'+VCH_NOHOL:''}\nקוד השובר: ${v.code}${v.expires?`\nבתוקף עד ${dm(v.expires)}.${v.expires.slice(0,4)}`:''}\nלצפייה בשובר וב-QR: ${vchUrl(id)}\n${hotelName(v.hotel)||appName()}`;
   return `https://wa.me/${ph}?text=${encodeURIComponent(t)}`}
 function vchRedeemCard(){return `<div class="card"><h3>מימוש שובר</h3><div class="actions" style="align-items:center"><input type="text" id="vch_code" dir="ltr" autocomplete="off" autocapitalize="characters" placeholder="ABCD-EFGH-JK23" style="flex:1 1 200px;font:600 1.1rem ui-monospace,monospace;letter-spacing:2px;text-align:center"><button class="btn pri" data-act="vch-find">חיפוש</button><button class="btn" data-act="vch-scan">${S.vchScan?'✕ עצירת סריקה':'📷 סריקת QR'}</button></div><div id="vch_reader" ${S.vchScan?'':'hidden'} style="max-width:380px;margin-top:10px;border-radius:10px;overflow:hidden"></div></div>`}
 function vVchRedeemOnly(){
@@ -1760,18 +1766,18 @@ function alertsSub(){if(S.live.alerts)return;S.live.alerts=true;recAckSub();
       if(S.finSeen&&finPendingAll()>prev)toast('דוח סוף משמרת חדש ממתין לאישור ההפקדה');S.finSeen=true;alertTick()},()=>{})}
   // faults (all statuses): open count for managers, recurring rooms for managers and maintenance staff
   if(S.can.maint){const hs=scopeHs().slice(0,10);if(hs.length)S.db.collection('faults').where('hotel','in',hs).onSnapshot(q=>{const all=docsMap(q);S.alertFaultsAll=all;S.alertFaults=Object.fromEntries(Object.entries(all).filter(([,f])=>f.status!=='done'));alertTick()},()=>{})}}
-function alertTick(){const n=alertCount(),prev=S.alertPrev??n;S.alertPrev=n;try{document.title=(n?`(${n}) `:'')+'Seven Collection'}catch(_){ }
+function alertTick(){const n=alertCount(),prev=S.alertPrev??n;S.alertPrev=n;try{document.title=(n?`(${n}) `:'')+appName()}catch(_){ }
   // red badge with the number on the app icon (installed app on the home screen / desktop)
   try{if(navigator.setAppBadge){n?navigator.setAppBadge(n).catch(()=>{}):navigator.clearAppBadge().catch(()=>{})}}catch(_){ }
   // items that just reached their minimum get their own notification (first load only records what is already low)
   // a room that just became a recurring-fault room gets its own notification
   if(S.can.maint&&S.alertFaultsAll){const rr=recurRooms(Object.values(S.alertFaultsAll)),firstR=!S.recSeen,freshR=rr.filter(x=>!(S.recSeen||new Set()).has(x.key));S.recSeen=new Set(rr.map(x=>x.key));
     if(!firstR&&freshR.length){const t=freshR.map(x=>`חדר ${x.room} (${hotelName(x.hotel)})`).join(', ');toast('תקלה חוזרת: '+t);
-      if(window.Notification&&Notification.permission==='granted'){try{new Notification('Seven Collection · אחזקה',{body:'תקלה חוזרת: '+t,tag:'sc-recur'})}catch(_){ }}}}
+      if(window.Notification&&Notification.permission==='granted'){try{new Notification(appName()+' · אחזקה',{body:'תקלה חוזרת: '+t,tag:'sc-recur'})}catch(_){ }}}}
   const low=lowItems(),first=!S.lowSeen;S.lowSeen=S.lowSeen||new Set();const fresh=low.filter(([id])=>!S.lowSeen.has(id));S.lowSeen=new Set(low.map(([id])=>id));
   if(!first&&fresh.length){const t=fresh.map(([,x])=>`${x.name} (${hotelName(x.hotel)}): ${+x.qty||0}${x.unit?' '+x.unit:''}`).join(', ');toast('הגיע למינימום במלאי: '+t);
-    if(window.Notification&&Notification.permission==='granted'){try{new Notification('Seven Collection · מלאי',{body:'הגיע לרף המינימום: '+t,tag:'sc-low'})}catch(_){ }}}
-  else if(n>prev&&window.Notification&&Notification.permission==='granted'){try{new Notification('Seven Collection',{body:n===1?'יש בקשה שמחכה לאישור שלך':`יש ${n} בקשות שמחכות לאישור שלך`,tag:'sc-pending'})}catch(_){ }}
+    if(window.Notification&&Notification.permission==='granted'){try{new Notification(appName()+' · מלאי',{body:'הגיע לרף המינימום: '+t,tag:'sc-low'})}catch(_){ }}}
+  else if(n>prev&&window.Notification&&Notification.permission==='granted'){try{new Notification(appName(),{body:n===1?'יש בקשה שמחכה לאישור שלך':`יש ${n} בקשות שמחכות לאישור שלך`,tag:'sc-pending'})}catch(_){ }}
   render()}
 
 /* ---------- stock: items per hotel and department, minimum level, purchase requests ---------- */
@@ -1844,7 +1850,7 @@ function briefLoad(h,d){const B=S.briefData||(S.briefData={}),k=h+'|'+d;if(B[k])
   if(!S.live['bemps:'+h]){S.live['bemps:'+h]=true;db.collection('employees').where('hotel','==',h).onSnapshot(q=>{S.emps={...S.emps,...docsMap(q)};render()},()=>{})}
   subQuotes();
   return B[k]}
-const EV_VENUE={sola:'מלון 7EVEN',boheme:'Gutman',sevenseas:'7seas'};
+const EV_VENUE={};
 function briefText(h,d,daily,evs,crew){const DAILY=dailyRows(h);return `בריף יומי · ${hotelName(h)} · יום ${DAYS[dow(d)]} ${dm(d)}\n`+
   DAILY.filter(([k])=>daily[k]!=null).map(([k,n])=>`${n}: ${daily[k]}`).join('\n')+
   (evs.length?`\n\nאירועים:\n`+evs.map(q=>`• ${q.event.start||''}${q.event.end?'–'+q.event.end:''} ${q.client?.name||''} (${EV_VENUE[q.event.venue]||''}${' · '+spaceLabel(q)}) ${+q.event.guests||0} אורחים${q.kind==='group'?' · קבוצת מלון':q.status==='approved'?'':' · טנטטיב'}`).join('\n'):'\n\nאין אירועים היום.')+
@@ -1877,11 +1883,13 @@ function vBrief(){const hs=scopeHs();if(!hs.length)return wrap(emptyBox('אין 
 // which event venues belong to a hotel: settings.venues (empty = all venues)
 // event spaces per venue (same as VENUES in events.html); a hotel owns spaces: settings.spaces ['venue|space'],
 // and settings.venues (derived) keeps the security rules per venue
-const EV_SPACES={sola:['סולה','Co-Work','מסעדה','בויילר','וולנס'],boheme:['לה בוהם','לה בוהם גארדן'],sevenseas:['גג']};
+const EV_SPACES={};
+function applyOrg(){[EV_VENUE,EV_SPACES].forEach(o=>Object.keys(o).forEach(k=>delete o[k]));orgVenues().forEach(v=>{if(!v||!v.id)return;EV_VENUE[v.id]=v.name||v.id;EV_SPACES[v.id]=(v.areas||[]).filter(Boolean)})}
+applyOrg();
 const EV_LEGACY={'גג@sola':['סולה'],'מסעדת לה בוהם':['לה בוהם'],'לה בוהם גארדן – בר היין':['לה בוהם גארדן'],'המסעדה + הגארדן':['לה בוהם','לה בוהם גארדן']};
 const hotelVenues=h=>((S.settingsAll[h]||{}).venues)||[];
 function hotelSpaces(h,stAll){const st=(stAll||S.settingsAll)[h]||{};if(Array.isArray(st.spaces))return st.spaces;return (st.venues||[]).flatMap(v=>(EV_SPACES[v]||[]).map(a=>v+'|'+a))}
-function quoteSpaces(q){const e=q.event||{},v=EV_SPACES[e.venue]?e.venue:'sola',all=EV_SPACES[v];
+function quoteSpaces(q){const e=q.event||{},v=EV_SPACES[e.venue]?e.venue:Object.keys(EV_SPACES)[0],all=v?EV_SPACES[v]:[];if(!v||!all.length)return v?[v+'|']:[];
   let a=Array.isArray(e.areas)?e.areas.map(x=>v==='sola'&&x==='גג'?'סולה':x):(EV_LEGACY[e.area+'@'+v]||EV_LEGACY[e.area]||(e.area?[e.area]:[]));a=a.filter(x=>all.includes(x));
   return (a.length?a:(Array.isArray(e.areas)||v==='sola'?[all[0]]:all.slice())).map(x=>v+'|'+x)}
 // a hotel without spaces has no events (e.g. the hostel)
@@ -2149,7 +2157,7 @@ function hkChkHTML(h,D,R){if(!hkChkOk(h))return '';const L=hkToCheck(D,R).sort((
   ${L.length?`<div class="plist">${L.map(r=>{const u=(D.doneBy||{})[r];return `<div class="prow" style="flex-wrap:wrap"><span class="who"><b>חדר ${esc(r)}</b><small>${u?'ניקה: '+esc(empName(u))+' · ':''}סיים ב-${t(D.done[r])}${(D.trt||{})[r]?' · '+HK_TN[D.trt[r]][1]:''}</small></span><span class="actions"><button class="btn sm pri" data-act="hk-chk" data-h="${h}" data-r="${esc(r)}">✓ נקי · VC</button><button class="btn sm ghost" data-act="hk-chk-back" data-h="${h}" data-r="${esc(r)}">להחזיר לניקוי</button></span></div>`}).join('')}</div>`:'<p class="muted">אין כרגע חדרים שממתינים לבדיקה.</p>'}</div>`}
 const HK_FLAGS=['pri','vip','bk','grp','twin','cot','wine','bal'];
 const HK_CN=Object.fromEntries(HK_CLEAN.map(x=>[x[0],x])),HK_ON=Object.fromEntries(HK_OCC.map(x=>[x[0],x]));
-function hkPreset(h){const n=String(hotelName(h)||'').toLowerCase();
+function hkPreset(h){if(!LEGACY)return {rooms:''};const n=String(hotelName(h)||'').toLowerCase();
   if(/סיז|seas/.test(n))return {rooms:'101-119 -113 -117\n201-219 -213 -217\n301-314 -313\n401-403'};
   if(/גוטמן|gutman|gutmann/.test(n))return {rooms:'101-107\n200-210\n300-312 -306'};
   if(/הוסטל|hostel|180/.test(n))return {rooms:'201-206\n301-311',dorms:'101-111 -108',beds:8};
@@ -2650,7 +2658,7 @@ function sheetSend(){const c={...cfg(),joinCode:validCode()};
 
 /* ---------- login, registration, roles, join codes, import ---------- */
 function vLogin(){const ph=!!CFG.enablePhone;
-  return wrap(`<section class="head" style="max-width:440px;width:100%;margin-inline:auto;padding-top:24px"><h1>כניסה ל-Seven Collection</h1><p class="lede">לעובדים ולמנהלים. עובד חדש? אחרי הכניסה מקלידים את קוד ההצטרפות שקיבלתם מהמנהל.</p></section>
+  return wrap(`<section class="head" style="max-width:440px;width:100%;margin-inline:auto;padding-top:24px"><h1>כניסה ל-${esc(appName())}</h1><p class="lede">לעובדים ולמנהלים. עובד חדש? אחרי הכניסה מקלידים את קוד ההצטרפות שקיבלתם מהמנהל.</p></section>
   <div class="card" style="max-width:440px;width:100%;margin-inline:auto">
     ${S.loginMsg?`<div class="notice">${S.loginMsg==='blocked'?'הדפדפן חסם את חלון הכניסה של Google. לחצו שוב על הכפתור, או היכנסו עם קישור למייל.':'הדפדפן לא מאפשר את הכניסה עם Google (למשל בגלישה בסתר). היכנסו עם קישור למייל, או פתחו את האתר בלשונית רגילה.'}</div>`:''}
     <button class="btn pri" style="justify-content:center;padding:12px" data-act="login-google">כניסה עם Google</button>
@@ -2702,9 +2710,9 @@ const BK_FN='https://europe-west1-'+((CFG.firebase&&CFG.firebase.projectId)||'ho
 function bkCfgLoad(force){if(!S.isOwner||(S.bkCfg!==undefined&&!force)||S.bkCfgLoading)return;S.bkCfgLoading=true;
   fdb.doc('backupcfg/main').get().then(d=>{S.bkCfg=d.exists?d.data():null}).catch(()=>{S.bkCfg=null}).finally(()=>{S.bkCfgLoading=false;render()})}
 function bkKey(){const a=new Uint8Array(24);crypto.getRandomValues(a);return Array.from(a,b=>b.toString(16).padStart(2,'0')).join('')}
-function bkScript(key){return `// Seven Collection – גיבוי יומי אוטומטי לגוגל דרייב
+function bkScript(key){return `// ${appName()} – גיבוי יומי אוטומטי לגוגל דרייב
 const URL_ = '${BK_FN}?key=${key}';
-const FOLDER = 'Seven Collection גיבויים';
+const FOLDER = '${appName().replace(/'/g,'')} גיבויים';
 const KEEP_DAYS = 30;
 
 function backup() {
@@ -2746,8 +2754,8 @@ function metaCfgHTML(){metaCfgLoad();const c=S.metaCfg;if(c===undefined)return `
 function sheetMetaHelp(){return sheetHead('חיבור Meta · הוראות','הגדרה חד־פעמית, בערך 15 דקות, עדיף ממחשב.')+`
   <ol style="padding-inline-start:20px;line-height:1.9;margin:0">
    <li>נכנסים ל-<a href="https://business.facebook.com/settings" target="_blank" rel="noopener"><b>business.facebook.com/settings</b></a> (הגדרות העסק) עם החשבון שמנהל את הדף ואת חשבון המודעות.</li>
-   <li><b>אפליקציה:</b> בתפריט <b>Accounts ← Apps ← Add ← Create a new app</b>. סוג: <b>Business</b>, שם: Seven Collection. בתוך האפליקציה מוסיפים את המוצר <b>Marketing API</b>.</li>
-   <li><b>משתמש מערכת:</b> <b>Users ← System users ← Add</b>. שם: Seven Collection, תפקיד: <b>Admin</b>.</li>
+   <li><b>אפליקציה:</b> בתפריט <b>Accounts ← Apps ← Add ← Create a new app</b>. סוג: <b>Business</b>, שם: ${esc(appName())}. בתוך האפליקציה מוסיפים את המוצר <b>Marketing API</b>.</li>
+   <li><b>משתמש מערכת:</b> <b>Users ← System users ← Add</b>. שם: ${esc(appName())}, תפקיד: <b>Admin</b>.</li>
    <li>על משתמש המערכת: <b>Assign assets</b> ומשייכים לו את <b>הדפים</b> (Pages, שליטה מלאה), את <b>חשבון המודעות</b> (Ad account) ואת <b>האפליקציה</b>.</li>
    <li>לוחצים <b>Generate new token</b>, בוחרים את האפליקציה, תוקף: <b>Never</b>, ומסמנים את ההרשאות:<br><span dir="ltr" class="mono" style="font-size:.8rem">ads_read, leads_retrieval, pages_show_list, pages_read_engagement, pages_manage_metadata, pages_manage_ads, business_management</span></li>
    <li>מעתיקים את המפתח (מתחיל ב-EAA) ומדביקים אותו כאן בכרטיס "חיבור Meta".</li>
@@ -2757,7 +2765,7 @@ function sheetMetaHelp(){return sheetHead('חיבור Meta · הוראות','ה�
   <div class="actions"><button class="btn pri" data-act="close">הבנתי</button></div>`}
 function autoBackupHTML(){bkCfgLoad();const c=S.bkCfg;if(c===undefined)return `<div class="card"><h3>גיבוי אוטומטי לגוגל דרייב</h3><p class="muted">טוען…</p></div>`;
   const has=!!(c&&c.key),last=c&&c.lastAt;
-  return `<div class="card"><h3>גיבוי אוטומטי לגוגל דרייב</h3><p class="muted" style="font-size:.85rem">פעם ביום, ב-3 בלילה, נשמר קובץ גיבוי מלא בתיקייה "Seven Collection גיבויים" בגוגל דרייב שלך. נשמרים 30 הימים האחרונים. ההגדרה נעשית פעם אחת (בערך 3 דקות, עדיף ממחשב).</p>
+  return `<div class="card"><h3>גיבוי אוטומטי לגוגל דרייב</h3><p class="muted" style="font-size:.85rem">פעם ביום, ב-3 בלילה, נשמר קובץ גיבוי מלא בתיקייה "${esc(appName())} גיבויים" בגוגל דרייב שלך. נשמרים 30 הימים האחרונים. ההגדרה נעשית פעם אחת (בערך 3 דקות, עדיף ממחשב).</p>
   <p style="font-size:.9rem">${last?`גיבוי אוטומטי אחרון: <b>${new Date(last).toLocaleString('he-IL',{dateStyle:'short',timeStyle:'short'})}</b>${c.lastCount?` · ${c.lastCount} רשומות`:''}`:has?'הוגדר, עוד לא רץ גיבוי אוטומטי.':'עוד לא הוגדר.'}</p>
   <div class="actions"><button class="btn ${has?'':'pri'}" data-act="bk-auto">${has?'הוראות וקוד ההתקנה':'הגדרת גיבוי אוטומטי'}</button>${has?`<button class="btn ghost" data-act="bk-rekey">${S.confirm==='bkrekey'?'לחיצה נוספת תחליף את המפתח':'החלפת מפתח'}</button>`:''}</div></div>`}
 function sheetBkAuto(){const k=S.bkCfg&&S.bkCfg.key;if(!k)return sheetHead('גיבוי אוטומטי לגוגל דרייב','')+'<p class="muted">טוען…</p>';
@@ -2768,7 +2776,7 @@ function sheetBkAuto(){const k=S.bkCfg&&S.bkCfg.key;if(!k)return sheetHead('גי
    <li>מוחקים את כל מה שכתוב שם, מדביקים את הקוד (Ctrl+V) ולוחצים על אייקון השמירה 💾.</li>
    <li>למעלה, ליד כפתור <b>Run</b>, בוחרים בתיבה את <b>setup</b> ולוחצים <b>Run</b>.</li>
    <li>גוגל מבקש אישור: <b>Review permissions</b> ← בוחרים את החשבון ← <b>Advanced</b> ← <b>Go to … (unsafe)</b> ← <b>Allow</b>. זה הסקריפט שלך, וזה בטוח.</li>
-   <li>אחרי כמה שניות נוצרת בדרייב התיקייה <b>Seven Collection גיבויים</b> עם הגיבוי הראשון, ומעכשיו זה קורה לבד כל לילה.</li>
+   <li>אחרי כמה שניות נוצרת בדרייב התיקייה <b>${esc(appName())} גיבויים</b> עם הגיבוי הראשון, ומעכשיו זה קורה לבד כל לילה.</li>
   </ol>
   <p class="muted" style="font-size:.82rem;margin:0">הקוד מכיל מפתח סודי שמאפשר להוריד את כל הנתונים, כולל שכר. לא שולחים אותו לאף אחד. אם הוא דלף, לוחצים "החלפת מפתח" ומתקינים שוב.</p>
   <textarea readonly id="bk_code" dir="ltr" style="width:100%;min-height:150px;font:12px/1.4 ui-monospace,monospace">${esc(bkScript(k))}</textarea>
@@ -3417,7 +3425,7 @@ const ACT={
     for(const [u,r] of Object.entries(S.roles||{})){if(!r||r.job!==id)continue;const apps={...(r.extra||{})};const doc={...r,apps,depts:apps.dept?(r.extraDepts||[]):[],job:'',jobName:'',updatedBy:S.uid,updatedAt:Date.now()};
       try{if(Object.keys(apps).length){await fdb.doc('roles/'+u).set(doc);S.roles[u]=doc}else{await fdb.doc('roles/'+u).delete();delete S.roles[u]}}catch(_){}}
     try{await fdb.doc('jobRoles/'+id).delete();const J={...(S.jobs||{})};delete J[id];S.jobs=J;S.sheet=null;render();toast('התפקיד נמחק')}catch(e){toast('לא הצלחתי למחוק: '+errMsg(mapErr(e)))}},
-  'jc-copy':D=>{const t=`הצטרפות ל${D.h===CHAIN?'Seven Collection':hotelName(D.h)}: נכנסים ל-${appLink()} , מתחברים וכותבים את קוד ההצטרפות ${D.c}`;(navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(()=>toast('ההודעה הועתקה'),()=>prompt('ההודעה:',t))},
+  'jc-copy':D=>{const t=`הצטרפות ל${D.h===CHAIN?appName():hotelName(D.h)}: נכנסים ל-${appLink()} , מתחברים וכותבים את קוד ההצטרפות ${D.c}`;(navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(()=>toast('ההודעה הועתקה'),()=>prompt('ההודעה:',t))},
   'perm-open':D=>{S.drafts.perm=null;S.sheet={type:'perm',id:D.u};render()},
   'perm-app':(D,t)=>{const d=S.drafts.perm;if(!d)return;d.apps[D.k]=t.checked;
     if(D.k==='shifts'&&t.checked)d.apps.dept=false;if(D.k==='dept'&&t.checked)d.apps.shifts=false;

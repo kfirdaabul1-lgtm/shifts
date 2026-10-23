@@ -40,7 +40,14 @@ window.SC_CHAINS = [
 (function () {
   var id = null;
   try { id = new URLSearchParams(location.search).get("chain") || localStorage.getItem("scChain"); } catch (e) {}
-  var c = window.SC_CHAINS.filter(function (x) { return x.id === id; })[0] || window.SC_CHAINS[0];
+  window.SC_HOME = window.SC_CHAINS[0].id;
+  var c = window.SC_CHAINS.filter(function (x) { return x.id === id; })[0];
+  // chains added from Kfir app live in the home database (collection "chains"); their web config is cached on the device
+  if (!c && id) {
+    try { var j = JSON.parse(localStorage.getItem("scChainCfg:" + id) || "null"); if (j && j.firebase) c = j; } catch (e) {}
+    if (!c) window.SC_NEED_CHAIN = id;
+  }
+  c = c || window.SC_CHAINS[0];
   try { if (id && c.id === id) localStorage.setItem("scChain", c.id); } catch (e) {}
   window.APP_CONFIG = Object.assign({ enablePhone: false }, c, { chainId: c.id });
 })();

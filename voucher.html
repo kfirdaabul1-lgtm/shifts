@@ -43,6 +43,7 @@
   var id=new URLSearchParams(location.search).get('v')||'';
   if(!/^v[0-9a-f]{32}$/.test(id))return fail('השובר לא נמצא.');
   try{firebase.initializeApp(CFG.firebase)}catch(e){return fail('לא הצלחתי להתחבר.')}
+  if(window.SC_NEED_CHAIN){var cid=window.SC_NEED_CHAIN;firebase.firestore().doc('chains/'+cid).get().then(function(d){if(!d.exists)return fail('השובר לא נמצא.');try{var o=d.data();o.id=cid;localStorage.setItem('scChainCfg:'+cid,JSON.stringify(o))}catch(e){}location.reload()},function(){fail('לא הצלחתי להתחבר.')});return}
   firebase.firestore().doc('vouchers/'+id).get().then(function(d){
     if(!d.exists)return fail('השובר לא נמצא.');
     var v=d.data(),today=new Date().toISOString().slice(0,10);

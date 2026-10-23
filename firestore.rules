@@ -29,13 +29,15 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     function ownerEmail() { return 'kfirdaabul1@gmail.com'; }
+    // the owner of the whole system (all chains) is owner in every chain's database
+    function platformEmail() { return 'kfirdaabul1@gmail.com'; }
 
     function signedIn() { return request.auth != null; }
     function isOwner() {
       return signedIn()
         && request.auth.token.email != null
         && request.auth.token.email_verified == true
-        && request.auth.token.email.lower() == ownerEmail();
+        && (request.auth.token.email.lower() == ownerEmail() || request.auth.token.email.lower() == platformEmail());
     }
 
     // ---------- הרשאות ----------

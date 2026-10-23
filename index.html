@@ -416,7 +416,7 @@ function onField(e){const f=e.target.dataset&&e.target.dataset.f;if(!f)return;co
 document.addEventListener('input',e=>{const t=e.target;if(!t.matches)return;
   if(t.matches('[data-item]')){const d=S.drafts.inv;if(!d)return;const [i,k]=t.dataset.item.split('|');d.items[+i][k]=t.value;S.pending=true}
   else if(t.matches('[data-gline]')&&S.sheet&&S.sheet.type==='grp'){const [i,k]=t.dataset.gline.split('|'),x=(S.grps||{})[S.sheet.id]||{},d=S.drafts.grp||(S.drafts.grp={});if(!d.lines)d.lines=JSON.parse(JSON.stringify(grpLines({...x,...d})));const l=d.lines[+i]||(d.lines[+i]={cat:'guest'});l[k]=t.value;
-    if(k==='type'){const pl=plOf((d.plId??x.plId)||'');if(pl){const r=plRate(pl,t.value);l.price=r==null?0:r}if(t.tagName==='SELECT'){render();return}}
+    if(k==='type'){const pl=plOf((d.plId??x.plId)||'');if(pl){const r=plRate(pl,t.value);l.price=r==null?0:r;const row=(pl.rows||[]).find(z=>z.type===t.value);if(row&&+row.ppr&&!+l.ppr)l.ppr=+row.ppr}if(t.tagName==='SELECT'){render();return}}
     const cur={...x,...d},el=document.getElementById('grpTot');if(el)el.innerHTML=grpTotHTML(cur)}
   else if(t.matches('[data-plrow]')&&S.sheet&&S.sheet.type==='pl'){const [i,k]=t.dataset.plrow.split('|'),x=(S.pls||{})[S.sheet.id]||{},d=S.drafts.pl||(S.drafts.pl={});if(!d.rows)d.rows=JSON.parse(JSON.stringify(x.rows||[{type:'',rate:''}]));(d.rows[+i]||(d.rows[+i]={}))[k]=t.value}
   else if(t.matches('[data-srrow]')){const [l,i,k]=t.dataset.srrow.split('|'),d=S.drafts.sr||(S.drafts.sr={}),a=d[l]||(d[l]=[]);(a[+i]||(a[+i]={}))[k]=t.value}
@@ -874,7 +874,7 @@ function sheetPl(){const id=S.sheet.id,x=(S.pls||{})[id]||{},isNew=!(S.pls||{})[
   <label class="f">שם המחירון<input type="text" data-f="pl.name" value="${esc(g('name',''))}" placeholder="למשל קבוצות חורף 2027"></label>
   <div class="row"><label class="f">מלון<select data-f="pl.hotel"><option value="">כל המלונות</option>${hs.map(h=>`<option value="${h}" ${g('hotel','')===h?'selected':''}>${esc(hotelName(h))}</option>`).join('')}</select></label><label class="f">מטבע<select data-f="pl.cur">${Object.entries(GRP_CUR).map(([k,c])=>`<option value="${k}" ${g('cur','ils')===k?'selected':''}>${c}</option>`).join('')}</select></label></div>
   <div class="row"><label class="f">בתוקף מ-<input type="date" data-f="pl.from" value="${esc(g('from',''))}"></label><label class="f">עד<input type="date" data-f="pl.to" value="${esc(g('to',''))}"></label></div>
-  <div class="f"><span>מחיר לאדם ללילה, לפי סוג חדר</span>${rows.map((r,i)=>`<div class="row" style="align-items:flex-end"><label class="f">סוג חדר<input type="text" data-plrow="${i}|type" value="${esc(r.type||'')}" placeholder="למשל זוגי"></label><label class="f">מחיר לאדם ללילה<input type="number" min="0" step="any" inputmode="decimal" data-plrow="${i}|rate" value="${esc(r.rate??'')}"></label><button class="btn sm ghost" data-act="pl-row-del" data-i="${i}" aria-label="הסרת שורה">✕</button></div>`).join('')}<div><button class="btn sm" data-act="pl-row-add">+ סוג חדר</button></div></div>
+  <div class="f"><span>מחיר לאדם ללילה, לפי סוג חדר</span>${rows.map((r,i)=>`<div class="row" style="align-items:flex-end"><label class="f">סוג חדר<input type="text" data-plrow="${i}|type" value="${esc(r.type||'')}" placeholder="למשל זוגי"></label><label class="f" style="max-width:100px">אנשים בחדר<input type="number" min="1" inputmode="numeric" data-plrow="${i}|ppr" value="${esc(r.ppr??'')}" placeholder="2"></label><label class="f">מחיר לאדם ללילה<input type="number" min="0" step="any" inputmode="decimal" data-plrow="${i}|rate" value="${esc(r.rate??'')}"></label><button class="btn sm ghost" data-act="pl-row-del" data-i="${i}" aria-label="הסרת שורה">✕</button></div>`).join('')}<div><button class="btn sm" data-act="pl-row-add">+ סוג חדר</button></div></div>
   <div class="f"><span>ארוחות: מחיר לאורח ללילה (אם לא כלול)</span><div class="row"><label class="f">ארוחת בוקר<input type="number" min="0" step="any" inputmode="decimal" data-f="pl.bb" value="${esc(g('bb',''))}"></label><label class="f">חצי פנסיון<input type="number" min="0" step="any" inputmode="decimal" data-f="pl.hb" value="${esc(g('hb',''))}"></label><label class="f">פנסיון מלא<input type="number" min="0" step="any" inputmode="decimal" data-f="pl.fb" value="${esc(g('fb',''))}"></label></div></div>
   <label class="f">הערות<textarea rows="2" data-f="pl.notes">${esc(g('notes',''))}</textarea></label>
   <label class="check"><input type="checkbox" data-f="pl.active" ${g('active',true)!==false?'checked':''}> מחירון פעיל</label>
@@ -885,7 +885,9 @@ function sheetPl(){const id=S.sheet.id,x=(S.pls||{})[id]||{},isNew=!(S.pls||{})[
 const grpMode=c=>c.plId?'pl':c.noPl?'free':(Object.keys(S.pls||{}).length?'pl':'free');
 const plRate=(pl,type)=>{const r=pl&&(pl.rows||[]).find(r=>r.type===type);return r?+r.rate||0:null};
 function grpApplyPl(key){const d=S.drafts.grp||(S.drafts.grp={}),x=((S.grps||{})[S.sheet&&S.sheet.id])||{},cur={...x,...d},l=plOf(cur.plId);if(!l)return;
-  if(key==='plId'){d.cur=l.cur||'ils';d.lines=grpLines(cur).map(x=>{const r=plRate(l,x.type);return {...x,price:r==null?0:r}})}
+  if(key==='plId'){d.cur=l.cur||'ils';let L=grpLines(cur).map(x=>{const r=plRate(l,x.type);return {...x,price:r==null?0:r}});
+    if(!L.some(x=>(x.cat||'guest')==='guest'&&+x.rooms))L=[...(l.rows||[]).map(r=>({cat:'guest',type:r.type,ppr:+r.ppr||2,rooms:'',price:+r.rate||0})),...L.filter(x=>(x.cat||'guest')!=='guest')];
+    d.lines=L}
   if((key==='board'||key==='plId')&&cur.board&&l[cur.board]!=null&&l[cur.board]!=='')d.boardPrice=l[cur.board]}
 function grpListHTML(){const F=S.grpF||(S.grpF={when:'up',st:'all',h:'all',pl:'all'}),t=todayISO(),hs=grpHs();if(!F.pl)F.pl='all';
   let list=Object.entries(S.grps||{}).filter(([,g])=>!g.hotel||hs.includes(g.hotel)||S.isOwner);
@@ -3092,7 +3094,7 @@ const ACT={
   'app-grp':()=>{S.menu=false;setTab('grp')},
   'grp-view':D=>{S.grpView=D.v;render()},
   'grp-mode':D=>{const d=S.drafts.grp||(S.drafts.grp={});if(D.v==='free'){d.plId='';d.noPl=true}else{d.noPl=false;const first=Object.entries(S.pls||{}).find(([,l])=>l.active!==false);if(!d.plId&&!((S.grps||{})[S.sheet.id]||{}).plId&&first){d.plId=first[0];grpApplyPl('plId')}}render()},
-  'gl-add':D=>{const x=(S.grps||{})[S.sheet.id]||{},d=S.drafts.grp||(S.drafts.grp={}),L=JSON.parse(JSON.stringify(d.lines||grpLines(x)));const pl=plOf((d.plId??x.plId)||''),r0=D.cat==='guest'&&pl&&(pl.rows||[])[0];L.push({cat:D.cat,type:r0?r0.type:'',ppr:D.cat==='guest'?2:1,rooms:'',price:r0?r0.rate:(pl?0:(D.cat==='guest'?'':0))});d.lines=L;render()},
+  'gl-add':D=>{const x=(S.grps||{})[S.sheet.id]||{},d=S.drafts.grp||(S.drafts.grp={}),L=JSON.parse(JSON.stringify(d.lines||grpLines(x)));const pl=plOf((d.plId??x.plId)||''),r0=D.cat==='guest'&&pl&&(pl.rows||[])[0];L.push({cat:D.cat,type:r0?r0.type:'',ppr:D.cat==='guest'?(r0&&+r0.ppr)||2:1,rooms:'',price:r0?r0.rate:(pl?0:(D.cat==='guest'?'':0))});d.lines=L;render()},
   'gl-del':D=>{const x=(S.grps||{})[S.sheet.id]||{},d=S.drafts.grp||(S.drafts.grp={}),L=JSON.parse(JSON.stringify(d.lines||grpLines(x)));L.splice(+D.i,1);d.lines=L;render()},
   'pay-ag':D=>{(S.payF||(S.payF={})).ag=D.v;render()},
   'grp-paid':D=>{const x=(S.grps||{})[D.id];if(!x)return;if(S.confirm!=='gp:'+D.id){S.confirm='gp:'+D.id;render();return}S.confirm=null;const tot=Math.round(grpCalc(x).total*100)/100,now=Date.now();
@@ -3103,20 +3105,22 @@ const ACT={
   'pl-row-del':D=>{const x=(S.pls||{})[S.sheet.id]||{},d=S.drafts.pl||(S.drafts.pl={});d.rows=(d.rows||x.rows||[]).filter((_,i)=>i!==+D.i);render()},
   'pl-save':()=>{const id=S.sheet.id,x=(S.pls||{})[id]||{},isNew=!(S.pls||{})[id],g=k=>dv('pl',k,x[k]??''),n=k=>{const v=+g(k);return isFinite(v)&&v>0?v:''},now=Date.now();
     const name=String(g('name')).trim();if(!name){toast('צריך לרשום שם למחירון');return}
-    const rows=(dv('pl','rows',x.rows||[])||[]).map(r=>({type:String(r.type||'').trim(),rate:Math.max(0,+r.rate||0)})).filter(r=>r.type);
+    const rows=(dv('pl','rows',x.rows||[])||[]).map(r=>({type:String(r.type||'').trim(),ppr:Math.max(1,Math.round(+r.ppr||2)),rate:Math.max(0,+r.rate||0)})).filter(r=>r.type);
     const doc={...x,name,hotel:String(g('hotel')||''),cur:String(g('cur')||'ils'),from:String(g('from')||''),to:String(g('to')||''),rows,bb:n('bb'),hb:n('hb'),fb:n('fb'),notes:String(g('notes')).trim(),active:dv('pl','active',x.active??true)!==false,updatedAt:now};
     if(isNew){doc.createdAt=now;doc.createdBy=S.uid}
     S.pls={...S.pls,[id]:doc};S.sheet=null;S.drafts.pl=null;render();
     fdb.doc('priceLists/'+id).set(doc).then(()=>{toast('המחירון נשמר');Object.entries(S.grps||{}).filter(([,gr])=>gr.plId===id&&gr.plName!==name).forEach(([gid])=>fdb.doc('groups/'+gid).set({plName:name},{merge:true}).catch(()=>{}))},e=>toast('השמירה נכשלה: '+errMsg(mapErr(e))))},
   'pl-del':()=>{if(S.confirm!=='pl-del'){S.confirm='pl-del';render();return}S.confirm=null;const id=S.sheet.id;if(Object.values(S.grps||{}).some(gr=>gr.plId===id)){toast('יש קבוצות במחירון הזה. אפשר לסמן אותו כלא פעיל.');return}const c={...S.pls};delete c[id];S.pls=c;S.sheet=null;render();fdb.doc('priceLists/'+id).delete().then(()=>toast('המחירון נמחק'),e=>toast('לא הצלחתי: '+errMsg(mapErr(e))))},
   'grp-f':D=>{(S.grpF||(S.grpF={}))[D.k]=D.v;render()},
-  'grp-new':()=>{S.drafts.grp=null;S.confirm=null;S.sheet={type:'grp',id:'g'+Date.now().toString(36)+Math.random().toString(36).slice(2,6)};render()},
+  'grp-new':()=>{S.drafts.grp=null;S.confirm=null;S.sheet={type:'grp',id:'g'+Date.now().toString(36)+Math.random().toString(36).slice(2,6)};
+    const h0=grpHs()[0]||'',t=todayISO(),act=Object.entries(S.pls||{}).filter(([,l])=>l.active!==false&&(!l.hotel||l.hotel===h0)),cur=act.find(([,l])=>(!l.from||l.from<=t)&&(!l.to||l.to>=t))||act[0];
+    if(cur){S.drafts.grp={plId:cur[0]};grpApplyPl('plId')}render()},
   'grp-open':D=>{S.drafts.grp=null;S.confirm=null;S.sheet={type:'grp',id:D.id};render()},
   'grp-save':()=>{const id=S.sheet.id,x=(S.grps||{})[id]||{},isNew=!(S.grps||{})[id],g=k=>dv('grp',k,x[k]??''),num=k=>{const v=+g(k);return isFinite(v)&&v>0?v:0},now=Date.now();
     const name=String(g('name')).trim(),ci=String(g('ci')),co=String(g('co')),hotel=String(g('hotel')||grpHs()[0]||''),agentId=String(g('agentId')||'');
     if(!name){toast('צריך לרשום שם לקבוצה');return}if(!ci||!co){toast('צריך תאריך הגעה ותאריך עזיבה');return}if(co<=ci){toast('העזיבה צריכה להיות אחרי ההגעה');return}
     const ag=(S.agents||{})[agentId]||null,plId=String(g('plId')||''),pl=plOf(plId);
-    const doc={...x,name,hotel,agentId,agentName:ag?ag.name||'':'',contact:String(g('contact')).trim(),ci,co,lines:grpLines({...x,...(S.drafts.grp||{})}).map(l=>({cat:l.cat||'guest',type:String(l.type||'').trim(),ppr:Math.max(0,+l.ppr||0),rooms:Math.max(0,+l.rooms||0),price:Math.max(0,+l.price||0)})).filter(l=>l.rooms||l.type),cur:String(g('cur')||'ils'),board:String(g('board')||''),boardPrice:num('boardPrice'),extras:num('extras'),extrasNote:String(g('extrasNote')).trim(),comm:0,plId,plName:pl?pl.name||'':'',noPl:!plId&&!!dv('grp','noPl',x.noPl||false),dueDate:String(g('dueDate')||''),deposit:num('deposit'),status:String(g('status')||'offer'),optUntil:String(g('optUntil')||''),notes:String(g('notes')).trim(),updatedAt:now,updatedBy:S.uid};
+    const doc={...x,name,hotel,agentId,agentName:ag?ag.name||'':'',contact:String(g('contact')).trim(),ci,co,lines:grpLines({...x,...(S.drafts.grp||{})}).map(l=>({cat:l.cat||'guest',type:String(l.type||'').trim(),ppr:Math.max(0,+l.ppr||0),rooms:Math.max(0,+l.rooms||0),price:Math.max(0,+l.price||0)})).filter(l=>l.rooms>0),cur:String(g('cur')||'ils'),board:String(g('board')||''),boardPrice:num('boardPrice'),extras:num('extras'),extrasNote:String(g('extrasNote')).trim(),comm:0,plId,plName:pl?pl.name||'':'',noPl:!plId&&!!dv('grp','noPl',x.noPl||false),dueDate:String(g('dueDate')||''),deposit:num('deposit'),status:String(g('status')||'offer'),optUntil:String(g('optUntil')||''),notes:String(g('notes')).trim(),updatedAt:now,updatedBy:S.uid};
     if(pl)doc.lines=doc.lines.map(l=>{const r=plRate(pl,l.type);return {...l,price:r==null?0:r}});
     {const cc=grpCalc(doc);doc.rooms=cc.rooms;doc.pax=cc.pax;delete doc.rate;delete doc.roomType}
     if(isNew){doc.createdAt=now;doc.createdBy=S.uid;doc.createdByName=S.meName||''}

@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202610231010"></script>
+<script src="i18n.js?v=202610231500"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -415,7 +415,8 @@ let toastT;function toast(m){const t=$('#toast');t.textContent=m;t.hidden=false;
 
 /* drafts for form fields */
 const dv=(f,k,fb)=>{const d=S.drafts[f];return d&&k in d?d[k]:fb};
-function onField(e){const f=e.target.dataset&&e.target.dataset.f;if(!f)return;const [form,key]=f.split('.');(S.drafts[form]||(S.drafts[form]={}))[key]=e.target.type==='checkbox'?e.target.checked:e.target.value;
+function onField(e){if(e.target.dataset&&e.target.dataset.orgv){const [i,k]=e.target.dataset.orgv.split('|'),d=orgDraft();(d.venues[+i]||(d.venues[+i]={}))[k]=e.target.value;return}
+  const f=e.target.dataset&&e.target.dataset.f;if(!f)return;const [form,key]=f.split('.');(S.drafts[form]||(S.drafts[form]={}))[key]=e.target.type==='checkbox'?e.target.checked:e.target.value;
   if(form==='grp'){if(e.target.tagName==='SELECT'&&e.type==='change'){if(['plId','roomType','board'].includes(key))grpApplyPl(key);render()}else{const el=document.getElementById('grpTot');if(el&&S.sheet&&S.sheet.type==='grp')el.innerHTML=grpTotHTML({...((S.grps||{})[S.sheet.id]||{}),...(S.drafts.grp||{})})}}
   if(form==='set'){if(e.target.type==='checkbox'){if(e.type==='change')render()}else S.pending=true}
   if(form==='sr'&&(key==='shift'||((key==='r420'||key==='cash')&&e.type==='change'))){if(key==='shift')e.target.blur();if(e.type==='change')render()}}
@@ -2703,7 +2704,7 @@ function joinCodeHTML(){const c={...cfg(),joinCode:validCode()};
   <p class="muted" style="font-size:.85rem">עובד חדש נכנס לאפליקציה, מתחבר ומקליד את הקוד, וכך הוא משויך ל${esc(hotelName(S.hotel))}. אפשר להחליף קוד בכל זמן, והקוד הישן מפסיק לעבוד.</p>
   <div class="actions" style="align-items:center">${c.joinCode?`<b class="code">${esc(c.joinCode)}</b>`:'<span class="muted">עוד אין קוד</span>'}<button class="btn" data-act="join-new">${c.joinCode?'החלפת קוד':'יצירת קוד'}</button></div>`}
 // full backup (owner): every collection to one JSON file in the same format the import reads
-const BACKUP_COLLS=['groups','agents','priceLists','jobRoles','vchCodes','hkday','faultsAck','srDrafts','vchcfg','hotels','settings','employees','mgr','avail','shifts','schedule','requests','roles','joinCodes','config','menus','contracts','quotes','campaigns','suppliers','invoices','expcfg','inventory','purchaseReqs','shiftReports','faults','hk','hkcfg','hkLog','hkComplaints','leads','tasks','clients','hkCalls','spa','spacfg','vouchers'];
+const BACKUP_COLLS=['orgcfg','groups','agents','priceLists','jobRoles','vchCodes','hkday','faultsAck','srDrafts','vchcfg','hotels','settings','employees','mgr','avail','shifts','schedule','requests','roles','joinCodes','config','menus','contracts','quotes','campaigns','suppliers','invoices','expcfg','inventory','purchaseReqs','shiftReports','faults','hk','hkcfg','hkLog','hkComplaints','leads','tasks','clients','hkCalls','spa','spacfg','vouchers'];
 const lastBackup=()=>{let l=0;try{l=+localStorage.getItem('scLastBackup')||0}catch(_){ }bkCfgLoad();return Math.max(l,+(S.bkCfg&&S.bkCfg.lastAt)||0)};
 // daily automatic backup to the owner's Google Drive: an Apps Script in their Drive calls the driveBackup function with the key in backupcfg/main
 const BK_FN='https://europe-west1-'+((CFG.firebase&&CFG.firebase.projectId)||'hotel-shifts')+'.cloudfunctions.net/driveBackup';
@@ -2868,7 +2869,17 @@ async function jobApply(id){let ok=0,bad=0;for(const [u,r] of Object.entries(S.r
     if(!Object.keys(m.apps).length)continue;try{await fdb.doc('roles/'+u).set(doc);S.roles[u]=doc;ok++}catch(_){bad++}}
   return {ok,bad}}
 // hotel settings page (owner's wish): hotels + event spaces, housekeeping rooms, backup (manual + automatic), import, Meta connection
-function vCfg(){return wrap(`<section class="head"><div class="head-t"><h1>הגדרות מלון</h1></div><p class="lede">כל ההגדרות הכלליות של המלונות במקום אחד. הרשאות ותפקידים נמצאים בעמוד ההרשאות, וקודי ההצטרפות בעמוד עובדים.</p></section>`+hotelsCardHTML()+hkCfgHTML()+(S.isOwner?backupHTML()+importHTML():''))}
+function vCfg(){return wrap(`<section class="head"><div class="head-t"><h1>הגדרות מלון</h1></div><p class="lede">כל ההגדרות הכלליות של המלונות במקום אחד. הרשאות ותפקידים נמצאים בעמוד ההרשאות, וקודי ההצטרפות בעמוד עובדים.</p></section>`+(S.isOwner?orgCfgHTML():'')+hotelsCardHTML()+hkCfgHTML()+(S.isOwner?backupHTML()+importHTML():''))}
+// chain (organisation) settings, owner only: orgcfg/main {name, spaHotel, venues:[{id,name,areas,hex}]}
+function orgDraft(){const d=S.drafts.org||(S.drafts.org={});if(!d.venues)d.venues=JSON.parse(JSON.stringify(orgVenues())).map(v=>({...v,areasT:(v.areas||[]).join('\n')}));return d}
+function orgCfgHTML(){const d=orgDraft(),o=S.org||{},sp=d.spaHotel!=null?d.spaHotel:(o.spaHotel!=null?o.spaHotel:spaHotel());
+  return `<div class="card"><h3>הגדרות הרשת</h3><p class="muted" style="font-size:.85rem">השם שמופיע בראש המסך, אולמות האירועים של הרשת ומלון הספא. נשמר לכל הרשת.</p>
+  <label class="f">שם הרשת / המערכת<input type="text" data-f="org.name" value="${esc(dv('org','name',o.name||CFG.appName||''))}" placeholder="${esc(CFG.appName||'Seven Collection')}"></label>
+  <label class="f">מלון הספא<select data-f="org.spaHotel"><option value="">אין ספא</option>${hotelIds().map(h=>`<option value="${esc(h)}" ${sp===h?'selected':''}>${esc(hotelName(h))}</option>`).join('')}</select></label>
+  <div class="f"><span>מקומות אירועים ואולמות</span><p class="muted" style="font-size:.82rem;margin:0">כל מקום עם האולמות שלו (שורה לכל אולם). הם מופיעים בהצעות המחיר, בלוח האירועים ובבחירת חללי האירועים של כל מלון.</p>
+  ${d.venues.map((v,i)=>`<div class="row" style="align-items:flex-end;gap:8px;border:1px solid var(--line);border-radius:10px;padding:8px;margin-top:6px"><label class="f" style="flex:1;min-width:140px">שם המקום<input type="text" data-orgv="${i}|name" value="${esc(v.name||'')}"></label><label class="f" style="max-width:70px">צבע<input type="color" data-orgv="${i}|hex" value="${esc(v.hex||'#13789c')}"></label><label class="f" style="flex:2;min-width:160px">אולמות<textarea rows="2" data-orgv="${i}|areasT" placeholder="אולם אחד בכל שורה">${esc(v.areasT||'')}</textarea></label><button class="btn sm" data-act="org-vdel" data-i="${i}">מחיקה</button></div>`).join('')}
+  <div style="margin-top:6px"><button class="btn sm" data-act="org-vadd">+ מקום אירועים</button></div></div>
+  <div class="actions" style="margin-top:8px"><button class="btn pri" data-act="org-save">שמירת הגדרות הרשת</button></div></div>`}
 // employees page: give a person a job role (keeps their personal extra permissions and extra hotels)
 async function empSetJob(u,emp,job){const r=(S.roles||{})[u]||null,extra=r?(r.job?(r.extra||{}):{...roleApps(r)}):{},m=jobMerge(job,extra,r?(r.extraDepts||(r.job?[]:r.depts||[])):[]);
   const home=emp.hotel||'main',hotels=roleHotelsFor(home,r&&r.extraHotels);
@@ -3554,6 +3565,12 @@ Object.assign(ACT,{
     try{await S.db.doc('employees/'+S.uid).set(doc);toast('נרשמת! טוען…');setTimeout(()=>location.reload(),800)}catch(e){toast(errMsg(e))}},
   'join-new':D=>{const h=D.h||S.hotel,code=randCode(),old=(S.settingsAll[h]||{}).joinCode;S.jc[code]=h;save('joinCodes/'+code,{hotel:h,createdAt:Date.now()});if(old&&S.jc[old]===h)save('joinCodes/'+old,null);
     S.settingsAll[h]={...(S.settingsAll[h]||{}),joinCode:code};if(S.isOwner||(S.can.shifts&&visibleHotels().includes(h)))save('settings/'+h,S.settingsAll[h]);else fdb.doc('settings/'+h).set({joinCode:code},{merge:true}).catch(e=>toast('לא הצלחתי לשמור: '+errMsg(mapErr(e))));render();toast(`קוד ההצטרפות החדש של ${hotelName(h)}: ${code}`)},
+  'org-vadd':()=>{const d=orgDraft();d.venues.push({id:'v'+Math.random().toString(36).slice(2,8),name:'',hex:'#13789c',areasT:''});render()},
+  'org-vdel':D=>{const d=orgDraft();d.venues.splice(+D.i,1);render()},
+  'org-save':()=>{if(!S.isOwner)return;const d=orgDraft(),o=S.org||{};
+    const venues=d.venues.map(v=>({id:v.id||('v'+Math.random().toString(36).slice(2,8)),name:String(v.name||'').trim(),hex:v.hex||'#13789c',areas:String(v.areasT??(v.areas||[]).join('\n')).split(/\n|,/).map(x=>x.trim()).filter(Boolean)})).filter(v=>v.name);
+    const doc={appUrl:CFG.appUrl||(location.origin+location.pathname),name:String(dv('org','name',o.name||'')).trim(),spaHotel:String(dv('org','spaHotel',o.spaHotel!=null?o.spaHotel:spaHotel())),venues,updatedAt:Date.now(),updatedBy:S.uid};
+    fdb.doc('orgcfg/main').set(doc,{merge:true}).then(()=>{S.drafts.org=null;toast('הגדרות הרשת נשמרו')},e=>toast('השמירה נכשלה: '+errMsg(mapErr(e))))},
   'hotels-save':()=>{let n=0;for(const h of visibleHotels().concat(allHotelsP()?[CHAIN]:[])){const v=String(dv('hn',h,hotelName(h))).trim();if(!v||v===hotelName(h))continue;n++;
       S.hotels[h]={...(S.hotels[h]||{}),name:v,createdAt:S.hotels[h]?.createdAt||(h==='main'?1:Date.now())};save('hotels/'+h,S.hotels[h]);
       S.settingsAll[h]={...(S.settingsAll[h]||{}),hotelName:v};save('settings/'+h,S.settingsAll[h])}
@@ -3572,6 +3589,7 @@ async function start(u){
   S.db=makeDB();const db=S.db;
   S.uid=u.uid;S.meName=u.displayName||'';S.email=String(u.email||'').toLowerCase();S.phone=u.phoneNumber||'';
   S.isOwner=!!(S.email&&u.emailVerified&&S.email===String(CFG.ownerEmail||'').trim().toLowerCase());
+  db.doc('orgcfg/main').onSnapshot(d=>{S.org=d.exists?d.data():{};applyOrg();render()},()=>{});
   try{const r=await db.doc('roles/'+u.uid).get();if(r.exists)S.role=r.data()}catch(_){ }
   // permissions apply only to the hotel the person is registered in (chain staff = all hotels), also for roles saved before that rule
   if(S.role&&!S.isOwner&&!S.role.station){try{const m=await db.doc('employees/'+u.uid).get();const hh=m.exists?(m.data().hotel||'main'):null;

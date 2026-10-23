@@ -24,6 +24,10 @@ window.APP_CONFIG = {
   // הכתובת של האפליקציה, לשימוש בהודעת הוואטסאפ לעובדים. אפשר להשאיר ריק.
   appUrl: "https://kfirdaabul1-lgtm.github.io/shifts/",
 
+  // true רק אצל Seven Collection: אולמות האירועים, רשימות החדרים והספא המובנים לפי שמות המלונות של Seven.
+  // ברשת חדשה שמים false, ואת האולמות, החדרים והספא מגדירים בעמוד "הגדרות מלון".
+  legacyPresets: true,
+
   // כניסה עם SMS. דורש חשבון חיוב (Blaze) ב-Firebase ועולה כסף לכל הודעה.
   enablePhone: false
 };

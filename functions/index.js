@@ -7,6 +7,13 @@ admin.initializeApp();
 const db = admin.firestore();
 const REGION = 'europe-west1';
 const APP = 'https://kfirdaabul1-lgtm.github.io/shifts/';
+// chain name + site address from orgcfg/main (set on the hotel settings page); cached for 10 minutes
+let orgC = null, orgAt = 0;
+async function org() {
+  if (orgC && Date.now() - orgAt < 600000) return orgC;
+  let o = {}; try { const d = await db.doc('orgcfg/main').get(); if (d.exists) o = d.data() || {}; } catch (e) { }
+  orgC = { name: o.name || 'Seven Collection', url: o.appUrl || APP }; orgAt = Date.now(); return orgC;
+}
 const DEPT = { ops: 'תפעול', reception: 'קבלה', housekeeping: 'משק', public: 'שטחים ציבוריים', maintenance: 'אחזקה', kitchen: 'מטבח', dining: 'חדר אוכל', bar: 'בר', dishwash: 'שוטף כלים', laundry: 'מכבסה' };
 const trig = (path) => functions.region(REGION).firestore.document(path);
 
@@ -36,7 +43,8 @@ async function sendTo(uids, msg) {
   const tokens = [], owner = {};
   docs.forEach((d) => { if (!d.exists) return; Object.keys(d.data().tokens || {}).forEach((t) => { tokens.push(t); owner[t] = d.id; }); });
   if (!tokens.length) return;
-  const data = { title: msg.title || 'Seven Collection', body: msg.body || '', url: APP + (msg.hash || ''), tag: msg.tag || '' };
+  const O = await org();
+  const data = { title: msg.title || O.name, body: msg.body || '', url: O.url + (msg.hash || ''), tag: msg.tag || '' };
   for (let i = 0; i < tokens.length; i += 500) {
     const part = tokens.slice(i, i + 500);
     const res = await admin.messaging().sendEachForMulticast({ tokens: part, data, webpush: { headers: { Urgency: 'high', TTL: '86400' } } });
@@ -116,7 +124,7 @@ exports.onStock = trig('inventory/{id}').onWrite(async (ch) => {
 // A small Google Apps Script in the owner's own Drive calls this once a day with the key stored in backupcfg/main
 // (only the owner can read or change it) and saves the JSON it gets into a Drive folder. Same format as the
 // "גיבוי" button on the Permissions page, so the Import card can restore it. Invoice images are left out (size).
-const BACKUP_COLLS = ['groups', 'agents', 'priceLists', 'jobRoles', 'vchCodes', 'hkday', 'faultsAck', 'srDrafts', 'vchcfg', 'hotels', 'settings', 'employees', 'mgr', 'avail', 'shifts', 'schedule', 'requests', 'roles', 'joinCodes', 'config', 'menus', 'contracts', 'quotes', 'campaigns', 'suppliers', 'invoices', 'expcfg', 'inventory', 'purchaseReqs', 'shiftReports', 'faults', 'hk', 'hkcfg', 'hkLog', 'hkComplaints', 'leads', 'tasks', 'clients', 'hkCalls', 'spa', 'spacfg', 'vouchers'];
+const BACKUP_COLLS = ['orgcfg', 'groups', 'agents', 'priceLists', 'jobRoles', 'vchCodes', 'hkday', 'faultsAck', 'srDrafts', 'vchcfg', 'hotels', 'settings', 'employees', 'mgr', 'avail', 'shifts', 'schedule', 'requests', 'roles', 'joinCodes', 'config', 'menus', 'contracts', 'quotes', 'campaigns', 'suppliers', 'invoices', 'expcfg', 'inventory', 'purchaseReqs', 'shiftReports', 'faults', 'hk', 'hkcfg', 'hkLog', 'hkComplaints', 'leads', 'tasks', 'clients', 'hkCalls', 'spa', 'spacfg', 'vouchers'];
 const plain = (v) => {
   if (v instanceof admin.firestore.Timestamp) return { seconds: v.seconds, nanoseconds: v.nanoseconds };
   if (Array.isArray(v)) return v.map(plain);

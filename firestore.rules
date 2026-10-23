@@ -379,6 +379,7 @@ service cloud.firestore {
 
     // ---------- שיווק ----------
     match /campaigns/{id} { allow read, write: if canMkt(); }
+    match /mktcfg/{id} { allow read, write: if canMkt(); }
 
     // ---------- הוצאות ----------
     // ספקים: הוצאות כותבים; מנהל מלון ומנהל סידור רואים, כדי לשייך פריטי מלאי לספק ולשלוח הזמנות

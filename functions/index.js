@@ -366,6 +366,27 @@ async function eventsPeople() {
   const own = await db.collection('pushTokens').where('owner', '==', true).get(); own.forEach((d) => out.add(d.id));
   return [...out];
 }
+// cost-per-lead alert: a weekly campaign report over its limit (campaigns.cplMax or mktcfg/main.cplMax) → push social media holders, once a day per campaign
+async function mktPeople() {
+  const out = new Set(), rs = await db.collection('roles').get();
+  rs.forEach((d) => { const r = d.data() || {}; if (!r.station && r.apps && r.apps.mkt) out.add(d.id); });
+  const own = await db.collection('pushTokens').where('owner', '==', true).get(); own.forEach((d) => out.add(d.id));
+  return [...out];
+}
+exports.onCampaignCpl = trig('campaigns/{id}').onWrite(async (ch) => {
+  if (!ch.after.exists) return;
+  const c = ch.after.data() || {}, today = ilDate(new Date());
+  if (c.cplAlerted === today) return;
+  if (String(c.end || isoAdd(c.week || '1970-01-01', 6)) < isoAdd(today, -1)) return; // only campaigns of the current week
+  let lim = +c.cplMax || 0;
+  if (!lim) { try { const m = await db.doc('mktcfg/main').get(); lim = +((m.exists && m.data().cplMax) || 0); } catch (e) { } }
+  if (!lim) return;
+  const l = +c.leads || 0, m = +c.msgs || 0, leads = m && l === m ? l : l + m, sp = +c.spend || 0;
+  if (!(sp > 0 && (leads ? sp / leads > lim : sp > lim))) return;
+  await ch.after.ref.set({ cplAlerted: today }, { merge: true });
+  const body = leads ? `${c.name || 'קמפיין'}: ₪${Math.round(sp / leads)} לליד (התקרה ₪${lim}) · הושקעו ₪${Math.round(sp)}, ${leads} לידים` : `${c.name || 'קמפיין'}: הושקעו ₪${Math.round(sp)} בלי אף ליד (התקרה ₪${lim} לליד)`;
+  await sendTo(await mktPeople(), { title: 'עלות לליד גבוהה', body, hash: '#mkt', tag: 'cpl-' + ch.after.id });
+});
 async function metaLeads(cfg) {
   const since = cfg.leadsAt || Math.floor(Date.now() / 1000) - 30 * 86400, started = Math.floor(Date.now() / 1000);
   const pages = await graphAll('me/accounts', cfg.token, { fields: 'id,name,access_token', limit: '100' });

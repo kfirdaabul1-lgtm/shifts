@@ -33,6 +33,10 @@ service cloud.firestore {
     function platformEmail() { return 'kfirdaabul1@gmail.com'; }
 
     function signedIn() { return request.auth != null; }
+    function isPlatform() {
+      return signedIn() && request.auth.token.email != null && request.auth.token.email_verified == true
+        && request.auth.token.email.lower() == platformEmail();
+    }
     function isOwner() {
       return signedIn()
         && request.auth.token.email != null
@@ -556,7 +560,10 @@ service cloud.firestore {
     // chain settings (name, event venues, spa hotel): every member reads, only the owner writes
     match /orgcfg/{id} {
       allow read: if signedIn();
-      allow write: if isOwner();
+      // lic = the pages this chain may use; only the owner of the whole system sets it
+      allow create: if isPlatform() || (isOwner() && !('lic' in request.resource.data));
+      allow update: if isPlatform() || (isOwner() && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['lic']));
+      allow delete: if isPlatform();
     }
     match /metacfg/{id} {
       allow read, write: if isOwner();

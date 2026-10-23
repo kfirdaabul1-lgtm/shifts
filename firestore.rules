@@ -496,9 +496,14 @@ service cloud.firestore {
       allow write: if canSpa();
     }
     match /groups/{id} {
-      allow read, write: if canGrp();
+      // gm (their hotels) and CEO read groups for the revenue figures
+      allow read: if canGrp() || canCeo() || (gmRole() && (roleHotels().size() == 0 || resource.data.hotel in roleHotels()));
+      allow write: if canGrp();
     }
     match /agents/{id} {
+      allow read, write: if canGrp();
+    }
+    match /priceLists/{id} {
       allow read, write: if canGrp();
     }
     match /spacfg/{id} {

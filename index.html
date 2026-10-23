@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202610221540"></script>
+<script src="i18n.js?v=202610230935"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -410,11 +410,15 @@ let toastT;function toast(m){const t=$('#toast');t.textContent=m;t.hidden=false;
 /* drafts for form fields */
 const dv=(f,k,fb)=>{const d=S.drafts[f];return d&&k in d?d[k]:fb};
 function onField(e){const f=e.target.dataset&&e.target.dataset.f;if(!f)return;const [form,key]=f.split('.');(S.drafts[form]||(S.drafts[form]={}))[key]=e.target.type==='checkbox'?e.target.checked:e.target.value;
-  if(form==='grp'){if(e.target.tagName==='SELECT'&&e.type==='change')render();else{const el=document.getElementById('grpTot');if(el&&S.sheet&&S.sheet.type==='grp')el.innerHTML=grpTotHTML({...((S.grps||{})[S.sheet.id]||{}),...(S.drafts.grp||{})})}}
+  if(form==='grp'){if(e.target.tagName==='SELECT'&&e.type==='change'){if(['plId','roomType','board'].includes(key))grpApplyPl(key);render()}else{const el=document.getElementById('grpTot');if(el&&S.sheet&&S.sheet.type==='grp')el.innerHTML=grpTotHTML({...((S.grps||{})[S.sheet.id]||{}),...(S.drafts.grp||{})})}}
   if(form==='set'){if(e.target.type==='checkbox'){if(e.type==='change')render()}else S.pending=true}
   if(form==='sr'&&(key==='shift'||((key==='r420'||key==='cash')&&e.type==='change'))){if(key==='shift')e.target.blur();if(e.type==='change')render()}}
 document.addEventListener('input',e=>{const t=e.target;if(!t.matches)return;
   if(t.matches('[data-item]')){const d=S.drafts.inv;if(!d)return;const [i,k]=t.dataset.item.split('|');d.items[+i][k]=t.value;S.pending=true}
+  else if(t.matches('[data-gline]')&&S.sheet&&S.sheet.type==='grp'){const [i,k]=t.dataset.gline.split('|'),x=(S.grps||{})[S.sheet.id]||{},d=S.drafts.grp||(S.drafts.grp={});if(!d.lines)d.lines=JSON.parse(JSON.stringify(grpLines({...x,...d})));const l=d.lines[+i]||(d.lines[+i]={cat:'guest'});l[k]=t.value;
+    if(k==='type'&&t.tagName==='SELECT'){const pl=plOf((d.plId??x.plId)||''),r=pl&&(pl.rows||[]).find(r=>r.type===t.value);if(r&&(l.cat||'guest')==='guest')l.price=r.rate;render();return}
+    const cur={...x,...d},el=document.getElementById('grpTot');if(el)el.innerHTML=grpTotHTML(cur)}
+  else if(t.matches('[data-plrow]')&&S.sheet&&S.sheet.type==='pl'){const [i,k]=t.dataset.plrow.split('|'),x=(S.pls||{})[S.sheet.id]||{},d=S.drafts.pl||(S.drafts.pl={});if(!d.rows)d.rows=JSON.parse(JSON.stringify(x.rows||[{type:'',rate:''}]));(d.rows[+i]||(d.rows[+i]={}))[k]=t.value}
   else if(t.matches('[data-srrow]')){const [l,i,k]=t.dataset.srrow.split('|'),d=S.drafts.sr||(S.drafts.sr={}),a=d[l]||(d[l]=[]);(a[+i]||(a[+i]={}))[k]=t.value}
   else if(t.matches('[data-inv]')&&t.type!=='checkbox'&&t.tagName!=='SELECT'){const d=S.drafts.inv;if(d)d[t.dataset.inv]=t.value}});
 document.addEventListener('change',e=>{const t=e.target;if(!t.matches)return;
@@ -810,36 +814,97 @@ const GRP_ST=[['offer','הצעה נשלחה','warn'],['option','אופציה','b
 const GRP_BOARD=[['ro','לינה בלבד (RO)'],['bb','לינה וארוחת בוקר (BB)'],['hb','חצי פנסיון (HB)'],['fb','פנסיון מלא (FB)']],GRP_BN=Object.fromEntries(GRP_BOARD);
 const GRP_CUR={ils:'₪',usd:'$',eur:'€'};
 const grpNights=g=>{const a=Date.parse((g.ci||'')+'T12:00:00Z'),b=Date.parse((g.co||'')+'T12:00:00Z');return isNaN(a)||isNaN(b)||b<=a?0:Math.round((b-a)/864e5)};
-function grpCalc(g){const n=grpNights(g),rooms=+g.rooms||0,pax=+g.pax||0,lodging=rooms*n*(+g.rate||0),board=pax*n*(+g.boardPrice||0),extras=+g.extras||0,total=lodging+board+extras,comm=total*(+g.comm||0)/100;
-  return {n,roomNights:rooms*n,lodging,board,extras,total,comm,net:total-comm,deposit:+g.deposit||0,balance:total-(+g.deposit||0)}}
+// rooming: lines [{cat guest|il|fo, type, ppr (people per room), rooms, price (per person per night)}]; old groups (rooms × rate per room) still compute
+const GRP_CAT=[['guest','חדרי הקבוצה'],['il','צוות ישראלי'],['fo','צוות זר']];
+function grpLines(g){if(Array.isArray(g.lines))return g.lines;if(+g.rooms){const ppr=Math.max(1,Math.round((+g.pax||0)/(+g.rooms)||2));return [{cat:'guest',type:g.roomType||'',ppr,rooms:+g.rooms,price:Math.round((+g.rate||0)/ppr*100)/100}]}return []}
+function grpCalc(g){const n=grpNights(g),L=grpLines(g),by={guest:{rooms:0,ppl:0},il:{rooms:0,ppl:0},fo:{rooms:0,ppl:0}};let lodging=0;
+  for(const l of L){const r=+l.rooms||0,pp=(+l.ppr||0)*r,b=by[l.cat]||by.guest;b.rooms+=r;b.ppl+=pp;lodging+=pp*n*(+l.price||0)}
+  const rooms=by.guest.rooms+by.il.rooms+by.fo.rooms,pax=by.guest.ppl+by.il.ppl+by.fo.ppl,board=pax*n*(+g.boardPrice||0),extras=+g.extras||0,total=lodging+board+extras,comm=total*(+g.comm||0)/100;
+  return {n,rooms,pax,by,roomNights:rooms*n,lodging,board,extras,total,comm,net:total-comm,deposit:+g.deposit||0,balance:total-(+g.deposit||0)}}
+function grpLinesHTML(cur){const L=grpLines(cur),pl=plOf(cur.plId),types=(pl&&pl.rows)||[],c=grpCalc(cur);
+  return `<datalist id="grpTypes">${types.map(t=>`<option value="${esc(t.type||'')}">`).join('')}</datalist>`+GRP_CAT.map(([cat,title])=>{const rows=L.map((l,i)=>[l,i]).filter(([l])=>(l.cat||'guest')===cat),b=c.by[cat];
+    return `<div class="f" style="margin-top:8px"><span><b>${title}</b>${b.rooms?` · ${b.rooms} חדרים · ${b.ppl} אנשים`:''}</span>
+    ${rows.map(([l,i])=>`<div class="row" style="align-items:flex-end;gap:6px">${types.length&&cat==='guest'?`<label class="f">סוג חדר<select data-gline="${i}|type"><option value="">—</option>${types.map(t=>`<option value="${esc(t.type||'')}" ${l.type===t.type?'selected':''}>${esc(t.type||'')}</option>`).join('')}${l.type&&!types.some(t=>t.type===l.type)?`<option selected>${esc(l.type)}</option>`:''}</select></label>`:`<label class="f">סוג חדר<input type="text" data-gline="${i}|type" value="${esc(l.type||'')}" placeholder="למשל זוגי" list="grpTypes"></label>`}
+      <label class="f" style="max-width:90px">אנשים בחדר<input type="number" min="1" inputmode="numeric" data-gline="${i}|ppr" value="${esc(l.ppr??'')}"></label>
+      <label class="f" style="max-width:90px">כמות חדרים<input type="number" min="0" inputmode="numeric" data-gline="${i}|rooms" value="${esc(l.rooms??'')}"></label>
+      <label class="f" style="max-width:120px">מחיר לאדם ללילה<input type="number" min="0" step="any" inputmode="decimal" data-gline="${i}|price" value="${esc(l.price??'')}"></label>
+      <button class="btn sm ghost" data-act="gl-del" data-i="${i}" aria-label="הסרת שורה">✕</button></div>`).join('')}
+    <div><button class="btn sm" data-act="gl-add" data-cat="${cat}">+ ${cat==='guest'?'סוג חדר':'חדר ל'+title}</button></div></div>`}).join('')}
 const grpMoney=(v,c)=>(GRP_CUR[c]||'₪')+Math.round(+v||0).toLocaleString('he-IL');
 const grpHs=()=>scopeHs();
-function vGrp(){liveColl('grps','groups');liveColl('agents','agents');
-  const view=S.grpView||'list',head=`<section class="head"><div class="head-t"><h1>קבוצות</h1><div class="actions">${view==='agents'?'<button class="btn pri" data-act="agent-new">+ סוכן חדש</button>':'<button class="btn pri" data-act="grp-new">+ קבוצה חדשה</button>'}</div></div><p class="lede">כל הקבוצות לפי תאריכים, עם ההצעה של כל קבוצה, והסוכנים שעובדים איתנו.</p></section>
-  <div class="seg" role="group" style="margin-bottom:12px"><button data-act="grp-view" data-v="list" aria-pressed="${view!=='agents'}">קבוצות</button><button data-act="grp-view" data-v="agents" aria-pressed="${view==='agents'}">סוכנים</button></div>`;
+// agent payment terms: before arrival / arrival / departure / שוטף+ (end of the departure month + N) / N days after departure
+const AG_TERMS=[['pre30','30 יום לפני ההגעה'],['pre14','14 יום לפני ההגעה'],['pre7','7 יום לפני ההגעה'],['arr','ביום ההגעה'],['co','ביום העזיבה'],['eom30','שוטף + 30'],['eom45','שוטף + 45'],['eom60','שוטף + 60'],['eom90','שוטף + 90'],['net30','30 יום אחרי העזיבה'],['net60','60 יום אחרי העזיבה']],AG_TMAP=Object.fromEntries(AG_TERMS);
+function grpDue(g){if(g.dueDate)return g.dueDate;const a=(S.agents||{})[g.agentId]||{},t=AG_TMAP[a.terms]?a.terms:'co';if(!g.ci||!g.co)return '';
+  if(t.startsWith('pre'))return addDays(g.ci,-(+t.slice(3)));if(t==='arr')return g.ci;if(t==='co')return g.co;return dueFrom(g.co,t)}
+const plOf=id=>(S.pls||{})[id]||null;
+// group revenue for the gm / CEO pages: confirmed groups in ₪, the offer total spread over the nights (each night counts in its month)
+function grpMonthShare(g){const out={};if(!g||g.status!=='confirmed'||(g.cur&&g.cur!=='ils'))return out;const n=grpNights(g);if(!n)return out;const per=grpCalc(g).total/n;
+  for(let i=0;i<n;i++){const m=addDays(g.ci,i).slice(0,7);out[m]=(out[m]||0)+per}return out}
+function grpHotelSub(h){const k='grpH:'+h;S.grpByH=S.grpByH||{};if(!S.live[k]){S.live[k]=true;
+  S.db.collection('groups').where('hotel','==',h).onSnapshot(q=>{S.grpByH[h]=Object.values(docsMap(q));render()},()=>{S.grpByH[h]=null;render()})}return S.grpByH[h]}
+function vGrp(){liveColl('grps','groups');liveColl('agents','agents');liveColl('pls','priceLists');
+  const view=S.grpView||'list',btn={agents:'<button class="btn pri" data-act="agent-new">+ סוכן חדש</button>',pl:'<button class="btn pri" data-act="pl-new">+ מחירון חדש</button>',pay:'',list:'<button class="btn pri" data-act="grp-new">+ קבוצה חדשה</button>'}[view]||'';
+  const seg=(v,n)=>`<button data-act="grp-view" data-v="${v}" aria-pressed="${view===v}">${n}</button>`;
+  const head=`<section class="head"><div class="head-t"><h1>קבוצות</h1><div class="actions">${btn}</div></div><p class="lede">כל הקבוצות לפי תאריכים, עם ההצעה של כל קבוצה, המחירונים, הסוכנים ומתי כל סוכן צריך לשלם.</p></section>
+  <div class="seg" role="group" style="margin-bottom:12px;flex-wrap:wrap">${seg('list','קבוצות')}${seg('pl','מחירונים')}${seg('agents','סוכנים')}${seg('pay','תזמוני תשלום')}</div>`;
   if(S.grpsErr)return wrap(head+`<div class="notice bad">אין גישה לקבוצות: ${esc(S.grpsErr)}</div>`);
-  return wrap(head+(view==='agents'?agentsHTML():grpListHTML()))}
-function grpListHTML(){const F=S.grpF||(S.grpF={when:'up',st:'all',h:'all'}),t=todayISO(),hs=grpHs();
+  return wrap(head+(view==='agents'?agentsHTML():view==='pl'?plListHTML():view==='pay'?grpPayHTML():grpListHTML()))}
+function plListHTML(){const hs=grpHs(),gs=Object.values(S.grps||{}).filter(g=>g.status!=='cancelled');
+  const list=Object.entries(S.pls||{}).filter(([,l])=>!l.hotel||hs.includes(l.hotel)||S.isOwner).sort(([,a],[,b])=>(a.active===false)-(b.active===false)||String(b.from||'').localeCompare(String(a.from||'')));
+  if(!S.plsReady)return '<p class="muted">טוען…</p>';if(S.plsErr)return `<div class="notice bad">אין גישה למחירונים: ${esc(S.plsErr)}</div>`;
+  return list.length?`<div class="plist">${list.map(([id,l])=>{const mine=gs.filter(g=>g.plId===id),rn=mine.reduce((a,g)=>a+grpCalc(g).roomNights,0);
+    return `<button class="prow" style="width:100%;text-align:inherit;cursor:pointer;font:inherit;color:inherit" data-act="pl-open" data-id="${id}"><span class="who"><b>${esc(l.name||'מחירון')}</b><small>${l.hotel?esc(hotelName(l.hotel)):'כל המלונות'}${l.from||l.to?` · ${l.from?dm(l.from):''}–${l.to?dm(l.to):''}`:''} · ${(l.rows||[]).length} סוגי חדרים</small><small>${(l.rows||[]).slice(0,4).map(r=>`${esc(r.type||'')} ${grpMoney(r.rate,l.cur)}`).join(' · ')}</small></span><span style="text-align:left"><b>${mine.length}</b> קבוצות<br><small class="muted">${rn} לילות חדר</small>${l.active===false?'<br><span class="pill">לא פעיל</span>':''}</span></button>`}).join('')}</div>`:emptyBox('אין עדיין מחירונים','לוחצים "+ מחירון חדש" ומגדירים מחיר לכל סוג חדר. כל קבוצה משויכת למחירון שלה.')}
+function grpPayHTML(){const t=todayISO(),hs=grpHs(),F=S.payF||(S.payF={ag:'all'});
+  let list=Object.entries(S.grps||{}).filter(([,g])=>(!g.hotel||hs.includes(g.hotel)||S.isOwner)&&(g.status==='confirmed'||g.status==='option')).map(([id,g])=>({id,g,c:grpCalc(g),due:grpDue(g)})).filter(x=>x.c.balance>0.5);
+  const ags=[...new Set(list.map(x=>x.g.agentId||''))];if(F.ag!=='all')list=list.filter(x=>(x.g.agentId||'')===F.ag);
+  list.sort((a,b)=>String(a.due||'9').localeCompare(String(b.due||'9')));
+  const ils=x=>!x.g.cur||x.g.cur==='ils',sum=xs=>xs.filter(ils).reduce((a,x)=>a+x.c.balance,0),late=list.filter(x=>x.due&&x.due<t),soon=list.filter(x=>x.due>=t&&x.due<=addDays(t,30));
+  const kpi=`<div class="kpis"><div class="kpi ${late.length?'bad':''}"><b>${grpMoney(sum(late),'ils')}</b><span>באיחור · ${late.length} קבוצות</span></div><div class="kpi"><b>${grpMoney(sum(soon),'ils')}</b><span>לתשלום ב-30 הימים הקרובים</span></div><div class="kpi"><b>${grpMoney(sum(list),'ils')}</b><span>סה״כ פתוח (₪)</span></div></div>`;
+  const chip=(v,n)=>`<button class="dchip ${F.ag===v?'':'off'}" data-act="pay-ag" data-v="${esc(v)}">${n}</button>`;
+  const chips=`<div class="chips" style="margin-bottom:10px">${chip('all','כל הסוכנים')}${ags.map(a=>chip(a,a?esc(((S.agents||{})[a]||{}).name||'סוכן'):'בלי סוכן')).join('')}</div>`;
+  let lastM='';const rows=list.map(x=>{const g=x.g,m=String(x.due||'').slice(0,7),lt=x.due&&x.due<t,a=(S.agents||{})[g.agentId]||{};
+    const mh=m!==lastM?(lastM=m,`<h3 style="margin:14px 0 6px">${m?monLabel(m):'בלי תאריך תשלום'}</h3>`):'';
+    return mh+`<div class="prow" style="flex-wrap:wrap"><span class="who"><b>${esc(g.agentName||'בלי סוכן')} · ${esc(g.name||'')}</b><small>${g.ci?dm(g.ci):''}–${g.co?dm(g.co):''} · ${esc(hotelName(g.hotel)||'')}${a.terms&&AG_TMAP[a.terms]?' · '+AG_TMAP[a.terms]:''}</small><small>סה״כ ${grpMoney(x.c.total,g.cur)}${x.c.deposit?' · שולם '+grpMoney(x.c.deposit,g.cur):''}</small></span>
+      <span style="text-align:left"><b>${grpMoney(x.c.balance,g.cur)}</b><br><span class="pill ${lt?'bad':'warn'}">${x.due?(lt?'באיחור מ-':'עד ')+dm(x.due):'בלי תאריך'}</span></span>
+      <div class="actions" style="width:100%;justify-content:flex-end"><button class="btn sm ghost" data-act="grp-open" data-id="${x.id}">פתיחה</button><button class="btn sm" data-act="grp-paid" data-id="${x.id}">${S.confirm==='gp:'+x.id?'לחיצה נוספת תסמן ששולם הכול':'✓ שולם במלואו'}</button></div></div>`}).join('');
+  return kpi+chips+(S.grpsReady?(rows?`<div class="plist">${rows}</div>`:emptyBox('אין תשלומים פתוחים','קבוצות מאושרות או באופציה עם יתרה לתשלום יופיעו כאן לפי תאריך התשלום.')):'<p class="muted">טוען…</p>')+`<p class="muted" style="font-size:.85rem;margin-top:10px">תאריך התשלום מחושב מתנאי התשלום של הסוכן (או מהתאריך שנרשם בקבוצה). מופיעות קבוצות מאושרות ובאופציה.</p>`}
+function sheetPl(){const id=S.sheet.id,x=(S.pls||{})[id]||{},isNew=!(S.pls||{})[id],g=(k,d)=>dv('pl',k,x[k]??d),hs=grpHs(),rows=g('rows',x.rows||[{type:'',rate:''}]);
+  const mine=Object.entries(S.grps||{}).filter(([,gr])=>gr.plId===id).sort(([,a],[,b])=>String(a.ci||'').localeCompare(String(b.ci||'')));
+  return sheetHead(isNew?'מחירון חדש':esc(x.name||'מחירון'),'')+`
+  <label class="f">שם המחירון<input type="text" data-f="pl.name" value="${esc(g('name',''))}" placeholder="למשל קבוצות חורף 2027"></label>
+  <div class="row"><label class="f">מלון<select data-f="pl.hotel"><option value="">כל המלונות</option>${hs.map(h=>`<option value="${h}" ${g('hotel','')===h?'selected':''}>${esc(hotelName(h))}</option>`).join('')}</select></label><label class="f">מטבע<select data-f="pl.cur">${Object.entries(GRP_CUR).map(([k,c])=>`<option value="${k}" ${g('cur','ils')===k?'selected':''}>${c}</option>`).join('')}</select></label></div>
+  <div class="row"><label class="f">בתוקף מ-<input type="date" data-f="pl.from" value="${esc(g('from',''))}"></label><label class="f">עד<input type="date" data-f="pl.to" value="${esc(g('to',''))}"></label></div>
+  <div class="f"><span>מחיר לאדם ללילה, לפי סוג חדר</span>${rows.map((r,i)=>`<div class="row" style="align-items:flex-end"><label class="f">סוג חדר<input type="text" data-plrow="${i}|type" value="${esc(r.type||'')}" placeholder="למשל זוגי"></label><label class="f">מחיר לאדם ללילה<input type="number" min="0" step="any" inputmode="decimal" data-plrow="${i}|rate" value="${esc(r.rate??'')}"></label><button class="btn sm ghost" data-act="pl-row-del" data-i="${i}" aria-label="הסרת שורה">✕</button></div>`).join('')}<div><button class="btn sm" data-act="pl-row-add">+ סוג חדר</button></div></div>
+  <div class="f"><span>ארוחות: מחיר לאורח ללילה (אם לא כלול)</span><div class="row"><label class="f">ארוחת בוקר<input type="number" min="0" step="any" inputmode="decimal" data-f="pl.bb" value="${esc(g('bb',''))}"></label><label class="f">חצי פנסיון<input type="number" min="0" step="any" inputmode="decimal" data-f="pl.hb" value="${esc(g('hb',''))}"></label><label class="f">פנסיון מלא<input type="number" min="0" step="any" inputmode="decimal" data-f="pl.fb" value="${esc(g('fb',''))}"></label></div></div>
+  <label class="f">הערות<textarea rows="2" data-f="pl.notes">${esc(g('notes',''))}</textarea></label>
+  <label class="check"><input type="checkbox" data-f="pl.active" ${g('active',true)!==false?'checked':''}> מחירון פעיל</label>
+  ${mine.length?`<h3 style="margin:12px 0 4px">הקבוצות במחירון · ${mine.length}</h3><div class="plist">${mine.map(([gid,gr])=>{const st=GRP_STN[gr.status||'offer']||GRP_ST[0];return `<button class="prow" style="width:100%;text-align:inherit;cursor:pointer;font:inherit;color:inherit" data-act="grp-open" data-id="${gid}"><span class="who"><b>${esc(gr.name||'')}</b><small>${gr.ci?dm(gr.ci):''}–${gr.co?dm(gr.co):''} · ${esc(gr.agentName||'')} · ${grpMoney(grpCalc(gr).total,gr.cur)}</small></span><span class="pill ${st[2]}">${st[1]}</span></button>`}).join('')}</div>`:''}
+  <div class="actions" style="margin-top:10px"><button class="btn pri" data-act="pl-save">שמירה</button>${isNew?'':`<button class="btn ghost" data-act="pl-del">${S.confirm==='pl-del'?'לחיצה נוספת תמחק':'מחיקה'}</button>`}</div>`}
+// price list chosen in a group fills the rate / currency / meal price (still editable)
+function grpApplyPl(key){const d=S.drafts.grp||(S.drafts.grp={}),x=((S.grps||{})[S.sheet&&S.sheet.id])||{},cur={...x,...d},l=plOf(cur.plId);if(!l)return;
+  if(key==='plId'){d.cur=l.cur||'ils';d.lines=grpLines(cur).map(x=>{const r=(l.rows||[]).find(r=>r.type===x.type);return r&&x.cat==='guest'?{...x,price:r.rate}:x})}
+  if((key==='board'||key==='plId')&&cur.board&&l[cur.board]!=null&&l[cur.board]!=='')d.boardPrice=l[cur.board]}
+function grpListHTML(){const F=S.grpF||(S.grpF={when:'up',st:'all',h:'all',pl:'all'}),t=todayISO(),hs=grpHs();if(!F.pl)F.pl='all';
   let list=Object.entries(S.grps||{}).filter(([,g])=>!g.hotel||hs.includes(g.hotel)||S.isOwner);
   const M=t.slice(0,7),inMonth=g=>g.status!=='cancelled'&&String(g.ci||'').slice(0,7)===M;
   const up=list.filter(([,g])=>g.status!=='cancelled'&&(g.co||g.ci||'')>=t),conf=list.filter(([,g])=>inMonth(g)&&g.status==='confirmed');
   const kpi=`<div class="kpis"><div class="kpi"><b>${up.length}</b><span>קבוצות קרובות</span></div><div class="kpi"><b>${list.filter(([,g])=>inMonth(g)).reduce((a,[,g])=>a+grpCalc(g).roomNights,0)}</b><span>לילות חדר החודש</span></div><div class="kpi"><b>${grpMoney(conf.reduce((a,[,g])=>a+(g.cur&&g.cur!=='ils'?0:grpCalc(g).total),0),'ils')}</b><span>מאושר החודש (₪)</span></div><div class="kpi"><b>${list.filter(([,g])=>g.status==='option'&&g.optUntil&&g.optUntil<=addDays(t,3)&&g.optUntil>=t).length}</b><span>אופציות שנגמרות ב-3 ימים</span></div></div>`;
   if(F.when==='up')list=list.filter(([,g])=>(g.co||g.ci||'9')>=t);else if(F.when==='past')list=list.filter(([,g])=>(g.co||g.ci||'')<t);
-  if(F.st!=='all')list=list.filter(([,g])=>(g.status||'offer')===F.st);if(F.h!=='all')list=list.filter(([,g])=>g.hotel===F.h);
+  if(F.st!=='all')list=list.filter(([,g])=>(g.status||'offer')===F.st);if(F.h!=='all')list=list.filter(([,g])=>g.hotel===F.h);if(F.pl!=='all')list=list.filter(([,g])=>(g.plId||'')===F.pl);
   list.sort(([,a],[,b])=>F.when==='past'?String(b.ci||'').localeCompare(String(a.ci||'')):String(a.ci||'9').localeCompare(String(b.ci||'9')));
   const chip=(k,v,n)=>`<button class="dchip ${F[k]===v?'':'off'}" data-act="grp-f" data-k="${k}" data-v="${v}">${n}</button>`;
-  const filters=`<div class="chips" style="margin-bottom:6px">${chip('when','up','קרובות')}${chip('when','past','עברו')}${chip('when','all','הכול')}</div><div class="chips" style="margin-bottom:6px">${chip('st','all','כל הסטטוסים')}${GRP_ST.map(([k,n])=>chip('st',k,n)).join('')}</div>${hs.length>1?`<div class="chips" style="margin-bottom:10px">${chip('h','all','כל המלונות')}${hs.map(h=>chip('h',h,esc(hotelName(h)))).join('')}</div>`:''}`;
+  const filters=`<div class="chips" style="margin-bottom:6px">${chip('when','up','קרובות')}${chip('when','past','עברו')}${chip('when','all','הכול')}</div><div class="chips" style="margin-bottom:6px">${chip('st','all','כל הסטטוסים')}${GRP_ST.map(([k,n])=>chip('st',k,n)).join('')}</div>${hs.length>1?`<div class="chips" style="margin-bottom:6px">${chip('h','all','כל המלונות')}${hs.map(h=>chip('h',h,esc(hotelName(h)))).join('')}</div>`:''}${Object.keys(S.pls||{}).length?`<div class="chips" style="margin-bottom:10px">${chip('pl','all','כל המחירונים')}${Object.entries(S.pls||{}).map(([pid,l])=>chip('pl',pid,esc(l.name||'מחירון'))).join('')}</div>`:''}`;
   let lastM='';const rows=list.map(([id,g])=>{const c=grpCalc(g),st=GRP_STN[g.status||'offer']||GRP_ST[0],m=String(g.ci||'').slice(0,7);
     const mh=m!==lastM?(lastM=m,`<h3 style="margin:14px 0 6px">${m?monLabel(m):'בלי תאריך'}</h3>`):'';
-    return mh+`<button class="prow" style="width:100%;text-align:inherit;flex-wrap:wrap;cursor:pointer;font:inherit;color:inherit" data-act="grp-open" data-id="${id}"><span class="who"><b>${esc(g.name||'קבוצה')}</b><small>${g.ci?dm(g.ci):'?'}–${g.co?dm(g.co):'?'} · ${c.n} לילות · ${esc(hotelName(g.hotel)||'')}${g.agentName?' · סוכן: '+esc(g.agentName):''}</small><small>${+g.rooms||0} חדרים · ${+g.pax||0} אורחים · ${grpMoney(g.rate,g.cur)} ללילה לחדר${g.board?' · '+esc((GRP_BN[g.board]||'').replace(/ \(.*/,'')):''}</small></span><span style="text-align:left"><b>${grpMoney(c.total,g.cur)}</b><br><span class="pill ${st[2]}">${st[1]}${g.status==='option'&&g.optUntil?' עד '+dm(g.optUntil):''}</span></span></button>`}).join('');
+    return mh+`<button class="prow" style="width:100%;text-align:inherit;flex-wrap:wrap;cursor:pointer;font:inherit;color:inherit" data-act="grp-open" data-id="${id}"><span class="who"><b>${esc(g.name||'קבוצה')}</b><small>${g.ci?dm(g.ci):'?'}–${g.co?dm(g.co):'?'} · ${c.n} לילות · ${esc(hotelName(g.hotel)||'')}${g.agentName?' · סוכן: '+esc(g.agentName):''}${g.plName?' · מחירון: '+esc(g.plName):''}</small><small>${grpCalc(g).rooms} חדרים · ${grpCalc(g).pax} אנשים${g.board?' · '+esc((GRP_BN[g.board]||'').replace(/ \(.*/,'')):''}</small></span><span style="text-align:left"><b>${grpMoney(c.total,g.cur)}</b><br><span class="pill ${st[2]}">${st[1]}${g.status==='option'&&g.optUntil?' עד '+dm(g.optUntil):''}</span></span></button>`}).join('');
   return kpi+filters+(S.grpsReady?(rows?`<div class="plist">${rows}</div>`:emptyBox('אין קבוצות להצגה','לוחצים "+ קבוצה חדשה" כדי להוסיף.')):'<p class="muted">טוען…</p>')}
 function agentsHTML(){const q=String(S.agQ||'').trim(),gs=Object.values(S.grps||{});
   const list=Object.entries(S.agents||{}).filter(([,a])=>!q||[a.name,a.company,a.contact,a.phone,a.country].join(' ').includes(q)).sort(([,a],[,b])=>(a.active===false)-(b.active===false)||String(a.name||'').localeCompare(String(b.name||''),'he'));
   return `<label class="f" style="max-width:360px"><input type="search" data-agq="1" value="${esc(q)}" placeholder="חיפוש סוכן"></label>
   ${S.agentsReady?(list.length?`<div class="plist">${list.map(([id,a])=>{const mine=gs.filter(g=>g.agentId===id&&g.status!=='cancelled'),conf=mine.filter(g=>g.status==='confirmed');
-    return `<button class="prow" style="width:100%;text-align:inherit;cursor:pointer;font:inherit;color:inherit" data-act="agent-open" data-id="${id}"><span class="who"><b>${esc(a.name||'')}${a.company?' · '+esc(a.company):''}</b><small>${[a.contact,a.phone,a.email,a.country].filter(Boolean).map(esc).join(' · ')||'אין פרטי קשר'}</small><small>${mine.length} קבוצות · ${conf.length} מאושרות${+a.comm?' · עמלה '+(+a.comm)+'%':''}</small></span>${a.active===false?'<span class="pill">לא פעיל</span>':''}</button>`}).join('')}</div>`:emptyBox('אין עדיין סוכנים','לוחצים "+ סוכן חדש" כדי להוסיף.')):'<p class="muted">טוען…</p>'}`}
+    return `<button class="prow" style="width:100%;text-align:inherit;cursor:pointer;font:inherit;color:inherit" data-act="agent-open" data-id="${id}"><span class="who"><b>${esc(a.name||'')}${a.company?' · '+esc(a.company):''}</b><small>${[a.contact,a.phone,a.email,a.country].filter(Boolean).map(esc).join(' · ')||'אין פרטי קשר'}</small><small>${mine.length} קבוצות · ${conf.length} מאושרות${AG_TMAP[a.terms]?' · תשלום: '+AG_TMAP[a.terms]:''}</small></span>${a.active===false?'<span class="pill">לא פעיל</span>':''}</button>`}).join('')}</div>`:emptyBox('אין עדיין סוכנים','לוחצים "+ סוכן חדש" כדי להוסיף.')):'<p class="muted">טוען…</p>'}`}
 function grpOfferText(g){const c=grpCalc(g),cur=g.cur,hn=hotelName(g.hotel)||'';
-  return `שלום${g.contact?' '+g.contact:''},\nהצעה לקבוצה "${g.name||''}" ב${hn}:\n\nתאריכים: ${g.ci?fmtDM(g.ci):''} – ${g.co?fmtDM(g.co):''} (${c.n} לילות)\nחדרים: ${+g.rooms||0}${g.roomType?' ('+g.roomType+')':''} · אורחים: ${+g.pax||0}\nמחיר ללילה לחדר: ${grpMoney(g.rate,cur)}\n${g.board?'בסיס: '+GRP_BN[g.board]+'\n':''}${+g.boardPrice?`ארוחות: ${grpMoney(g.boardPrice,cur)} לאורח ללילה\n`:''}${+g.extras?`תוספות${g.extrasNote?' ('+g.extrasNote+')':''}: ${grpMoney(g.extras,cur)}\n`:''}\nסה״כ: ${grpMoney(c.total,cur)}${+g.comm?`\nעמלת סוכן ${+g.comm}%: ${grpMoney(c.comm,cur)}`:''}${g.status==='option'&&g.optUntil?`\n\nהאופציה שמורה עד ${fmtDM(g.optUntil)}.`:''}${g.notes?`\n\n${g.notes}`:''}\n\nתודה,\n${S.meName||''}`}
+  return `שלום${g.contact?' '+g.contact:''},\nהצעה לקבוצה "${g.name||''}" ב${hn}:\n\nתאריכים: ${g.ci?fmtDM(g.ci):''} – ${g.co?fmtDM(g.co):''} (${c.n} לילות)\n${GRP_CAT.map(([cat,t])=>{const ls=grpLines(g).filter(l=>(l.cat||'guest')===cat&&+l.rooms);return ls.length?t+':\n'+ls.map(l=>`• ${+l.rooms} × ${l.type||'חדר'} (${+l.ppr||0} בחדר) · ${grpMoney(l.price,cur)} לאדם ללילה`).join('\n')+'\n':''}).join('')}סה״כ: ${c.rooms} חדרים · ${c.pax} אנשים\n${g.board?'בסיס: '+GRP_BN[g.board]+'\n':''}${+g.boardPrice?`ארוחות: ${grpMoney(g.boardPrice,cur)} לאורח ללילה\n`:''}${+g.extras?`תוספות${g.extrasNote?' ('+g.extrasNote+')':''}: ${grpMoney(g.extras,cur)}\n`:''}\nסה״כ: ${grpMoney(c.total,cur)}${+g.comm?`\nעמלת סוכן ${+g.comm}%: ${grpMoney(c.comm,cur)}`:''}${g.status==='option'&&g.optUntil?`\n\nהאופציה שמורה עד ${fmtDM(g.optUntil)}.`:''}${g.notes?`\n\n${g.notes}`:''}\n\nתודה,\n${S.meName||''}`}
 const fmtDM=iso=>{const [y,m,d]=String(iso).split('-');return `${d}/${m}/${y}`};
 function sheetGrp(){const id=S.sheet.id,x=(S.grps||{})[id]||{},isNew=!(S.grps||{})[id],g=(k,d)=>dv('grp',k,x[k]??d),hs=grpHs();
   const cur={...x,...(S.drafts.grp||{})};if(!cur.hotel)cur.hotel=hs[0]||'';const c=grpCalc(cur),ags=Object.entries(S.agents||{}).filter(([,a])=>a.active!==false||a===((S.agents||{})[cur.agentId])).sort(([,a],[,b])=>String(a.name||'').localeCompare(String(b.name||''),'he'));
@@ -848,16 +913,17 @@ function sheetGrp(){const id=S.sheet.id,x=(S.grps||{})[id]||{},isNew=!(S.grps||{
   <label class="f">שם הקבוצה<input type="text" data-f="grp.name" value="${esc(g('name',''))}" placeholder="למשל טיול מאורגן מצרפת"></label>
   <div class="row"><label class="f">מלון<select data-f="grp.hotel">${hs.map(h=>`<option value="${h}" ${cur.hotel===h?'selected':''}>${esc(hotelName(h))}</option>`).join('')}</select></label>
   <label class="f">סטטוס<select data-f="grp.status">${GRP_ST.map(([k,n])=>`<option value="${k}" ${(cur.status||'offer')===k?'selected':''}>${n}</option>`).join('')}</select></label></div>
+  <label class="f">מחירון<select data-f="grp.plId"><option value="">בלי מחירון</option>${Object.entries(S.pls||{}).filter(([pid,l])=>(l.active!==false||pid===cur.plId)&&(!l.hotel||l.hotel===cur.hotel)).map(([pid,l])=>`<option value="${pid}" ${cur.plId===pid?'selected':''}>${esc(l.name||'מחירון')}</option>`).join('')}</select></label>
   ${(cur.status||'offer')==='option'?`<label class="f">האופציה שמורה עד<input type="date" data-f="grp.optUntil" value="${esc(g('optUntil',''))}"></label>`:''}
   <div class="row"><label class="f">סוכן<select data-f="grp.agentId"><option value="">בלי סוכן</option>${ags.map(([aid,a])=>`<option value="${aid}" ${cur.agentId===aid?'selected':''}>${esc(a.name||'')}${a.company?' · '+esc(a.company):''}</option>`).join('')}</select></label>
   <label class="f">איש קשר בקבוצה<input type="text" data-f="grp.contact" value="${esc(g('contact',''))}" placeholder="לא חובה"></label></div>
   <div class="row"><label class="f">הגעה<input type="date" data-f="grp.ci" value="${esc(g('ci',''))}"></label><label class="f">עזיבה<input type="date" data-f="grp.co" value="${esc(g('co',''))}"></label></div>
-  <div class="row"><label class="f">חדרים<input type="number" min="0" inputmode="numeric" data-f="grp.rooms" value="${esc(g('rooms',''))}"></label><label class="f">אורחים<input type="number" min="0" inputmode="numeric" data-f="grp.pax" value="${esc(g('pax',''))}"></label><label class="f">סוג חדרים<input type="text" data-f="grp.roomType" value="${esc(g('roomType',''))}" placeholder="למשל זוגי / טווין"></label></div>
-  <h3 style="margin:12px 0 4px">ההצעה</h3>
-  <div class="row"><label class="f">מחיר ללילה לחדר<input type="number" min="0" step="any" inputmode="decimal" data-f="grp.rate" value="${esc(g('rate',''))}"></label><label class="f">מטבע<select data-f="grp.cur">${Object.entries(GRP_CUR).map(([k,s])=>`<option value="${k}" ${(cur.cur||'ils')===k?'selected':''}>${s}</option>`).join('')}</select></label></div>
+  <h3 style="margin:12px 0 4px">חדרים ומחירים</h3>
+  <div id="grpLines">${grpLinesHTML(cur)}</div>
+  <div class="row" style="margin-top:8px"><label class="f">מטבע<select data-f="grp.cur">${Object.entries(GRP_CUR).map(([k,c])=>`<option value="${k}" ${(cur.cur||'ils')===k?'selected':''}>${c}</option>`).join('')}</select></label></div>
   <div class="row"><label class="f">בסיס אירוח<select data-f="grp.board"><option value="">—</option>${GRP_BOARD.map(([k,n])=>`<option value="${k}" ${cur.board===k?'selected':''}>${n}</option>`).join('')}</select></label><label class="f">ארוחות: מחיר לאורח ללילה<input type="number" min="0" step="any" inputmode="decimal" data-f="grp.boardPrice" value="${esc(g('boardPrice',''))}" placeholder="אם לא כלול במחיר"></label></div>
   <div class="row"><label class="f">תוספות (סכום כולל)<input type="number" min="0" step="any" inputmode="decimal" data-f="grp.extras" value="${esc(g('extras',''))}"></label><label class="f">מה כלול בתוספות<input type="text" data-f="grp.extrasNote" value="${esc(g('extrasNote',''))}" placeholder="למשל הסעות, חדר ישיבות"></label></div>
-  <div class="row"><label class="f">עמלת סוכן (%)<input type="number" min="0" max="100" step="any" inputmode="decimal" data-f="grp.comm" value="${esc(g('comm',(S.agents||{})[cur.agentId]?.comm??''))}"></label><label class="f">מקדמה ששולמה<input type="number" min="0" step="any" inputmode="decimal" data-f="grp.deposit" value="${esc(g('deposit',''))}"></label></div>
+  <div class="row"><label class="f">שולם עד עכשיו<input type="number" min="0" step="any" inputmode="decimal" data-f="grp.deposit" value="${esc(g('deposit',''))}"></label><label class="f">תאריך תשלום<input type="date" data-f="grp.dueDate" value="${esc(g('dueDate',''))}"><small class="muted">${(()=>{const a=(S.agents||{})[cur.agentId]||{},dd=grpDue({...cur,dueDate:''});return dd?'לפי תנאי הסוכן'+(AG_TMAP[a.terms]?' ('+AG_TMAP[a.terms]+')':' (ביום העזיבה)')+': '+dm(dd)+'. אפשר לבחור תאריך אחר.':''})()}</small></label></div>
   <div class="card" style="margin:8px 0;padding:10px 12px"><div class="totals" id="grpTot">${grpTotHTML(cur)}</div></div>
   <label class="f">הערות<textarea rows="3" data-f="grp.notes">${esc(g('notes',''))}</textarea></label>
   ${grpHallsHTML(id,x,isNew)}
@@ -873,8 +939,9 @@ function grpHallsHTML(id,x,isNew){const halls=x.halls||[],g=(k,d)=>dv('gh',k,d),
   <div class="row"><label class="f">משעה<input type="time" data-f="gh.start" value="${esc(g('start','09:00'))}"></label><label class="f">עד שעה<input type="time" data-f="gh.end" value="${esc(g('end','13:00'))}"></label><label class="f">אנשים<input type="number" min="0" inputmode="numeric" data-f="gh.guests" value="${esc(g('guests',x.pax||''))}"></label></div>
   <label class="f">הערה<input type="text" data-f="gh.note" value="${esc(g('note',''))}" placeholder="למשל ישיבת בוקר, ארוחת ערב"></label>
   <div class="actions"><button class="btn" data-act="gh-add">+ הוספת אולם ללוח האירועים</button></div>`}
-function grpTotHTML(cur){const c=grpCalc(cur);return `<div><span>${c.n} לילות × ${+cur.rooms||0} חדרים = ${c.roomNights} לילות חדר × ${grpMoney(cur.rate,cur.cur)}</span><span>${grpMoney(c.lodging,cur.cur)}</span></div>
-    ${c.board?`<div><span>ארוחות (${+cur.pax||0} אורחים × ${c.n} לילות)</span><span>${grpMoney(c.board,cur.cur)}</span></div>`:''}${c.extras?`<div><span>תוספות</span><span>${grpMoney(c.extras,cur.cur)}</span></div>`:''}
+function grpTotHTML(cur){const c=grpCalc(cur);return `<div><span>סה״כ ${c.rooms} חדרים · ${c.pax} אנשים${c.by.il.ppl||c.by.fo.ppl?` (${c.by.guest.ppl} בקבוצה${c.by.il.ppl?`, ${c.by.il.ppl} צוות ישראלי`:''}${c.by.fo.ppl?`, ${c.by.fo.ppl} צוות זר`:''})`:''} · ${c.n} לילות</span><span></span></div>
+    <div><span>לינה (לפי מחיר לאדם ללילה)</span><span>${grpMoney(c.lodging,cur.cur)}</span></div>
+    ${c.board?`<div><span>ארוחות (${c.pax} אנשים × ${c.n} לילות)</span><span>${grpMoney(c.board,cur.cur)}</span></div>`:''}${c.extras?`<div><span>תוספות</span><span>${grpMoney(c.extras,cur.cur)}</span></div>`:''}
     <div class="grand"><span>סה״כ הצעה</span><span>${grpMoney(c.total,cur.cur)}</span></div>
     ${c.comm?`<div><span>עמלת סוכן ${+cur.comm}%</span><span>-${grpMoney(c.comm,cur.cur)}</span></div><div><span>נטו למלון</span><span>${grpMoney(c.net,cur.cur)}</span></div>`:''}
     ${c.deposit?`<div><span>שולמה מקדמה</span><span>${grpMoney(c.deposit,cur.cur)}</span></div><div><span>יתרה</span><span>${grpMoney(c.balance,cur.cur)}</span></div>`:''}`}
@@ -884,7 +951,7 @@ function sheetAgent(){const id=S.sheet.id,x=(S.agents||{})[id]||{},isNew=!(S.age
   <div class="row"><label class="f">שם הסוכן / הסוכנות<input type="text" data-f="agent.name" value="${esc(g('name',''))}"></label><label class="f">חברה<input type="text" data-f="agent.company" value="${esc(g('company',''))}" placeholder="לא חובה"></label></div>
   <div class="row"><label class="f">איש קשר<input type="text" data-f="agent.contact" value="${esc(g('contact',''))}"></label><label class="f">טלפון<input type="tel" dir="ltr" data-f="agent.phone" value="${esc(g('phone',''))}"></label></div>
   <div class="row"><label class="f">אימייל<input type="email" dir="ltr" data-f="agent.email" value="${esc(g('email',''))}"></label><label class="f">מדינה<input type="text" data-f="agent.country" value="${esc(g('country',''))}" placeholder="לא חובה"></label></div>
-  <div class="row"><label class="f">עמלה (%)<input type="number" min="0" max="100" step="any" inputmode="decimal" data-f="agent.comm" value="${esc(g('comm',''))}"></label><label class="f">תנאי תשלום<input type="text" data-f="agent.terms" value="${esc(g('terms',''))}" placeholder="למשל 30% מקדמה, יתרה 14 יום לפני"></label></div>
+  <div class="row"><label class="f">תנאי תשלום<select data-f="agent.terms">${AG_TERMS.map(([k,n])=>`<option value="${k}" ${(AG_TMAP[g('terms','')]?g('terms',''):'co')===k?'selected':''}>${n}</option>`).join('')}</select></label><label class="f">הערה לתנאים<input type="text" data-f="agent.termsNote" value="${esc(g('termsNote',AG_TMAP[x.terms]?'':(x.terms||'')))}" placeholder="למשל 30% מקדמה בהזמנה"></label></div>
   <label class="f">הערות<textarea rows="2" data-f="agent.notes">${esc(g('notes',''))}</textarea></label>
   <label class="check"><input type="checkbox" data-f="agent.active" ${g('active',true)!==false?'checked':''}> סוכן פעיל</label>
   ${mine.length?`<h3 style="margin:12px 0 4px">הקבוצות של הסוכן · ${mine.length}</h3><div class="plist">${mine.map(([gid,gr])=>{const st=GRP_STN[gr.status||'offer']||GRP_ST[0];return `<button class="prow" style="width:100%;text-align:inherit;cursor:pointer;font:inherit;color:inherit" data-act="grp-open" data-id="${gid}"><span class="who"><b>${esc(gr.name||'')}</b><small>${gr.ci?dm(gr.ci):''}–${gr.co?dm(gr.co):''} · ${esc(hotelName(gr.hotel)||'')} · ${grpMoney(grpCalc(gr).total,gr.cur)}</small></span><span class="pill ${st[2]}">${st[1]}</span></button>`}).join('')}</div>`:''}
@@ -1119,11 +1186,11 @@ async function ceoLoad(Y){
   const db=S.db,C=S.ceo;C.loading=true;C.err='';render();
   try{
     const from=addDays(weekOf(Y+'-01-01'),-7),to=Y+'-12-31';
-    const [sh,sc,mg,st,qs,cf,iv,sr]=await Promise.all([
+    const [sh,sc,mg,st,qs,cf,iv,sr,gq]=await Promise.all([
       db.collection('shifts').where('date','>=',from).where('date','<=',to).get(),
       db.collection('schedule').get(),db.collection('mgr').get(),db.collection('settings').get(),
-      db.collection('quotes').get().catch(()=>null),db.doc('config/main').get().catch(()=>null),db.collection('invoices').get().catch(()=>null),db.collection('shiftReports').get().catch(()=>null)]);
-    C.data={shifts:docsMap(sh),scheds:docsMap(sc),mgr:docsMap(mg),settings:docsMap(st),quotes:qs?qs.docs.map(d=>d.data()):[],cfg:cf&&cf.exists?cf.data():{},invs:iv?iv.docs.map(d=>d.data()):[],sreps:sr?sr.docs.map(d=>d.data()):[]};C.year=Y;
+      db.collection('quotes').get().catch(()=>null),db.doc('config/main').get().catch(()=>null),db.collection('invoices').get().catch(()=>null),db.collection('shiftReports').get().catch(()=>null),db.collection('groups').get().catch(()=>null)]);
+    C.data={shifts:docsMap(sh),scheds:docsMap(sc),mgr:docsMap(mg),settings:docsMap(st),quotes:qs?qs.docs.map(d=>d.data()):[],cfg:cf&&cf.exists?cf.data():{},invs:iv?iv.docs.map(d=>d.data()):[],sreps:sr?sr.docs.map(d=>d.data()):[],grps:gq?gq.docs.map(d=>d.data()):[]};C.year=Y;
   }catch(e){C.err=errMsg(mapErr(e))}
   C.loading=false;render();
 }
@@ -1134,7 +1201,7 @@ function ceoCompute(){
   const D=S.ceo.data,Y=S.ceo.year,hs=[...new Set([...hotelIds(),...Object.keys(D.settings)])];
   const cf=h=>{const x=D.settings[h]||{};return {oh:1+(+(x.overhead??25)||0)/100,sp:1+(+(x.shabbatPct??50)||0)/100}};
   const brk=(h,dept)=>{const b=((D.settings[h]||{}).deptBreaks||{})[dept];return b===undefined?dept!=='reception':!!b};
-  const rows=HE_MON.map((n,m)=>({m,key:Y+'-'+String(m+1).padStart(2,'0'),h:Object.fromEntries(hs.map(h=>[h,0])),hours:0,rev:0,events:0,exp:0,rec:0,recH:{},evH:{},expH:{}}));
+  const rows=HE_MON.map((n,m)=>({m,key:Y+'-'+String(m+1).padStart(2,'0'),h:Object.fromEntries(hs.map(h=>[h,0])),hours:0,rev:0,events:0,exp:0,rec:0,recH:{},evH:{},expH:{},grp:0,grpN:0,grpH:{}}));
   const empH=u=>(D.mgr[u]?.hotel)||hotelOf(u);
   // per-shift pay, by the date of the shift
   const list=Object.entries(D.shifts).map(([id,s])=>{const h=hotelOfShift(s),sd=D.scheds[schedPath(weekOf(s.date),h).slice(9)];return {id,s,h,a:(sd?.assign?.[id])||[],ext:(sd?.ext?.[id])||{}}}).filter(x=>+x.s.need&&x.a.length);
@@ -1162,7 +1229,9 @@ function ceoCompute(){
   for(const v of D.invs||[]){const d=String(v.date||'');if(d.slice(0,4)!==Y)continue;const r=rows[+d.slice(5,7)-1];if(r){const n=+v.net||invTotals(v).net;r.exp+=n;r.expH[v.hotel||'main']=(r.expH[v.hotel||'main']||0)+n}}
   // reception takings: cash + card from the shift reports, by report date
   for(const x of D.sreps||[]){const d=String(x.date||'');if(d.slice(0,4)!==Y)continue;const r=rows[+d.slice(5,7)-1];if(!r)continue;const v=srIncome(x);r.rec+=v;r.recH[x.hotel]=(r.recH[x.hotel]||0)+v}
-  rows.forEach(r=>{r.labor=hs.reduce((a,h)=>a+(r.h[h]||0),0);r.inc=r.rev+r.rec});
+  // groups (agents): confirmed groups in ₪, spread over their nights
+  for(const g of D.grps||[]){const sh=grpMonthShare(g);for(const [m,v] of Object.entries(sh)){if(m.slice(0,4)!==Y)continue;const r=rows[+m.slice(5,7)-1];if(!r)continue;r.grp+=v;r.grpN++;r.grpH[g.hotel||'main']=(r.grpH[g.hotel||'main']||0)+v}}
+  rows.forEach(r=>{r.labor=hs.reduce((a,h)=>a+(r.h[h]||0),0);r.inc=r.rev+r.rec+r.grp});
   return {rows,hs:hs.filter(h=>rows.some(r=>r.h[h])||S.hotels[h]||h==='main')};
 }
 function vCeo(){
@@ -1173,21 +1242,21 @@ function vCeo(){
     <select data-ceo-year aria-label="שנה">${years.map(y=>`<option ${y===C.year?'selected':''}>${y}</option>`).join('')}</select></div>`;
   if(C.err)return wrap(head+`<div class="notice">לא הצלחתי לטעון את הנתונים: ${esc(C.err)}</div></section>`);
   if(!C.data||C.loading)return wrap(head+'<p class="muted">טוען נתונים…</p></section>');
-  const {rows,hs}=ceoCompute(),T=k=>rows.reduce((a,r)=>a+r[k],0),L=T('labor'),RE=T('rev'),RC=T('rec'),R=RE+RC,E=T('exp');
+  const {rows,hs}=ceoCompute(),T=k=>rows.reduce((a,r)=>a+r[k],0),L=T('labor'),RE=T('rev'),RC=T('rec'),RG=T('grp'),R=RE+RC+RG,E=T('exp');
   const cur=todayISO().slice(0,7);if(!C.mon||C.mon.slice(0,4)!==C.year)C.mon=cur.slice(0,4)===C.year?cur:C.year+'-12';
   const mr=rows[+C.mon.slice(5,7)-1],mNet=mr.inc-mr.labor-mr.exp;
   const mnav=`<div class="actions" style="align-items:center;margin-top:8px"><button class="btn sm" data-act="ceo-month" data-d="-1" aria-label="חודש קודם" ${mr.m===0?'disabled':''}>›</button><b>${monLabel(C.mon)}</b><button class="btn sm" data-act="ceo-month" data-d="1" aria-label="חודש הבא" ${mr.m===11?'disabled':''}>‹</button></div>`;
   const unk=mr.evH['']||0;
-  const perH=`<div class="card"><h3><span>לפי מלון</span> · ${monLabel(C.mon)}</h3><div class="scroll-x"><table class="plain"><thead><tr><th>מלון</th><th class="num">הכנסות מלינה</th><th class="num">הכנסות מאירועים</th><th class="num">סה״כ הכנסות</th><th class="num">עלות עובדים</th><th class="num">הוצאות ספקים</th><th class="num">הפרש</th></tr></thead><tbody>
-    ${hs.map(h=>{const lo=mr.recH[h]||0,ev=mr.evH[h]||0,lb=mr.h[h]||0,ex=mr.expH[h]||0;return `<tr><td>${esc(hotelName(h))}</td><td class="num">${lo?ils(lo):'—'}</td><td class="num">${ev?ils(ev):'—'}</td><td class="num">${lo+ev?ils(lo+ev):'—'}</td><td class="num">${lb?ils(lb):'—'}</td><td class="num">${ex?ils(ex):'—'}</td><td class="num">${lo+ev||lb||ex?ils(lo+ev-lb-ex):'—'}</td></tr>`}).join('')}
-    ${unk?`<tr><td class="muted">אירועים בחללים שלא שויכו למלון</td><td></td><td class="num">${ils(unk)}</td><td class="num">${ils(unk)}</td><td></td><td></td><td class="num">${ils(unk)}</td></tr>`:''}
-    <tr style="font-weight:700"><td>סה״כ</td><td class="num">${ils(mr.rec)}</td><td class="num">${ils(mr.rev)}</td><td class="num">${ils(mr.inc)}</td><td class="num">${ils(mr.labor)}</td><td class="num">${ils(mr.exp)}</td><td class="num">${ils(mNet)}</td></tr></tbody></table></div>
+  const perH=`<div class="card"><h3><span>לפי מלון</span> · ${monLabel(C.mon)}</h3><div class="scroll-x"><table class="plain"><thead><tr><th>מלון</th><th class="num">הכנסות מלינה</th><th class="num">הכנסות מקבוצות</th><th class="num">הכנסות מאירועים</th><th class="num">סה״כ הכנסות</th><th class="num">עלות עובדים</th><th class="num">הוצאות ספקים</th><th class="num">הפרש</th></tr></thead><tbody>
+    ${hs.map(h=>{const lo=mr.recH[h]||0,gp=mr.grpH[h]||0,ev=mr.evH[h]||0,lb=mr.h[h]||0,ex=mr.expH[h]||0,ic=lo+gp+ev;return `<tr><td>${esc(hotelName(h))}</td><td class="num">${lo?ils(lo):'—'}</td><td class="num">${gp?ils(gp):'—'}</td><td class="num">${ev?ils(ev):'—'}</td><td class="num">${ic?ils(ic):'—'}</td><td class="num">${lb?ils(lb):'—'}</td><td class="num">${ex?ils(ex):'—'}</td><td class="num">${ic||lb||ex?ils(ic-lb-ex):'—'}</td></tr>`}).join('')}
+    ${unk?`<tr><td class="muted">אירועים בחללים שלא שויכו למלון</td><td></td><td></td><td class="num">${ils(unk)}</td><td class="num">${ils(unk)}</td><td></td><td></td><td class="num">${ils(unk)}</td></tr>`:''}
+    <tr style="font-weight:700"><td>סה״כ</td><td class="num">${ils(mr.rec)}</td><td class="num">${ils(mr.grp)}</td><td class="num">${ils(mr.rev)}</td><td class="num">${ils(mr.inc)}</td><td class="num">${ils(mr.labor)}</td><td class="num">${ils(mr.exp)}</td><td class="num">${ils(mNet)}</td></tr></tbody></table></div>
     <p class="muted" style="font-size:.8rem">אירוע משויך למלון לפי חללי האירועים שהוגדרו למלון בעמוד ההרשאות.</p></div>`;
-  return wrap(head+mnav+`<div class="kpis">${kpi('הכנסות מלינה',ils(mr.rec),'מזומן לפי 420 + אשראי מדוחות סוף משמרת')}${kpi('הכנסות מאירועים',ils(mr.rev),`${mr.events} אירועים שאושרו · לפני מע״מ`)}${kpi('סה״כ הכנסות',ils(mr.inc),'לינה + אירועים')}${kpi('עלות עובדים',ils(mr.labor),`${fmtH(mr.hours)} שעות לתשלום`)}${kpi('הוצאות ספקים',ils(mr.exp),'לפי חשבוניות · לפני מע״מ')}${kpi('הכנסות פחות עובדים והוצאות',ils(mNet),mr.inc?`עלות העובדים היא ${Math.round(mr.labor/mr.inc*100)}% מההכנסות`:'',mNet<0?'bad':'')}</div></section>
+  return wrap(head+mnav+`<div class="kpis">${kpi('הכנסות מלינה',ils(mr.rec),'מזומן לפי 420 + אשראי מדוחות סוף משמרת')}${kpi('הכנסות מקבוצות',ils(mr.grp),'קבוצות מאושרות דרך סוכנים · לפי הלילות בחודש')}${kpi('הכנסות מאירועים',ils(mr.rev),`${mr.events} אירועים שאושרו · לפני מע״מ`)}${kpi('סה״כ הכנסות',ils(mr.inc),'לינה + קבוצות + אירועים')}${kpi('עלות עובדים',ils(mr.labor),`${fmtH(mr.hours)} שעות לתשלום`)}${kpi('הוצאות ספקים',ils(mr.exp),'לפי חשבוניות · לפני מע״מ')}${kpi('הכנסות פחות עובדים והוצאות',ils(mNet),mr.inc?`עלות העובדים היא ${Math.round(mr.labor/mr.inc*100)}% מההכנסות`:'',mNet<0?'bad':'')}</div></section>
   ${perH}
-  <div class="card"><h3><span>כל השנה לפי חודש</span> · ${C.year}</h3><div class="scroll-x"><table class="plain"><thead><tr><th>חודש</th>${hs.map(h=>`<th class="num">${esc(hotelName(h))}</th>`).join('')}<th class="num">סה״כ עובדים</th><th class="num">הוצאות ספקים</th><th class="num">הכנסות מאירועים</th><th class="num">הכנסות מלינה</th><th class="num">סה״כ הכנסות</th><th class="num">הפרש</th></tr></thead><tbody>
-  ${rows.map(r=>`<tr${r.key===cur?' style="font-weight:600"':''}><td>${HE_MON[r.m]}</td>${hs.map(h=>`<td class="num">${r.h[h]?ils(r.h[h]):'—'}</td>`).join('')}<td class="num">${r.labor?ils(r.labor):'—'}</td><td class="num">${r.exp?ils(r.exp):'—'}</td><td class="num">${r.rev?ils(r.rev):'—'}</td><td class="num">${r.rec?ils(r.rec):'—'}</td><td class="num">${r.inc?ils(r.inc):'—'}</td><td class="num">${r.labor||r.inc||r.exp?ils(r.inc-r.labor-r.exp):'—'}</td></tr>`).join('')}
-  <tr style="font-weight:700"><td>סה״כ</td>${hs.map(h=>`<td class="num">${ils(rows.reduce((a,r)=>a+(r.h[h]||0),0))}</td>`).join('')}<td class="num">${ils(L)}</td><td class="num">${ils(E)}</td><td class="num">${ils(RE)}</td><td class="num">${ils(RC)}</td><td class="num">${ils(R)}</td><td class="num">${ils(R-L-E)}</td></tr></tbody></table></div>
+  <div class="card"><h3><span>כל השנה לפי חודש</span> · ${C.year}</h3><div class="scroll-x"><table class="plain"><thead><tr><th>חודש</th>${hs.map(h=>`<th class="num">${esc(hotelName(h))}</th>`).join('')}<th class="num">סה״כ עובדים</th><th class="num">הוצאות ספקים</th><th class="num">הכנסות מאירועים</th><th class="num">הכנסות מלינה</th><th class="num">הכנסות מקבוצות</th><th class="num">סה״כ הכנסות</th><th class="num">הפרש</th></tr></thead><tbody>
+  ${rows.map(r=>`<tr${r.key===cur?' style="font-weight:600"':''}><td>${HE_MON[r.m]}</td>${hs.map(h=>`<td class="num">${r.h[h]?ils(r.h[h]):'—'}</td>`).join('')}<td class="num">${r.labor?ils(r.labor):'—'}</td><td class="num">${r.exp?ils(r.exp):'—'}</td><td class="num">${r.rev?ils(r.rev):'—'}</td><td class="num">${r.rec?ils(r.rec):'—'}</td><td class="num">${r.grp?ils(r.grp):'—'}</td><td class="num">${r.inc?ils(r.inc):'—'}</td><td class="num">${r.labor||r.inc||r.exp?ils(r.inc-r.labor-r.exp):'—'}</td></tr>`).join('')}
+  <tr style="font-weight:700"><td>סה״כ</td>${hs.map(h=>`<td class="num">${ils(rows.reduce((a,r)=>a+(r.h[h]||0),0))}</td>`).join('')}<td class="num">${ils(L)}</td><td class="num">${ils(E)}</td><td class="num">${ils(RE)}</td><td class="num">${ils(RC)}</td><td class="num">${ils(RG)}</td><td class="num">${ils(R)}</td><td class="num">${ils(R-L-E)}</td></tr></tbody></table></div>
   ${RC?`<h3 style="margin-top:14px">הכנסות מלינה לפי מלון</h3><div class="scroll-x"><table class="plain"><thead><tr><th>חודש</th>${hs.map(h=>`<th class="num">${esc(hotelName(h))}</th>`).join('')}</tr></thead><tbody>${rows.filter(r=>r.rec).map(r=>`<tr><td>${HE_MON[r.m]}</td>${hs.map(h=>`<td class="num">${r.recH[h]?ils(r.recH[h]):'—'}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`:''}
   <p class="muted" style="font-size:.85rem"><span>עלות העובדים מחושבת מהסידורים של כל המלונות: שעתיים לפי שעות לתשלום (אחרי הפסקה) עם תוספת שבת ועלות מעסיק, מזומן ומתנדבים בלי תוספות, עובדים גלובליים לפי השכר החודשי עם עלות מעסיק, פחות הורדות מגורים.</span> <span>שכר גלובלי נספר מהחודש הראשון שיש למלון סידור במערכת ועד החודש הנוכחי.</span> <span>הוצאות ספקים הן החשבוניות שהוזנו בעמוד ההוצאות, לפני מע״מ, לפי תאריך החשבונית.</span> <span>הכנסות מאירועים הן הצעות מחיר שאושרו, לפי תאריך האירוע, לפני מע״מ.</span> <span>הכנסות מלינה הן המזומן לפי דוח 420 והאשראי מדוחות סוף המשמרת, לפי תאריך הדוח.</span></p>
   <div style="display:flex;gap:8px;flex-wrap:wrap"><a class="btn" href="events.html#ceo">פירוט הכנסות לפי מקום</a><button class="btn ghost" data-act="ceo-reload">רענון</button></div></div>`);
@@ -1628,15 +1697,17 @@ function vGm(){const hs=scopeHs();if(!hs.length)return wrap(emptyBox('אין מ�
   srSub(h,M);const srM=(S.sreps||{})[h+'|'+M],srOk=srM&&!srM.__err;
   const lodging=srOk?Object.values(srM).reduce((t,r)=>t+srIncome(r),0):0,srN=srOk?Object.keys(srM).length:0;
   const evM=(G.quotes||[]).filter(q=>q.status==='approved'&&q.kind!=='group'&&q.event&&q.event.date>=mStart&&q.event.date<=mEnd&&evForHotel(q,h)),evRev=evM.reduce((t,q)=>t+quoteNet(q,18),0);
-  const inc=lodging+evRev,mon=G.mgr?gmMonth(h,M):null,lab=mon&&mon.ready&&!mon.err?laborMonth(h,M,mon):null,net=inc-(lab?lab.labor:0)-mExp;
+  const gq=grpHotelSub(h),grpM=(gq||[]).filter(g=>g.status==='confirmed'),grpRev=grpM.reduce((t,g)=>t+(grpMonthShare(g)[M]||0),0),grpN=grpM.filter(g=>grpMonthShare(g)[M]).length;
+  const inc=lodging+grpRev+evRev,mon=G.mgr?gmMonth(h,M):null,lab=mon&&mon.ready&&!mon.err?laborMonth(h,M,mon):null,net=inc-(lab?lab.labor:0)-mExp;
   const money=`<h3 style="margin:10px 0 4px"><span>הכנסות והוצאות</span> · ${monLabel(M)}</h3><div class="kpis">
     ${kpi('הכנסות מלינה',srM&&srM.__err?'—':ils(lodging),srM&&srM.__err?'אין גישה לדוחות':`${srN} דוחות סוף משמרת · מזומן לפי 420 + אשראי`)}
+    ${kpi('הכנסות מקבוצות',gq===null?'—':ils(grpRev),gq===null?'אין גישה לקבוצות':`${grpN} קבוצות מאושרות · לפי הלילות בחודש`)}
     ${kpi('הכנסות מאירועים',G.quotes===null?'—':ils(evRev),G.quotes===null?'אין גישה לאירועים':`${evM.length} אירועים שאושרו · לפני מע״מ`)}
-    ${kpi('סה״כ הכנסות',ils(inc),'לינה + אירועים')}
+    ${kpi('סה״כ הכנסות',ils(inc),'לינה + קבוצות + אירועים')}
     ${G.mgr?kpi('עלות עובדים',lab?ils(lab.labor):mon&&mon.err?'—':'…',lab?`${fmtH(lab.hours)} שעות לתשלום`:mon&&mon.err?esc(mon.err):'מחשב…'):''}
     ${G.invs?kpi('הוצאות ספקים',ils(mExp),'לפי חשבוניות · לפני מע״מ'):''}
     ${kpi('הכנסות פחות הוצאות',ils(net),inc&&lab?`עלות העובדים ${Math.round(lab.labor/inc*100)}% מההכנסות`:'',net<0?'bad':'ok')}</div>
-    <p class="muted" style="font-size:.8rem;margin:0">הכל לפי החודש שנבחר. לינה = מזומן לפי דוח 420 ואשראי מדוחות סוף משמרת. אירועים = הצעות שאושרו בחללים של המלון, לפי תאריך האירוע, לפני מע״מ. עובדים = לפי הסידורים של החודש ושכר חודשי, עם עלות מעסיק.</p>`;
+    <p class="muted" style="font-size:.8rem;margin:0">הכל לפי החודש שנבחר. לינה = מזומן לפי דוח 420 ואשראי מדוחות סוף משמרת. קבוצות = קבוצות מאושרות בעמוד הקבוצות (בשקלים), לפי הלילות שבחודש. אירועים = הצעות שאושרו בחללים של המלון, לפי תאריך האירוע, לפני מע״מ. עובדים = לפי הסידורים של החודש ושכר חודשי, עם עלות מעסיק.</p>`;
   const head=`<section class="head"><div class="head-t"><h1>מנהל מלון · ${esc(hotelName(h))}</h1>${nav}</div>${chips}
     <div class="kpis">${G.invs?kpi('חוב לספקים',ils(owe),late?`${late} חשבוניות באיחור`:`${unpaid.length} חשבוניות פתוחות`,late?'bad':''):''}
     ${kpi('ממתינות לאישור',String(pendN),pendN?'פירוט למטה':'אין בקשות פתוחות',pendN?'bad':'ok')}</div>${money}</section>`;
@@ -2432,7 +2503,7 @@ function vProfile(){
 /* ---------- sheets ---------- */
 function renderSheet(){
   const el=$('#sheet');if(!S.sheet){el.hidden=true;el.innerHTML='';return}
-  let h='';if(S.sheet.type==='job')h=sheetJob();else if(S.sheet.type==='subs')h=sheetSubs();else if(S.sheet.type==='perm')h=sheetPerm();else if(S.sheet.type==='cell')h=sheetCell();else if(S.sheet.type==='emp')h=sheetEmp();else if(S.sheet.type==='send')h=sheetSend();else if(S.sheet.type==='remind')h=sheetRemind();else if(S.sheet.type==='camp')h=sheetCamp();else if(S.sheet.type==='sup')h=sheetSup();else if(S.sheet.type==='inv')h=sheetInv();else if(S.sheet.type==='stock')h=sheetStock();else if(S.sheet.type==='preq')h=sheetPreq();else if(S.sheet.type==='swap')h=sheetSwap();else if(S.sheet.type==='iospush')h=sheetIosPush();else if(S.sheet.type==='pushask')h=sheetPushAsk();else if(S.sheet.type==='srview')h=sheetSrView();else if(S.sheet.type==='bkauto')h=sheetBkAuto();else if(S.sheet.type==='metahelp')h=sheetMetaHelp();else if(S.sheet.type==='spa')h=sheetSpa();else if(S.sheet.type==='grp')h=sheetGrp();else if(S.sheet.type==='agent')h=sheetAgent();else if(S.sheet.type==='vchnew')h=sheetVchNew();else if(S.sheet.type==='vch')h=sheetVch();else if(S.sheet.type==='hk')h=sheetHk();else if(S.sheet.type==='lead')h=sheetLead();else if(S.sheet.type==='client')h=sheetClient();else if(S.sheet.type==='hkooo')h=sheetHkOoo();
+  let h='';if(S.sheet.type==='job')h=sheetJob();else if(S.sheet.type==='subs')h=sheetSubs();else if(S.sheet.type==='perm')h=sheetPerm();else if(S.sheet.type==='cell')h=sheetCell();else if(S.sheet.type==='emp')h=sheetEmp();else if(S.sheet.type==='send')h=sheetSend();else if(S.sheet.type==='remind')h=sheetRemind();else if(S.sheet.type==='camp')h=sheetCamp();else if(S.sheet.type==='sup')h=sheetSup();else if(S.sheet.type==='inv')h=sheetInv();else if(S.sheet.type==='stock')h=sheetStock();else if(S.sheet.type==='preq')h=sheetPreq();else if(S.sheet.type==='swap')h=sheetSwap();else if(S.sheet.type==='iospush')h=sheetIosPush();else if(S.sheet.type==='pushask')h=sheetPushAsk();else if(S.sheet.type==='srview')h=sheetSrView();else if(S.sheet.type==='bkauto')h=sheetBkAuto();else if(S.sheet.type==='metahelp')h=sheetMetaHelp();else if(S.sheet.type==='spa')h=sheetSpa();else if(S.sheet.type==='grp')h=sheetGrp();else if(S.sheet.type==='agent')h=sheetAgent();else if(S.sheet.type==='pl')h=sheetPl();else if(S.sheet.type==='vchnew')h=sheetVchNew();else if(S.sheet.type==='vch')h=sheetVch();else if(S.sheet.type==='hk')h=sheetHk();else if(S.sheet.type==='lead')h=sheetLead();else if(S.sheet.type==='client')h=sheetClient();else if(S.sheet.type==='hkooo')h=sheetHkOoo();
   if(!h){S.sheet=null;el.hidden=true;return}
   el.innerHTML=`<div class="panel${S.sheet.type==='srview'||S.sheet.type==='subs'?' big':''}" role="dialog" aria-modal="true">${h}</div>`;el.hidden=false;
 }
@@ -2617,7 +2688,7 @@ function joinCodeHTML(){const c={...cfg(),joinCode:validCode()};
   <p class="muted" style="font-size:.85rem">עובד חדש נכנס לאפליקציה, מתחבר ומקליד את הקוד, וכך הוא משויך ל${esc(hotelName(S.hotel))}. אפשר להחליף קוד בכל זמן, והקוד הישן מפסיק לעבוד.</p>
   <div class="actions" style="align-items:center">${c.joinCode?`<b class="code">${esc(c.joinCode)}</b>`:'<span class="muted">עוד אין קוד</span>'}<button class="btn" data-act="join-new">${c.joinCode?'החלפת קוד':'יצירת קוד'}</button></div>`}
 // full backup (owner): every collection to one JSON file in the same format the import reads
-const BACKUP_COLLS=['groups','agents','jobRoles','vchCodes','hkday','faultsAck','srDrafts','vchcfg','hotels','settings','employees','mgr','avail','shifts','schedule','requests','roles','joinCodes','config','menus','contracts','quotes','campaigns','suppliers','invoices','expcfg','inventory','purchaseReqs','shiftReports','faults','hk','hkcfg','hkLog','hkComplaints','leads','tasks','clients','hkCalls','spa','spacfg','vouchers'];
+const BACKUP_COLLS=['groups','agents','priceLists','jobRoles','vchCodes','hkday','faultsAck','srDrafts','vchcfg','hotels','settings','employees','mgr','avail','shifts','schedule','requests','roles','joinCodes','config','menus','contracts','quotes','campaigns','suppliers','invoices','expcfg','inventory','purchaseReqs','shiftReports','faults','hk','hkcfg','hkLog','hkComplaints','leads','tasks','clients','hkCalls','spa','spacfg','vouchers'];
 const lastBackup=()=>{let l=0;try{l=+localStorage.getItem('scLastBackup')||0}catch(_){ }bkCfgLoad();return Math.max(l,+(S.bkCfg&&S.bkCfg.lastAt)||0)};
 // daily automatic backup to the owner's Google Drive: an Apps Script in their Drive calls the driveBackup function with the key in backupcfg/main
 const BK_FN='https://europe-west1-'+((CFG.firebase&&CFG.firebase.projectId)||'hotel-shifts')+'.cloudfunctions.net/driveBackup';
@@ -3016,14 +3087,32 @@ const ACT={
   'app-spa':()=>{S.menu=false;setTab('spa')},
   'app-grp':()=>{S.menu=false;setTab('grp')},
   'grp-view':D=>{S.grpView=D.v;render()},
+  'gl-add':D=>{const x=(S.grps||{})[S.sheet.id]||{},d=S.drafts.grp||(S.drafts.grp={}),L=JSON.parse(JSON.stringify(d.lines||grpLines(x)));const pl=plOf((d.plId??x.plId)||''),r0=D.cat==='guest'&&pl&&(pl.rows||[])[0];L.push({cat:D.cat,type:r0?r0.type:'',ppr:D.cat==='guest'?2:1,rooms:'',price:r0?r0.rate:(D.cat==='guest'?'':0)});d.lines=L;render()},
+  'gl-del':D=>{const x=(S.grps||{})[S.sheet.id]||{},d=S.drafts.grp||(S.drafts.grp={}),L=JSON.parse(JSON.stringify(d.lines||grpLines(x)));L.splice(+D.i,1);d.lines=L;render()},
+  'pay-ag':D=>{(S.payF||(S.payF={})).ag=D.v;render()},
+  'grp-paid':D=>{const x=(S.grps||{})[D.id];if(!x)return;if(S.confirm!=='gp:'+D.id){S.confirm='gp:'+D.id;render();return}S.confirm=null;const tot=Math.round(grpCalc(x).total*100)/100,now=Date.now();
+    S.grps={...S.grps,[D.id]:{...x,deposit:tot,paidAt:now}};render();fdb.doc('groups/'+D.id).set({deposit:tot,paidAt:now,updatedAt:now,updatedBy:S.uid},{merge:true}).then(()=>toast('סומן ששולם במלואו'),e=>toast('לא הצלחתי: '+errMsg(mapErr(e))))},
+  'pl-new':()=>{S.drafts.pl=null;S.confirm=null;S.sheet={type:'pl',id:'pl'+Date.now().toString(36)+Math.random().toString(36).slice(2,6)};render()},
+  'pl-open':D=>{S.drafts.pl=null;S.confirm=null;S.sheet={type:'pl',id:D.id};render()},
+  'pl-row-add':()=>{const x=(S.pls||{})[S.sheet.id]||{},d=S.drafts.pl||(S.drafts.pl={});d.rows=[...(d.rows||x.rows||[{type:'',rate:''}]),{type:'',rate:''}];render()},
+  'pl-row-del':D=>{const x=(S.pls||{})[S.sheet.id]||{},d=S.drafts.pl||(S.drafts.pl={});d.rows=(d.rows||x.rows||[]).filter((_,i)=>i!==+D.i);render()},
+  'pl-save':()=>{const id=S.sheet.id,x=(S.pls||{})[id]||{},isNew=!(S.pls||{})[id],g=k=>dv('pl',k,x[k]??''),n=k=>{const v=+g(k);return isFinite(v)&&v>0?v:''},now=Date.now();
+    const name=String(g('name')).trim();if(!name){toast('צריך לרשום שם למחירון');return}
+    const rows=(dv('pl','rows',x.rows||[])||[]).map(r=>({type:String(r.type||'').trim(),rate:Math.max(0,+r.rate||0)})).filter(r=>r.type);
+    const doc={...x,name,hotel:String(g('hotel')||''),cur:String(g('cur')||'ils'),from:String(g('from')||''),to:String(g('to')||''),rows,bb:n('bb'),hb:n('hb'),fb:n('fb'),notes:String(g('notes')).trim(),active:dv('pl','active',x.active??true)!==false,updatedAt:now};
+    if(isNew){doc.createdAt=now;doc.createdBy=S.uid}
+    S.pls={...S.pls,[id]:doc};S.sheet=null;S.drafts.pl=null;render();
+    fdb.doc('priceLists/'+id).set(doc).then(()=>{toast('המחירון נשמר');Object.entries(S.grps||{}).filter(([,gr])=>gr.plId===id&&gr.plName!==name).forEach(([gid])=>fdb.doc('groups/'+gid).set({plName:name},{merge:true}).catch(()=>{}))},e=>toast('השמירה נכשלה: '+errMsg(mapErr(e))))},
+  'pl-del':()=>{if(S.confirm!=='pl-del'){S.confirm='pl-del';render();return}S.confirm=null;const id=S.sheet.id;if(Object.values(S.grps||{}).some(gr=>gr.plId===id)){toast('יש קבוצות במחירון הזה. אפשר לסמן אותו כלא פעיל.');return}const c={...S.pls};delete c[id];S.pls=c;S.sheet=null;render();fdb.doc('priceLists/'+id).delete().then(()=>toast('המחירון נמחק'),e=>toast('לא הצלחתי: '+errMsg(mapErr(e))))},
   'grp-f':D=>{(S.grpF||(S.grpF={}))[D.k]=D.v;render()},
   'grp-new':()=>{S.drafts.grp=null;S.confirm=null;S.sheet={type:'grp',id:'g'+Date.now().toString(36)+Math.random().toString(36).slice(2,6)};render()},
   'grp-open':D=>{S.drafts.grp=null;S.confirm=null;S.sheet={type:'grp',id:D.id};render()},
   'grp-save':()=>{const id=S.sheet.id,x=(S.grps||{})[id]||{},isNew=!(S.grps||{})[id],g=k=>dv('grp',k,x[k]??''),num=k=>{const v=+g(k);return isFinite(v)&&v>0?v:0},now=Date.now();
     const name=String(g('name')).trim(),ci=String(g('ci')),co=String(g('co')),hotel=String(g('hotel')||grpHs()[0]||''),agentId=String(g('agentId')||'');
     if(!name){toast('צריך לרשום שם לקבוצה');return}if(!ci||!co){toast('צריך תאריך הגעה ותאריך עזיבה');return}if(co<=ci){toast('העזיבה צריכה להיות אחרי ההגעה');return}
-    const ag=(S.agents||{})[agentId]||null,commRaw=dv('grp','comm',x.comm??(ag&&ag.comm)??'');
-    const doc={...x,name,hotel,agentId,agentName:ag?ag.name||'':'',contact:String(g('contact')).trim(),ci,co,rooms:num('rooms'),pax:num('pax'),roomType:String(g('roomType')).trim(),rate:num('rate'),cur:String(g('cur')||'ils'),board:String(g('board')||''),boardPrice:num('boardPrice'),extras:num('extras'),extrasNote:String(g('extrasNote')).trim(),comm:Math.min(100,Math.max(0,+commRaw||0)),deposit:num('deposit'),status:String(g('status')||'offer'),optUntil:String(g('optUntil')||''),notes:String(g('notes')).trim(),updatedAt:now,updatedBy:S.uid};
+    const ag=(S.agents||{})[agentId]||null,plId=String(g('plId')||''),pl=plOf(plId);
+    const doc={...x,name,hotel,agentId,agentName:ag?ag.name||'':'',contact:String(g('contact')).trim(),ci,co,lines:grpLines({...x,...(S.drafts.grp||{})}).map(l=>({cat:l.cat||'guest',type:String(l.type||'').trim(),ppr:Math.max(0,+l.ppr||0),rooms:Math.max(0,+l.rooms||0),price:Math.max(0,+l.price||0)})).filter(l=>l.rooms||l.type),cur:String(g('cur')||'ils'),board:String(g('board')||''),boardPrice:num('boardPrice'),extras:num('extras'),extrasNote:String(g('extrasNote')).trim(),comm:0,plId,plName:pl?pl.name||'':'',dueDate:String(g('dueDate')||''),deposit:num('deposit'),status:String(g('status')||'offer'),optUntil:String(g('optUntil')||''),notes:String(g('notes')).trim(),updatedAt:now,updatedBy:S.uid};
+    {const cc=grpCalc(doc);doc.rooms=cc.rooms;doc.pax=cc.pax;delete doc.rate;delete doc.roomType}
     if(isNew){doc.createdAt=now;doc.createdBy=S.uid;doc.createdByName=S.meName||''}
     S.grps={...S.grps,[id]:doc};S.sheet=null;S.drafts.grp=null;render();
     fdb.doc('groups/'+id).set(doc).then(()=>toast('הקבוצה נשמרה'),e=>toast('השמירה נכשלה: '+errMsg(mapErr(e))))},
@@ -3045,7 +3134,7 @@ const ACT={
   'agent-open':D=>{S.drafts.agent=null;S.confirm=null;S.sheet={type:'agent',id:D.id};render()},
   'agent-save':()=>{const id=S.sheet.id,x=(S.agents||{})[id]||{},isNew=!(S.agents||{})[id],g=k=>String(dv('agent',k,x[k]??'')).trim(),now=Date.now();
     if(!g('name')){toast('צריך לרשום שם סוכן');return}
-    const doc={...x,name:g('name'),company:g('company'),contact:g('contact'),phone:g('phone'),email:g('email'),country:g('country'),comm:Math.min(100,Math.max(0,+g('comm')||0)),terms:g('terms'),notes:g('notes'),active:dv('agent','active',x.active??true)!==false,updatedAt:now};
+    const doc={...x,name:g('name'),company:g('company'),contact:g('contact'),phone:g('phone'),email:g('email'),country:g('country'),comm:0,terms:AG_TMAP[g('terms')]?g('terms'):'co',termsNote:String(dv('agent','termsNote',x.termsNote??(AG_TMAP[x.terms]?'':(x.terms||'')))).trim(),notes:g('notes'),active:dv('agent','active',x.active??true)!==false,updatedAt:now};
     if(isNew){doc.createdAt=now;doc.createdBy=S.uid}
     S.agents={...S.agents,[id]:doc};S.sheet=null;S.drafts.agent=null;render();
     fdb.doc('agents/'+id).set(doc).then(()=>{toast('הסוכן נשמר');Object.entries(S.grps||{}).filter(([,gr])=>gr.agentId===id&&gr.agentName!==doc.name).forEach(([gid])=>fdb.doc('groups/'+gid).set({agentName:doc.name},{merge:true}).catch(()=>{}))},e=>toast('השמירה נכשלה: '+errMsg(mapErr(e))))},

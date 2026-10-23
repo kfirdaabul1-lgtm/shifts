@@ -6,6 +6,8 @@
 
 // בעל המערכת כולה (רואה את מסך הרשתות ועובר ביניהן)
 window.SC_PLATFORM_OWNER = "kfirdaabul1@gmail.com";
+// השם שמופיע למעלה באזור ניהול המערכת
+window.SC_PLATFORM_NAME = "Kfir app";
 
 window.SC_CHAINS = [
   {

@@ -1,4 +1,4 @@
-<!doctype html><html lang="he" dir="rtl"><head><meta name="theme-color" content="#1f5f6b"><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style><script src="i18n.js?v=202610240200"></script></head><body>
+<!doctype html><html lang="he" dir="rtl"><head><meta name="theme-color" content="#1f5f6b"><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style><script src="i18n.js?v=202610240300"></script></head><body>
 <style>
 .evtop{background:var(--surface);border-bottom:1px solid var(--line)}
 .evtop-in{max-width:1240px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:10px;padding-block:6px;padding-left:max(10px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
@@ -643,6 +643,10 @@ table.ctable{border-collapse:collapse;width:100%;min-width:620px;font-size:14px;
     </div>
     <div class="panel" style="margin-top:20px">
       <h2>קישור חתימה ללקוח</h2>
+      <div class="meta" style="font-size:14px;color:var(--muted)">הקישור לחתימה עובד אוטומטית, בלי שום חיבור. כל הצעה שמורה מקבלת קישור קבוע שנכנס להודעה בוואטסאפ ובמייל (וגם בכפתור "העתק קישור לחתימה"). הלקוח פותח אותו בטלפון, רואה את ההצעה, החוזה והתפריטים, וחותם עם האצבע. החתימה נכנסת להצעה, ההצעה מסומנת כמאושרת, וכל צוות האירועים מקבל התראה.</div>
+    </div>
+    <div class="panel" style="margin-top:20px" hidden>
+      <h2>קישור חתימה ללקוח (הדרך הישנה)</h2>
       <div class="meta" style="font-size:14px;color:var(--muted)">חיבור חד-פעמי לחשבון Google שלך. אחריו כל הצעה שמורה מקבלת קישור שהלקוח פותח בטלפון, רואה את ההצעה וחותם. האישורים נשמרים בגיליון Google ומגיעים אליך במייל. עדיף לעשות את זה ממחשב.</div>
       <div id="signStatus" class="banner"></div>
       <ol class="steps">
@@ -1383,6 +1387,7 @@ async function saveQuote(q,action){
   q.updatedAt=new Date().toISOString();
   if(!q.id)q.id=uid();if(!q.num)q.num=nextNum();
   if(myId){if(!q.createdBy)q.createdBy=myId;q.updatedBy=myId}
+  if(q===cur&&db&&q.kind!=='group'&&!q.signature&&!q.signKey)q.signKey=newSignKey();
   const content=quoteContent(q),h=strHash(JSON.stringify(content));
   const changed=isNew||h!==q.lastHash;q.lastHash=h;
   const body=JSON.parse(JSON.stringify(q));
@@ -1395,6 +1400,7 @@ async function saveQuote(q,action){
     }
   }
   else{const i=quotes.findIndex(x=>x.id===q.id);if(i>=0)quotes[i]=body;else quotes.push(body);lsSet('quotes',quotes);renderList();renderClash()}
+  if(q===cur&&db&&q.signKey&&!q.signature)signUpsert(q).then(()=>{scheduleSignLink()},e=>console.warn('sign link not updated',e));
 }
 async function deleteQuote(id){
   if(db)await db.collection('quotes').doc(id).delete();
@@ -1632,36 +1638,41 @@ function snapshot(q){
     ms:quoteMenus(q).map(m=>({t:m.title,s:m.subtitle,x:m.sections.map(x=>[x.title,x.note,x.items.map(i=>[i.n,i.d])])})),
     k:q.contract&&q.contract.text?{t:q.contract.title,b:parseContract(fillPh(q.contract.text,q)).map(x=>[x.t,x.s])}:null};
 }
-function b64u(bytes){let s='';for(let i=0;i<bytes.length;i++)s+=String.fromCharCode(bytes[i]);return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')}
-async function gzipB64u(str){const st=new Blob([new TextEncoder().encode(str)]).stream().pipeThrough(new CompressionStream('gzip'));return b64u(new Uint8Array(await new Response(st).arrayBuffer()))}
-async function hmacB64u(secret,msg){const k=await crypto.subtle.importKey('raw',new TextEncoder().encode(secret),{name:'HMAC',hash:'SHA-256'},false,['sign']);return b64u(new Uint8Array(await crypto.subtle.sign('HMAC',k,new TextEncoder().encode(msg))))}
-async function buildSignLink(q){
-  const sg=settings.sign||{};if(!sg.url||!sg.secret||!q.num)return '';
-  const d=await gzipB64u(JSON.stringify(snapshot(q)));const sig=await hmacB64u(sg.secret,d);
-  return sg.url.trim()+(sg.url.includes('?')?'&':'?')+'d='+d+'&s='+sig;
-}
+// the client signs on sign.html?k=<signKey>; the public doc signs/{signKey} holds the rendered paper (updated on every save until signed).
+// Function onSignDone copies the signature into the quote and notifies the events team.
+function newSignKey(){const a=new Uint8Array(16);crypto.getRandomValues(a);return 's'+[...a].map(x=>x.toString(16).padStart(2,'0')).join('')}
+function signBase(){const C=window.APP_CONFIG||{};return String(C.appUrl||(location.origin+location.pathname)).trim().replace(/[?#].*$/,'').replace(/(index|events)\.html$/,'').replace(/\/?$/,'/')}
+function signUrl(k){const C=window.APP_CONFIG||{};return signBase()+'sign.html?k='+k+(C.chainId&&C.chainId!==window.SC_HOME?'&chain='+encodeURIComponent(C.chainId):'')}
+function signPaperHTML(){const d=document.createElement('div');d.innerHTML=$('#doc').innerHTML;const last=d.querySelector('.sign');if(last)last.remove();
+  document.querySelectorAll('#menuPages .doc, #contractPages .doc').forEach(m=>d.insertAdjacentHTML('beforeend','<div style="margin-top:28px;border-top:1px dashed var(--paper-line)">'+m.innerHTML+'</div>'));return d.innerHTML}
+async function signUpsert(q){const v=venueOf(q.event.venue),b=bizOf(q.event.venue),ref=db.collection('signs').doc(q.signKey);
+  const exp=isOrder(q)?'':addDays(typeof q.createdAt==='number'?new Date(q.createdAt).toISOString().slice(0,10):String(q.createdAt||today()).slice(0,10),q.validDays),html=signPaperHTML();if(html.length>900000)throw new Error('paper too large');
+  await ref.set({status:'pending',quoteId:q.id,num:q.num||'',html,vt:v.hex,vts:soft(v.hex),total:Math.round(calc(q).total*100)/100,clientName:q.client.name||'',venueName:v.name||'',bizPhone:b.phone||'',expires:exp,expMs:exp?Date.parse(exp+'T23:59:59+03:00'):0,updatedAt:Date.now(),updatedBy:myId||''})}
+function buildSignLink(q){return q&&q.signKey&&q.num&&!q.signature&&db?signUrl(q.signKey):''}
 function scheduleSignLink(){
   clearTimeout(signT);const my=++signSeq;
-  signT=setTimeout(async()=>{let l='';try{l=await buildSignLink(cur)}catch(e){l=''}if(my!==signSeq)return;signLink=l;updateLinks();renderSignUI()},250);
+  signT=setTimeout(()=>{if(my!==signSeq)return;signLink=buildSignLink(cur);updateLinks();renderSignUI()},50);
 }
-function signReady(){const sg=settings.sign||{};return !!(sg.url&&sg.secret)}
+function signReady(){return !!db}
 function renderSignUI(){
   const ready=signReady();
   $('#sendNote').textContent=signLink?'ההודעה בוואטסאפ ובמייל כוללת קישור שבו הלקוח צופה בהצעה וחותם עליה.':'וואטסאפ ו-Gmail נפתחים עם הודעה מוכנה. את קובץ ה-PDF מצרפים ידנית, אחרי שמורידים אותו.';
-  $('#btnSignLink').disabled=!ready||!cur.num;
-  $('#signNote').textContent=!ready?'כדי לשלוח קישור לחתימה, השלם את החיבור בלשונית הגדרות. חתימה במקום עובדת כבר עכשיו.':(!cur.num?'שמור את ההצעה כדי ליצור קישור לחתימה.':'אחרי שינוי בהצעה, שלח ללקוח קישור חדש. הקישור הישן מציג את הגרסה הקודמת.');
+  $('#btnSignLink').disabled=!cur.num;
+  $('#signNote').textContent=!ready?'קישור לחתימה עובד רק כשהמערכת מחוברת. חתימה במקום עובדת כבר עכשיו.':(cur.signature?'ההצעה כבר נחתמה.':(!cur.signKey?'שמור את ההצעה כדי ליצור קישור לחתימה.':'הקישור קבוע: אחרי שינוי בהצעה שומרים, והלקוח רואה בקישור את הגרסה השמורה האחרונה. כשהלקוח חותם, החתימה נכנסת להצעה וההצעה מסומנת כמאושרת.'));
   const bar=$('#signedBar');
-  if(cur.signature){bar.hidden=false;bar.innerHTML=`<span>נחתמה במקום על ידי <b>${esc(cur.signature.name)}</b> ב-${esc(cur.signature.at)}</span><button class="btn sm ghost" id="sgRemove">הסר חתימה</button>`}else bar.hidden=true;
+  if(cur.signature){bar.hidden=false;bar.innerHTML=`<span>${cur.signature.remote?'נחתמה בקישור על ידי':'נחתמה במקום על ידי'} <b>${esc(cur.signature.name)}</b> ב-${esc(cur.signature.at)}</span><button class="btn sm ghost" id="sgRemove">הסר חתימה</button>`}else bar.hidden=true;
 }
-$('#signedBar').addEventListener('click',async e=>{if(e.target.id!=='sgRemove')return;delete cur.signature;try{if(cur.id)await saveQuote(cur,'unsigned')}catch(_){}refresh();toast('החתימה הוסרה')});
+$('#signedBar').addEventListener('click',async e=>{if(e.target.id!=='sgRemove')return;delete cur.signature;cur.signKey=null;try{if(cur.id)await saveQuote(cur,'unsigned')}catch(_){}refresh();toast('החתימה הוסרה')});
 async function copyText(t,okMsg){
   try{await navigator.clipboard.writeText(t);toast(okMsg)}
   catch(e){const ta=document.createElement('textarea');ta.value=t;ta.style.cssText='position:fixed;opacity:0';document.body.appendChild(ta);ta.select();let ok=false;try{ok=document.execCommand('copy')}catch(_){}ta.remove();toast(ok?okMsg:'ההעתקה נחסמה בתצוגה הזו')}
 }
 $('#btnSignLink').addEventListener('click',async()=>{
   if(!cur.num){toast('שמור את ההצעה קודם');return}
-  let l=signLink;try{l=await buildSignLink(cur)}catch(e){}
-  if(!l){toast('לא הצלחתי ליצור קישור. בדוק את ההגדרות.');return}
+  if(cur.signature){toast('ההצעה כבר נחתמה');return}
+  try{await saveQuote(cur)}catch(e){toast('השמירה נכשלה, נסה שוב');return}
+  let l=buildSignLink(cur);
+  if(!l){toast('לא הצלחתי ליצור קישור. נסה לשמור שוב.');return}
   await copyText(l,'הקישור לחתימה הועתק');markSent();
 });
 

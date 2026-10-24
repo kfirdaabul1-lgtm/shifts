@@ -124,7 +124,7 @@ exports.onStock = trig('inventory/{id}').onWrite(async (ch) => {
 // A small Google Apps Script in the owner's own Drive calls this once a day with the key stored in backupcfg/main
 // (only the owner can read or change it) and saves the JSON it gets into a Drive folder. Same format as the
 // "גיבוי" button on the Permissions page, so the Import card can restore it. Invoice images are left out (size).
-const BACKUP_COLLS = ['receipts', 'orgcfg', 'groups', 'agents', 'priceLists', 'jobRoles', 'vchCodes', 'hkday', 'faultsAck', 'srDrafts', 'vchcfg', 'hotels', 'settings', 'employees', 'mgr', 'avail', 'shifts', 'schedule', 'requests', 'roles', 'joinCodes', 'config', 'menus', 'contracts', 'quotes', 'campaigns', 'suppliers', 'invoices', 'expcfg', 'inventory', 'purchaseReqs', 'shiftReports', 'faults', 'hk', 'hkcfg', 'hkLog', 'hkComplaints', 'leads', 'tasks', 'clients', 'hkCalls', 'spa', 'spacfg', 'vouchers'];
+const BACKUP_COLLS = ['signs', 'receipts', 'orgcfg', 'groups', 'agents', 'priceLists', 'jobRoles', 'vchCodes', 'hkday', 'faultsAck', 'srDrafts', 'vchcfg', 'hotels', 'settings', 'employees', 'mgr', 'avail', 'shifts', 'schedule', 'requests', 'roles', 'joinCodes', 'config', 'menus', 'contracts', 'quotes', 'campaigns', 'suppliers', 'invoices', 'expcfg', 'inventory', 'purchaseReqs', 'shiftReports', 'faults', 'hk', 'hkcfg', 'hkLog', 'hkComplaints', 'leads', 'tasks', 'clients', 'hkCalls', 'spa', 'spacfg', 'vouchers'];
 const plain = (v) => {
   if (v instanceof admin.firestore.Timestamp) return { seconds: v.seconds, nanoseconds: v.nanoseconds };
   if (Array.isArray(v)) return v.map(plain);
@@ -579,4 +579,18 @@ exports.onInvoiceScan = functions.region('europe-west1').runWith({ timeoutSecond
     console.error('invoice scan', e);
     return snap.ref.update({ status: 'error', error: String(e.message || e).slice(0, 500), data: admin.firestore.FieldValue.delete() });
   }
+});
+
+// ---------- remote contract signing: sign.html updates signs/{key} pending → signed; copy the signature into the quote and notify the events team ----------
+exports.onSignDone = trig('signs/{id}').onUpdate(async (ch) => {
+  const b = ch.before.data() || {}, a = ch.after.data() || {};
+  if (b.status !== 'pending' || a.status !== 'signed' || !a.quoteId) return null;
+  const at = new Date(a.signedAt || Date.now()).toLocaleString('en-GB', { timeZone: 'Asia/Jerusalem', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }).replace(',', '');
+  const qref = db.doc('quotes/' + a.quoteId), qs = await qref.get();
+  if (!qs.exists) return null;
+  const q = qs.data() || {};
+  await qref.update({ signature: { name: a.signName || '', at, img: a.sig || '', remote: true, signId: ch.after.id }, status: 'approved', updatedAt: new Date().toISOString() });
+  await ch.after.ref.update({ signedAtTxt: at }).catch(() => {});
+  await db.collection('quotes/' + a.quoteId + '/versions').doc(Date.now().toString(36) + '-sign').set({ at: new Date().toISOString(), by: null, action: 'signed', total: a.total || 0, status: 'approved', data: { remoteSign: true, name: a.signName || '' } }).catch(() => {});
+  return sendTo(await eventsPeople(), { title: `הצעה #${a.num || q.num || ''} נחתמה ✍️`, body: `${a.signName || ''}${q.client && q.client.name && q.client.name !== a.signName ? ' (' + q.client.name + ')' : ''} חתם/ה על ההצעה בקישור. ההצעה סומנה כמאושרת.`, hash: 'events.html#q=' + a.quoteId, tag: 'sign-' + a.quoteId });
 });

@@ -410,6 +410,19 @@ service cloud.firestore {
       allow update: if stockIn(resource.data.hotel, resource.data.dept) && stockIn(request.resource.data.hotel, request.resource.data.dept);
     }
     // אישור קבלת סחורה עם חתימה (מי שמנהל את המלאי של המחלקה); הוצאות ומנכ״ל רואים
+    // קישור חתימה ללקוח: המזהה סודי (s + 32 תווים); הלקוח בלי התחברות רק חותם פעם אחת לפני שפג התוקף
+    match /signs/{id} {
+      allow get: if true;
+      allow list, delete: if canEvents();
+      allow create: if canEvents() && request.resource.data.status == 'pending';
+      allow update: if (canEvents() && resource.data.status == 'pending' && request.resource.data.status == 'pending')
+        || (resource.data.status == 'pending' && request.resource.data.status == 'signed'
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'signName', 'sig', 'signedAt', 'agree', 'ua'])
+            && request.resource.data.agree == true
+            && request.resource.data.signName is string && request.resource.data.signName.size() >= 2 && request.resource.data.signName.size() <= 90
+            && request.resource.data.sig is string && request.resource.data.sig.size() < 400000
+            && (resource.data.get('expMs', 0) == 0 || request.time.toMillis() <= resource.data.expMs));
+    }
     match /receipts/{id} {
       allow read: if stockIn(resource.data.hotel, resource.data.dept) || canCeo() || expAll() || (canExp() && resource.data.hotel in expHotelsR());
       allow create: if request.resource.data.by == request.auth.uid && stockIn(request.resource.data.hotel, request.resource.data.dept);

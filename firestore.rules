@@ -456,6 +456,13 @@ service cloud.firestore {
     }
 
     // דוחות משמרת בלי סכומים (עותק שהשרת כותב): הקבלה רואה את הדוחות של המלון שלה לצורך חפיפה
+    // shift report photo of the reception / bar (srImgs/{reportId}); new doc only, no money in it
+    match /srImgs/{id} {
+      allow read: if frontIn(resource.data.hotel) || manages(resource.data.hotel) || gmIn(resource.data.hotel) || canCeo() || finIn(resource.data.hotel);
+      allow create: if !exists(/databases/$(database)/documents/srImgs/$(id)) && request.resource.data.by == request.auth.uid
+        && (frontIn(request.resource.data.hotel) || manages(request.resource.data.hotel) || gmIn(request.resource.data.hotel));
+      allow delete: if manages(resource.data.hotel) || gmIn(resource.data.hotel);
+    }
     match /shiftReportsPub/{id} {
       allow read: if frontIn(resource.data.hotel) || manages(resource.data.hotel) || gmIn(resource.data.hotel) || canCeo() || finIn(resource.data.hotel);
       allow write: if isOwner();

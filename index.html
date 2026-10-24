@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202610240400"></script>
+<script src="i18n.js?v=202610240500"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -468,6 +468,7 @@ document.addEventListener('change',e=>{if(e.target.matches('[data-mktf]')){S.mkt
 document.addEventListener('change',e=>{if(e.target.matches('[data-ceo-year]')){S.ceo.year=e.target.value;S.ceo.data=null;ceoLoad(S.ceo.year)}});
 document.addEventListener('change',e=>{if(e.target.id==='sw_peer'){const d=S.drafts.sw||(S.drafts.sw={});d.peer=e.target.value;d.to='';e.target.blur();render();return}});
 document.addEventListener('change',e=>{if(e.target.id==='pm_hotel'&&S.drafts.perm){S.drafts.perm.hotel=e.target.value;e.target.blur();render()}});
+document.addEventListener('change',e=>{if(e.target.id!=='sr_cimg')return;const f=e.target.files&&e.target.files[0];if(!f)return;compressImage(f).then(u=>{S.srCleanImg=u;render()},()=>toast('לא הצלחתי לקרוא את התמונה'))});
 document.addEventListener('change',e=>{if(e.target.id!=='sr_inv')return;const f=e.target.files&&e.target.files[0];if(!f)return;compressImage(f).then(u=>{S.srInv=u;render()},()=>toast('לא הצלחתי לקרוא את התמונה'))});
 document.addEventListener('change',e=>{const t=e.target;if(!t.matches||!t.matches('[data-spatid]')||!S.sheet||S.sheet.type!=='spa')return;const b=(S.spaBk||{})[S.sheet.id]||{},d=S.drafts.spa||(S.drafts.spa={}),ti=[...dv('spa','tid',b.tid||[])];ti[+t.dataset.spatid]=t.value;d.tid=ti;const th=[...dv('spa','ther',b.ther||[])],x=spaThers().find(y=>y.id===t.value);if(x)th[+t.dataset.spatid]=x.g;d.ther=th;t.blur();render()});
 document.addEventListener('change',e=>{const t=e.target;if(!t.matches)return;
@@ -2183,6 +2184,13 @@ function srInvHTML(g){const img=S.srInv||'';
     ${img?`<img src="${img}" alt="החשבונית" style="height:64px;border-radius:8px;border:1px solid var(--line)"><button class="btn sm ghost" data-act="sr-inv-x">הסרה</button>`:''}</div>
     ${img?`<div class="row" style="margin-top:8px"><label class="f">כמה שולם בחשבונית (₪)<input type="number" min="0" step="0.01" inputmode="decimal" id="sr_invamt" data-f="sr.invAmt" value="${esc(g('invAmt',''))}"></label>
     <label class="f">ממי החשבונית (שם העסק)<input type="text" id="sr_invsup" data-f="sr.invSup" value="${esc(g('invSup',''))}" placeholder="לא חובה"></label></div>`:''}</div>`}
+// "is the reception / bar clean?" — yes requires a photo (srImgs/{reportId}); owner's wish Oct 24
+function srCleanHTML(g){const c=g('clean',''),img=S.srCleanImg||'';
+  return `<div class="f"><span>האם הקבלה / הבר נקי?</span><div class="chips" style="gap:6px"><button type="button" class="hchip" data-act="sr-clean" data-v="yes" aria-pressed="${c==='yes'}">כן</button><button type="button" class="hchip" data-act="sr-clean" data-v="no" aria-pressed="${c==='no'}">לא</button></div>
+  ${c==='yes'?`<div class="actions" style="align-items:center;margin-top:6px"><label class="btn${img?'':' pri'}" style="width:fit-content;cursor:pointer">📷 ${img?'צילום מחדש':'צילום הקבלה / הבר (חובה)'}<input type="file" accept="image/*" capture="environment" id="sr_cimg" hidden></label>${img?`<img src="${img}" alt="צילום הקבלה / הבר" style="height:64px;border-radius:8px;border:1px solid var(--line)"><button class="btn sm ghost" data-act="sr-cimg-x">הסרה</button>`:''}</div>`:''}
+  ${c==='no'?`<label class="f" style="margin-top:6px">מה לא נקי? (לא חובה)<input type="text" id="sr_cnote" data-f="sr.cleanNote" value="${esc(g('cleanNote',''))}" placeholder="למשל: הדלפק, הפח, הכיור בבר"></label>`:''}</div>`}
+function srCleanTxt(r){return r.clean==='yes'?`קבלה / בר נקי ✓${r.cleanImg?' 📷':''}`:r.clean==='no'?`קבלה / בר לא נקי${r.cleanNote?': '+esc(r.cleanNote):''}`:''}
+function srImgSub(id){S.srImgs=S.srImgs||{};if(S.srImgs[id]===undefined){S.srImgs[id]=null;fdb.doc('srImgs/'+id).get().then(d=>{S.srImgs[id]=d.exists?d.data().data:'';render()},()=>{S.srImgs[id]='';render()})}return S.srImgs[id]}
 function srGap(a,b){a=String(a??'').trim();b=String(b??'').trim();if(a===''||b==='')return 0;return Math.round(((+a||0)-(+b||0))*100)/100}
 // OOO rooms + open faults in the report come from the maintenance / housekeeping status (not typed by reception)
 function srMaint(h){faultsSub(h);const D=hkSub(h,hkToday(h))||{},cl=D.clean||{};
@@ -2211,6 +2219,7 @@ function srFormHTML(h){const g=(k,d)=>dv('sr',k,d),un=g('unusual',''),dr=srDraft
   ${g('shift',srDefShift())!=='night'?`<div class="row">${g('shift',srDefShift())==='morning'?`<label class="f">כמה צ׳ק אאוט נשאר<input type="number" min="0" inputmode="numeric" id="sr_col" data-f="sr.coLeft" value="${esc(g('coLeft',''))}"></label>`:''}<label class="f">כמה צ׳ק אין נשארו להיום<input type="number" min="0" inputmode="numeric" id="sr_cil" data-f="sr.ciLeft" value="${esc(g('ciLeft',''))}"></label></div>`:''}
   <div class="row"><label class="f">הודעות בוקינג שלא נענו (מספר)<input type="number" min="0" inputmode="numeric" id="sr_bk" data-f="sr.booking" value="${esc(g('booking',''))}" placeholder="כמה הודעות בוקינג לא נענו"></label>
   <label class="f">פניות פתוחות ארסונה (מספר)<input type="number" min="0" inputmode="numeric" id="sr_ars" data-f="sr.arsona" value="${esc(g('arsona',''))}" placeholder="כמה פניות פתוחות בארסונה"></label></div>
+  ${srCleanHTML(g)}
   ${srMaintHTML(h)}
   ${srRowsHTML('lost','אבדות ומציאות','תיאור הפריט')}
   <div class="f"><span>היו אירועים חריגים במשמרת?</span><div class="chips" style="gap:6px"><button type="button" class="hchip" data-act="sr-un" data-v="no" aria-pressed="${un==='no'}">לא</button><button type="button" class="hchip" data-act="sr-un" data-v="yes" aria-pressed="${un==='yes'}">כן</button></div></div>
@@ -2225,7 +2234,7 @@ function srPubRecentHTML(h){const t=todayISO(),y=addDays(t,-1),ms=[...new Set([t
   if(parts.some(x=>x.__err))return `<div class="card"><h3>דוחות משמרת · היום והלילה הקודם</h3><p class="muted">אין גישה לדוחות.</p></div>`;
   const ord={night:-1,morning:0,noon:1,evening:2},all=Object.assign({},...parts);
   const rows=Object.entries(all).filter(([,r])=>r.date===t||(r.date===y&&r.shift==='night')).sort(([,a],[,b])=>String(b.date).localeCompare(String(a.date))||ord[b.shift]-ord[a.shift]);
-  return `<div class="card"><h3>דוחות משמרת · היום והלילה הקודם</h3>${rows.length?`<div class="plist">${rows.map(([id,r])=>`<div class="prow"><span class="who"><b><button class="linkbtn" data-act="sr-view" data-id="${id}" data-h="${h}" data-pub="1">${esc(r.name||'')}</button> · ${SR_N[r.shift]||''} · ${dm(r.date)}</b><small>${r.booking!=null?`בוקינג שלא נענו: ${+r.booking} · `:''}${r.arsona!=null?`ארסונה: ${+r.arsona} · `:''}${r.unusual?'⚠️ '+esc(String(r.details||'אירוע חריג').slice(0,80)):'ללא חריגים'}</small></span><button class="btn sm" data-act="sr-view" data-id="${id}" data-h="${h}" data-pub="1">פתיחה</button></div>`).join('')}</div>`:'<p class="muted">עוד אין דוחות היום או מהלילה הקודם.</p>'}</div>`}
+  return `<div class="card"><h3>דוחות משמרת · היום והלילה הקודם</h3>${rows.length?`<div class="plist">${rows.map(([id,r])=>`<div class="prow"><span class="who"><b><button class="linkbtn" data-act="sr-view" data-id="${id}" data-h="${h}" data-pub="1">${esc(r.name||'')}</button> · ${SR_N[r.shift]||''} · ${dm(r.date)}</b><small>${r.booking!=null?`בוקינג שלא נענו: ${+r.booking} · `:''}${r.arsona!=null?`ארסונה: ${+r.arsona} · `:''}${r.unusual?'⚠️ '+esc(String(r.details||'אירוע חריג').slice(0,80)):'ללא חריגים'}${r.clean?' · '+srCleanTxt(r):''}</small></span><button class="btn sm" data-act="sr-view" data-id="${id}" data-h="${h}" data-pub="1">פתיחה</button></div>`).join('')}</div>`:'<p class="muted">עוד אין דוחות היום או מהלילה הקודם.</p>'}</div>`}
 function srListHTML(h,gm,pub){if(pub)return srPubRecentHTML(h);const m=S.srMonth||todayISO().slice(0,7);srSub(h,m);const d=(S.sreps||{})[h+'|'+m];
   const nav=`<div class="actions" style="align-items:center"><button class="btn sm" data-act="sr-month" data-d="-1" aria-label="חודש קודם">›</button><b>${HE_MON[+m.slice(5)-1]} ${m.slice(0,4)}</b><button class="btn sm" data-act="sr-month" data-d="1" aria-label="חודש הבא">‹</button></div>`;
   if(!d)return `<div class="card"><h3>דוחות סיכום משמרת</h3>${nav}<p class="muted">טוען…</p></div>`;
@@ -2236,7 +2245,7 @@ function srListHTML(h,gm,pub){if(pub)return srPubRecentHTML(h);const m=S.srMonth
   ${pub?'<p class="muted" style="font-size:.85rem;margin:0">דוחות המשמרות הקודמות, לחפיפה. בלי סכומי הקופה.</p>':''}<div class="kpis">${kpi('דוחות',String(rows.length))}${pub?'':kpi('מזומן להפקדה',ils(sum('cash')))+kpi('סליקה באשראי',ils(sum('credit')))}${kpi('אירועים חריגים',String(unN),'',unN?'bad':'ok')}</div>
   ${rows.length?`<div class="plist">${rows.map(([id,r])=>`<div class="prow srrow" style="flex-wrap:wrap${r.unusual?';border-color:var(--bad)':''}"><span class="who" data-act="sr-view" data-id="${id}" data-h="${h}" role="button" tabindex="0" title="פתיחת הדוח במסך מלא"><b>יום ${DAYS[dow(r.date)]} ${dm(r.date)} · ${SR_N[r.shift]||''} · ${esc(r.name||'')}</b>
     ${pub?'':`<small>קרן קופה ${ils(+r.float||0)}${r.r420!=null?` · לפי 420 ${ils(+r.r420||0)}`:''} · הופקד ${ils(+r.cash||0)} · אשראי ${ils(+r.credit||0)}</small>${r.gap?`<small style="color:var(--bad)">פער ${ils(r.gap)}: ${esc(r.gapNote||'')}</small>`:''}${r.invId?`<small>📎 חשבונית ${ils(+r.invAmt||0)} נשלחה לאישור בהוצאות</small>`:''}${finPill(r)}`}
-    ${r.shift==='night'&&(r.ci!=null||r.co!=null||r.cid!=null)?`<small>${r.cid!=null?`צ׳ק אין דורמס ${+r.cid} · `:''}צ׳ק אין${r.cid!=null?' פרייבט':''} ${r.ci??'—'} · צ׳ק אאוט ${r.co??'—'}</small>`:''}${r.shift==='morning'&&r.coLeft!=null?`<small>צ׳ק אאוט שנשארו: ${+r.coLeft}</small>`:''}${r.ciLeft!=null?`<small>צ׳ק אין שנשארו להיום: ${+r.ciLeft}</small>`:''}${r.booking!=null?`<small>הודעות בוקינג שלא נענו: ${+r.booking}</small>`:''}${r.arsona!=null?`<small>פניות פתוחות ארסונה: ${+r.arsona}</small>`:''}
+    ${r.shift==='night'&&(r.ci!=null||r.co!=null||r.cid!=null)?`<small>${r.cid!=null?`צ׳ק אין דורמס ${+r.cid} · `:''}צ׳ק אין${r.cid!=null?' פרייבט':''} ${r.ci??'—'} · צ׳ק אאוט ${r.co??'—'}</small>`:''}${r.shift==='morning'&&r.coLeft!=null?`<small>צ׳ק אאוט שנשארו: ${+r.coLeft}</small>`:''}${r.ciLeft!=null?`<small>צ׳ק אין שנשארו להיום: ${+r.ciLeft}</small>`:''}${r.booking!=null?`<small>הודעות בוקינג שלא נענו: ${+r.booking}</small>`:''}${r.arsona!=null?`<small>פניות פתוחות ארסונה: ${+r.arsona}</small>`:''}${r.clean?`<small${r.clean==='no'?' style="color:var(--bad)"':''}>${srCleanTxt(r)}</small>`:''}
     ${(r.ooo||[]).length?`<small>חדרים OOO: ${r.ooo.map(x=>`${esc(x.room)}${x.note?' ('+esc(x.note)+')':''}`).join(', ')}</small>`:''}${(r.faults||[]).length?`<small>תקלות פתוחות: ${r.faults.map(x=>`${esc(x.room)}${x.note?' ('+esc(x.note)+')':''}`).join(', ')}</small>`:''}${(r.lost||[]).length?`<small>אבדות ומציאות: ${r.lost.map(x=>`${esc(x.room)}${x.note?' ('+esc(x.note)+')':''}`).join(', ')}</small>`:''}${(r.cmp||[]).length?`<small style="color:var(--warn)">תלונות אורחים: ${r.cmp.map(x=>`${esc(x.room)}${x.note?' ('+esc(x.note)+')':''}`).join(', ')}</small>`:''}${r.unusual?`<small style="color:var(--bad);white-space:pre-wrap">⚠ ${esc(r.details||'אירוע חריג')}</small>`:''}${r.notes?`<small style="white-space:pre-wrap">📝 ${esc(r.notes)}</small>`:''}</span>
     <span class="actions"><button class="btn sm" data-act="sr-view" data-id="${id}" data-h="${h}">פתיחה</button>${r.unusual?'<span class="pill bad">חריג</span>':'<span class="pill ok">תקין</span>'}${boss?`<button class="btn sm ghost" data-act="sr-del" data-id="${id}" data-h="${h}">${S.confirm==='sr:'+id?'לחיצה נוספת תמחק':'מחיקה'}</button>`:''}</span></div>`).join('')}</div>`:'<p class="muted">אין דוחות בחודש הזה.</p>'}</div>`}
 /* ---------- finance: confirms each shift report's cash deposit (shiftReports.finStatus pending|ok|issue) ---------- */
@@ -2253,6 +2262,7 @@ function sheetSrView(){const r=srFind(S.sheet.id);if(!r)return sheetHead('דוח
     <div class="srv-sec"><h3>מספרים</h3>${r.booking!=null?row('הודעות בוקינג שלא נענו',n(r.booking)):''}${r.arsona!=null?row('פניות פתוחות ארסונה',n(r.arsona)):''}${r.ciLeft!=null?row('צ׳ק אין שנשארו להיום',n(r.ciLeft)):''}${r.coLeft!=null?row('צ׳ק אאוט שנשארו',n(r.coLeft)):''}${r.cid!=null?row('צ׳ק אין דורמס',n(r.cid)):''}${r.ci!=null?row('צ׳ק אין'+(r.cid!=null?' פרייבט':''),n(r.ci)):''}${r.co!=null?row('צ׳ק אאוט',n(r.co)):''}</div>
     ${list('חדרים OOO',r.ooo)}${list('תקלות פתוחות',r.faults)}${list('אבדות ומציאות',r.lost)}${(r.cmp||[]).length?list('תלונות אורחים על חדר',r.cmp):''}
   </div>
+  ${r.clean?`<div class="srv-sec${r.clean==='no'?' srv-bad':''}"><h3>ניקיון הקבלה / הבר</h3><p style="margin:0">${srCleanTxt(r)}</p>${r.cleanImg?(()=>{const im=srImgSub(S.sheet.id);return im?`<img src="${im}" alt="צילום הקבלה / הבר" style="margin-top:8px;max-width:100%;max-height:420px;border-radius:10px;border:1px solid var(--line)">`:im===''?'<p class="muted">התמונה לא נמצאה.</p>':'<p class="muted">טוען את התמונה…</p>'})():''}</div>`:''}
   ${r.notes?`<div class="srv-sec"><h3>הערות נוספות</h3><p style="white-space:pre-wrap;margin:0">${esc(r.notes)}</p></div>`:''}
   ${r.unusual?`<div class="srv-sec srv-bad"><h3>⚠ אירועים חריגים</h3><p style="white-space:pre-wrap;margin:0">${esc(r.details||'')}</p></div>`:''}
   <div class="actions"><button class="btn pri" data-act="close">סגירה</button></div>`}
@@ -2857,7 +2867,7 @@ function joinCodeHTML(){const c={...cfg(),joinCode:validCode()};
   <p class="muted" style="font-size:.85rem">עובד חדש נכנס לאפליקציה, מתחבר ומקליד את הקוד, וכך הוא משויך ל${esc(hotelName(S.hotel))}. אפשר להחליף קוד בכל זמן, והקוד הישן מפסיק לעבוד.</p>
   <div class="actions" style="align-items:center">${c.joinCode?`<b class="code">${esc(c.joinCode)}</b>`:'<span class="muted">עוד אין קוד</span>'}<button class="btn" data-act="join-new">${c.joinCode?'החלפת קוד':'יצירת קוד'}</button></div>`}
 // full backup (owner): every collection to one JSON file in the same format the import reads
-const BACKUP_COLLS=['shiftKinds','signs','receipts','orgcfg','groups','agents','priceLists','jobRoles','vchCodes','hkday','faultsAck','srDrafts','vchcfg','hotels','settings','employees','mgr','avail','shifts','schedule','requests','roles','joinCodes','config','menus','contracts','quotes','campaigns','suppliers','invoices','expcfg','inventory','purchaseReqs','shiftReports','faults','hk','hkcfg','hkLog','hkComplaints','leads','tasks','clients','hkCalls','spa','spacfg','vouchers'];
+const BACKUP_COLLS=['srImgs','shiftKinds','signs','receipts','orgcfg','groups','agents','priceLists','jobRoles','vchCodes','hkday','faultsAck','srDrafts','vchcfg','hotels','settings','employees','mgr','avail','shifts','schedule','requests','roles','joinCodes','config','menus','contracts','quotes','campaigns','suppliers','invoices','expcfg','inventory','purchaseReqs','shiftReports','faults','hk','hkcfg','hkLog','hkComplaints','leads','tasks','clients','hkCalls','spa','spacfg','vouchers'];
 const lastBackup=()=>{let l=0;try{l=+localStorage.getItem('scLastBackup')||0}catch(_){ }bkCfgLoad();return Math.max(l,+(S.bkCfg&&S.bkCfg.lastAt)||0)};
 // daily automatic backup to the owner's Google Drive: an Apps Script in their Drive calls the driveBackup function with the key in backupcfg/main
 const BK_FN='https://europe-west1-'+((CFG.firebase&&CFG.firebase.projectId)||'hotel-shifts')+'.cloudfunctions.net/driveBackup';
@@ -3635,6 +3645,8 @@ const ACT={
   'hk-newday':D=>{if(S.confirm!=='hknd:'+D.h){S.confirm='hknd:'+D.h;render();return}S.confirm=null;hkNewDay(D.h)},
   'recur-ack':D=>{const h=D.h,r=String(D.r),at=Date.now();S.recAck={...(S.recAck||{}),[h+'|'+r]:at};render();alertTick();
     fdb.doc('faultsAck/'+h+'__'+r.replace(/\//g,'_')).set({hotel:h,room:r,at,by:S.uid,byName:S.meName||''}).then(()=>toast('הוסר. אם תיפתח בחדר תקלה חדשה, הוא יחזור לרשימה'),e=>toast('לא הצלחתי: '+errMsg(mapErr(e))))},
+  'sr-clean':D=>{(S.drafts.sr||(S.drafts.sr={})).clean=D.v;render()},
+  'sr-cimg-x':()=>{S.srCleanImg=null;render()},
   'sr-un':D=>{(S.drafts.sr||(S.drafts.sr={})).unusual=D.v;render()},
   'sr-month':D=>{const m=S.srMonth||todayISO().slice(0,7);let y=+m.slice(0,4),mo=+m.slice(5)+ +D.d;if(mo<1){mo=12;y--}if(mo>12){mo=1;y++}S.srMonth=y+'-'+String(mo).padStart(2,'0');render()},
   'sr-save':D=>{const h=D.h,g=(k,d)=>dv('sr',k,d),uid=String(g('uid','')),name=uid?empName(uid):'',date=String(g('date',todayISO())),un=g('unusual',''),det=String(g('details','')).trim();
@@ -3642,6 +3654,7 @@ const ACT={
     if(['float','r420','cash','credit'].some(k=>String(g(k,'')).trim()==='')){toast('צריך למלא קרן קופה, מזומן לפי דוח 420, מזומן שהופקד וסליקה באשראי (אפשר 0)');return}
     const gap=srGap(g('r420',''),g('cash','')),gapNote=String(g('gapNote','')).trim();if(gap&&!gapNote){toast('יש פער בין דוח 420 למזומן שהופקד. צריך להסביר אותו');return}
     const invImg=gap&&S.srInv?S.srInv:'',invAmt=Math.round((+g('invAmt',0)||0)*100)/100;if(invImg&&!(invAmt>0)){toast('צריך לרשום כמה שולם בחשבונית');return}
+    const clean=g('clean','');if(!clean){toast('צריך לסמן אם הקבלה / הבר נקי');return}if(clean==='yes'&&!S.srCleanImg){toast('הקבלה / הבר נקי? צריך לצרף תמונה');return}
     if(!un){toast('צריך לסמן אם היו אירועים חריגים');return}if(un==='yes'&&!det){toast('צריך לפרט את האירועים החריגים');return}
     const shift=g('shift',srDefShift()),rows=l=>(g(l,[])||[]).map(x=>({room:String(x.room||'').trim(),note:String(x.note||'').trim()})).filter(x=>x.room||x.note);
     if(rows('lost').some(x=>!x.room)){toast('צריך מספר חדר בכל שורה של אבדות');return}
@@ -3653,7 +3666,9 @@ const ACT={
     if(shift==='night'){extra.ci=num('ci');extra.co=num('co');if(hs)extra.cid=num('cid');if(extra.ci==null||extra.co==null||(hs&&extra.cid==null)){toast('במשמרת לילה צריך למלא כמה צ׳ק אין וכמה צ׳ק אאוט היום');return}}
     if(shift==='morning'){extra.coLeft=num('coLeft');if(extra.coLeft==null){toast('במשמרת בוקר צריך למלא כמה צ׳ק אאוט נשאר');return}}
     if(shift==='night')srToDaily(h,date,hs?{cid:extra.cid,ci:extra.ci,co:extra.co}:{ci:extra.ci,co:extra.co});
-    const id='r'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),doc={...extra,hotel:h,month:date.slice(0,7),date,shift,name,empUid:uid,float:+g('float',0)||0,r420:+g('r420',0)||0,gap,gapNote:gap?gapNote:'',finStatus:'pending',cash:+g('cash',0)||0,credit:+g('credit',0)||0,unusual:un==='yes',details:un==='yes'?det:'',by:S.uid,createdAt:Date.now()};
+    const id='r'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),doc={...extra,hotel:h,month:date.slice(0,7),date,shift,name,empUid:uid,float:+g('float',0)||0,r420:+g('r420',0)||0,gap,gapNote:gap?gapNote:'',finStatus:'pending',cash:+g('cash',0)||0,credit:+g('credit',0)||0,unusual:un==='yes',details:un==='yes'?det:'',clean,cleanImg:clean==='yes',cleanNote:clean==='no'?String(g('cleanNote','')).trim():'',by:S.uid,createdAt:Date.now()};
+    if(clean==='yes'){const cimg=S.srCleanImg;S.srImgs=S.srImgs||{};S.srImgs[id]=cimg;S.db.doc('srImgs/'+id).set({data:cimg,hotel:h,date,by:S.uid,at:Date.now()}).catch(e=>toast('התמונה לא נשמרה: '+errMsg(mapErr(e))))}
+    S.srCleanImg=null;
     if(invImg){const iid='i'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),now=Date.now();doc.invId=iid;doc.invAmt=invAmt;
       const inv={status:'open',dueDate:date,paidAt:null,payMethod:null,payRef:'',supplier:'',supplierName:String(g('invSup','')).trim(),hotel:h,date,number:'',vatIncluded:true,vat:18,items:[{name:'חשבונית ששולמה מהקופה',qty:1,unit:'',price:invAmt}],notes:`מדוח סוף משמרת ${dm(date)} · ${SR_N[shift]||''} · ${name}${gapNote?' · '+gapNote:''}`,hasImg:true,sentAt:null,source:'sr',reportId:id,createdBy:S.uid,createdAt:now,updatedBy:S.uid,updatedAt:now};
       inv.net=r2(invTotals(inv).net);inv.total=r2(invTotals(inv).total);
@@ -3762,7 +3777,7 @@ document.addEventListener('click',e=>{const t=e.target.closest('[data-act]');if(
 /* ---------- boot ---------- */
 // Owner only: make sure every record carries the hotel it belongs to, so the security rules can scope managers per hotel.
 // one-time copy of existing shift reports to shiftReportsPub (new ones are mirrored by the server)
-const SR_PUB=['hotel','month','date','shift','name','empUid','ooo','faults','notes','lost','cmp','booking','arsona','ciLeft','coLeft','ci','co','cid','unusual','details','createdAt','by'];
+const SR_PUB=['hotel','month','date','shift','name','empUid','clean','cleanImg','cleanNote','ooo','faults','notes','lost','cmp','booking','arsona','ciLeft','coLeft','ci','co','cid','unusual','details','createdAt','by'];
 async function srPubBackfill(){try{if(localStorage.getItem('srPubDone')==='1')return}catch(_){ }
   try{const [q,p]=await Promise.all([fdb.collection('shiftReports').get(),fdb.collection('shiftReportsPub').get()]);const have=new Set(p.docs.map(d=>d.id));let b=fdb.batch(),n=0;
     for(const d of q.docs){if(have.has(d.id))continue;const r=d.data(),o={};SR_PUB.forEach(k=>{if(r[k]!==undefined)o[k]=r[k]});b.set(fdb.doc('shiftReportsPub/'+d.id),o);if(++n%400===0){await b.commit();b=fdb.batch()}}

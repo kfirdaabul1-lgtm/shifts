@@ -12,6 +12,9 @@ const note = (t, m) => console.log(`::notice title=${t}::${String(m).replace(/\n
     const hk = await db.doc('hk/' + h + '__' + hd).get(); const D = hk.exists ? hk.data() : {};
     const mine = Object.keys(D.asg || {}).filter((k) => D.asg[k] === d.id);
     note('HK ' + h + ' ' + hd + ' (today ' + today + ')', `exists ${hk.exists} · lastBy ${D.lastBy} · rooms: ` + mine.map((k) => `${k} clean=${(D.clean || {})[k]} start=${(D.start || {})[k] ? new Date(D.start[k]).toISOString().slice(11, 16) : '-'} done=${(D.done || {})[k] ? 'y' : '-'} trt=${(D.trt || {})[k] || ''}/${(D.trtDone || {})[k] ? 'y' : ''} chk=${(D.chk || {})[k] ? 'y' : ''} back=${(D.back || {})[k] ? 'y' : ''}`).join('; '));
+    const lb = await db.collection('hk').where('lastBy', '==', d.id).get(); note('HK docs last written by her', lb.docs.map((x) => x.id).join(', ') || 'none');
+    const lg = await db.collection('hkLog').where('uid', '==', d.id).get(); note('Her cleaning logs', lg.size + ' ' + lg.docs.slice(-5).map((x) => x.id).join(', '));
+    const hs = await db.collection('hk').where('hotel', '==', h).get(); note('HK docs of hotel', hs.docs.map((x) => x.id.split('__')[1] + ':' + Object.keys(x.data().start || {}).length + 's/' + Object.keys(x.data().done || {}).length + 'd').join(', '));
     const tok = await db.doc('pushTokens/' + d.id).get(); if (tok.exists) note('Devices ' + d.data().name, Object.values(tok.data().tokens || {}).map((t) => String(t.ua || '').slice(0, 90)).join(' | '));
   }
 })().catch((e) => note('Diag error', e.message));

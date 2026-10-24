@@ -488,14 +488,30 @@ service cloud.firestore {
       allow read: if hkFullIn(h) || hkWorkIn(h) || maintIn(h);
       allow write: if hkFullIn(h);
     }
+    // hk role checks are computed once (let) — the old chain (hkFullIn/hkLeadIn/hkWorkIn, each calling isOwner/roles again)
+    // hit Firestore's 1000-expression limit for workers with a verified e-mail, so their writes were refused (Oct 24)
+    function hkWorkKeys() { return ['hotel', 'date', 'carried', 'lastBy', 'clean', 'cleanBy', 'cleanAt', 'start', 'done', 'doneBy', 'note', 'noteBy', 'noteAt', 'chk', 'chkBy', 'chkAt', 'back', 'trtDone', 'trtBy', 'trtByName', 'updatedAt']; }
+    function hkLeadKeys() { return hkWorkKeys().concat(['asg', 'asgName', 'asgAt']); }
+    function hkWriteOk(h, ks) {
+      let own = isOwner();
+      let hr = !own && hasRole();
+      let rd = hr ? roleData() : {};
+      let apps = rd.get('apps', {'shifts': true});
+      let hs = rd.get('hotels', []);
+      let inH = hs.size() == 0 || h in hs;
+      let full = own || (hr && inH && (apps.get('shifts', false) == true || apps.get('gm', false) == true || apps.get('front', false) == true));
+      let lead = hr && apps.get('dept', false) == true && h in hs && 'housekeeping' in rd.get('depts', []);
+      return full
+        || (ks.hasOnly(hkLeadKeys()) && lead)
+        || (ks.hasOnly(hkWorkKeys()) && (lead
+            || (hr && inH && (apps.get('hk', false) == true || apps.get('hkchk', false) == true))
+            || (isEmployee() && myHotel() == h
+                && 'housekeeping' in get(/databases/$(database)/documents/employees/$(request.auth.uid)).data.get('depts', []))));
+    }
     match /hk/{id} {
       allow read: if signedIn() && (hkWorkIn(id.split('__')[0]) || maintIn(id.split('__')[0]));
-      allow create: if request.resource.data.hotel == id.split('__')[0] && (hkFullIn(request.resource.data.hotel)
-        || (hkLeadIn(request.resource.data.hotel) && request.resource.data.keys().hasOnly(['hotel', 'date', 'carried', 'lastBy', 'clean', 'cleanBy', 'cleanAt', 'start', 'done', 'doneBy', 'asg', 'asgName', 'asgAt', 'note', 'noteBy', 'noteAt', 'chk', 'chkBy', 'chkAt', 'back', 'trtDone', 'trtBy', 'trtByName', 'updatedAt']))
-        || (hkWorkIn(request.resource.data.hotel) && request.resource.data.keys().hasOnly(['hotel', 'date', 'carried', 'lastBy', 'clean', 'cleanBy', 'cleanAt', 'start', 'done', 'doneBy', 'note', 'noteBy', 'noteAt', 'chk', 'chkBy', 'chkAt', 'back', 'trtDone', 'trtBy', 'trtByName', 'updatedAt'])));
-      allow update: if request.resource.data.hotel == resource.data.hotel && (hkFullIn(resource.data.hotel)
-        || (hkLeadIn(resource.data.hotel) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['carried', 'lastBy', 'clean', 'cleanBy', 'cleanAt', 'start', 'done', 'doneBy', 'asg', 'asgName', 'asgAt', 'note', 'noteBy', 'noteAt', 'chk', 'chkBy', 'chkAt', 'back', 'trtDone', 'trtBy', 'trtByName', 'updatedAt']))
-        || (hkWorkIn(resource.data.hotel) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['carried', 'lastBy', 'clean', 'cleanBy', 'cleanAt', 'start', 'done', 'doneBy', 'note', 'noteBy', 'noteAt', 'chk', 'chkBy', 'chkAt', 'back', 'trtDone', 'trtBy', 'trtByName', 'updatedAt'])));
+      allow create: if request.resource.data.hotel == id.split('__')[0] && hkWriteOk(request.resource.data.hotel, request.resource.data.keys());
+      allow update: if request.resource.data.hotel == resource.data.hotel && hkWriteOk(resource.data.hotel, request.resource.data.diff(resource.data).affectedKeys());
       allow delete: if manages(resource.data.hotel) || gmIn(resource.data.hotel);
     }
     // זמני ניקיון (התחלה–סיום) לכל חדר: העובד כותב את שלו, רק מנהלים קוראים (ממוצע לעובד)

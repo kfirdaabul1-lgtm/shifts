@@ -15,7 +15,7 @@ const note = (t, m) => console.log(`::notice title=${t}::${String(m).replace(/\n
     const lb = await db.collection('hk').where('lastBy', '==', d.id).get(); note('HK docs last written by her', lb.docs.map((x) => x.id).join(', ') || 'none');
     const lg = await db.collection('hkLog').where('uid', '==', d.id).get(); note('Her cleaning logs', lg.size + ' ' + lg.docs.slice(-5).map((x) => x.id).join(', '));
     const hs = await db.collection('hk').where('hotel', '==', h).get(); note('HK docs of hotel', hs.docs.map((x) => x.id.split('__')[1] + ':' + Object.keys(x.data().start || {}).length + 's/' + Object.keys(x.data().done || {}).length + 'd').join(', '));
-    for (const x of hs.docs) { const v = x.data(); note('Doc ' + x.id, Object.keys(v).map((k) => k + ':' + (v[k] === null ? 'null' : Array.isArray(v[k]) ? 'arr' : typeof v[k] === 'object' ? 'map' + Object.keys(v[k]).length : JSON.stringify(v[k]).slice(0, 30))).join(' ')); }
+    for (const x of hs.docs.filter((x) => x.id.endsWith(hd))) { const v = x.data(); note('Doc ' + x.id, Object.keys(v).map((k) => k + ':' + (v[k] === null ? 'null' : Array.isArray(v[k]) ? 'arr' : typeof v[k] === 'object' ? 'map' + Object.keys(v[k]).length : JSON.stringify(v[k]).slice(0, 30))).join(' ')); }
     const tok = await db.doc('pushTokens/' + d.id).get(); if (tok.exists) note('Devices ' + d.data().name, Object.values(tok.data().tokens || {}).map((t) => String(t.ua || '').slice(0, 90)).join(' | '));
   }
 })().catch((e) => note('Diag error', e.message));

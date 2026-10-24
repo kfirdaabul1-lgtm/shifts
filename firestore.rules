@@ -614,6 +614,11 @@ service cloud.firestore {
       allow get: if true;
       allow list, write: if isPlatform();
     }
+    // shift kinds (names + extra kinds), chain-wide: employees-page (hr) holders and shift managers edit
+    match /shiftKinds/{id} {
+      allow read: if signedIn();
+      allow write: if isOwner() || (hasRole() && (roleApp('hr') || roleApp('shifts')));
+    }
     match /orgcfg/{id} {
       allow read: if signedIn();
       // lic = the pages this chain may use; only the owner of the whole system sets it

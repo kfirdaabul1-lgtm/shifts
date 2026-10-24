@@ -124,7 +124,7 @@ exports.onStock = trig('inventory/{id}').onWrite(async (ch) => {
 // A small Google Apps Script in the owner's own Drive calls this once a day with the key stored in backupcfg/main
 // (only the owner can read or change it) and saves the JSON it gets into a Drive folder. Same format as the
 // "גיבוי" button on the Permissions page, so the Import card can restore it. Invoice images are left out (size).
-const BACKUP_COLLS = ['signs', 'receipts', 'orgcfg', 'groups', 'agents', 'priceLists', 'jobRoles', 'vchCodes', 'hkday', 'faultsAck', 'srDrafts', 'vchcfg', 'hotels', 'settings', 'employees', 'mgr', 'avail', 'shifts', 'schedule', 'requests', 'roles', 'joinCodes', 'config', 'menus', 'contracts', 'quotes', 'campaigns', 'suppliers', 'invoices', 'expcfg', 'inventory', 'purchaseReqs', 'shiftReports', 'faults', 'hk', 'hkcfg', 'hkLog', 'hkComplaints', 'leads', 'tasks', 'clients', 'hkCalls', 'spa', 'spacfg', 'vouchers'];
+const BACKUP_COLLS = ['shiftKinds', 'signs', 'receipts', 'orgcfg', 'groups', 'agents', 'priceLists', 'jobRoles', 'vchCodes', 'hkday', 'faultsAck', 'srDrafts', 'vchcfg', 'hotels', 'settings', 'employees', 'mgr', 'avail', 'shifts', 'schedule', 'requests', 'roles', 'joinCodes', 'config', 'menus', 'contracts', 'quotes', 'campaigns', 'suppliers', 'invoices', 'expcfg', 'inventory', 'purchaseReqs', 'shiftReports', 'faults', 'hk', 'hkcfg', 'hkLog', 'hkComplaints', 'leads', 'tasks', 'clients', 'hkCalls', 'spa', 'spacfg', 'vouchers'];
 const plain = (v) => {
   if (v instanceof admin.firestore.Timestamp) return { seconds: v.seconds, nanoseconds: v.nanoseconds };
   if (Array.isArray(v)) return v.map(plain);

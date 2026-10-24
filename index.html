@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202610240000"></script>
+<script src="i18n.js?v=202610240100"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1828,7 +1828,7 @@ function vStock(){const hs=modHs('stock',scopeHs());if(!hs.length)return wrap(em
   const all=Object.entries((S.stockAll||{})[h]||{}),rows=all.filter(([,x])=>(f.d==='all'||x.dept===f.d)&&(!f.low||(isLow(x)))).sort(([,a],[,b])=>ds.indexOf(a.dept)-ds.indexOf(b.dept)||String(a.name).localeCompare(String(b.name),'he'));
   const low=all.filter(([,x])=>isLow(x)),preqs=Object.entries((S.preqAll||{})[h]||{}).sort(([,a],[,b])=>(b.createdAt||0)-(a.createdAt||0)),pend=preqs.filter(([,r])=>r.status==='pending');
   const chips=hs.length>1?`<div class="chips" style="gap:6px">${hs.map(x=>`<button class="dchip ${x===h?'':'off'}" style="--h:var(--brass)" data-act="gm-hotel" data-h="${x}">${esc(hotelName(x))}</button>`).join('')}</div>`:'';
-  const head=`<section class="head"><div class="head-t"><h1>מלאי · ${esc(hotelName(h))}</h1><button class="btn pri" data-act="stock-new">+ פריט חדש</button></div>${chips}
+  const head=`<section class="head"><div class="head-t"><h1>מלאי · ${esc(hotelName(h))}</h1><span class="actions"><button class="btn" data-act="stkimp-open">ייבוא מאקסל</button><button class="btn pri" data-act="stock-new">+ פריט חדש</button></span></div>${chips}
     <div class="chips" style="gap:6px;margin-top:6px"><button class="dchip ${f.d==='all'?'':'off'}" data-act="stock-d" data-k="all">כל המחלקות</button>${ds.map(k=>`<button class="dchip ${f.d===k?'':'off'}" style="--h:${DMAP[k].h}" data-act="stock-d" data-k="${k}">${DMAP[k].n}</button>`).join('')}</div>
     <label class="check" style="margin-top:6px"><input type="checkbox" data-act="stock-low" ${f.low?'checked':''}> רק מה שמתחת למינימום</label>
     <div class="kpis">${kpi('פריטים',String(all.length))}${kpi('מתחת למינימום',String(low.length),low.length?'כדאי להזמין':'הכל מעל המינימום',low.length?'bad':'ok')}${kpi('דרישות רכש ממתינות',String(pend.length),stockBoss(h)?'מאשרים למטה':'ממתינות לאישור המנהל')}</div></section>`;
@@ -1857,6 +1857,45 @@ function vStock(){const hs=modHs('stock',scopeHs());if(!hs.length)return wrap(em
     :'<p class="muted">אין הזמנות פתוחות. דרישת רכש שתאושר תופיע כאן.</p>'}</div>`}
   return wrap(head+orders+table+reqs);
 }
+// ---- bulk import of stock items from Excel / CSV ----
+const XLSX_SRC='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+const STK_COLS={name:['שם פריט','שם הפריט','פריט','שם','מוצר','item','name','product'],dept:['מחלקה','dept','department'],unit:['יחידה','יחידת מידה','unit'],qty:['כמות','כמה יש','במלאי','מלאי','qty','quantity','stock'],min:['מינימום','רף מינימום','מינ','min','minimum'],supplier:['ספק','supplier','vendor']};
+const stkNorm=v=>String(v??'').replace(/[‏‎"'״׳]/g,'').replace(/\s+/g,' ').trim().toLowerCase();
+function stkDeptOf(v,ds){const t=stkNorm(v);if(!t)return '';for(const k of ds){if(k===t||stkNorm(DMAP[k].n)===t)return k}
+  if(t.length>1)for(const k of ds){const n=stkNorm(DMAP[k].n);if(n.includes(t)||t.includes(n.split(' / ')[0]))return k}return null}
+function stkParse(rows){const h=S.hotel,ds=stockDepts(),imp=S.stkImp,defD=imp.dept||ds[0],sups=Object.entries(S.sups||{});
+  let hi=rows.findIndex(r=>(r||[]).some(c=>STK_COLS.name.includes(stkNorm(c))));const col={};
+  if(hi>=0){rows[hi].forEach((c,i)=>{const t=stkNorm(c);for(const [k,al] of Object.entries(STK_COLS))if(col[k]===undefined&&al.includes(t))col[k]=i})}
+  else{hi=-1;['name','dept','unit','qty','min','supplier'].forEach((k,i)=>col[k]=i)}
+  const have={};Object.entries((S.stockAll||{})[h]||{}).forEach(([id,x])=>{have[x.dept+'|'+stkNorm(x.name)]=id});
+  const out=[],seen={};
+  rows.slice(hi+1).forEach((r,ri)=>{r=r||[];const cell=k=>col[k]===undefined?'':r[col[k]];const name=String(cell('name')??'').trim();if(!name)return;
+    const line=hi+2+ri,dRaw=cell('dept');let dept=String(dRaw??'').trim()?stkDeptOf(dRaw,ds):defD;
+    const num=k=>{const v=String(cell(k)??'').replace(/,/g,'').trim();return v===''?null:(isFinite(+v)?Math.max(0,+v):NaN)};
+    const it={line,name,dept,unit:String(cell('unit')??'').trim(),qty:num('qty'),min:num('min'),supName:String(cell('supplier')??'').trim(),supplier:''};
+    if(!dept){it.err='מחלקה לא מוכרת או בלי הרשאה: '+String(dRaw)}else if(Number.isNaN(it.qty)||Number.isNaN(it.min))it.err='כמות או מינימום אינם מספר';
+    if(it.supName&&canSupList()){const m=sups.find(([,v])=>stkNorm(v.name)===stkNorm(it.supName));if(m)it.supplier=m[0]}
+    if(!it.err){const key=dept+'|'+stkNorm(name);if(seen[key]){it.err='מופיע פעמיים בקובץ (שורה '+seen[key]+')'}else{seen[key]=line;it.id=have[key]||null}}
+    out.push(it)});
+  return out}
+function sheetStkImp(){const imp=S.stkImp||(S.stkImp={}),ds=stockDepts(),h=S.hotel,rows=imp.rows||[],ok=rows.filter(r=>!r.err),nw=ok.filter(r=>!r.id).length,up=ok.length-nw,bad=rows.filter(r=>r.err);
+  return sheetHead('ייבוא פריטים מאקסל',esc(hotelName(h)))+`<p class="muted" style="font-size:.88rem">מכינים קובץ אקסל (או CSV) עם שורת כותרות: <b>שם פריט, מחלקה, יחידה, כמות, מינימום, ספק</b>. רק "שם פריט" חובה. פריט שכבר קיים באותה מחלקה מתעדכן (כמות, מינימום, יחידה וספק שמולאו), ופריט חדש נוסף.</p>
+  <div class="actions"><button class="btn" data-act="stkimp-tpl">הורדת קובץ דוגמה</button></div>
+  <label class="f">מחלקה לשורות בלי מחלקה<select id="stkimp_d">${ds.map(k=>`<option value="${k}" ${(imp.dept||ds[0])===k?'selected':''}>${DMAP[k].n}</option>`).join('')}</select></label>
+  <label class="btn pri" style="width:fit-content;cursor:pointer">📄 ${rows.length?'בחירת קובץ אחר':'בחירת קובץ אקסל'}<input type="file" accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv" id="stk_file" hidden></label>
+  ${imp.busy?'<p class="muted">קורא את הקובץ…</p>':''}${imp.err?`<div class="notice">${esc(imp.err)}</div>`:''}
+  ${rows.length?`<div class="sep"></div><p><b>${esc(imp.file||'')}</b>: ${nw} פריטים חדשים · ${up} עדכונים${bad.length?` · <span style="color:var(--bad)">${bad.length} שורות עם בעיה (לא ייובאו)</span>`:''}</p>
+  <div class="scroll-x" style="max-height:45vh;overflow-y:auto"><table class="plain"><thead><tr><th>שורה</th><th>פריט</th><th>מחלקה</th><th class="num">כמות</th><th class="num">מינימום</th><th>ספק</th><th></th></tr></thead><tbody>
+  ${rows.slice(0,300).map(r=>`<tr${r.err?' style="background:var(--bad-bg)"':''}><td class="mono">${r.line}</td><td><b>${esc(r.name)}</b>${r.unit?` <span class="muted">(${esc(r.unit)})</span>`:''}</td><td>${esc(DMAP[r.dept]?.n||'')}</td><td class="num">${r.qty==null?'—':Number.isNaN(r.qty)?'?':r.qty}</td><td class="num">${r.min==null?'—':Number.isNaN(r.min)?'?':r.min}</td><td>${esc(r.supName)}${r.supName&&!r.supplier&&canSupList()?' <small class="muted">(לא נמצא בספקים)</small>':''}</td><td>${r.err?`<small style="color:var(--bad)">${esc(r.err)}</small>`:`<span class="pill ${r.id?'warn':'ok'}">${r.id?'עדכון':'חדש'}</span>`}</td></tr>`).join('')}</tbody></table></div>
+  ${rows.length>300?`<p class="muted">מוצגות 300 השורות הראשונות מתוך ${rows.length}.</p>`:''}
+  <div class="actions" style="margin-top:10px"><button class="btn pri" data-act="stkimp-go" ${ok.length&&!imp.saving?'':'disabled'}>${imp.saving?'מייבא…':`ייבוא ${ok.length} פריטים`}</button></div>`:''}`}
+async function stkReadFile(f){const imp=S.stkImp||(S.stkImp={});imp.busy=true;imp.err='';imp.rows=null;imp.file=f.name;render();
+  try{await loadScript(XLSX_SRC);if(canSupList())liveColl('sups','suppliers');const buf=await f.arrayBuffer(),wb=XLSX.read(buf,{type:'array'}),ws=wb.Sheets[wb.SheetNames[0]];
+    imp.raw=XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:''});imp.rows=stkParse(imp.raw);if(!imp.rows.length)imp.err='לא מצאתי שורות עם שם פריט בקובץ.'}
+  catch(e){imp.err='לא הצלחתי לקרוא את הקובץ: '+(e&&e.message||e)}
+  imp.busy=false;render()}
+document.addEventListener('change',e=>{if(e.target.id==='stk_file'){const f=e.target.files&&e.target.files[0];if(f)stkReadFile(f);return}
+  if(e.target.id==='stkimp_d'&&S.stkImp){S.stkImp.dept=e.target.value;if(S.stkImp.raw)S.stkImp.rows=stkParse(S.stkImp.raw);render()}});
 function sheetStock(){const id=S.sheet.id,h=S.hotel,x=((S.stockAll||{})[h]||{})[id]||{},g=k=>dv('stk',k,x[k]??''),isNew=!((S.stockAll||{})[h]||{})[id],ds=stockDepts();
   return sheetHead(isNew?'פריט חדש במלאי':esc(x.name),esc(hotelName(h)))+`<label class="f">שם הפריט<input type="text" id="st_n" data-f="stk.name" value="${esc(g('name'))}" placeholder="למשל: מגבות גוף, נייר טואלט, שמן"></label>
   <div class="row"><label class="f">מחלקה<select id="st_d" data-f="stk.dept">${ds.map(k=>`<option value="${k}" ${String(g('dept')||(S.stockF?.d!=='all'?S.stockF?.d:ds[0]))===k?'selected':''}>${DMAP[k].n}</option>`).join('')}</select></label><label class="f">יחידה<input type="text" id="st_u" data-f="stk.unit" value="${esc(g('unit'))}" placeholder="יח׳ / ק״ג / ארגז"></label></div>
@@ -2545,7 +2584,7 @@ function vProfile(){
 /* ---------- sheets ---------- */
 function renderSheet(){
   const el=$('#sheet');if(!S.sheet){el.hidden=true;el.innerHTML='';return}
-  let h='';if(S.sheet.type==='chadd')h=sheetChAdd();else if(S.sheet.type==='clic')h=sheetCLic();else if(S.sheet.type==='job')h=sheetJob();else if(S.sheet.type==='subs')h=sheetSubs();else if(S.sheet.type==='perm')h=sheetPerm();else if(S.sheet.type==='cell')h=sheetCell();else if(S.sheet.type==='emp')h=sheetEmp();else if(S.sheet.type==='send')h=sheetSend();else if(S.sheet.type==='remind')h=sheetRemind();else if(S.sheet.type==='camp')h=sheetCamp();else if(S.sheet.type==='sup')h=sheetSup();else if(S.sheet.type==='inv')h=sheetInv();else if(S.sheet.type==='stock')h=sheetStock();else if(S.sheet.type==='preq')h=sheetPreq();else if(S.sheet.type==='swap')h=sheetSwap();else if(S.sheet.type==='iospush')h=sheetIosPush();else if(S.sheet.type==='pushask')h=sheetPushAsk();else if(S.sheet.type==='srview')h=sheetSrView();else if(S.sheet.type==='bkauto')h=sheetBkAuto();else if(S.sheet.type==='metahelp')h=sheetMetaHelp();else if(S.sheet.type==='spa')h=sheetSpa();else if(S.sheet.type==='grp')h=sheetGrp();else if(S.sheet.type==='agent')h=sheetAgent();else if(S.sheet.type==='pl')h=sheetPl();else if(S.sheet.type==='vchnew')h=sheetVchNew();else if(S.sheet.type==='vch')h=sheetVch();else if(S.sheet.type==='hk')h=sheetHk();else if(S.sheet.type==='lead')h=sheetLead();else if(S.sheet.type==='client')h=sheetClient();else if(S.sheet.type==='hkooo')h=sheetHkOoo();
+  let h='';if(S.sheet.type==='stkimp')h=sheetStkImp();else if(S.sheet.type==='chadd')h=sheetChAdd();else if(S.sheet.type==='clic')h=sheetCLic();else if(S.sheet.type==='job')h=sheetJob();else if(S.sheet.type==='subs')h=sheetSubs();else if(S.sheet.type==='perm')h=sheetPerm();else if(S.sheet.type==='cell')h=sheetCell();else if(S.sheet.type==='emp')h=sheetEmp();else if(S.sheet.type==='send')h=sheetSend();else if(S.sheet.type==='remind')h=sheetRemind();else if(S.sheet.type==='camp')h=sheetCamp();else if(S.sheet.type==='sup')h=sheetSup();else if(S.sheet.type==='inv')h=sheetInv();else if(S.sheet.type==='stock')h=sheetStock();else if(S.sheet.type==='preq')h=sheetPreq();else if(S.sheet.type==='swap')h=sheetSwap();else if(S.sheet.type==='iospush')h=sheetIosPush();else if(S.sheet.type==='pushask')h=sheetPushAsk();else if(S.sheet.type==='srview')h=sheetSrView();else if(S.sheet.type==='bkauto')h=sheetBkAuto();else if(S.sheet.type==='metahelp')h=sheetMetaHelp();else if(S.sheet.type==='spa')h=sheetSpa();else if(S.sheet.type==='grp')h=sheetGrp();else if(S.sheet.type==='agent')h=sheetAgent();else if(S.sheet.type==='pl')h=sheetPl();else if(S.sheet.type==='vchnew')h=sheetVchNew();else if(S.sheet.type==='vch')h=sheetVch();else if(S.sheet.type==='hk')h=sheetHk();else if(S.sheet.type==='lead')h=sheetLead();else if(S.sheet.type==='client')h=sheetClient();else if(S.sheet.type==='hkooo')h=sheetHkOoo();
   if(!h){S.sheet=null;el.hidden=true;return}
   el.innerHTML=`<div class="panel${S.sheet.type==='srview'||S.sheet.type==='subs'?' big':''}" role="dialog" aria-modal="true">${h}</div>`;el.hidden=false;
 }
@@ -3399,6 +3438,20 @@ const ACT={
   'gm-month':D=>{S.gmM=monAdd(S.gmM||todayISO().slice(0,7),+D.d);render()},
   'stock-d':D=>{S.stockF.d=D.k;render()},
   'stock-low':(D,t)=>{S.stockF.low=t.checked;render()},
+  'stkimp-open':()=>{S.stkImp={dept:S.stockF&&S.stockF.d!=='all'?S.stockF.d:''};S.sheet={type:'stkimp'};if(canSupList())liveColl('sups','suppliers');render()},
+  'stkimp-tpl':async()=>{try{await loadScript(XLSX_SRC);const ds=stockDepts(),ws=XLSX.utils.aoa_to_sheet([['שם פריט','מחלקה','יחידה','כמות','מינימום','ספק'],['מגבות גוף',DMAP[ds.includes('housekeeping')?'housekeeping':ds[0]].n,'יח׳',120,40,''],['שמן קנולה',DMAP[ds.includes('kitchen')?'kitchen':ds[0]].n,'ליטר',20,5,'']]);
+    ws['!cols']=[{wch:24},{wch:16},{wch:10},{wch:8},{wch:10},{wch:20}];const wb=XLSX.utils.book_new();wb.Workbook={Views:[{RTL:true}]};XLSX.utils.book_append_sheet(wb,ws,'מלאי');XLSX.writeFile(wb,'stock-template.xlsx')}catch(e){toast('לא הצלחתי ליצור את הקובץ')}},
+  'stkimp-go':async()=>{const imp=S.stkImp,h=S.hotel;if(!imp||imp.saving)return;const ok=(imp.rows||[]).filter(r=>!r.err);if(!ok.length)return;imp.saving=true;render();
+    const now=Date.now(),cur=(S.stockAll||{})[h]||{};let b=fdb.batch(),n=0,done=0;
+    try{for(const r of ok){const id=r.id||('k'+now.toString(36)+Math.random().toString(36).slice(2,8)),x=r.id?cur[r.id]||{}:{};
+        const d={hotel:h,dept:r.dept,name:r.id?(x.name||r.name):r.name,updatedAt:now,updatedBy:S.uid};
+        if(!r.id){d.createdAt=now;d.unit=r.unit;d.qty=r.qty??0;d.min=r.min??0;d.supplier=r.supplier||'';d.supplierName=r.supplier?((S.sups||{})[r.supplier]?.name||r.supName):r.supName}
+        else{if(r.unit)d.unit=r.unit;if(r.qty!=null)d.qty=r.qty;if(r.min!=null)d.min=r.min;if(r.supName){d.supplier=r.supplier||'';d.supplierName=r.supplier?((S.sups||{})[r.supplier]?.name||r.supName):r.supName}}
+        b.set(fdb.doc('inventory/'+id),d,{merge:true});S.stockAll[h]={...(S.stockAll[h]||{}),[id]:{...x,...d}};
+        if(++n>=400){await b.commit();done+=n;n=0;b=fdb.batch()}}
+      if(n){await b.commit();done+=n}
+      S.sheet=null;S.stkImp=null;render();toast('יובאו '+done+' פריטים למלאי')}
+    catch(e){imp.saving=false;imp.err='הייבוא נעצר אחרי '+done+' פריטים: '+errMsg(mapErr(e));render()}},
   'stock-new':()=>{S.drafts.stk=null;S.confirm=null;S.sheet={type:'stock',id:'k'+Date.now().toString(36)+Math.random().toString(36).slice(2,6)};render()},
   'stock-open':D=>{S.drafts.stk=null;S.confirm=null;S.sheet={type:'stock',id:D.id};render()},
   'stock-save':()=>{const h=S.hotel,id=S.sheet.id,x=((S.stockAll||{})[h]||{})[id]||{},g=k=>dv('stk',k,x[k]??''),name=String(g('name')).trim(),ds=stockDepts();

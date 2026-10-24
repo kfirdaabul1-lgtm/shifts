@@ -16,5 +16,5 @@ jobs:
         run: |
           echo "$KEY" > "$RUNNER_TEMP/key.json"
           export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/key.json"
-          cd functions && node diag.js
+          cd functions && node diag2.js
           rm -f "$RUNNER_TEMP/key.json"

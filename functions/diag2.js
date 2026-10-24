@@ -22,7 +22,7 @@ const P = 'hotel-shifts', base = '/databases/(default)/documents/';
   const mk = (u, tok, method, data, res, path) => ({ expectation: 'ALLOW', request: { auth: { uid: u, token: tok }, path: '/databases/(default)/documents/' + (path || 'hk/' + hkId), method, time: new Date().toISOString(), resource: { data } }, resource: res ? { data: res } : undefined, functionMocks: mocks, expressionReportLevel: 'NONE' });
   const done = JSON.parse(JSON.stringify(next)); done.clean[room] = 'vi'; done.done = Object.assign({}, done.done || {}, { [room]: now }); done.doneBy = Object.assign({}, done.doneBy || {}, { [room]: uid });
   const asg = JSON.parse(JSON.stringify(cur)); asg.asg[room] = 'someone'; asg.updatedAt = now;
-  const occ = JSON.parse(JSON.stringify(cur)); occ.occ = Object.assign({}, occ.occ || {}, { [room]: 'res' }); occ.updatedAt = now;
+  const occ = JSON.parse(JSON.stringify(cur)); occ.occ = Object.assign({}, occ.occ || {}, { [room]: 'zzz' + now }); occ.updatedAt = now;
   const cases = [['worker start', mk(uid, token, 'update', next, cur)], ['worker done', mk(uid, token, 'update', done, cur)], ['worker asg (should DENY)', Object.assign(mk(uid, token, 'update', asg, cur), { expectation: 'DENY' })], ['worker occ (should DENY)', Object.assign(mk(uid, token, 'update', occ, cur), { expectation: 'DENY' })],
     ['fault hk create', mk(uid, token, 'create', { hotel: h, room: room, desc: 'x', status: 'open', openedBy: uid, source: 'hk' }, null, 'faults/hk_test')],
     ['call done', mk(uid, token, 'update', { hotel: h, to: uid, status: 'done', doneAt: 2, mins: 3, room: room }, { hotel: h, to: uid, status: 'open', room: room }, 'hkCalls/test')],

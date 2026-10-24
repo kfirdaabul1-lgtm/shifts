@@ -24,6 +24,9 @@ const P = 'hotel-shifts', base = '/databases/(default)/documents/';
   const asg = JSON.parse(JSON.stringify(cur)); asg.asg[room] = 'someone'; asg.updatedAt = now;
   const occ = JSON.parse(JSON.stringify(cur)); occ.occ = Object.assign({}, occ.occ || {}, { [room]: 'res' }); occ.updatedAt = now;
   const cases = [['worker start', mk(uid, token, 'update', next, cur)], ['worker done', mk(uid, token, 'update', done, cur)], ['worker asg (should DENY)', Object.assign(mk(uid, token, 'update', asg, cur), { expectation: 'DENY' })], ['worker occ (should DENY)', Object.assign(mk(uid, token, 'update', occ, cur), { expectation: 'DENY' })],
+    ['fault hk create', mk(uid, token, 'create', { hotel: h, room: room, desc: 'x', status: 'open', openedBy: uid, source: 'hk' }, null, 'faults/hk_test')],
+    ['call done', mk(uid, token, 'update', { hotel: h, to: uid, status: 'done', doneAt: 2, mins: 3, room: room }, { hotel: h, to: uid, status: 'open', room: room }, 'hkCalls/test')],
+    ['push token', mk(uid, token, 'create', { uid, tokens: {} }, null, 'pushTokens/' + uid)],
     ['worker create', mk(uid, token, 'create', { hotel: h, date: '2099-01-01', start: { 1: 1 }, updatedAt: 1, lastBy: uid }, null, 'hk/' + h + '__2099-01-01')]];
   for (const [lbl, file] of [['NEW', src], ['OLD', fs.readFileSync(__dirname + '/old.rules', 'utf8')]]) {
   const body = { source: { files: [{ name: 'firestore.rules', content: file }] }, testSuite: { testCases: cases.map((c) => c[1]) } };

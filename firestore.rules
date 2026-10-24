@@ -29,12 +29,11 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // the chain owner's e-mail is kept in orgcfg/main.ownerEmail (set by the system owner), so the same rules work in every chain's database
+    // the chain owner's e-mail (orgcfg/main.ownerEmail). One get() only: the old exists()+get() pair, evaluated inside every
+    // isOwner() call, pushed some writes over Firestore's 1000-expression limit (Oct 24). orgcfg/main always exists in a set-up project.
     function ownerEmail() {
-      return exists(/databases/$(database)/documents/orgcfg/main)
-        ? get(/databases/$(database)/documents/orgcfg/main).data.get('ownerEmail', 'kfirdaabul1@gmail.com')
-        : 'kfirdaabul1@gmail.com';
+      return get(/databases/$(database)/documents/orgcfg/main).data.get('ownerEmail', 'kfirdaabul1@gmail.com');
     }
-    // the owner of the whole system (all chains) is owner in every chain's database
     function platformEmail() { return 'kfirdaabul1@gmail.com'; }
 
     function signedIn() { return request.auth != null; }

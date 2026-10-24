@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202610240100"></script>
+<script src="i18n.js?v=202610240200"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -447,7 +447,7 @@ document.addEventListener('change',e=>{const t=e.target;if(!t.matches)return;
   if(t.matches('[data-item]')){render();return}
   if(t.matches('[data-inv]')){const d=S.drafts.inv;if(!d)return;d[t.dataset.inv]=t.type==='checkbox'?t.checked:t.value;if(t.tagName==='SELECT'||t.type==='checkbox'||t.type==='date'){t.blur();render()}return}
   if(t.matches('[data-expf]')){S.expF[t.dataset.expf]=t.value;t.blur();render();return}
-  if(t.id==='inv_img'&&t.files&&t.files[0]){const d=S.drafts.inv;toast('מעבד את הצילום…');compressImage(t.files[0]).then(u=>{S.invImg={id:d.id,data:u,changed:true};render()}).catch(()=>toast('לא הצלחתי לקרוא את התמונה'))}});
+  if(t.id==='inv_img'&&t.files&&t.files[0]){const d=S.drafts.inv;toast('מעבד את הצילום…');compressImage(t.files[0]).then(u=>{S.invImg={id:d.id,data:u,changed:true};const empty=!(d.items||[]).some(i=>prodKey(i.name)||+i.price);if(empty)invScan();else render()}).catch(()=>toast('לא הצלחתי לקרוא את התמונה'))}});
 document.addEventListener('change',e=>{const t=e.target;if(t.matches('[data-task]')){const id=t.dataset.task,up={done:t.checked,doneAt:t.checked?Date.now():null};S.tasks[id]={...S.tasks[id],...up};fdb.doc('tasks/'+id).set(up,{merge:true}).catch(()=>{});render();return}
   if(t.matches('[data-leadf]')&&t.tagName==='SELECT'){S.leadF[t.dataset.leadf]=t.value;t.blur();render()}
   else if(t.matches('[data-leadq]')&&S.sheet&&S.sheet.type==='lead'&&t.value){const id=S.sheet.id,q=(S.lquotes||{})[t.value];const up={quoteId:t.value,quoteNum:(q&&q.num)||null,updatedAt:Date.now()};S.leads[id]={...S.leads[id],...up};fdb.doc('leads/'+id).set(up,{merge:true});t.blur();render();toast('ההצעה חוברה לליד')}});
@@ -469,7 +469,7 @@ document.addEventListener('change',e=>{const t=e.target;if(t.id==='e_job'){(S.dr
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target&&e.target.id==='vch_code'){e.preventDefault();ACT['vch-find']()}});
 document.addEventListener('change',e=>{const t=e.target;if(t.matches&&t.matches('[data-chkadd]')&&t.value){const u=t.value,emp=(S.emps||{})[u];t.value='';if(emp)setExtraApp(u,emp,'hkchk',true)}});
 document.addEventListener('input',onField);document.addEventListener('change',onField);
-const isTyping=()=>{const a=document.activeElement;return a&&['INPUT','TEXTAREA','SELECT'].includes(a.tagName)&&!['checkbox','radio'].includes(a.type)};
+const isTyping=()=>{if(S.sigDraw)return true;const a=document.activeElement;return a&&['INPUT','TEXTAREA','SELECT'].includes(a.tagName)&&!['checkbox','radio'].includes(a.type)};
 document.addEventListener('focusout',()=>setTimeout(()=>{if(S.pending&&!isTyping())render()},0));
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&S.menu){S.menu=false;render();return}if(e.key==='Escape'&&S.sheet){S.sheet=null;S.drafts.emp=null;render()}});
 
@@ -1648,7 +1648,9 @@ function sheetInv(){const d=invDraft(),isNew=!(S.invs||{})[d.id],T=invTotals(d),
   ${d.supplier==='__new'?`<label class="f">שם הספק החדש<input type="text" data-inv="newSup" value="${esc(d.newSup||'')}"></label>`:''}
   <div class="row"><label class="f">תאריך החשבונית<input type="date" data-inv="date" value="${esc(d.date)}"></label><label class="f">מספר חשבונית<input type="text" data-inv="number" value="${esc(d.number||'')}" dir="ltr"></label></div>
   <div class="f"><span>צילום החשבונית</span>${img?`<img src="${img}" alt="צילום החשבונית" style="max-height:260px;border-radius:8px;border:1px solid var(--line);object-fit:contain;background:#fff">`:d.hasImg?'<span class="muted">טוען את הצילום…</span>':''}
-    <label class="btn" style="width:fit-content;cursor:pointer">${img||d.hasImg?'צילום מחדש':'צילום / בחירת תמונה'}<input type="file" accept="image/*" capture="environment" id="inv_img" hidden></label></div>
+    <label class="btn" style="width:fit-content;cursor:pointer">${img||d.hasImg?'צילום מחדש':'צילום / בחירת תמונה'}<input type="file" accept="image/*" capture="environment" id="inv_img" hidden></label>
+    ${img?(S.invScan&&S.invScan.inv===d.id&&S.invScan.busy?'<div class="notice">🤖 קורא את החשבונית ומזין את המוצרים… (עד חצי דקה)</div>':`<button class="btn sm" style="width:fit-content" data-act="inv-scan">🤖 מילוי אוטומטי מהצילום</button>`):''}
+    ${S.invScan&&S.invScan.inv===d.id&&S.invScan.err?`<div class="notice">${esc(S.invScan.err)}</div>`:''}${S.invScan&&S.invScan.inv===d.id&&S.invScan.msg?`<p style="font-size:.85rem;margin:0">${S.invScan.msg}</p>`:''}</div>
   <h3 style="margin-top:6px">מוצרים</h3><datalist id="inv_prods">${prods.map(p=>`<option value="${esc(p)}">`).join('')}</datalist>
   <div class="stack" style="gap:8px">${d.items.map((it,i)=>`<div style="border:1px solid var(--line);border-radius:8px;padding:8px;display:flex;flex-wrap:wrap;gap:6px;align-items:flex-end">
     <label class="f" style="flex:2;min-width:140px">מוצר<input type="text" list="inv_prods" data-item="${i}|name" value="${esc(it.name||'')}"></label>
@@ -1667,6 +1669,28 @@ function sheetInv(){const d=invDraft(),isNew=!(S.invs||{})[d.id],T=invTotals(d),
   <label class="f">הערה<input type="text" data-inv="notes" value="${esc(d.notes||'')}"></label>
   <div class="actions"><button class="btn pri" data-act="inv-save">שמירה</button>${isNew?'':`<button class="btn brass" data-act="inv-send">שליחה להנהלת חשבונות</button>${S.confirm==='inv-del'?'<button class="btn danger" data-act="inv-del">לחיצה נוספת תמחק</button>':'<button class="btn ghost" data-act="inv-del">מחיקה</button>'}`}</div>
   ${!isNew&&(S.invs[d.id]||{}).sentAt?`<p class="muted" style="font-size:.82rem">נשלח להנהלת חשבונות ב-${new Date(S.invs[d.id].sentAt).toLocaleDateString('he-IL')}</p>`:''}`}
+// ---- invoice scan: Gemini (Cloud Function onInvoiceScan) reads the photo and fills supplier, number, date and lines ----
+async function invScan(){const d=invDraft(),img=S.invImg&&S.invImg.id===d.id?S.invImg.data:'';if(!img){toast('קודם מצלמים את החשבונית');return}
+  const sid='sc'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);S.invScan={inv:d.id,id:sid,busy:true};render();
+  try{await fdb.doc('invoiceScans/'+sid).set({data:img,by:S.uid,at:Date.now(),status:'pending',sups:Object.values(S.sups||{}).map(v=>v.name).filter(Boolean).slice(0,200)})}
+  catch(e){S.invScan={inv:d.id,err:'לא הצלחתי לשלוח את הצילום לקריאה: '+errMsg(mapErr(e))};render();return}
+  let off=null;const timer=setTimeout(()=>{off&&off();if(S.invScan&&S.invScan.id===sid){S.invScan={inv:d.id,err:'הקריאה לוקחת יותר מדי זמן. אפשר לנסות שוב או להזין ידנית.'};render()}},90000);
+  off=fdb.doc('invoiceScans/'+sid).onSnapshot(sn=>{const v=sn.data();if(!v||v.status==='pending')return;off();clearTimeout(timer);fdb.doc('invoiceScans/'+sid).delete().catch(()=>{});
+    if(!S.invScan||S.invScan.id!==sid)return;
+    if(v.status!=='done'){S.invScan={inv:d.id,err:'לא הצלחתי לקרוא את החשבונית אוטומטית. אפשר להזין ידנית.'};console.warn('scan',v.error);render();return}
+    invApplyScan(d,v.result||{})},e=>{clearTimeout(timer);S.invScan={inv:d.id,err:'שגיאה בקריאה: '+errMsg(mapErr(e))};render()})}
+function invApplyScan(d,r){const dig=x=>String(x||'').replace(/\D/g,''),nn=x=>String(x||'').replace(/["'״׳.,\-()]/g,'').replace(/בע\s*מ/g,'').replace(/\s+/g,' ').trim().toLowerCase();
+  if(!d.supplier||d.supplier==='__new'){const cid=dig(r.companyId),nm=nn(r.supplierName);
+    const hit=Object.entries(S.sups||{}).find(([,v])=>cid&&cid.length>=8&&dig(v.companyId)===cid)||Object.entries(S.sups||{}).find(([,v])=>nm&&nn(v.name)&&(nn(v.name)===nm||nm.includes(nn(v.name))||nn(v.name).includes(nm)));
+    if(hit)d.supplier=hit[0];else if(r.supplierName){d.supplier='__new';d.newSup=String(r.supplierName).trim()}}
+  if(r.number&&!d.number)d.number=String(r.number).trim();if(/^\d{4}-\d{2}-\d{2}$/.test(r.date||''))d.date=r.date;
+  const items=(r.items||[]).filter(i=>prodKey(i.name)).map(i=>({name:prodKey(i.name),qty:+i.qty||1,unit:String(i.unit||'').trim(),price:Math.round((+i.price||0)*100)/100}));
+  if(items.length)d.items=items;if(typeof r.vatIncluded==='boolean')d.vatIncluded=r.vatIncluded;
+  const T=invTotals(d),ref=+r.total||0,ups=d.supplier&&d.supplier!=='__new'?items.filter(i=>{const lp=lastPrice(d.supplier,i.name,d.date,d.id);return lp&&pct(+i.price,lp.price)>=0.5}):[];
+  let msg=`✓ מולאו ${items.length} מוצרים. כדאי לעבור על השורות ולתקן אם צריך.`;
+  if(ref&&Math.abs(T.total-ref)>Math.max(1,ref*0.01))msg+=` <b style="color:var(--bad)">הסכום שחושב (${ils(T.total)}) שונה מהסכום בחשבונית (${ils(ref)}).</b>`;
+  if(ups.length)msg+=` <b style="color:var(--bad)">▲ ${ups.length} מוצרים התייקרו מהפעם הקודמת: ${ups.slice(0,4).map(i=>esc(i.name)).join(', ')}${ups.length>4?'…':''}</b>`;
+  S.invScan={inv:d.id,msg};render()}
 function compressImage(file){return new Promise((ok,bad)=>{const fr=new FileReader();fr.onerror=bad;fr.onload=()=>{const im=new Image();im.onerror=bad;im.onload=()=>{
   let w=im.width,h=im.height;const M=1500;if(Math.max(w,h)>M){const r=M/Math.max(w,h);w=Math.round(w*r);h=Math.round(h*r)}
   const c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(im,0,0,w,h);
@@ -1842,18 +1866,19 @@ function vStock(){const hs=modHs('stock',scopeHs());if(!hs.length)return wrap(em
     <span class="actions"><span class="pill ${r.status==='pending'?'warn':r.status==='declined'||r.status==='canceled'?'bad':'ok'}">${PREQST[r.status]||''}</span>
     ${stockBoss(h)&&r.status==='pending'?`<button class="btn sm pri" data-act="preq-st" data-r="${rid}" data-h="${h}" data-st="approved">אישור</button><button class="btn sm" data-act="preq-st" data-r="${rid}" data-h="${h}" data-st="declined">דחייה</button>`:''}
     ${stockBoss(h)&&r.status==='approved'?`<button class="btn sm" data-act="preq-st" data-r="${rid}" data-h="${h}" data-st="ordered">סימון שהוזמן</button>`:''}
-    ${(r.status==='approved'||r.status==='ordered')?`<button class="btn sm" data-act="preq-st" data-r="${rid}" data-h="${h}" data-st="received">התקבל (מוסיף למלאי)</button>`:''}
+    ${(r.status==='approved'||r.status==='ordered')?`<button class="btn sm" data-act="recv-open" data-r="${rid}" data-h="${h}">התקבל · חתימה (מוסיף למלאי)</button>`:''}${r.status==='received'&&r.receiptId?`<button class="btn sm ghost" data-act="rcpt-open" data-id="${esc(r.receiptId)}">✍️ ${esc(r.receivedByName||'חתימה')}</button>`:''}
     ${r.status==='pending'&&r.by===S.uid?`<button class="btn sm ghost" data-act="preq-st" data-r="${rid}" data-h="${h}" data-st="canceled">ביטול</button>`:''}</span></div>`).join('')}</div></div>`:'';
   // approved requests become orders to suppliers, grouped by the item's supplier
   let orders='';if(stockBoss(h)){if(canSupList())liveColl('sups','suppliers');const items=(S.stockAll||{})[h]||{},grp={};
     for(const [rid,r] of preqs.filter(([,r])=>r.status==='approved'||r.status==='ordered')){const sid=r.supplier||items[r.itemId]?.supplier||'',g=grp[sid]||(grp[sid]={approved:[],ordered:[]});g[r.status].push([rid,r])}
     const keys=Object.keys(grp).sort((a,b)=>(a?0:1)-(b?0:1));
-    orders=`<div class="card"><h3>הזמנות לספקים</h3><p class="muted" style="font-size:.85rem">כל דרישת רכש שאושרה נכנסת לכאן, לפי הספק של הפריט. שולחים לספק בוואטסאפ, מסמנים שהוזמן, וכשהסחורה מגיעה לוחצים "התקבל" והכמות נוספת למלאי.</p>
+    orders=`<div class="card"><h3>הזמנות לספקים</h3><p class="muted" style="font-size:.85rem">כל דרישת רכש שאושרה נכנסת לכאן, לפי הספק של הפריט. שולחים לספק בוואטסאפ, מסמנים שהוזמן, וכשהסחורה מגיעה מי שקיבל אותה בודק כמויות וחותם במערכת, והכמות נוספת למלאי.</p>
     ${keys.length?keys.map(sid=>{const g=grp[sid],sp=sid?(S.sups||{})[sid]:null,name=sid?(sp?.name||g.approved.concat(g.ordered)[0][1].supplierName||items[g.approved.concat(g.ordered)[0][1].itemId]?.supplierName||'ספק'):'בלי ספק',ph=normPhone(sp?.phone||'').replace('+',''),txt=orderText(h,{name:sid?name:''},g.approved);
       return `<div class="sep"></div><div class="actions" style="justify-content:space-between;align-items:center"><b>${esc(name)}${sp?.phone?` <span class="muted" style="font-weight:400"><bdi dir="ltr">${esc(sp.phone)}</bdi></span>`:''}</b>
       ${g.approved.length?`<span class="actions">${ph?`<a class="btn sm pri" target="_blank" rel="noopener" href="https://wa.me/${ph}?text=${encodeURIComponent(txt)}">שליחה לספק בוואטסאפ</a>`:''}<button class="btn sm" data-act="order-copy" data-h="${h}" data-s="${esc(sid)}">העתקת ההזמנה</button><button class="btn sm" data-act="order-done" data-h="${h}" data-s="${esc(sid)}">סימון שהוזמן</button></span>`:''}</div>
       ${!sid?'<p class="muted" style="font-size:.82rem">לפריטים האלה עוד לא שויך ספק. משייכים ספק בעריכת הפריט.</p>':''}
-      <div class="plist">${g.approved.concat(g.ordered).map(([rid,r])=>`<div class="prow"><span class="who"><b>${esc(r.itemName)} · ${+r.qty} ${esc(r.unit||'')}</b><small>${esc(DMAP[r.dept]?.n||'')}${r.note?' · '+esc(r.note):''}</small></span><span class="actions"><span class="pill ${r.status==='ordered'?'ok':'warn'}">${r.status==='ordered'?'הוזמן, ממתין לקבלה':'להזמין'}</span><button class="btn sm" data-act="preq-st" data-r="${rid}" data-h="${h}" data-st="received">התקבל</button></span></div>`).join('')}</div>`}).join('')
+      <div class="plist">${g.approved.concat(g.ordered).map(([rid,r])=>`<div class="prow"><span class="who"><b>${esc(r.itemName)} · ${+r.qty} ${esc(r.unit||'')}</b><small>${esc(DMAP[r.dept]?.n||'')}${r.note?' · '+esc(r.note):''}</small></span><span class="actions"><span class="pill ${r.status==='ordered'?'ok':'warn'}">${r.status==='ordered'?'הוזמן, ממתין לקבלה':'להזמין'}</span><button class="btn sm" data-act="recv-open" data-r="${rid}" data-h="${h}">התקבל</button></span></div>`).join('')}</div>
+      <div class="actions" style="margin-top:6px"><button class="btn sm pri" data-act="recv-open" data-h="${h}" data-s="${esc(sid)}">✍️ קבלת הסחורה מהספק וחתימה</button></div>`}).join('')
     :'<p class="muted">אין הזמנות פתוחות. דרישת רכש שתאושר תופיע כאן.</p>'}</div>`}
   return wrap(head+orders+table+reqs);
 }
@@ -1896,6 +1921,27 @@ async function stkReadFile(f){const imp=S.stkImp||(S.stkImp={});imp.busy=true;im
   imp.busy=false;render()}
 document.addEventListener('change',e=>{if(e.target.id==='stk_file'){const f=e.target.files&&e.target.files[0];if(f)stkReadFile(f);return}
   if(e.target.id==='stkimp_d'&&S.stkImp){S.stkImp.dept=e.target.value;if(S.stkImp.raw)S.stkImp.rows=stkParse(S.stkImp.raw);render()}});
+// ---- goods receipt with a signature: receipts/{id} {hotel, dept, supplier, items, name, by, sig, at} ----
+function recvReqs(){const h=S.sheet.h,src=(S.preqAll||{})[h]||{};return (S.sheet.ids||[]).map(id=>[id,src[id]]).filter(([,r])=>r&&(r.status==='approved'||r.status==='ordered'))}
+function sheetRecv(){const h=S.sheet.h,rs=recvReqs(),g=(k,d)=>dv('recv',k,d);if(!rs.length)return '';const sup=rs[0][1].supplierName||'';
+  return sheetHead('קבלת סחורה',esc(hotelName(h))+(sup?' · '+esc(sup):''))+`<p class="muted" style="font-size:.86rem">בודקים מה הגיע בפועל, מתקנים כמות אם הגיע פחות, ומי שקיבל את הסחורה חותם. הכמויות נוספות למלאי.</p>
+  <div class="plist">${rs.map(([rid,r])=>`<div class="prow"><span class="who"><b>${esc(r.itemName)}</b><small>הוזמן ${+r.qty} ${esc(r.unit||'')} · ${esc(DMAP[r.dept]?.n||'')}</small></span><label class="f" style="max-width:110px;margin:0">התקבל<input type="number" min="0" step="any" inputmode="decimal" data-f="recv.q_${rid}" value="${esc(g('q_'+rid,r.qty))}"></label></div>`).join('')}</div>
+  <label class="f">שם מקבל הסחורה<input type="text" data-f="recv.name" value="${esc(g('name',S.meName||''))}"></label>
+  <label class="f">הערה (חסר, פגום, החלפה…)<input type="text" data-f="recv.note" value="${esc(g('note',''))}"></label>
+  <div class="f"><span>חתימה</span><canvas id="sig_pad" width="700" height="220" style="width:100%;height:170px;background:#fff;border:1.5px dashed var(--line);border-radius:10px;touch-action:none;cursor:crosshair"></canvas>
+  <div class="actions" style="justify-content:space-between"><small class="muted">חותמים עם האצבע בתוך המסגרת</small><button class="btn sm ghost" data-act="sig-clear">ניקוי החתימה</button></div></div>
+  <div class="actions"><button class="btn pri" data-act="recv-save" ${S.recvBusy?'disabled':''}>${S.recvBusy?'שומר…':'אישור קבלה וחתימה'}</button></div>`}
+function sigRestore(){const c=document.getElementById('sig_pad');if(!c||!S.sig)return;const im=new Image();im.onload=()=>c.getContext('2d').drawImage(im,0,0);im.src=S.sig}
+(()=>{let drawing=false,last=null;const pos=(c,e)=>{const b=c.getBoundingClientRect();return [(e.clientX-b.left)*c.width/b.width,(e.clientY-b.top)*c.height/b.height]};
+  document.addEventListener('pointerdown',e=>{const c=e.target;if(c.id!=='sig_pad')return;e.preventDefault();drawing=true;S.sigDraw=true;last=pos(c,e);try{c.setPointerCapture(e.pointerId)}catch(_){}
+    const x=c.getContext('2d');x.fillStyle='#111';x.beginPath();x.arc(last[0],last[1],1.6,0,7);x.fill()});
+  document.addEventListener('pointermove',e=>{const c=e.target;if(!drawing||c.id!=='sig_pad')return;e.preventDefault();const p=pos(c,e),x=c.getContext('2d');x.strokeStyle='#111';x.lineWidth=3;x.lineCap='round';x.lineJoin='round';x.beginPath();x.moveTo(last[0],last[1]);x.lineTo(p[0],p[1]);x.stroke();last=p;S.sigDirty=true});
+  const up=e=>{if(!drawing)return;drawing=false;S.sigDraw=false;const c=document.getElementById('sig_pad');if(c){S.sig=c.toDataURL('image/png');S.sigDirty=true}if(S.pending&&!isTyping())render()};document.addEventListener('pointerup',up);document.addEventListener('pointercancel',up)})();
+function sheetRcpt(){const id=S.sheet.id,v=(S.rcpts||{})[id];if(v===undefined){S.rcpts=S.rcpts||{};S.rcpts[id]=null;fdb.doc('receipts/'+id).get().then(d=>{S.rcpts[id]=d.exists?d.data():false;render()},e=>{S.rcpts[id]=false;toast(errMsg(mapErr(e)));render()})}
+  if(!v)return sheetHead('אישור קבלת סחורה','')+(v===false?'<p class="muted">האישור לא נמצא</p>':'<p class="muted">טוען…</p>');
+  return sheetHead('אישור קבלת סחורה',esc(hotelName(v.hotel))+(v.supplierName?' · '+esc(v.supplierName):''))+`<p><b>${esc(v.name||'')}</b> · ${new Date(v.at).toLocaleString('he-IL',{dateStyle:'short',timeStyle:'short'})}</p>
+  <table class="plain"><thead><tr><th>פריט</th><th class="num">הוזמן</th><th class="num">התקבל</th></tr></thead><tbody>${(v.items||[]).map(i=>`<tr${+i.qty<+i.ordered?' style="background:var(--bad-bg)"':''}><td>${esc(i.name)}${i.unit?` <span class="muted">(${esc(i.unit)})</span>`:''}</td><td class="num">${+i.ordered}</td><td class="num">${+i.qty}</td></tr>`).join('')}</tbody></table>
+  ${v.note?`<p>הערה: ${esc(v.note)}</p>`:''}${v.sig&&/^data:image\/png;base64,/.test(v.sig)?`<div><p class="muted" style="margin:8px 0 4px">חתימה</p><img src="${v.sig}" alt="חתימה" style="width:100%;max-width:420px;background:#fff;border:1px solid var(--line);border-radius:8px"></div>`:''}`}
 function sheetStock(){const id=S.sheet.id,h=S.hotel,x=((S.stockAll||{})[h]||{})[id]||{},g=k=>dv('stk',k,x[k]??''),isNew=!((S.stockAll||{})[h]||{})[id],ds=stockDepts();
   return sheetHead(isNew?'פריט חדש במלאי':esc(x.name),esc(hotelName(h)))+`<label class="f">שם הפריט<input type="text" id="st_n" data-f="stk.name" value="${esc(g('name'))}" placeholder="למשל: מגבות גוף, נייר טואלט, שמן"></label>
   <div class="row"><label class="f">מחלקה<select id="st_d" data-f="stk.dept">${ds.map(k=>`<option value="${k}" ${String(g('dept')||(S.stockF?.d!=='all'?S.stockF?.d:ds[0]))===k?'selected':''}>${DMAP[k].n}</option>`).join('')}</select></label><label class="f">יחידה<input type="text" id="st_u" data-f="stk.unit" value="${esc(g('unit'))}" placeholder="יח׳ / ק״ג / ארגז"></label></div>
@@ -2584,9 +2630,9 @@ function vProfile(){
 /* ---------- sheets ---------- */
 function renderSheet(){
   const el=$('#sheet');if(!S.sheet){el.hidden=true;el.innerHTML='';return}
-  let h='';if(S.sheet.type==='stkimp')h=sheetStkImp();else if(S.sheet.type==='chadd')h=sheetChAdd();else if(S.sheet.type==='clic')h=sheetCLic();else if(S.sheet.type==='job')h=sheetJob();else if(S.sheet.type==='subs')h=sheetSubs();else if(S.sheet.type==='perm')h=sheetPerm();else if(S.sheet.type==='cell')h=sheetCell();else if(S.sheet.type==='emp')h=sheetEmp();else if(S.sheet.type==='send')h=sheetSend();else if(S.sheet.type==='remind')h=sheetRemind();else if(S.sheet.type==='camp')h=sheetCamp();else if(S.sheet.type==='sup')h=sheetSup();else if(S.sheet.type==='inv')h=sheetInv();else if(S.sheet.type==='stock')h=sheetStock();else if(S.sheet.type==='preq')h=sheetPreq();else if(S.sheet.type==='swap')h=sheetSwap();else if(S.sheet.type==='iospush')h=sheetIosPush();else if(S.sheet.type==='pushask')h=sheetPushAsk();else if(S.sheet.type==='srview')h=sheetSrView();else if(S.sheet.type==='bkauto')h=sheetBkAuto();else if(S.sheet.type==='metahelp')h=sheetMetaHelp();else if(S.sheet.type==='spa')h=sheetSpa();else if(S.sheet.type==='grp')h=sheetGrp();else if(S.sheet.type==='agent')h=sheetAgent();else if(S.sheet.type==='pl')h=sheetPl();else if(S.sheet.type==='vchnew')h=sheetVchNew();else if(S.sheet.type==='vch')h=sheetVch();else if(S.sheet.type==='hk')h=sheetHk();else if(S.sheet.type==='lead')h=sheetLead();else if(S.sheet.type==='client')h=sheetClient();else if(S.sheet.type==='hkooo')h=sheetHkOoo();
+  let h='';if(S.sheet.type==='recv')h=sheetRecv();else if(S.sheet.type==='rcpt')h=sheetRcpt();else if(S.sheet.type==='stkimp')h=sheetStkImp();else if(S.sheet.type==='chadd')h=sheetChAdd();else if(S.sheet.type==='clic')h=sheetCLic();else if(S.sheet.type==='job')h=sheetJob();else if(S.sheet.type==='subs')h=sheetSubs();else if(S.sheet.type==='perm')h=sheetPerm();else if(S.sheet.type==='cell')h=sheetCell();else if(S.sheet.type==='emp')h=sheetEmp();else if(S.sheet.type==='send')h=sheetSend();else if(S.sheet.type==='remind')h=sheetRemind();else if(S.sheet.type==='camp')h=sheetCamp();else if(S.sheet.type==='sup')h=sheetSup();else if(S.sheet.type==='inv')h=sheetInv();else if(S.sheet.type==='stock')h=sheetStock();else if(S.sheet.type==='preq')h=sheetPreq();else if(S.sheet.type==='swap')h=sheetSwap();else if(S.sheet.type==='iospush')h=sheetIosPush();else if(S.sheet.type==='pushask')h=sheetPushAsk();else if(S.sheet.type==='srview')h=sheetSrView();else if(S.sheet.type==='bkauto')h=sheetBkAuto();else if(S.sheet.type==='metahelp')h=sheetMetaHelp();else if(S.sheet.type==='spa')h=sheetSpa();else if(S.sheet.type==='grp')h=sheetGrp();else if(S.sheet.type==='agent')h=sheetAgent();else if(S.sheet.type==='pl')h=sheetPl();else if(S.sheet.type==='vchnew')h=sheetVchNew();else if(S.sheet.type==='vch')h=sheetVch();else if(S.sheet.type==='hk')h=sheetHk();else if(S.sheet.type==='lead')h=sheetLead();else if(S.sheet.type==='client')h=sheetClient();else if(S.sheet.type==='hkooo')h=sheetHkOoo();
   if(!h){S.sheet=null;el.hidden=true;return}
-  el.innerHTML=`<div class="panel${S.sheet.type==='srview'||S.sheet.type==='subs'?' big':''}" role="dialog" aria-modal="true">${h}</div>`;el.hidden=false;
+  el.innerHTML=`<div class="panel${S.sheet.type==='srview'||S.sheet.type==='subs'?' big':''}" role="dialog" aria-modal="true">${h}</div>`;el.hidden=false;sigRestore();
 }
 const sheetHead=(t,s)=>`<div class="panel-h"><div><h2>${t}</h2>${s?`<p class="muted">${s}</p>`:''}</div><button class="x" data-act="close" aria-label="סגירה">×</button></div>`;
 function sheetCell(){
@@ -2784,7 +2830,7 @@ function joinCodeHTML(){const c={...cfg(),joinCode:validCode()};
   <p class="muted" style="font-size:.85rem">עובד חדש נכנס לאפליקציה, מתחבר ומקליד את הקוד, וכך הוא משויך ל${esc(hotelName(S.hotel))}. אפשר להחליף קוד בכל זמן, והקוד הישן מפסיק לעבוד.</p>
   <div class="actions" style="align-items:center">${c.joinCode?`<b class="code">${esc(c.joinCode)}</b>`:'<span class="muted">עוד אין קוד</span>'}<button class="btn" data-act="join-new">${c.joinCode?'החלפת קוד':'יצירת קוד'}</button></div>`}
 // full backup (owner): every collection to one JSON file in the same format the import reads
-const BACKUP_COLLS=['orgcfg','groups','agents','priceLists','jobRoles','vchCodes','hkday','faultsAck','srDrafts','vchcfg','hotels','settings','employees','mgr','avail','shifts','schedule','requests','roles','joinCodes','config','menus','contracts','quotes','campaigns','suppliers','invoices','expcfg','inventory','purchaseReqs','shiftReports','faults','hk','hkcfg','hkLog','hkComplaints','leads','tasks','clients','hkCalls','spa','spacfg','vouchers'];
+const BACKUP_COLLS=['receipts','orgcfg','groups','agents','priceLists','jobRoles','vchCodes','hkday','faultsAck','srDrafts','vchcfg','hotels','settings','employees','mgr','avail','shifts','schedule','requests','roles','joinCodes','config','menus','contracts','quotes','campaigns','suppliers','invoices','expcfg','inventory','purchaseReqs','shiftReports','faults','hk','hkcfg','hkLog','hkComplaints','leads','tasks','clients','hkCalls','spa','spacfg','vouchers'];
 const lastBackup=()=>{let l=0;try{l=+localStorage.getItem('scLastBackup')||0}catch(_){ }bkCfgLoad();return Math.max(l,+(S.bkCfg&&S.bkCfg.lastAt)||0)};
 // daily automatic backup to the owner's Google Drive: an Apps Script in their Drive calls the driveBackup function with the key in backupcfg/main
 const BK_FN='https://europe-west1-'+((CFG.firebase&&CFG.firebase.projectId)||'hotel-shifts')+'.cloudfunctions.net/driveBackup';
@@ -3438,6 +3484,22 @@ const ACT={
   'gm-month':D=>{S.gmM=monAdd(S.gmM||todayISO().slice(0,7),+D.d);render()},
   'stock-d':D=>{S.stockF.d=D.k;render()},
   'stock-low':(D,t)=>{S.stockF.low=t.checked;render()},
+  'recv-open':D=>{const h=D.h||S.hotel,src=(S.preqAll||{})[h]||{},items=(S.stockAll||{})[h]||{};
+    const ids=D.r?[D.r]:Object.entries(src).filter(([,r])=>(r.status==='approved'||r.status==='ordered')&&(r.supplier||items[r.itemId]?.supplier||'')===(D.s||'')).map(([id])=>id);
+    if(!ids.length)return;S.drafts.recv=null;S.sig=null;S.recvBusy=false;S.sheet={type:'recv',h,ids};render()},
+  'sig-clear':()=>{S.sig=null;const c=document.getElementById('sig_pad');if(c)c.getContext('2d').clearRect(0,0,c.width,c.height)},
+  'recv-save':async()=>{const h=S.sheet.h,rs=recvReqs(),g=(k,d)=>dv('recv',k,d),name=String(g('name',S.meName||'')).trim();if(!rs.length)return;
+    if(!name){toast('צריך לרשום את שם מקבל הסחורה');return}if(!S.sig){toast('צריך לחתום בתוך המסגרת');return}
+    const its=rs.map(([rid,r])=>({reqId:rid,itemId:r.itemId||'',name:r.itemName||'',unit:r.unit||'',dept:r.dept,ordered:+r.qty||0,qty:Math.max(0,+g('q_'+rid,r.qty)||0)}));
+    const id='r'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),now=Date.now(),sup=rs[0][1].supplier||'',supN=rs[0][1].supplierName||((S.sups||{})[sup]||{}).name||'';
+    const doc={hotel:h,dept:its[0].dept,depts:[...new Set(its.map(i=>i.dept))],supplier:sup,supplierName:supN,items:its.map(({dept,...i})=>i),name,by:S.uid,byName:S.meName||'',note:String(g('note','')).trim(),sig:S.sig,at:now,date:todayISO()};
+    S.recvBusy=true;render();
+    try{await fdb.doc('receipts/'+id).set(doc)}catch(e){S.recvBusy=false;render();toast('שמירת החתימה נכשלה: '+errMsg(mapErr(e)));return}
+    for(const i of its){const r=(S.preqAll[h]||{})[i.reqId];const nd={...r,status:'received',recvQty:i.qty,receiptId:id,receivedBy:S.uid,receivedByName:name,receivedAt:now,handledBy:S.uid,handledAt:now};
+      S.preqAll[h]={...S.preqAll[h],[i.reqId]:nd};save('purchaseReqs/'+i.reqId,nd);
+      const it=((S.stockAll||{})[h]||{})[i.itemId];if(it&&i.qty){const ni={...it,qty:(+it.qty||0)+i.qty,updatedAt:now,updatedBy:S.uid};S.stockAll[h]={...S.stockAll[h],[i.itemId]:ni};save('inventory/'+i.itemId,ni)}}
+    S.rcpts={...(S.rcpts||{}),[id]:doc};S.recvBusy=false;S.sig=null;S.drafts.recv=null;S.sheet=null;render();toast('הקבלה נחתמה והכמויות נוספו למלאי')},
+  'rcpt-open':D=>{S.sheet={type:'rcpt',id:D.id};render()},
   'stkimp-open':()=>{S.stkImp={dept:S.stockF&&S.stockF.d!=='all'?S.stockF.d:''};S.sheet={type:'stkimp'};if(canSupList())liveColl('sups','suppliers');render()},
   'stkimp-tpl':async()=>{try{await loadScript(XLSX_SRC);const ds=stockDepts(),ws=XLSX.utils.aoa_to_sheet([['שם פריט','מחלקה','יחידה','כמות','מינימום','ספק'],['מגבות גוף',DMAP[ds.includes('housekeeping')?'housekeeping':ds[0]].n,'יח׳',120,40,''],['שמן קנולה',DMAP[ds.includes('kitchen')?'kitchen':ds[0]].n,'ליטר',20,5,'']]);
     ws['!cols']=[{wch:24},{wch:16},{wch:10},{wch:8},{wch:10},{wch:20}];const wb=XLSX.utils.book_new();wb.Workbook={Views:[{RTL:true}]};XLSX.utils.book_append_sheet(wb,ws,'מלאי');XLSX.writeFile(wb,'stock-template.xlsx')}catch(e){toast('לא הצלחתי ליצור את הקובץ')}},
@@ -3593,6 +3655,7 @@ const ACT={
   'inv-open':D=>{S.drafts.inv=null;S.confirm=null;S.invImg=null;S.sheet={type:'inv',id:D.id};if(S.invs[D.id]?.hasImg)loadInvImg(D.id);render()},
   'inv-add':()=>{const d=invDraft();d.items.push({name:'',qty:1,unit:'',price:''});render()},
   'inv-rm':D=>{const d=invDraft();d.items.splice(+D.i,1);if(!d.items.length)d.items.push({name:'',qty:1,unit:'',price:''});render()},
+  'inv-scan':()=>invScan(),
   'inv-save':async()=>{const d=invDraft();let sup=d.supplier;
     if(sup==='__new'){const n=String(d.newSup||'').trim();if(!n){toast('צריך לרשום שם לספק החדש');return}sup='s'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);const sd={name:n,category:'',phone:'',email:'',createdAt:Date.now(),updatedAt:Date.now(),updatedBy:S.uid};S.sups={...S.sups,[sup]:sd};save('suppliers/'+sup,sd)}
     if(!sup){toast('צריך לבחור ספק');return}if(!d.date){toast('צריך תאריך');return}
@@ -3604,7 +3667,7 @@ const ACT={
     doc.net=r2(invTotals(doc).net);doc.total=r2(invTotals(doc).total);
     if(!expHs().includes(d.hotel)){toast('אין לך הרשאה להוצאות של המלון הזה');return}
     if(img){try{await S.db.doc('invoiceImgs/'+d.id).set({data:img,hotel:d.hotel,at:Date.now()});S.invImg.changed=false}catch(e){toast('שמירת הצילום נכשלה: '+errMsg(mapErr(e)));return}}
-    S.invs={...S.invs,[d.id]:doc};save('invoices/'+d.id,doc);d.supplier=sup;render();toast('החשבונית נשמרה. אפשר לשלוח אותה להנהלת חשבונות.')},
+    const ups=items.filter(i=>{const lp=lastPrice(sup,i.name,d.date,d.id);return lp&&pct(i.price,lp.price)>=0.5});S.invs={...S.invs,[d.id]:doc};save('invoices/'+d.id,doc);d.supplier=sup;render();toast(ups.length?`החשבונית נשמרה. שימו לב: ${ups.length} מוצרים התייקרו (${ups.slice(0,3).map(i=>i.name).join(', ')})`:'החשבונית נשמרה. אפשר לשלוח אותה להנהלת חשבונות.')},
   'inv-send':async()=>{const d=invDraft(),v=S.invs[d.id];if(!v){toast('קודם שומרים את החשבונית');return}const to=acctFor(v.hotel);
     const subj=`חשבונית ${supName(v.supplier)}${v.number?' '+v.number:''} · ${hotelName(v.hotel)}`,body=invMailText(v);
     let shared=false;if(v.hasImg){loadInvImg(d.id);const data=S.invImg?.data;if(data&&navigator.canShare){try{const blob=await (await fetch(data)).blob();const file=new File([blob],subj.replace(/[\\/:*?"<>|]/g,'-')+'.jpg',{type:'image/jpeg'});

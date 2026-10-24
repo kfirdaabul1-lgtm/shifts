@@ -409,6 +409,17 @@ service cloud.firestore {
       allow create: if stockIn(request.resource.data.hotel, request.resource.data.dept);
       allow update: if stockIn(resource.data.hotel, resource.data.dept) && stockIn(request.resource.data.hotel, request.resource.data.dept);
     }
+    // אישור קבלת סחורה עם חתימה (מי שמנהל את המלאי של המחלקה); הוצאות ומנכ״ל רואים
+    match /receipts/{id} {
+      allow read: if stockIn(resource.data.hotel, resource.data.dept) || canCeo() || expAll() || (canExp() && resource.data.hotel in expHotelsR());
+      allow create: if request.resource.data.by == request.auth.uid && stockIn(request.resource.data.hotel, request.resource.data.dept);
+      allow delete: if isOwner();
+    }
+    // סריקת חשבונית: הצילום נשלח לקריאה אוטומטית (הפונקציה בשרת עונה), רק השולח רואה ומוחק
+    match /invoiceScans/{id} {
+      allow create: if canExp() && request.resource.data.by == request.auth.uid && request.resource.data.status == 'pending';
+      allow read, delete: if signedIn() && resource.data.by == request.auth.uid;
+    }
     match /purchaseReqs/{id} {
       allow read: if stockIn(resource.data.hotel, resource.data.dept);
       allow create: if isOwner() || (stockIn(request.resource.data.hotel, request.resource.data.dept)

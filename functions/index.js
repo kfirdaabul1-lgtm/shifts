@@ -124,7 +124,7 @@ exports.onStock = trig('inventory/{id}').onWrite(async (ch) => {
 // A small Google Apps Script in the owner's own Drive calls this once a day with the key stored in backupcfg/main
 // (only the owner can read or change it) and saves the JSON it gets into a Drive folder. Same format as the
 // "גיבוי" button on the Permissions page, so the Import card can restore it. Invoice images are left out (size).
-const BACKUP_COLLS = ['orgcfg', 'groups', 'agents', 'priceLists', 'jobRoles', 'vchCodes', 'hkday', 'faultsAck', 'srDrafts', 'vchcfg', 'hotels', 'settings', 'employees', 'mgr', 'avail', 'shifts', 'schedule', 'requests', 'roles', 'joinCodes', 'config', 'menus', 'contracts', 'quotes', 'campaigns', 'suppliers', 'invoices', 'expcfg', 'inventory', 'purchaseReqs', 'shiftReports', 'faults', 'hk', 'hkcfg', 'hkLog', 'hkComplaints', 'leads', 'tasks', 'clients', 'hkCalls', 'spa', 'spacfg', 'vouchers'];
+const BACKUP_COLLS = ['receipts', 'orgcfg', 'groups', 'agents', 'priceLists', 'jobRoles', 'vchCodes', 'hkday', 'faultsAck', 'srDrafts', 'vchcfg', 'hotels', 'settings', 'employees', 'mgr', 'avail', 'shifts', 'schedule', 'requests', 'roles', 'joinCodes', 'config', 'menus', 'contracts', 'quotes', 'campaigns', 'suppliers', 'invoices', 'expcfg', 'inventory', 'purchaseReqs', 'shiftReports', 'faults', 'hk', 'hkcfg', 'hkLog', 'hkComplaints', 'leads', 'tasks', 'clients', 'hkCalls', 'spa', 'spacfg', 'vouchers'];
 const plain = (v) => {
   if (v instanceof admin.firestore.Timestamp) return { seconds: v.seconds, nanoseconds: v.nanoseconds };
   if (Array.isArray(v)) return v.map(plain);
@@ -543,4 +543,40 @@ exports.onCmpNew = trig('hkComplaints/{id}').onCreate(async (snap) => {
   const own = await db.collection('pushTokens').where('owner', '==', true).get(); own.forEach((d) => out.add(d.id));
   const hn = await hotelName(h);
   return sendTo([...out], { title: `תלונת אורח · חדר ${c.room || ''}`, body: `${hn ? hn + ' · ' : ''}${c.note || ''}${c.cleanerName ? ' · ניקה: ' + c.cleanerName : ''}`.slice(0, 180), hash: '#cmp', tag: 'cmp-' + snap.id });
+});
+
+// ---------- invoice scan: the app writes invoiceScans/{id} {data: JPEG data URL, by}; Gemini (Vertex AI) reads it and writes back {status, result} ----------
+const AI_MODELS = ['gemini-3.5-flash', 'gemini-3-flash', 'gemini-2.5-flash', 'gemini-flash-latest'];
+let aiModelOk = null;
+async function aiToken() { const { access_token: t } = await admin.credential.applicationDefault().getAccessToken(); return t; }
+async function aiGenerate(body) {
+  const pid = process.env.GCLOUD_PROJECT || JSON.parse(process.env.FIREBASE_CONFIG || '{}').projectId, t = await aiToken(), errs = [];
+  for (const m of aiModelOk ? [aiModelOk, ...AI_MODELS.filter((x) => x !== aiModelOk)] : AI_MODELS) {
+    const r = await fetch(`https://aiplatform.googleapis.com/v1/projects/${pid}/locations/global/publishers/google/models/${m}:generateContent`, { method: 'POST', headers: { Authorization: 'Bearer ' + t, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const j = await r.json().catch(() => ({}));
+    if (r.ok) { aiModelOk = m; return { model: m, j }; }
+    errs.push(m + ': ' + (j.error && j.error.message || r.status));
+    if (r.status !== 404 && r.status !== 400) break;
+  }
+  throw new Error(errs.join(' | ').slice(0, 600));
+}
+const INV_SCHEMA = { type: 'OBJECT', properties: {
+  supplierName: { type: 'STRING' }, companyId: { type: 'STRING' }, number: { type: 'STRING' }, date: { type: 'STRING', description: 'YYYY-MM-DD' },
+  vatIncluded: { type: 'BOOLEAN', description: 'true if the unit prices include VAT' },
+  items: { type: 'ARRAY', items: { type: 'OBJECT', properties: { name: { type: 'STRING' }, qty: { type: 'NUMBER' }, unit: { type: 'STRING' }, price: { type: 'NUMBER', description: 'price per unit after line discount' } }, required: ['name', 'qty', 'price'] } },
+  net: { type: 'NUMBER' }, vat: { type: 'NUMBER' }, total: { type: 'NUMBER' } }, required: ['items'] };
+exports.onInvoiceScan = functions.region('europe-west1').runWith({ timeoutSeconds: 120, memory: '512MB' }).firestore.document('invoiceScans/{id}').onCreate(async (snap) => {
+  const v = snap.data() || {}, m = /^data:(image\/[a-z]+);base64,(.+)$/.exec(v.data || '');
+  if (!m) return snap.ref.update({ status: 'error', error: 'no image' });
+  const known = Array.isArray(v.sups) ? v.sups.slice(0, 200).join(' | ') : '';
+  const prompt = 'This is a photo of a supplier invoice / delivery note from Israel (usually Hebrew). Extract: supplier business name, company id (ח.פ / ע.מ), invoice number, invoice date (YYYY-MM-DD), and every product line with quantity, unit (as written, e.g. ק"ג, יח\', ארגז) and the price PER UNIT after any line discount. Keep product names exactly as written (Hebrew). Do not include totals, VAT, deposits or delivery lines as products unless they are charged as a line. Say whether the unit prices include VAT (מע"מ). If a value is missing leave it empty.' + (known ? ' Known suppliers (use the exact name if it matches): ' + known : '');
+  try {
+    const { model, j } = await aiGenerate({ contents: [{ role: 'user', parts: [{ inlineData: { mimeType: m[1], data: m[2] } }, { text: prompt }] }], generationConfig: { temperature: 0, responseMimeType: 'application/json', responseSchema: INV_SCHEMA } });
+    const txt = (((j.candidates || [])[0] || {}).content || {}).parts?.map((p) => p.text || '').join('') || '';
+    const res = JSON.parse(txt);
+    return snap.ref.update({ status: 'done', result: res, model, data: admin.firestore.FieldValue.delete(), doneAt: Date.now() });
+  } catch (e) {
+    console.error('invoice scan', e);
+    return snap.ref.update({ status: 'error', error: String(e.message || e).slice(0, 500), data: admin.firestore.FieldValue.delete() });
+  }
 });

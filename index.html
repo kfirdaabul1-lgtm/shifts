@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202610250300"></script>
+<script src="i18n.js?v=202610250400"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -2242,13 +2242,13 @@ function srFormHTML(h){const g=(k,d)=>dv('sr',k,d),un=g('unusual',''),dr=srDraft
   <div class="actions" style="align-items:center"><button class="btn pri" data-act="sr-save" data-h="${h}">שליחת הדוח</button><button class="btn" data-act="sr-draft" data-h="${h}">שמירת טיוטה</button>${dr.at?`<button class="btn ghost" data-act="sr-draft-del" data-h="${h}">${S.confirm==='srd:'+h?'לחיצה נוספת תמחק':'מחיקת הטיוטה'}</button><small class="muted">טיוטה נשמרה ${new Date(dr.at).toLocaleString('he-IL',{dateStyle:'short',timeStyle:'short'})}</small>`:''}</div>
   <p class="muted" style="font-size:.8rem;margin:4px 0 0">טיוטה נשמרת בלי לשלוח, ואפשר לחזור ולהשלים אותה גם ממכשיר אחר עם אותה כניסה. צילום חשבונית לא נשמר בטיוטה.</p></div>`}
 // reception (no money): only today's reports + last night's report
-function srPubRecentHTML(h){const t=todayISO(),y=addDays(t,-1),ms=[...new Set([t.slice(0,7),y.slice(0,7)])];ms.forEach(m=>srPubSub(h,m));
+function srPubRecentHTML(h){const t=todayISO(),y=addDays(weekOf(t),-7),ms=[...new Set([t.slice(0,7),y.slice(0,7)])];ms.forEach(m=>srPubSub(h,m));
   const parts=ms.map(m=>(S.srepsPub||{})[h+'|'+m]);
-  if(parts.some(x=>!x))return `<div class="card"><h3>דוחות משמרת · היום והלילה הקודם</h3><p class="muted">טוען…</p></div>`;
-  if(parts.some(x=>x.__err))return `<div class="card"><h3>דוחות משמרת · היום והלילה הקודם</h3><p class="muted">אין גישה לדוחות.</p></div>`;
+  if(parts.some(x=>!x))return `<div class="card"><h3>דוחות משמרת · מיום ראשון בשבוע שעבר</h3><p class="muted">טוען…</p></div>`;
+  if(parts.some(x=>x.__err))return `<div class="card"><h3>דוחות משמרת · מיום ראשון בשבוע שעבר</h3><p class="muted">אין גישה לדוחות.</p></div>`;
   const ord={night:-1,morning:0,noon:1,evening:2},all=Object.assign({},...parts);
-  const rows=Object.entries(all).filter(([,r])=>r.date===t||(r.date===y&&r.shift==='night')).sort(([,a],[,b])=>String(b.date).localeCompare(String(a.date))||ord[b.shift]-ord[a.shift]);
-  return `<div class="card"><h3>דוחות משמרת · היום והלילה הקודם</h3>${rows.length?`<div class="plist">${rows.map(([id,r])=>`<div class="prow"><span class="who"><b><button class="linkbtn" data-act="sr-view" data-id="${id}" data-h="${h}" data-pub="1">${esc(r.name||'')}</button> · ${SR_N[r.shift]||''} · ${dm(r.date)}</b><small>${r.booking!=null?`בוקינג שלא נענו: ${+r.booking} · `:''}${r.arsona!=null?`ארסונה: ${+r.arsona} · `:''}${r.unusual?'⚠️ '+esc(String(r.details||'אירוע חריג').slice(0,80)):'ללא חריגים'}${r.clean?' · '+srCleanTxt(r):''}</small></span><button class="btn sm" data-act="sr-view" data-id="${id}" data-h="${h}" data-pub="1">פתיחה</button></div>`).join('')}</div>`:'<p class="muted">עוד אין דוחות היום או מהלילה הקודם.</p>'}</div>`}
+  const rows=Object.entries(all).filter(([,r])=>r.date>=y&&r.date<=t).sort(([,a],[,b])=>String(b.date).localeCompare(String(a.date))||ord[b.shift]-ord[a.shift]);
+  return `<div class="card"><h3>דוחות משמרת · מיום ראשון בשבוע שעבר</h3>${rows.length?`<div class="plist">${rows.map(([id,r])=>`<div class="prow"><span class="who"><b><button class="linkbtn" data-act="sr-view" data-id="${id}" data-h="${h}" data-pub="1">${esc(r.name||'')}</button> · ${SR_N[r.shift]||''} · ${dm(r.date)}</b><small>${r.booking!=null?`בוקינג שלא נענו: ${+r.booking} · `:''}${r.arsona!=null?`ארסונה: ${+r.arsona} · `:''}${r.unusual?'⚠️ '+esc(String(r.details||'אירוע חריג').slice(0,80)):'ללא חריגים'}${r.clean?' · '+srCleanTxt(r):''}</small></span><button class="btn sm" data-act="sr-view" data-id="${id}" data-h="${h}" data-pub="1">פתיחה</button></div>`).join('')}</div>`:'<p class="muted">אין דוחות מיום ראשון בשבוע שעבר ועד היום.</p>'}</div>`}
 function srListHTML(h,gm,pub){if(pub)return srPubRecentHTML(h);const m=S.srMonth||todayISO().slice(0,7);srSub(h,m);const d=(S.sreps||{})[h+'|'+m];
   const nav=`<div class="actions" style="align-items:center"><button class="btn sm" data-act="sr-month" data-d="-1" aria-label="חודש קודם">›</button><b>${HE_MON[+m.slice(5)-1]} ${m.slice(0,4)}</b><button class="btn sm" data-act="sr-month" data-d="1" aria-label="חודש הבא">‹</button></div>`;
   if(!d)return `<div class="card"><h3>דוחות סיכום משמרת</h3>${nav}<p class="muted">טוען…</p></div>`;

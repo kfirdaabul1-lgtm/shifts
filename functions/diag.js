@@ -4,7 +4,7 @@ const note = (t, m) => console.log(`::notice title=${t}::${String(m).replace(/\n
 (async () => {
   const hs = await db.collection('hotels').get(), hn = {}; hs.forEach((d) => (hn[d.id] = d.data().name || d.id));
   const es = await db.collection('employees').get();
-  const hits = es.docs.filter((d) => /אביר|abir/i.test(String(d.data().name || '')));
+  const hits = es.docs.filter((d) => /אביר|abir|ahbir|מהב|mahab|mahb/i.test(String(d.data().name || '')));
   for (const d of hits) {
     const e = d.data(), t = await db.doc('pushTokens/' + d.id).get(), toks = t.exists ? Object.values(t.data().tokens || {}) : [];
     let u = null; try { u = await admin.auth().getUser(d.id); } catch (_) {}
@@ -12,4 +12,7 @@ const note = (t, m) => console.log(`::notice title=${t}::${String(m).replace(/\n
     if (/גוטמן|gutman/i.test(hn[e.hotel] || '')) { await d.ref.set({ pushReq: Date.now() }, { merge: true }); note('Sent', 'pushReq set for ' + e.name); }
   }
   if (!hits.length) note('Employee', 'no match');
+  const g = Object.keys(hn).find((k) => /גוטמן|gutman/i.test(hn[k]));
+  const toks = await db.collection('pushTokens').get(), tk = {}; toks.forEach((d) => (tk[d.id] = Object.values(d.data().tokens || {})));
+  note('Gutman staff', es.docs.filter((d) => d.data().hotel === g && !String(d.id).startsWith('m_')).map((d) => d.data().name + (tk[d.id] && tk[d.id].length ? ' [' + tk[d.id].length + (tk[d.id].some((x) => x.ios || /iPhone/.test(x.ua || '')) ? ' iPhone' : '') + ']' : ' [-]')).join(', '));
 })().catch((e) => note('Diag error', e.message));

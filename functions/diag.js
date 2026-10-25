@@ -1,18 +1,15 @@
-// One-off: find an employee by name, show his notification devices and send a fresh notification request (pushReq). No pay data.
+// One-off: test push to one employee (by name) and send a fresh notification request. Prints FCM results only.
 const admin = require('firebase-admin'); admin.initializeApp({ projectId: 'hotel-shifts' }); const db = admin.firestore();
 const note = (t, m) => console.log(`::notice title=${t}::${String(m).replace(/\n/g, ' ').slice(0, 900)}`);
 (async () => {
-  const hs = await db.collection('hotels').get(), hn = {}; hs.forEach((d) => (hn[d.id] = d.data().name || d.id));
-  const es = await db.collection('employees').get();
-  const hits = es.docs.filter((d) => /אביר|abir|ahbir|מהב|mahab|mahb/i.test(String(d.data().name || '')));
-  for (const d of hits) {
-    const e = d.data(), t = await db.doc('pushTokens/' + d.id).get(), toks = t.exists ? Object.values(t.data().tokens || {}) : [];
-    let u = null; try { u = await admin.auth().getUser(d.id); } catch (_) {}
-    note('Employee', `${e.name} · ${hn[e.hotel] || e.hotel} · depts ${(e.depts || []).join(',')} · sign-in ${u ? u.providerData.map((x) => x.providerId).join(',') || 'password' : 'manual/no account'} · last sign-in ${u && u.metadata.lastSignInTime || '-'} · devices ${toks.length}: ${toks.map((x) => (x.ios ? 'iOS ' : '') + String(x.ua || '').slice(0, 70) + ' @' + new Date(+x.at || 0).toISOString().slice(0, 16)).join(' | ')}`);
-    if (/גוטמן|gutman/i.test(hn[e.hotel] || '')) { await d.ref.set({ pushReq: Date.now() }, { merge: true }); note('Sent', 'pushReq set for ' + e.name); }
+  const es = await db.collection('employees').get(), d = es.docs.find((x) => /mahaveer/i.test(String(x.data().name || '')));
+  if (!d) return note('Employee', 'no match');
+  const t = await db.doc('pushTokens/' + d.id).get(), m = t.exists ? t.data().tokens || {} : {};
+  note('Devices', Object.entries(m).map(([k, x]) => `${k.slice(0, 12)}… ios=${!!x.ios} ua=${String(x.ua || '').slice(0, 80)} at=${new Date(+x.at || 0).toISOString().slice(0, 16)}`).join(' | '));
+  const tokens = Object.keys(m);
+  if (tokens.length) {
+    const res = await admin.messaging().sendEachForMulticast({ tokens, data: { title: 'בדיקת התראות ✓', body: 'אם קיבלת את ההודעה הזו, ההתראות עובדות.', url: 'https://kfirdaabul1-lgtm.github.io/shifts/', tag: 'test' }, webpush: { headers: { Urgency: 'high', TTL: '86400' } } });
+    note('Test push', res.responses.map((r, i) => tokens[i].slice(0, 12) + ': ' + (r.success ? 'OK ' + r.messageId.slice(-12) : (r.error.code + ' ' + r.error.message))).join(' | '));
   }
-  if (!hits.length) note('Employee', 'no match');
-  const g = Object.keys(hn).find((k) => /גוטמן|gutman/i.test(hn[k]));
-  const toks = await db.collection('pushTokens').get(), tk = {}; toks.forEach((d) => (tk[d.id] = Object.values(d.data().tokens || {})));
-  note('Gutman staff', es.docs.filter((d) => d.data().hotel === g && !String(d.id).startsWith('m_')).map((d) => d.data().name + (tk[d.id] && tk[d.id].length ? ' [' + tk[d.id].length + (tk[d.id].some((x) => x.ios || /iPhone/.test(x.ua || '')) ? ' iPhone' : '') + ']' : ' [-]')).join(', '));
+  await d.ref.set({ pushReq: Date.now() }, { merge: true }); note('Sent', 'pushReq set for ' + d.data().name);
 })().catch((e) => note('Diag error', e.message));

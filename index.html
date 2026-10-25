@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202610240500"></script>
+<script src="i18n.js?v=202610250100"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1402,9 +1402,9 @@ function leadsSync(){if(!S.can.events||!S.lquotesReady||!S.leadsReady)return;con
     if(Object.keys(up).length){up.updatedAt=now;S.leads[id]={...l,...up};fdb.doc('leads/'+id).set(up,{merge:true}).catch(()=>{})}}}
 function leadSave(){const id=S.sheet.id,l=(S.leads||{})[id]||{},d=S.drafts.lead||{},isNew=!(S.leads||{})[id],v=k=>d[k]!==undefined?d[k]:l[k];
   const name=String(v('name')||'').trim();if(!name){toast('צריך למלא שם');return}
-  const own=leadOwners(),owner=v('owner')||S.uid,now=Date.now(),stage=v('stage')||'new';
+  const own=leadOwners(),owner=v('owner')||'',now=Date.now(),stage=v('stage')||'new';
   const o={name,phone:String(v('phone')||'').trim(),email:String(v('email')||'').trim(),company:String(v('company')||'').trim(),type:String(v('type')||'').trim(),date:v('date')||'',guests:+v('guests')||0,venue:v('venue')||'',
-    source:v('source')||'',campaign:String(v('campaign')||'').trim(),stage,owner,ownerName:own[owner]||l.ownerName||'',nextAt:v('nextAt')||'',value:+v('value')||0,notes:String(v('notes')||''),lostReason:stage==='lost'?(v('lostReason')||''):'',updatedAt:now};
+    source:v('source')||'',campaign:String(v('campaign')||'').trim(),stage,owner,ownerName:owner?(own[owner]||(owner===l.owner?l.ownerName:'')||''):'',nextAt:v('nextAt')||'',value:+v('value')||0,notes:String(v('notes')||''),lostReason:stage==='lost'?(v('lostReason')||''):'',updatedAt:now};
   if(stage==='won'&&l.stage!=='won')o.wonAt=now;
   if(isNew){o.createdAt=now;o.createdBy=S.uid;o.acts=[]}
   S.leads[id]={...l,...o};S.drafts.lead=null;fdb.doc('leads/'+id).set(o,{merge:true}).then(()=>toast(isNew?'הליד נשמר':'נשמר'),e=>toast('השמירה נכשלה: '+errMsg(mapErr(e))));
@@ -1415,19 +1415,19 @@ function leadCard(id,l){const late=leadLate(l),lq=leadQuote(id,l),q=lq&&lq[1];
   return `<button class="lead-card${late?' late':''}" data-act="lead-open" data-id="${id}"><b>${esc(l.name||'ללא שם')}</b>
     <small>${esc([l.type,l.date?dm(l.date):'',+l.guests?l.guests+' אורחים':''].filter(Boolean).join(' · '))}</small>
     <span class="lead-tags">${l.source?`<span class="pill">${esc(LSRC[l.source]||l.source)}</span>`:''}${l.campaign?`<span class="pill">${esc(l.campaign)}</span>`:''}${q?`<span class="pill ${q.status==='approved'?'ok':''}">הצעה #${esc(q.num||'')}</span>`:''}</span>
-    <small class="${late?'bad-t':'muted'}">${l.nextAt&&leadOpen(l)?`${late?'⚠ ':''}לחזור: ${dm(l.nextAt)}`:''}${l.ownerName?` · ${esc(l.ownerName)}`:''}</small>
+    <small class="${late?'bad-t':'muted'}">${l.nextAt&&leadOpen(l)?`${late?'⚠ ':''}לחזור: ${dm(l.nextAt)}`:''}${l.ownerName?` · ${esc(l.ownerName)}`:(leadOpen(l)?' · <span class="bad-t">ללא מטפל</span>':'')}</small>
     ${l.stage==='won'&&l.wonValue?`<small><b>${ils(l.wonValue)}</b></small>`:+l.value?`<small class="muted">${ils(l.value)} צפוי</small>`:''}</button>`}
 const myTasksDue=()=>Object.values(S.tasks||{}).filter(t=>!t.done&&t.owner===S.uid&&t.due&&t.due<=todayISO()).length;
 function vLeads(){leadsSub();tasksSub();leadsSync();const f=S.leadF||(S.leadF={view:'pipe',own:'all',src:'all',q:''});
   const head=`<section class="head"><div class="head-t"><h1>לידים ומכירות</h1><button class="btn pri" data-act="lead-new">+ ליד חדש</button></div>
     <div class="chips" style="gap:6px;margin-top:8px"><button class="dchip ${f.view==='pipe'?'':'off'}" data-act="lead-view" data-v="pipe">פייפליין</button><button class="dchip ${f.view==='list'?'':'off'}" data-act="lead-view" data-v="list">רשימה</button><button class="dchip ${f.view==='clients'?'':'off'}" data-act="lead-view" data-v="clients">לקוחות</button><button class="dchip ${f.view==='tasks'?'':'off'}" data-act="lead-view" data-v="tasks">משימות${myTasksDue()?` (${myTasksDue()})`:''}</button><button class="dchip ${f.view==='sales'?'':'off'}" data-act="lead-view" data-v="sales">דשבורד מכירות</button>
-    <select data-leadf="own" style="width:auto"><option value="all">כל המטפלים</option><option value="me" ${f.own==='me'?'selected':''}>רק שלי</option></select>
+    <select data-leadf="own" style="width:auto"><option value="all">כל המטפלים</option><option value="me" ${f.own==='me'?'selected':''}>רק שלי</option><option value="none" ${f.own==='none'?'selected':''}>ללא מטפל</option></select>
     <select data-leadf="src" style="width:auto"><option value="all">כל המקורות</option>${LEAD_SRC.map(([k,n])=>`<option value="${k}" ${f.src===k?'selected':''}>${n}</option>`).join('')}</select>
     <input type="search" data-leadf="q" value="${esc(f.q||'')}" placeholder="חיפוש לפי שם, טלפון או חברה" style="max-width:240px"></div></section>`;
   if(S.leadsErr)return wrap(head+`<div class="notice">לא הצלחתי לטעון: ${esc(S.leadsErr)}</div>`);
   if(!S.leadsReady)return wrap(head+'<p class="muted">טוען…</p>');
   const q=String(f.q||'').trim().toLowerCase(),qt=leadTel(q);
-  let all=Object.entries(S.leads||{}).filter(([,l])=>(f.own!=='me'||l.owner===S.uid)&&(f.src==='all'||l.source===f.src)&&(!q||[l.name,l.company,l.email].some(x=>String(x||'').toLowerCase().includes(q))||(qt.length>=4&&leadTel(l.phone).includes(qt))));
+  let all=Object.entries(S.leads||{}).filter(([,l])=>(f.own!=='me'||l.owner===S.uid)&&(f.own!=='none'||!l.owner)&&(f.src==='all'||l.source===f.src)&&(!q||[l.name,l.company,l.email].some(x=>String(x||'').toLowerCase().includes(q))||(qt.length>=4&&leadTel(l.phone).includes(qt))));
   all.sort(([,a],[,b])=>(b.updatedAt||b.createdAt||0)-(a.updatedAt||a.createdAt||0));
   const M=todayISO().slice(0,7),mon=t=>t&&new Date(t).toISOString().slice(0,7)===M;
   const open=all.filter(([,l])=>leadOpen(l)),late=open.filter(([,l])=>leadLate(l)),wonM=all.filter(([,l])=>l.stage==='won'&&mon(l.wonAt||l.updatedAt)),newM=all.filter(([,l])=>mon(l.createdAt));
@@ -1439,7 +1439,7 @@ function vLeads(){leadsSub();tasksSub();leadsSync();const f=S.leadF||(S.leadF={v
   if(f.view==='clients')return wrap(head+clientsHTML(f));
   if(f.view==='tasks')return wrap(head+k+tasksHTML(f));
   if(f.view==='sales')return wrap(head+salesHTML(f));
-  if(f.view==='list')body=`<div class="card"><div class="scroll-x"><table class="plain"><thead><tr><th>ליד</th><th>שלב</th><th>מקור</th><th>אירוע</th><th>לחזור</th><th>מטפל</th><th class="num">סכום</th></tr></thead><tbody>${all.map(([id,l])=>`<tr data-act="lead-open" data-id="${id}" style="cursor:pointer"><td><b>${esc(l.name||'')}</b>${l.company?`<div class="muted" style="font-size:.8rem">${esc(l.company)}</div>`:''}</td><td><span class="pill ${l.stage==='won'?'ok':l.stage==='lost'?'bad':''}">${LSTG[l.stage]||''}</span></td><td>${esc(LSRC[l.source]||'')}${l.campaign?`<div class="muted" style="font-size:.8rem">${esc(l.campaign)}</div>`:''}</td><td>${esc([l.type,l.date?dm(l.date):''].filter(Boolean).join(' · '))}</td><td class="${leadLate(l)?'bad-t':''}">${l.nextAt&&leadOpen(l)?dm(l.nextAt):''}</td><td>${esc(l.ownerName||'')}</td><td class="num">${l.stage==='won'?ils(l.wonValue||0):+l.value?ils(l.value):''}</td></tr>`).join('')}</tbody></table></div></div>`;
+  if(f.view==='list')body=`<div class="card"><div class="scroll-x"><table class="plain"><thead><tr><th>ליד</th><th>שלב</th><th>מקור</th><th>אירוע</th><th>לחזור</th><th>מטפל</th><th class="num">סכום</th></tr></thead><tbody>${all.map(([id,l])=>`<tr data-act="lead-open" data-id="${id}" style="cursor:pointer"><td><b>${esc(l.name||'')}</b>${l.company?`<div class="muted" style="font-size:.8rem">${esc(l.company)}</div>`:''}</td><td><span class="pill ${l.stage==='won'?'ok':l.stage==='lost'?'bad':''}">${LSTG[l.stage]||''}</span></td><td>${esc(LSRC[l.source]||'')}${l.campaign?`<div class="muted" style="font-size:.8rem">${esc(l.campaign)}</div>`:''}</td><td>${esc([l.type,l.date?dm(l.date):''].filter(Boolean).join(' · '))}</td><td class="${leadLate(l)?'bad-t':''}">${l.nextAt&&leadOpen(l)?dm(l.nextAt):''}</td><td>${l.ownerName?esc(l.ownerName):(leadOpen(l)?'<span class="bad-t">ללא מטפל</span>':'')}</td><td class="num">${l.stage==='won'?ils(l.wonValue||0):+l.value?ils(l.value):''}</td></tr>`).join('')}</tbody></table></div></div>`;
   else body=`<div class="lead-pipe">${LEAD_STAGES.map(([s,n])=>{const L=all.filter(([,l])=>(l.stage||'new')===s),sum=L.reduce((a,[,l])=>a+(s==='won'?(+l.wonValue||0):(+l.value||0)),0);
     return `<section class="lead-col lead-${s}"><div class="lead-col-h"><b>${n}</b><span class="muted">${L.length}${sum?' · '+ils(sum):''}</span></div>${L.slice(0,60).map(([id,l])=>leadCard(id,l)).join('')||'<p class="muted" style="font-size:.85rem;margin:6px 0">אין</p>'}</section>`}).join('')}</div>`;
   return wrap(head+k+today+body)}
@@ -1458,7 +1458,7 @@ function sheetLead(){const id=S.sheet.id,l=(S.leads||{})[id]||{},isNew=!(S.leads
   <div class="row"><label class="f">מקום<select data-f="lead.venue"><option value="">עוד לא ידוע</option>${Object.entries(EV_VENUE).map(([k,n])=>`<option value="${k}" ${g('venue')===k?'selected':''}>${esc(n)}</option>`).join('')}</select></label><label class="f">סכום צפוי (₪, לפני מע״מ)<input type="number" min="0" data-f="lead.value" value="${esc(g('value'))}"></label></div>
   <div class="row"><label class="f">מאיפה הגיע<select data-f="lead.source"><option value="">בחירה…</option>${LEAD_SRC.map(([k,n])=>`<option value="${k}" ${g('source')===k?'selected':''}>${n}</option>`).join('')}</select></label>
   <label class="f">קמפיין<input type="text" list="lead-camps" data-f="lead.campaign" value="${esc(g('campaign'))}" placeholder="שם הקמפיין בסושיאל"><datalist id="lead-camps">${camps.map(x=>`<option value="${esc(x)}">`).join('')}</datalist></label></div>
-  <div class="row"><label class="f">מטפל/ת<select data-f="lead.owner">${Object.entries(own).map(([u,n])=>`<option value="${u}" ${(g('owner')||S.uid)===u?'selected':''}>${esc(n)}</option>`).join('')}</select></label><label class="f">לחזור ללקוח בתאריך<input type="date" data-f="lead.nextAt" value="${esc(g('nextAt'))}"></label></div>
+  <div class="row"><label class="f">מטפל/ת<select data-f="lead.owner"><option value="" ${g('owner')?'':'selected'}>— עוד לא נבחר —</option>${Object.entries(own).map(([u,n])=>`<option value="${u}" ${g('owner')===u?'selected':''}>${esc(n)}</option>`).join('')}</select></label><label class="f">לחזור ללקוח בתאריך<input type="date" data-f="lead.nextAt" value="${esc(g('nextAt'))}"></label></div>
   <label class="f">הערות<textarea rows="2" data-f="lead.notes">${esc(g('notes'))}</textarea></label>
   <div class="actions"><button class="btn pri" data-act="lead-save">שמירה</button>${isNew?'':`<button class="btn" data-act="lead-quote">${q?'פתיחת אפליקציית האירועים':'יצירת הצעת מחיר'}</button><button class="btn ghost" data-act="lead-del">${S.confirm==='lead-del'?'לחיצה נוספת תמחק':'מחיקה'}</button>`}</div>
   ${isNew?'':`<div class="sep"></div><h3>הצעת מחיר</h3>${q?`<p style="margin:0"><b>הצעה #${esc(q.num||'')}</b> · ${esc({draft:'טיוטה',sent:'נשלחה',approved:'אושרה',declined:'נדחתה'}[q.status]||'')} · ${ils(quoteVal(q))} לפני מע״מ</p><p class="muted" style="font-size:.82rem;margin:4px 0 0">השלב של הליד מתעדכן לבד לפי ההצעה.</p>`:'<p class="muted" style="margin:0">עוד אין הצעה. "יצירת הצעת מחיר" פותחת הצעה חדשה עם פרטי הליד. הצעה עם אותו טלפון מתחברת לבד.</p>'}
@@ -3469,7 +3469,7 @@ const ACT={
   'app-front':()=>{S.menu=false;const cw=weekOf(todayISO());if(S.week!==cw){S.tab='front';setWeek(cw)}setTab('front')},
   'app-maint':()=>{S.menu=false;setTab('maint')},
   'app-leads':()=>{S.menu=false;setTab('leads')},
-  'lead-new':()=>{S.drafts.lead={stage:'new',owner:S.uid};S.confirm=null;S.sheet={type:'lead',id:'l'+Date.now().toString(36)+Math.random().toString(36).slice(2,6)};render()},
+  'lead-new':()=>{S.drafts.lead={stage:'new',owner:''};S.confirm=null;S.sheet={type:'lead',id:'l'+Date.now().toString(36)+Math.random().toString(36).slice(2,6)};render()},
   'lead-open':D=>{S.drafts.lead=null;S.confirm=null;S.sheet={type:'lead',id:D.id};render()},
   'lead-view':D=>{S.leadF.view=D.v;render()},
   'lead-stage':D=>{(S.drafts.lead||(S.drafts.lead={})).stage=D.v;render()},
@@ -3478,7 +3478,7 @@ const ACT={
   'mkt-mon':D=>{S.mktM=monAdd(S.mktM||todayISO().slice(0,7),+D.d);render()},
   'client-open':D=>{S.sheet={type:'client',k:D.k};render()},
   'client-save':D=>{const o={tag:String(($('#cl_tag')||{}).value||'').trim(),notes:String(($('#cl_notes')||{}).value||''),updatedAt:Date.now(),by:S.uid};S.clientsMeta=S.clientsMeta||{};S.clientsMeta[D.k]=o;fdb.doc('clients/'+D.k).set(o,{merge:true}).then(()=>toast('נשמר'),e=>toast('השמירה נכשלה: '+errMsg(mapErr(e))));render()},
-  'client-lead':D=>{const c=crmClients()[D.k]||{};S.drafts.lead={stage:'new',owner:S.uid,name:c.name||'',phone:c.phone||'',email:c.email||'',company:c.company||'',source:'returning'};S.confirm=null;S.sheet={type:'lead',id:'l'+Date.now().toString(36)+Math.random().toString(36).slice(2,6)};render()},
+  'client-lead':D=>{const c=crmClients()[D.k]||{};S.drafts.lead={stage:'new',owner:'',name:c.name||'',phone:c.phone||'',email:c.email||'',company:c.company||'',source:'returning'};S.confirm=null;S.sheet={type:'lead',id:'l'+Date.now().toString(36)+Math.random().toString(36).slice(2,6)};render()},
   'task-add':D=>{const title=String(($('#tk_title')||{}).value||'').trim();if(!title){toast('צריך לכתוב את המשימה');return}
     const owner=($('#tk_owner')||{}).value||S.uid,own=leadOwners(),l=D.lead?(S.leads||{})[D.lead]:null,id='t'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
     const t={title,due:($('#tk_due')||{}).value||'',owner,ownerName:own[owner]||'',leadId:D.lead||'',leadName:l?(l.name||''):'',done:false,createdBy:S.uid,createdByName:S.meName||'',createdAt:Date.now()};

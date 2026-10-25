@@ -47,7 +47,10 @@ async function sendTo(uids, msg) {
   const data = { title: msg.title || O.name, body: msg.body || '', url: O.url + (msg.hash || ''), tag: msg.tag || '' };
   for (let i = 0; i < tokens.length; i += 500) {
     const part = tokens.slice(i, i + 500);
-    const res = await admin.messaging().sendEachForMulticast({ tokens: part, data, webpush: { headers: { Urgency: 'high', TTL: '86400' } } });
+    // a "notification" block makes the phone show it itself (iPhone ignored data-only messages when the app was closed)
+    const res = await admin.messaging().sendEachForMulticast({ tokens: part, data, webpush: { headers: { Urgency: 'high', TTL: '86400' },
+      notification: { title: data.title, body: data.body, icon: O.url.replace(/[^/]*$/, '') + 'icon-192.png', badge: O.url.replace(/[^/]*$/, '') + 'icon-192.png', dir: 'rtl', lang: 'he', ...(data.tag ? { tag: data.tag, renotify: true } : {}) },
+      fcmOptions: { link: data.url } } });
     // forget devices that unsubscribed or reinstalled
     const dead = [];
     res.responses.forEach((r, j) => { const c = r.error && r.error.code; if (c === 'messaging/registration-token-not-registered' || c === 'messaging/invalid-registration-token' || c === 'messaging/invalid-argument') dead.push(part[j]); });

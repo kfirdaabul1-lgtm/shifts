@@ -506,7 +506,28 @@ exports.onSpaNew = trig('spa/{id}').onCreate(async (snap) => {
   const t = b.ther || [], m = t.filter((x) => x === 'm').length, f = t.filter((x) => x === 'f').length;
   const th = [m ? `${m} מטפל` : '', f ? `${f} מטפלת` : ''].filter(Boolean).join(' + ');
   const dd = String(b.date || ''), dm = dd ? dd.slice(8, 10) + '.' + dd.slice(5, 7) : '';
-  return sendTo([...out], { title: 'טיפול ספא חדש', body: `${dm} ${b.time || ''} · ${b.treatment || ''} · ${b.mins || 60} דק׳ · ${b.people || 1} אנשים${th ? ' · ' + th : ''}${b.amount ? ' · ₪' + b.amount : ''}`, hash: '#spa', tag: 'spa-' + snap.id });
+  const adds = (b.adds || []).filter((x) => +x.q > 0), tot = (+b.amount || 0) + adds.reduce((a, x) => a + (+x.p || 0) * (+x.q || 0), 0);
+  const at = adds.map((x) => (+x.q > 1 ? x.q + '× ' : '') + x.n).join(', ');
+  return sendTo([...out], { title: 'טיפול ספא חדש', body: `${dm} ${b.time || ''} · ${b.name ? b.name + ' · ' : ''}${b.treatment || ''} · ${b.mins || 60} דק׳ · ${b.people || 1} אנשים${th ? ' · ' + th : ''}${at ? ' · + ' + at : ''}${tot ? ' · ₪' + tot : ''}`, hash: '#spa', tag: 'spa-' + snap.id });
+});
+
+// ---------- every morning: spa treatments (today and later) whose therapist is not set / not confirmed → push the spa managers (spa app + owner) ----------
+exports.spaPending = functions.region(REGION).pubsub.schedule('0 9 * * *').timeZone('Asia/Jerusalem').onRun(async () => {
+  const today = ilDate(new Date()), qs = await db.collection('spa').where('date', '>=', today).get(), due = [];
+  qs.forEach((d) => {
+    const b = d.data() || {}; if (b.status === 'done' || b.status === 'canceled') return;
+    const n = +b.people || 1; let miss = 0;
+    for (let i = 0; i < n; i++) if (!(b.tid || [])[i] || !(b.tok || [])[i]) miss++;
+    if (miss) due.push({ ...b, miss });
+  });
+  if (!due.length) return null;
+  due.sort((x, y) => (x.date + x.time).localeCompare(y.date + y.time));
+  const out = new Set(), rs = await db.collection('roles').get();
+  rs.forEach((d) => { const r = d.data() || {}; if (!r.station && r.apps && r.apps.spa) out.add(d.id); });
+  const own = await db.collection('pushTokens').where('owner', '==', true).get(); own.forEach((d) => out.add(d.id));
+  const dm = (iso) => iso.slice(8, 10) + '.' + iso.slice(5, 7);
+  const list = due.slice(0, 4).map((b) => `${b.date === today ? 'היום' : dm(b.date)} ${b.time || ''} ${b.name || b.treatment || ''}`).join(' · ');
+  return sendTo([...out], { title: `${due.length} טיפולי ספא בלי מטפל מתואם`, body: list + (due.length > 4 ? ` ועוד ${due.length - 4}` : '') + '. צריך לקבוע ולתאם מטפל.', hash: '#spa', tag: 'spapend-' + today });
 });
 
 // ---------- a room stopped being OD (occupied) → tell the housekeeping worker assigned to it that it's empty and can be cleaned ----------

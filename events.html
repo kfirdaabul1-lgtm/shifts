@@ -1,4 +1,4 @@
-<!doctype html><html lang="he" dir="rtl"><head><meta name="theme-color" content="#1f5f6b"><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style><script src="i18n.js?v=202610261610"></script></head><body>
+<!doctype html><html lang="he" dir="rtl"><head><meta name="theme-color" content="#1f5f6b"><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style><script src="i18n.js?v=202610261700"></script></head><body>
 <style>
 .evtop{background:var(--surface);border-bottom:1px solid var(--line)}
 .evtop-in{max-width:1240px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:10px;padding-block:6px;padding-left:max(10px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
@@ -1372,7 +1372,9 @@ function updateLinks(){
   $('#btnOutlook').href=olLink(cur.client.email,su,t);
 }
 let draftT;
-function refresh(skipItems){renderBizLine();renderClash();renderContractDoc();renderContractPick();renderAuthor();watchHistory();renderTotals();renderPayments();renderPayReq();renderDoc();renderMenuDoc();renderMenuPick();updateLinks();scheduleSignLink();renderSignUI();clearTimeout(draftT);draftT=setTimeout(()=>lsSet('quoteDraft',cur),400)}
+// the unsaved quote in this browser is kept per signed-in user (owner, Oct 26: two users on one computer overwrote each other's work)
+const draftKey=()=>myId?'quoteDraft:'+myId:'quoteDraft';
+function refresh(skipItems){renderBizLine();renderClash();renderContractDoc();renderContractPick();renderAuthor();watchHistory();renderTotals();renderPayments();renderPayReq();renderDoc();renderMenuDoc();renderMenuPick();updateLinks();scheduleSignLink();renderSignUI();clearTimeout(draftT);draftT=setTimeout(()=>lsSet(draftKey(),cur),400)}
 
 /* ---------- toast ---------- */
 let toastT;function toast(m){const t=$('#toast');t.textContent=m;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,2600)}
@@ -1384,6 +1386,11 @@ function quoteContent(q){const o=JSON.parse(JSON.stringify(q));META_KEYS.forEach
 function strHash(str){let h=5381;for(let i=0;i<str.length;i++)h=((h<<5)+h+str.charCodeAt(i))|0;return (h>>>0).toString(36)}
 async function saveQuote(q,action){
   const isNew=!q.id;
+  // someone else saved this quote after I opened it → ask before overwriting their changes
+  if(!isNew&&db&&action!=='status'){const live=quotes.find(x=>x.id===q.id),base=q.updatedAt||'';
+    if(live&&live.updatedAt&&live.updatedAt>base&&(live.updatedBy!==myId||(live.signature&&!q.signature))){
+      const nm=live.updatedBy&&live.updatedBy!==myId?who(live.updatedBy):'מישהו אחר';
+      if(!confirm(`${nm} שמר/ה שינויים בהצעה הזו (${new Date(live.updatedAt).toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'})}) אחרי שפתחת אותה. שמירה עכשיו תדרוס את השינויים שלו/ה.\n\nלשמור בכל זאת?`))throw Object.assign(new Error('cancel'),{code:'cancel'})}}
   q.updatedAt=new Date().toISOString();
   if(!q.id)q.id=uid();if(!q.num)q.num=nextNum();
   if(myId){if(!q.createdBy)q.createdBy=myId;q.updatedBy=myId}
@@ -1436,7 +1443,7 @@ async function saveSettingsData(){
 $('#btnSave').addEventListener('click',async e=>{
   e.target.disabled=true;
   try{const isNew=!cur.id;await saveQuote(cur);viewingVer=null;$('#verBanner').hidden=true;renderAuthor();watchHistory();$('#editTitle').textContent=`עריכת ${isOrder(cur)?'הזמנת אירוע':'הצעה'} מס' ${cur.num}`;renderDoc();updateLinks();toast((isNew?`הצעה ${cur.num} נשמרה`:`הצעה ${cur.num} עודכנה`)+(clashesFor(cur).length?' · שים לב: יש התנגשות בלוקיישן':''))}
-  catch(err){toast(err?.code==='quota_exceeded'?'אין מקום לעוד הצעות. מחק הצעות ישנות ונסה שוב.':'השמירה נכשלה. בדוק חיבור ונסה שוב.')}
+  catch(err){toast(err?.code==='cancel'?'השמירה בוטלה. פתח/י את ההצעה מחדש מהרשימה כדי לראות את השינויים האחרונים.':err?.code==='quota_exceeded'?'אין מקום לעוד הצעות. מחק הצעות ישנות ונסה שוב.':'השמירה נכשלה. בדוק חיבור ונסה שוב.')}
   e.target.disabled=false;
 });
 $('#btnReset').addEventListener('click',()=>{cur=blankQuote();viewingVer=null;qkOpen=false;autoContract();fillForm();toast('נפתחה הצעה ריקה')});
@@ -1517,7 +1524,7 @@ $('#btnPdf').addEventListener('click',async e=>{
   let out=null;
   try{
     if(!window.html2canvas||!window.jspdf){toast('רכיב ה-PDF לא נטען. רענן את הדף ונסה שוב.');return}
-    try{lsSet('quoteDraft',cur)}catch(_){}
+    try{lsSet(draftKey(),cur)}catch(_){}
     if(!viewingVer&&(!cur.id||strHash(JSON.stringify(quoteContent(cur)))!==cur.lastHash)){
       btn.textContent='שומר את ההצעה…';
       try{const isNew=!cur.id;await saveQuote(cur);$('#editTitle').textContent=`עריכת ${isOrder(cur)?'הזמנת אירוע':'הצעה'} מס' ${cur.num}`;renderAuthor();watchHistory();refresh();if(isNew)toast(`הצעה ${cur.num} נשמרה`)}catch(err){toast('לא הצלחתי לשמור את ההצעה לפני ה-PDF. שמור ונסה שוב.');return}
@@ -2304,7 +2311,9 @@ $('#syncState').textContent='';
   try{db=await window.claude.use('db')}catch(e){db=null}
   if(!db)return;
   store='db';$('#syncState').textContent='מסונכרן בענן';
-  try{userCap=await window.claude.use('user');if(userCap){const me=await userCap.me();myId=me.id;$('#tabCeo').hidden=true;if(myId)nameCache[myId]=me.name||'אני';$('#meLine').textContent=myId?(me.name?`מחובר/ת: ${me.name}`:''):'לא מזוהה: הצעות יישמרו ללא שם עובד';renderAuthor()}}catch(e){userCap=null}
+  try{userCap=await window.claude.use('user');if(userCap){const me=await userCap.me();myId=me.id;$('#tabCeo').hidden=true;if(myId){nameCache[myId]=me.name||'אני';const mine=lsGet('quoteDraft:'+myId,null),old=lsGet('quoteDraft',null);
+      if(mine)cur=mine;else if(old&&old.createdBy&&old.createdBy!==myId)cur=blankQuote();
+      try{if(old&&!mine)lsSet('quoteDraft:'+myId,cur);localStorage.removeItem('quoteDraft')}catch(_){}try{fillForm()}catch(_){cur=blankQuote();fillForm()}}$('#meLine').textContent=myId?(me.name?`מחובר/ת: ${me.name}`:''):'לא מזוהה: הצעות יישמרו ללא שם עובד';renderAuthor()}}catch(e){userCap=null}
   settings=structuredClone(DEF_SETTINGS);quotes=[];menus=[];contracts=[];
   try{const o=await db.doc('orgcfg/main').get();if(o.exists){const od=o.data()||{};if(Array.isArray(od.venues)){setVenues(od.venues);brandLine()}if(od.name){document.querySelectorAll('.evbrand,.drawer-h b').forEach(e=>e.textContent=od.name);document.title=document.title.replace('Seven Collection',od.name)}renderVenues&&renderVenues()}}catch(_){ }
   db.doc('config/main').onSnapshot(s=>{

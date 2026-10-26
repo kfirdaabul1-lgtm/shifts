@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202610261610"></script>
+<script src="i18n.js?v=202610261700"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -2240,7 +2240,10 @@ function srMaintHTML(h){const m=srMaint(h),li=l=>l.map(x=>`<li><b>חדר ${esc(x
 // drafts: srDrafts/{uid}__{hotel} {hotel, by, data, at}; the same login continues the draft on any device
 function srDraftSub(h){const k='srd:'+h;S.srDraft=S.srDraft||{};if(!S.live[k]){S.live[k]=true;
   fdb.doc('srDrafts/'+S.uid+'__'+h).get().then(d=>{const x=d.exists?d.data():null;S.srDraft[h]=x||{};if(x&&x.data&&!S.drafts.sr){S.drafts.sr={...x.data};toast('נטענה הטיוטה ששמרת')}render()},()=>{S.srDraft[h]={}})}return S.srDraft[h]||{}}
-function srFormHTML(h){const g=(k,d)=>dv('sr',k,d),un=g('unusual',''),dr=srDraftSub(h);
+// shift report draft autosave (owner, Oct 26): every 15 s, if the form changed, save srDrafts/{uid}__{hotel} quietly
+setInterval(()=>{const h=S.srFormH,d=S.drafts&&S.drafts.sr;if(!h||!d||!S.uid||!document.querySelector('[data-act="sr-save"]'))return;const j=JSON.stringify(d);if(j==='{}'||j===S.srAutoJ)return;
+  const data=JSON.parse(j),at=Date.now();fdb.doc('srDrafts/'+S.uid+'__'+h).set({hotel:h,by:S.uid,data,at}).then(()=>{S.srAutoJ=j;(S.srDraft||(S.srDraft={}))[h]={hotel:h,by:S.uid,data,at};const el=document.getElementById('srAutoTxt');if(el)el.textContent='הטיוטה נשמרה אוטומטית '+new Date(at).toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'});else S.pending=true},()=>{})},15000);
+function srFormHTML(h){const g=(k,d)=>dv('sr',k,d),un=g('unusual',''),dr=srDraftSub(h);S.srFormH=h;
   return `<div class="card"><h3>דוח סיכום משמרת</h3><p class="muted" style="font-size:.85rem">ממלאים בסוף כל משמרת. אחרי השליחה הדוח עובר למנהל המלון בלבד, והסכומים לא מוצגים כאן.</p>
   <div class="row"><label class="f">מי ממלא את הדוח<select id="sr_uid" data-f="sr.uid"><option value="">בחרו את השם שלכם…</option>${srStaff(h).map(u=>`<option value="${u}" ${g('uid','')===u?'selected':''}>${esc(empName(u))}</option>`).join('')}</select></label>
   <label class="f">תאריך<input type="date" id="sr_date" data-f="sr.date" value="${esc(g('date',todayISO()))}"></label>
@@ -2260,8 +2263,8 @@ function srFormHTML(h){const g=(k,d)=>dv('sr',k,d),un=g('unusual',''),dr=srDraft
   <div class="f"><span>היו אירועים חריגים במשמרת?</span><div class="chips" style="gap:6px"><button type="button" class="hchip" data-act="sr-un" data-v="no" aria-pressed="${un==='no'}">לא</button><button type="button" class="hchip" data-act="sr-un" data-v="yes" aria-pressed="${un==='yes'}">כן</button></div></div>
   ${un==='yes'?`<label class="f">פירוט האירועים החריגים<textarea id="sr_det" data-f="sr.details" rows="4" placeholder="מה קרה, באיזו שעה, מי היה מעורב ומה נעשה">${esc(g('details',''))}</textarea></label>`:''}
   <label class="f">הערות נוספות (מלל חופשי, לא חובה)<textarea id="sr_notes" data-f="sr.notes" rows="3" placeholder="כל דבר נוסף שחשוב שהמשמרת הבאה או המנהל ידעו">${esc(g('notes',''))}</textarea></label>
-  <div class="actions" style="align-items:center"><button class="btn pri" data-act="sr-save" data-h="${h}">שליחת הדוח</button><button class="btn" data-act="sr-draft" data-h="${h}">שמירת טיוטה</button>${dr.at?`<button class="btn ghost" data-act="sr-draft-del" data-h="${h}">${S.confirm==='srd:'+h?'לחיצה נוספת תמחק':'מחיקת הטיוטה'}</button><small class="muted">טיוטה נשמרה ${new Date(dr.at).toLocaleString('he-IL',{dateStyle:'short',timeStyle:'short'})}</small>`:''}</div>
-  <p class="muted" style="font-size:.8rem;margin:4px 0 0">טיוטה נשמרת בלי לשלוח, ואפשר לחזור ולהשלים אותה גם ממכשיר אחר עם אותה כניסה. צילום חשבונית לא נשמר בטיוטה.</p></div>`}
+  <div class="actions" style="align-items:center"><button class="btn pri" data-act="sr-save" data-h="${h}">שליחת הדוח</button><button class="btn" data-act="sr-draft" data-h="${h}">שמירת טיוטה</button>${dr.at?`<button class="btn ghost" data-act="sr-draft-del" data-h="${h}">${S.confirm==='srd:'+h?'לחיצה נוספת תמחק':'מחיקת הטיוטה'}</button>`:''}<small class="muted" id="srAutoTxt">${dr.at?'טיוטה נשמרה '+new Date(dr.at).toLocaleString('he-IL',{dateStyle:'short',timeStyle:'short'}):''}</small></div>
+  <p class="muted" style="font-size:.8rem;margin:4px 0 0">💾 הדוח נשמר כטיוטה אוטומטית תוך כדי מילוי (וגם בלחיצה על "שמירת טיוטה"), בלי לשלוח. אפשר לסגור ולהשלים אחר כך, גם ממכשיר אחר עם אותה כניסה, עד שלוחצים "שליחת הדוח". תמונות לא נשמרות בטיוטה.</p></div>`}
 // reception (no money): only today's reports + last night's report
 function srPubRecentHTML(h){const t=todayISO(),y=addDays(weekOf(t),-7),ms=[...new Set([t.slice(0,7),y.slice(0,7)])];ms.forEach(m=>srPubSub(h,m));
   const parts=ms.map(m=>(S.srepsPub||{})[h+'|'+m]);

@@ -1,4 +1,4 @@
-<!doctype html><html lang="he" dir="rtl"><head><meta name="theme-color" content="#1f5f6b"><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style><script src="i18n.js?v=202610261630"></script></head><body>
+<!doctype html><html lang="he" dir="rtl"><head><meta name="theme-color" content="#1f5f6b"><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style><script src="i18n.js?v=202610261900"></script></head><body>
 <style>
 .evtop{background:var(--surface);border-bottom:1px solid var(--line)}
 .evtop-in{max-width:1240px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:10px;padding-block:6px;padding-left:max(10px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
@@ -458,7 +458,7 @@ table.ctable{border-collapse:collapse;width:100%;min-width:620px;font-size:14px;
         <div class="actions">
           <button class="btn pri" id="btnSave">שמור הצעה</button>
           <button class="btn" id="btnPdf">הורד PDF</button>
-          <a class="btn" id="btnWa" href="#" target="_blank" rel="noopener">שלח בוואטסאפ</a>
+          <a class="btn" id="btnWa" href="#" target="_blank" rel="noopener">שלח בוואטסאפ</a><button class="btn" id="btnWaSys" type="button" hidden style="background:#25D366;color:#fff;border-color:#25D366">📲 וואטסאפ מהמערכת</button>
           <a class="btn" id="btnGmail" href="#" target="_blank" rel="noopener">שלח ב-Gmail</a>
           <a class="btn" id="btnOutlook" href="#" target="_blank" rel="noopener">שלח ב-Outlook</a>
           <button class="btn ghost" id="btnCopy">העתק נוסח הודעה</button>
@@ -1669,6 +1669,13 @@ function renderSignUI(){
   const bar=$('#signedBar');
   if(cur.signature){bar.hidden=false;bar.innerHTML=`<span>${cur.signature.remote?'נחתמה בקישור על ידי':'נחתמה במקום על ידי'} <b>${esc(cur.signature.name)}</b> ב-${esc(cur.signature.at)}</span><button class="btn sm ghost" id="sgRemove">הסר חתימה</button>`}else bar.hidden=true;
 }
+// WhatsApp through the system (Oct 26): the message goes out from the business number and is kept in the conversation on the leads page
+$('#btnWaSys').addEventListener('click',async()=>{if(!db)return;const d=waPhone(cur.client.phone);if(d.length<11){toast('הזן טלפון תקין של הלקוח');$('#cPhone').focus();return}
+  try{await saveQuote(cur);refresh()}catch(e){if(e&&e.code!=='cancel')toast('השמירה נכשלה, נסה שוב');return}
+  let c=null;try{const cs=await db.doc('waChats/'+d).get();c=cs.exists?cs.data():null}catch(_){}
+  if(!(c&&c.lastInAt&&Date.now()-c.lastInAt<864e5)){if(confirm('הלקוח לא כתב לעסק בוואטסאפ ב-24 השעות האחרונות, ולכן אפשר לשלוח לו רק תבנית מאושרת.\n\nלפתוח את השיחה בעמוד הלידים כדי לשלוח תבנית?'))window.open('index.html#leads?wa='+d,'_blank');return}
+  try{await db.collection('waChats/'+d+'/msgs').add({dir:'out',type:'text',text:msgText(),status:'queued',by:myId,byName:nameCache[myId]||'',at:Date.now(),src:'system',quoteId:cur.id});markSent();toast('נשלח בוואטסאפ מהמספר של העסק')}
+  catch(e){toast('לא נשלח: '+(e&&e.message||''))}});
 $('#signedBar').addEventListener('click',async e=>{if(e.target.id!=='sgRemove')return;delete cur.signature;cur.signKey=null;try{if(cur.id)await saveQuote(cur,'unsigned')}catch(_){}refresh();toast('החתימה הוסרה')});
 async function copyText(t,okMsg){
   try{await navigator.clipboard.writeText(t);toast(okMsg)}
@@ -2316,6 +2323,7 @@ $('#syncState').textContent='';
       try{if(old&&!mine)lsSet('quoteDraft:'+myId,cur);localStorage.removeItem('quoteDraft')}catch(_){}try{fillForm()}catch(_){cur=blankQuote();fillForm()}}$('#meLine').textContent=myId?(me.name?`מחובר/ת: ${me.name}`:''):'לא מזוהה: הצעות יישמרו ללא שם עובד';renderAuthor()}}catch(e){userCap=null}
   settings=structuredClone(DEF_SETTINGS);quotes=[];menus=[];contracts=[];
   try{const o=await db.doc('orgcfg/main').get();if(o.exists){const od=o.data()||{};if(Array.isArray(od.venues)){setVenues(od.venues);brandLine()}if(od.name){document.querySelectorAll('.evbrand,.drawer-h b').forEach(e=>e.textContent=od.name);document.title=document.title.replace('Seven Collection',od.name)}renderVenues&&renderVenues()}}catch(_){ }
+  db.doc('wapub/main').onSnapshot(s=>{$('#btnWaSys').hidden=!(s.exists&&s.data().on)},()=>{});
   db.doc('config/main').onSnapshot(s=>{
     if(s.exists){settings=Object.assign(structuredClone(DEF_SETTINGS),structuredClone(s.data()));settings.business=Object.assign({},DEF_SETTINGS.business,settings.business||{})}
     applySettings();if(!$('#tab-settings').hidden)renderSettings();

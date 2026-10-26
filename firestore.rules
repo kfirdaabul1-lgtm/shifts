@@ -372,6 +372,23 @@ service cloud.firestore {
     match /tasks/{id} {
       allow read, write: if canEvents();
     }
+    // WhatsApp (Oct 26): conversations for events users; the server (admin) writes incoming messages and statuses
+    match /waChats/{id} {
+      allow read: if canEvents();
+      allow create: if canEvents() && request.resource.data.keys().hasOnly(['waId', 'phone', 'name', 'leadId', 'createdAt', 'createdBy', 'unread']);
+      allow update: if canEvents() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['unread', 'readAt', 'readBy', 'leadId', 'name']);
+      match /msgs/{m} {
+        allow read: if canEvents();
+        allow create: if canEvents() && request.resource.data.dir == 'out' && request.resource.data.status == 'queued' && request.resource.data.by == request.auth.uid;
+      }
+    }
+    match /wacfg/{id} {
+      allow read, write: if isOwner();
+    }
+    match /wapub/{id} {
+      allow read: if canEvents();
+      allow write: if isOwner();
+    }
     match /clients/{id} {
       allow read, write: if canEvents();
     }

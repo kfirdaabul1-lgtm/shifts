@@ -127,7 +127,7 @@ exports.onStock = trig('inventory/{id}').onWrite(async (ch) => {
 // A small Google Apps Script in the owner's own Drive calls this once a day with the key stored in backupcfg/main
 // (only the owner can read or change it) and saves the JSON it gets into a Drive folder. Same format as the
 // "גיבוי" button on the Permissions page, so the Import card can restore it. Invoice images are left out (size).
-const BACKUP_COLLS = ['srImgs', 'shiftKinds', 'signs', 'receipts', 'orgcfg', 'groups', 'agents', 'priceLists', 'jobRoles', 'vchCodes', 'hkday', 'faultsAck', 'srDrafts', 'vchcfg', 'hotels', 'settings', 'employees', 'mgr', 'avail', 'shifts', 'schedule', 'requests', 'roles', 'joinCodes', 'config', 'menus', 'contracts', 'quotes', 'campaigns', 'suppliers', 'invoices', 'expcfg', 'inventory', 'purchaseReqs', 'shiftReports', 'faults', 'hk', 'hkcfg', 'hkLog', 'hkComplaints', 'leads', 'tasks', 'clients', 'hkCalls', 'spa', 'spacfg', 'vouchers'];
+const BACKUP_COLLS = ['waChats', 'srImgs', 'shiftKinds', 'signs', 'receipts', 'orgcfg', 'groups', 'agents', 'priceLists', 'jobRoles', 'vchCodes', 'hkday', 'faultsAck', 'srDrafts', 'vchcfg', 'hotels', 'settings', 'employees', 'mgr', 'avail', 'shifts', 'schedule', 'requests', 'roles', 'joinCodes', 'config', 'menus', 'contracts', 'quotes', 'campaigns', 'suppliers', 'invoices', 'expcfg', 'inventory', 'purchaseReqs', 'shiftReports', 'faults', 'hk', 'hkcfg', 'hkLog', 'hkComplaints', 'leads', 'tasks', 'clients', 'hkCalls', 'spa', 'spacfg', 'vouchers'];
 const plain = (v) => {
   if (v instanceof admin.firestore.Timestamp) return { seconds: v.seconds, nanoseconds: v.nanoseconds };
   if (Array.isArray(v)) return v.map(plain);
@@ -617,4 +617,173 @@ exports.onSignDone = trig('signs/{id}').onUpdate(async (ch) => {
   await ch.after.ref.update({ signedAtTxt: at }).catch(() => {});
   await db.collection('quotes/' + a.quoteId + '/versions').doc(Date.now().toString(36) + '-sign').set({ at: new Date().toISOString(), by: null, action: 'signed', total: a.total || 0, status: 'approved', data: { remoteSign: true, name: a.signName || '' } }).catch(() => {});
   return sendTo(await eventsPeople(), { title: `הצעה #${a.num || q.num || ''} נחתמה ✍️`, body: `${a.signName || ''}${q.client && q.client.name && q.client.name !== a.signName ? ' (' + q.client.name + ')' : ''} חתם/ה על ההצעה בקישור. ההצעה סומנה כמאושרת.`, hash: 'events.html#q=' + a.quoteId, tag: 'sign-' + a.quoteId });
+});
+
+// ================= WhatsApp (owner, Oct 26): one chain number, conversations inside "לידים ומכירות" + events =================
+// wacfg/main (owner only) {provider 'meta'|'360dialog', token, phoneId, wabaId, verify, appSecret, syncReq, status}
+// wapub/main (events users read) {on, phone, name, templates:[{name, lang, body, n}]}
+// waChats/{waId} {waId, phone, name, leadId, lastAt, lastText, lastDir, lastInAt, unread}; msgs/{id} {dir in|out, type, text, at, status, by, byName, src system|app|history, wamid, error}
+// waIds/{wamid} {chat, msg} maps delivery statuses to our message docs
+const WA_GRAPH = 'https://graph.facebook.com/v23.0/', WA_360 = 'https://waba-v2.360dialog.io/';
+const waLocal = (id) => { const d = String(id || '').replace(/\D/g, ''); return d.startsWith('972') ? '0' + d.slice(3) : d; };
+const waTail = (p) => String(p || '').replace(/\D/g, '').replace(/^972/, '0').slice(-9);
+async function waCfg() { const d = await db.doc('wacfg/main').get(); return d.exists ? d.data() : {}; }
+async function waApi(c, method, path, body) {
+  const is360 = c.provider === '360dialog', url = (is360 ? WA_360 : WA_GRAPH) + path;
+  const headers = { 'Content-Type': 'application/json', ...(is360 ? { 'D360-API-KEY': c.token } : { Authorization: 'Bearer ' + c.token }) };
+  const r = await fetch(url, { method, headers, body: body ? JSON.stringify(body) : undefined });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok || j.error) { const e = j.error || {}; const err = new Error(e.error_user_msg || e.message || ('HTTP ' + r.status)); err.code = e.code; throw err; }
+  return j;
+}
+function waText(m) {
+  const t = m.type;
+  if (t === 'text') return (m.text && m.text.body) || '';
+  const cap = (x) => (m[x] && m[x].caption) || '';
+  if (t === 'image') return '📷 תמונה' + (cap('image') ? ': ' + cap('image') : '');
+  if (t === 'video') return '🎬 וידאו' + (cap('video') ? ': ' + cap('video') : '');
+  if (t === 'document') return '📄 ' + ((m.document && m.document.filename) || 'מסמך') + (cap('document') ? ': ' + cap('document') : '');
+  if (t === 'audio') return '🎤 הודעה קולית';
+  if (t === 'sticker') return '🙂 מדבקה';
+  if (t === 'location') return '📍 מיקום' + (m.location && m.location.name ? ': ' + m.location.name : '');
+  if (t === 'contacts') return '👤 איש קשר';
+  if (t === 'button') return (m.button && m.button.text) || '';
+  if (t === 'interactive') { const i = m.interactive || {}; return (i.button_reply && i.button_reply.title) || (i.list_reply && i.list_reply.title) || ''; }
+  if (t === 'reaction') return 'תגובה ' + ((m.reaction && m.reaction.emoji) || '');
+  if (t === 'template') return '📋 תבנית';
+  return '[הודעה מסוג שלא נתמך]';
+}
+// the lead of this phone: an existing lead with the same number, else a new lead (source WhatsApp)
+async function waLead(waId, name) {
+  const t = waTail(waId), ls = await db.collection('leads').get(); let hit = null;
+  ls.forEach((d) => { if (!hit && t.length >= 9 && waTail(d.data().phone) === t) hit = d; });
+  if (hit) return { id: hit.id, owner: hit.data().owner || '', isNew: false };
+  const id = 'wa_' + waId, now = Date.now();
+  await db.doc('leads/' + id).set({ name: name || waLocal(waId), phone: waLocal(waId), email: '', company: '', type: '', date: '', guests: 0, venue: '', source: 'whatsapp', campaign: '', stage: 'new', owner: '', ownerName: '', nextAt: new Date(now + 3 * 3600e3).toISOString().slice(0, 10), value: 0, notes: '', acts: [], createdAt: now, createdBy: 'whatsapp', updatedAt: now }, { merge: true });
+  return { id, owner: '', isNew: true };
+}
+async function waSave(chatId, msgId, data, chatUp) {
+  const cref = db.doc('waChats/' + chatId), mref = cref.collection('msgs').doc(msgId);
+  try { await mref.create(data); } catch (e) { return false; } // already saved (webhooks can repeat)
+  await cref.set({ waId: chatId, phone: waLocal(chatId), ...chatUp }, { merge: true });
+  return true;
+}
+async function waIncoming(m, name, push) {
+  const chat = m.from, at = (+m.timestamp || Date.now() / 1000) * 1000, text = waText(m);
+  const cref = db.doc('waChats/' + chat), cs = await cref.get(), c = cs.exists ? cs.data() : {};
+  const up = { lastAt: at, lastText: text.slice(0, 200), lastDir: 'in', lastInAt: at, unread: admin.firestore.FieldValue.increment(1) };
+  if (name && !c.name) up.name = name;
+  if (!(await waSave(chat, m.id, { dir: 'in', type: m.type, text, at, src: 'customer', media: (m[m.type] && m[m.type].id) || '', mime: (m[m.type] && m[m.type].mime_type) || '', replyTo: (m.context && m.context.id) || '' }, up))) return;
+  let leadId = c.leadId, owner = '';
+  if (!leadId) { try { const L = await waLead(chat, name || c.name); leadId = L.id; owner = L.owner; await cref.set({ leadId }, { merge: true }); } catch (e) { console.warn('wa lead', e.message); } }
+  else { try { const l = await db.doc('leads/' + leadId).get(); owner = (l.exists && l.data().owner) || ''; } catch (e) { } }
+  if (push) await sendTo(owner ? [owner] : await eventsPeople(), { title: '💬 ' + (name || c.name || waLocal(chat)), body: text.slice(0, 140), hash: '#leads?wa=' + chat, tag: 'wa-' + chat });
+}
+async function waOutgoing(chat, m, src) {
+  const at = (+m.timestamp || Date.now() / 1000) * 1000, text = waText(m);
+  await waSave(chat, m.id, { dir: 'out', type: m.type, text, at, src, status: 'sent', wamid: m.id, byName: src === 'app' ? 'מהטלפון' : '' }, { lastAt: at, lastText: text.slice(0, 200), lastDir: 'out' });
+}
+const WA_RANK = { queued: 0, sent: 1, delivered: 2, read: 3, failed: 4 };
+async function waStatus(s) {
+  let ref = null; const mp = await db.doc('waIds/' + s.id).get();
+  if (mp.exists) ref = db.doc('waChats/' + mp.data().chat + '/msgs/' + mp.data().msg);
+  else if (s.recipient_id) ref = db.doc('waChats/' + s.recipient_id + '/msgs/' + s.id);
+  if (!ref) return;
+  const cur = await ref.get(); if (!cur.exists) return;
+  if ((WA_RANK[s.status] || 0) <= (WA_RANK[cur.data().status] || 0) && s.status !== 'failed') return;
+  const up = { status: s.status, ['at_' + s.status]: (+s.timestamp || 0) * 1000 };
+  if (s.status === 'failed') up.error = waErr((s.errors && s.errors[0]) || {});
+  await ref.update(up);
+}
+function waErr(e) {
+  const c = +e.code;
+  if (c === 131047) return 'עברו יותר מ-24 שעות מההודעה האחרונה של הלקוח. צריך לשלוח תבנית מאושרת.';
+  if (c === 131026) return 'ההודעה לא נמסרה (המספר לא בוואטסאפ או חסם).';
+  if (c === 132001 || c === 132000) return 'בעיה בתבנית: ' + (e.message || '');
+  return (e.title || e.message || 'שגיאה') + (c ? ' (' + c + ')' : '');
+}
+const crypto = require('crypto');
+exports.waWebhook = functions.region(REGION).https.onRequest(async (req, res) => {
+  try {
+    const c = await waCfg();
+    if (req.method === 'GET') {
+      if (req.query['hub.mode'] === 'subscribe' && c.verify && req.query['hub.verify_token'] === c.verify) { res.status(200).send(String(req.query['hub.challenge'] || '')); return; }
+      res.status(403).send('forbidden'); return;
+    }
+    if (req.method !== 'POST') { res.status(405).send('no'); return; }
+    if (c.appSecret) {
+      const sig = String(req.get('x-hub-signature-256') || ''), mine = 'sha256=' + crypto.createHmac('sha256', c.appSecret).update(req.rawBody || '').digest('hex');
+      if (sig.length !== mine.length || !crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(mine))) { res.status(403).send('bad signature'); return; }
+    }
+    const b = req.body || {}, biz = String((c.status && c.status.phoneDigits) || '');
+    for (const en of b.entry || []) for (const ch of en.changes || []) {
+      const v = ch.value || {}, f = ch.field;
+      if (c.phoneId && v.metadata && v.metadata.phone_number_id && v.metadata.phone_number_id !== c.phoneId) continue;
+      if (f === 'messages') {
+        const names = {}; (v.contacts || []).forEach((x) => { names[x.wa_id] = (x.profile && x.profile.name) || ''; });
+        for (const m of v.messages || []) await waIncoming(m, names[m.from] || '', true);
+        for (const s of v.statuses || []) await waStatus(s);
+      } else if (f === 'smb_message_echoes') {
+        for (const m of v.message_echoes || []) await waOutgoing(m.to, m, 'app');
+      } else if (f === 'history') {
+        const me = String((v.metadata && v.metadata.display_phone_number) || biz).replace(/\D/g, '');
+        for (const h of v.history || []) for (const t of h.threads || []) for (const m of t.messages || []) {
+          if (String(m.from).replace(/\D/g, '') === me) await waOutgoing(t.id, m, 'history');
+          else { const cref = db.doc('waChats/' + t.id), at = (+m.timestamp || 0) * 1000, text = waText(m); await waSave(t.id, m.id, { dir: 'in', type: m.type, text, at, src: 'history' }, { lastAt: at, lastText: text.slice(0, 200), lastDir: 'in', lastInAt: at }); }
+        }
+      }
+    }
+    res.status(200).send('ok');
+  } catch (e) { console.error('waWebhook', e); res.status(200).send('ok'); }
+});
+// a message written in the system (queued) → send it through WhatsApp
+exports.onWaOut = trig('waChats/{chat}/msgs/{id}').onCreate(async (snap, ctx) => {
+  const m = snap.data() || {}; if (m.dir !== 'out' || m.status !== 'queued') return;
+  const c = await waCfg(), chat = ctx.params.chat;
+  if (!c.token || (c.provider !== '360dialog' && !c.phoneId)) return snap.ref.update({ status: 'failed', error: 'וואטסאפ עוד לא מחובר (הגדרות אצל הבעלים).' });
+  let body;
+  if (m.type === 'template' && m.tpl) {
+    const params = (m.tpl.params || []).map((t) => ({ type: 'text', text: String(t || '-') }));
+    body = { messaging_product: 'whatsapp', to: chat, type: 'template', template: { name: m.tpl.name, language: { code: m.tpl.lang || 'he' }, ...(params.length ? { components: [{ type: 'body', parameters: params }] } : {}) } };
+  } else body = { messaging_product: 'whatsapp', recipient_type: 'individual', to: chat, type: 'text', text: { body: String(m.text || '').slice(0, 4096), preview_url: true } };
+  try {
+    const r = await waApi(c, 'POST', c.provider === '360dialog' ? 'messages' : c.phoneId + '/messages', body);
+    const wamid = r.messages && r.messages[0] && r.messages[0].id;
+    await snap.ref.update({ status: 'sent', wamid: wamid || '', sentAt: Date.now() });
+    if (wamid) await db.doc('waIds/' + wamid).set({ chat, msg: snap.id });
+    await db.doc('waChats/' + chat).set({ waId: chat, phone: waLocal(chat), lastAt: m.at || Date.now(), lastText: String(m.text || '').slice(0, 200), lastDir: 'out' }, { merge: true });
+  } catch (e) { await snap.ref.update({ status: 'failed', error: waErr({ code: e.code, message: e.message }) }); }
+});
+// settings saved → check the connection, subscribe the app to the account, refresh the approved templates
+async function waSync() {
+  const ref = db.doc('wacfg/main'), c = await waCfg(), st = { at: Date.now() };
+  try {
+    if (!c.token) throw new Error('חסר מפתח (token)');
+    let tpls = [];
+    if (c.provider === '360dialog') {
+      try { await waApi(c, 'POST', 'v1/configs/webhook', { url: 'https://' + REGION + '-hotel-shifts.cloudfunctions.net/waWebhook' }); st.webhook = 'הוגדר אוטומטית'; } catch (e) { st.webhook = 'לא הוגדר: ' + e.message; }
+      const t = await waApi(c, 'GET', 'v1/configs/templates'); tpls = t.waba_templates || t.data || [];
+    } else {
+      if (!c.phoneId || !c.wabaId) throw new Error('חסרים Phone number ID או WhatsApp Business Account ID');
+      const p = await waApi(c, 'GET', c.phoneId + '?fields=display_phone_number,verified_name,quality_rating');
+      st.phone = p.display_phone_number || ''; st.name = p.verified_name || ''; st.quality = p.quality_rating || ''; st.phoneDigits = String(p.display_phone_number || '').replace(/\D/g, '');
+      try { await waApi(c, 'POST', c.wabaId + '/subscribed_apps'); st.sub = true; } catch (e) { st.sub = false; st.subErr = e.message; }
+      const t = await waApi(c, 'GET', c.wabaId + '/message_templates?fields=name,language,status,components&limit=200'); tpls = t.data || [];
+    }
+    const out = tpls.filter((x) => String(x.status || '').toUpperCase() === 'APPROVED').map((x) => {
+      const bodyC = (x.components || []).find((k) => String(k.type).toUpperCase() === 'BODY') || {}, txt = bodyC.text || '';
+      const n = Math.max(0, ...(txt.match(/\{\{(\d+)\}\}/g) || []).map((s) => +s.replace(/\D/g, '')));
+      return { name: x.name, lang: x.language || 'he', body: txt, n };
+    });
+    st.ok = true; st.msg = 'מחובר'; st.templates = out.length;
+    await db.doc('wapub/main').set({ on: true, phone: st.phone || '', name: st.name || '', templates: out, at: Date.now() });
+  } catch (e) { st.ok = false; st.msg = e.message; await db.doc('wapub/main').set({ on: false, at: Date.now() }, { merge: true }); }
+  await ref.set({ status: st }, { merge: true });
+}
+exports.onWaCfg = trig('wacfg/main').onWrite(async (ch) => {
+  if (!ch.after.exists) { await db.doc('wapub/main').set({ on: false, templates: [] }); return; }
+  const a = ch.after.data() || {}, b = ch.before.exists ? ch.before.data() : {};
+  const keys = ['provider', 'token', 'phoneId', 'wabaId', 'syncReq'];
+  if (!keys.some((k) => a[k] !== b[k])) return;
+  await waSync();
 });

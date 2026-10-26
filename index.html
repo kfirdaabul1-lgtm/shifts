@@ -2917,8 +2917,9 @@ const BACKUP_COLLS=['srImgs','shiftKinds','signs','receipts','orgcfg','groups','
 const lastBackup=()=>{let l=0;try{l=+localStorage.getItem('scLastBackup')||0}catch(_){ }bkCfgLoad();return Math.max(l,+(S.bkCfg&&S.bkCfg.lastAt)||0)};
 // daily automatic backup to the owner's Google Drive: an Apps Script in their Drive calls the driveBackup function with the key in backupcfg/main
 const BK_FN='https://europe-west1-'+((CFG.firebase&&CFG.firebase.projectId)||'hotel-shifts')+'.cloudfunctions.net/driveBackup';
-function bkCfgLoad(force){if(!S.isOwner||(S.bkCfg!==undefined&&!force)||S.bkCfgLoading)return;S.bkCfgLoading=true;
-  fdb.doc('backupcfg/main').get().then(d=>{S.bkCfg=d.exists?d.data():null}).catch(()=>{S.bkCfg=null}).finally(()=>{S.bkCfgLoading=false;render()})}
+// live (owner, Oct 26: the card kept showing the Oct 22 backup because it was read only once when the app opened)
+function bkCfgLoad(){if(!S.isOwner||S.bkCfgLive)return;S.bkCfgLive=true;
+  fdb.doc('backupcfg/main').onSnapshot(d=>{S.bkCfg=d.exists?d.data():null;render()},()=>{S.bkCfg=S.bkCfg||null;S.bkCfgLive=false;render()})}
 function bkKey(){const a=new Uint8Array(24);crypto.getRandomValues(a);return Array.from(a,b=>b.toString(16).padStart(2,'0')).join('')}
 function bkScript(key){return `// ${appName()} – גיבוי יומי אוטומטי לגוגל דרייב
 const URL_ = '${BK_FN}?key=${key}';

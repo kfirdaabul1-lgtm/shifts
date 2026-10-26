@@ -2395,11 +2395,13 @@ const HK_PAX=[3,4,5,6,7];
 const HK_TRT=[['full','Full refresh','FR'],['ref','Refresh','R']],HK_TN=Object.fromEntries(HK_TRT.map(x=>[x[0],x]));
 // room inspector (hkchk app): rooms a cleaner finished (done + VI, not yet checked) wait for approval → VC (chk/chkBy/chkAt) or back to cleaning (VD)
 const hkChkOk=h=>S.isOwner||(!!S.can.hkchk&&hkHotels().includes(h));
-const hkToCheck=(D,R)=>R.units.filter(r=>(D.done||{})[r]&&(D.clean||{})[r]==='vi'&&!(D.chk||{})[r]);
+// refresh rooms are occupied (owner, Oct 26): cleaning done / inspection give OC (occupied clean), never VI/VC
+const hkTrtRoom=(D,r)=>!!(D.trt||{})[r];
+const hkToCheck=(D,R)=>R.units.filter(r=>(D.done||{})[r]&&((D.clean||{})[r]==='vi'||(hkTrtRoom(D,r)&&(D.clean||{})[r]==='oc'))&&!(D.chk||{})[r]);
 function hkChkHTML(h,D,R){if(!hkChkOk(h))return '';const L=hkToCheck(D,R).sort((a,b)=>(D.done[a]||0)-(D.done[b]||0)),t=x=>x?new Date(x).toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'}):'';
   const ok=R.units.filter(r=>(D.chk||{})[r]).length;
   return `<div class="card" style="border-color:#1D734A"><h3>בדיקת חדרים · ${L.length} ממתינים</h3><p class="muted" style="font-size:.85rem;margin:0 0 6px">חדרים שהחדרנים סימנו כנקיים. אחרי בדיקה מאשרים (VC) או מחזירים לניקוי. אושרו היום: ${ok}</p>
-  ${L.length?`<div class="plist">${L.map(r=>{const u=(D.doneBy||{})[r];return `<div class="prow" style="flex-wrap:wrap"><span class="who"><b>חדר ${esc(r)}</b><small>${u?'ניקה: '+esc(empName(u))+' · ':''}סיים ב-${t(D.done[r])}${(D.trt||{})[r]?' · '+HK_TN[D.trt[r]][1]:''}</small></span><span class="actions"><button class="btn sm pri" data-act="hk-chk" data-h="${h}" data-r="${esc(r)}">✓ נקי · VC</button><button class="btn sm ghost" data-act="hk-chk-back" data-h="${h}" data-r="${esc(r)}">להחזיר לניקוי</button></span></div>`}).join('')}</div>`:'<p class="muted">אין כרגע חדרים שממתינים לבדיקה.</p>'}</div>`}
+  ${L.length?`<div class="plist">${L.map(r=>{const u=(D.doneBy||{})[r];return `<div class="prow" style="flex-wrap:wrap"><span class="who"><b>חדר ${esc(r)}</b><small>${u?'ניקה: '+esc(empName(u))+' · ':''}סיים ב-${t(D.done[r])}${(D.trt||{})[r]?' · '+HK_TN[D.trt[r]][1]:''}</small></span><span class="actions"><button class="btn sm pri" data-act="hk-chk" data-h="${h}" data-r="${esc(r)}">${hkTrtRoom(D,r)?'✓ נקי · OC':'✓ נקי · VC'}</button><button class="btn sm ghost" data-act="hk-chk-back" data-h="${h}" data-r="${esc(r)}">להחזיר לניקוי</button></span></div>`}).join('')}</div>`:'<p class="muted">אין כרגע חדרים שממתינים לבדיקה.</p>'}</div>`}
 const HK_FLAGS=['pri','vip','bk','grp','twin','cot','wine','bal'];
 const HK_CN=Object.fromEntries(HK_CLEAN.map(x=>[x[0],x])),HK_ON=Object.fromEntries(HK_OCC.map(x=>[x[0],x]));
 function hkPreset(h){if(!LEGACY)return {rooms:''};const n=String(hotelName(h)||'').toLowerCase();
@@ -2562,9 +2564,9 @@ function sheetHk(){const {h,r}=S.sheet,d=todayISO(),D=(S.hkDays||{})[h+'|'+d]||{
 function hkStart(h,room){const d=hkToday(h),D=(S.hkDays||{})[h+'|'+d]||{},now=Date.now();
   S.hkDays[h+'|'+d]={...D,start:{...(D.start||{}),[room]:now}};render();
   fdb.doc('hk/'+hkDocId(h,d)).set({hotel:h,date:d,updatedAt:now,lastBy:S.uid,start:{[room]:now}},{merge:true}).then(()=>toast(`חדר ${room}: התחלת ניקיון`),e=>{toast('השמירה נכשלה: '+errMsg(mapErr(e)));S.hkDays[h+'|'+d]=D;render()})}
-function hkDone(h,room){const d=hkToday(h),D=(S.hkDays||{})[h+'|'+d]||{},now=Date.now(),who=S.meName||S.email||'',st=(D.start||{})[room];
-  S.hkDays[h+'|'+d]={...D,clean:{...(D.clean||{}),[room]:'vi'},done:{...(D.done||{}),[room]:now},doneBy:{...(D.doneBy||{}),[room]:S.uid}};render();
-  fdb.doc('hk/'+hkDocId(h,d)).set({hotel:h,date:d,updatedAt:now,lastBy:S.uid,clean:{[room]:'vi'},cleanBy:{[room]:who},cleanAt:{[room]:now},done:{[room]:now},doneBy:{[room]:S.uid},chk:{[room]:firebase.firestore.FieldValue.delete()}},{merge:true})
+function hkDone(h,room){const d=hkToday(h),D=(S.hkDays||{})[h+'|'+d]||{},now=Date.now(),who=S.meName||S.email||'',st=(D.start||{})[room],cs=hkTrtRoom(D,room)?'oc':'vi';
+  S.hkDays[h+'|'+d]={...D,clean:{...(D.clean||{}),[room]:cs},done:{...(D.done||{}),[room]:now},doneBy:{...(D.doneBy||{}),[room]:S.uid}};render();
+  fdb.doc('hk/'+hkDocId(h,d)).set({hotel:h,date:d,updatedAt:now,lastBy:S.uid,clean:{[room]:cs},cleanBy:{[room]:who},cleanAt:{[room]:now},done:{[room]:now},doneBy:{[room]:S.uid},chk:{[room]:firebase.firestore.FieldValue.delete()}},{merge:true})
     .then(()=>toast(`חדר ${room} נקי ✓`),e=>{toast('השמירה נכשלה: '+errMsg(mapErr(e)));S.hkDays[h+'|'+d]=D;render()});
   if(st&&now>st)fdb.doc('hkLog/'+hkDocId(h,d)+'__'+room).set({hotel:h,month:d.slice(0,7),date:d,room,uid:S.uid,name:who,start:st,end:now,mins:Math.round((now-st)/60000)}).catch(()=>{})}
 /* worker order (owner, Oct 26): 1 = handle first, 2 = check-in today (RES), then the rest */
@@ -3771,9 +3773,9 @@ const ACT={
   'hk-co':D=>{hkCheckout(D.h,String(D.r));S.sheet=null;render()},
   'mhk-f':D=>{S.mhkF=D.v;render()},
   'mhk-room':D=>{(S.drafts.flt||(S.drafts.flt={})).room=String(D.r);render();setTimeout(()=>{const el=document.getElementById('fl_desc');if(el){el.scrollIntoView({block:'center'});el.focus()}},50)},
-  'hk-chk':D=>{const h=D.h,r=String(D.r),d=hkToday(h),Dd=(S.hkDays||{})[h+'|'+d]||{},now=Date.now(),who=S.meName||S.email||'';
-    S.hkDays[h+'|'+d]={...Dd,clean:{...(Dd.clean||{}),[r]:'vc'},chk:{...(Dd.chk||{}),[r]:S.uid}};render();
-    fdb.doc('hk/'+hkDocId(h,d)).set({hotel:h,date:d,updatedAt:now,lastBy:S.uid,clean:{[r]:'vc'},cleanBy:{[r]:who},cleanAt:{[r]:now},chk:{[r]:S.uid},chkBy:{[r]:who},chkAt:{[r]:now}},{merge:true}).then(()=>toast(`חדר ${r} אושר · VC`),e=>{toast('השמירה נכשלה: '+errMsg(mapErr(e)));S.hkDays[h+'|'+d]=Dd;render()})},
+  'hk-chk':D=>{const h=D.h,r=String(D.r),d=hkToday(h),Dd=(S.hkDays||{})[h+'|'+d]||{},now=Date.now(),who=S.meName||S.email||'',cs=hkTrtRoom(Dd,r)?'oc':'vc';
+    S.hkDays[h+'|'+d]={...Dd,clean:{...(Dd.clean||{}),[r]:cs},chk:{...(Dd.chk||{}),[r]:S.uid}};render();
+    fdb.doc('hk/'+hkDocId(h,d)).set({hotel:h,date:d,updatedAt:now,lastBy:S.uid,clean:{[r]:cs},cleanBy:{[r]:who},cleanAt:{[r]:now},chk:{[r]:S.uid},chkBy:{[r]:who},chkAt:{[r]:now}},{merge:true}).then(()=>toast(`חדר ${r} אושר · ${cs.toUpperCase()}`),e=>{toast('השמירה נכשלה: '+errMsg(mapErr(e)));S.hkDays[h+'|'+d]=Dd;render()})},
   'hk-chk-back':D=>{const h=D.h,r=String(D.r),d=hkToday(h),Dd=(S.hkDays||{})[h+'|'+d]||{},now=Date.now(),who=S.meName||S.email||'',FV=firebase.firestore.FieldValue;
     const loc={...Dd,clean:{...(Dd.clean||{}),[r]:'vd'},done:{...(Dd.done||{})},start:{...(Dd.start||{})}};delete loc.done[r];delete loc.start[r];S.hkDays[h+'|'+d]=loc;render();
     fdb.doc('hk/'+hkDocId(h,d)).set({hotel:h,date:d,updatedAt:now,lastBy:S.uid,clean:{[r]:'vd'},cleanBy:{[r]:who},cleanAt:{[r]:now},done:{[r]:FV.delete()},start:{[r]:FV.delete()},back:{[r]:now}},{merge:true}).then(()=>toast(`חדר ${r} הוחזר לניקוי`),e=>{toast('השמירה נכשלה: '+errMsg(mapErr(e)));S.hkDays[h+'|'+d]=Dd;render()})},

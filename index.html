@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202610261900"></script>
+<script src="i18n.js?v=202610291600"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -678,7 +678,7 @@ function vSched(){
     <div class="kpis">
       ${kpi('משבצות מאוישות',`${fill}/${need}`,need-fill?`חסרים ${need-fill} עובדים`:(need?'הכל מאויש':''),need-fill?'bad':'ok')}
       ${kpi('הגישו זמינות',`${submitted}/${act.length}`,isOpen?'לשבוע הפתוח':'השבוע הזה לא פתוח להגשה')}
-      ${S.deptOnly?'':kpi('עלות שבועית משוערת',ils(cost.total),`כולל ${c.overhead}% עלות מעסיק`)}
+      ${S.deptOnly?'':kpi('עלות שבועית משוערת',ils(cost.total),`כולל ${c.overhead}% עלות מעסיק לשכירים · מזומן ומתנדבים בלי`)}
     </div>
     ${(()=>{const bm=belowMin();return bm.length?`<div class="notice">מתחת למינימום משמרות: ${bm.map(u=>`${esc(empName(u))} (${loadOf(u)}/${minFor(u)})`).join(', ')}</div>`:''})()}
     <div class="actions">

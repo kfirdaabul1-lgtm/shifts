@@ -249,6 +249,9 @@ exports.onHkUpdate = trig('hk/{id}').onWrite(async (ch) => {
   const lines = [], bc = b.clean || {}, ac = a.clean || {}, bs = b.start || {}, as = a.start || {}, who = a.cleanBy || {};
   for (const [r, v] of Object.entries(ac)) if (bc[r] !== v && (who[r] || '') !== 'אוטומטי') lines.push(`חדר ${r}: ${HK_TXT[v] || v}${who[r] ? ' · ' + who[r] : ''}`);
   for (const [r, v] of Object.entries(as)) if (bs[r] !== v && !(ac[r] && bc[r] !== ac[r])) lines.push(`חדר ${r}: התחיל ניקיון${(a.asgName || {})[r] ? ' · ' + a.asgName[r] : ''}`);
+  const bd = b.dnd || {}, ad = a.dnd || {};
+  for (const [r, v] of Object.entries(ad)) if (v && bd[r] !== v) lines.push(`חדר ${r}: 🚫 שלט DND על הדלת${(a.dndBy || {})[r] ? ' · ' + a.dndBy[r] : ''}`);
+  for (const r of Object.keys(bd)) if (bd[r] && !ad[r]) lines.push(`חדר ${r}: שלט ה-DND הוסר`);
   if (!lines.length) return;
   return sendTo(st, { title: 'עדכון משק', body: lines.slice(0, 6).join('\n'), hash: '#hk', tag: 'hku-' + a.hotel + '-' + (lines.length === 1 ? lines[0].split(':')[0] : Date.now()) });
 });

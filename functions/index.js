@@ -790,3 +790,47 @@ exports.onWaCfg = trig('wacfg/main').onWrite(async (ch) => {
   if (!keys.some((k) => a[k] !== b[k])) return;
   await waSync();
 });
+
+// ================= Reception: end-of-shift report reminder (owner, Oct 31) =================
+// every 10 min: reception staff whose shift (per the PUBLISHED schedule, incl. approved requests/extensions) ends within
+// the next 20 minutes (or ended in the last hour) and who haven't submitted a shift report since the shift began → one push.
+// dedupe: srRemind/{shiftId__uid}
+const ilOffsetMin = (ms) => { const p = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Jerusalem', hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date(ms)); const g = (t) => +p.find((x) => x.type === t).value; return (Date.UTC(g('year'), g('month') - 1, g('day'), g('hour'), g('minute')) - ms) / 60000; };
+const ilEpoch = (date, hm) => { const [y, m, d] = date.split('-').map(Number), [H, M] = String(hm || '00:00').split(':').map(Number); const guess = Date.UTC(y, m - 1, d, H, M); return guess - ilOffsetMin(guess) * 60000; };
+const weekOfIso = (iso) => { const d = new Date(iso + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() - d.getUTCDay()); return d.toISOString().slice(0, 10); };
+exports.srRemind = functions.region(REGION).pubsub.schedule('every 10 minutes').timeZone('Asia/Jerusalem').onRun(async () => {
+  const now = Date.now(), today = ilDate(new Date(now)), yday = ilDate(new Date(now - 864e5));
+  const qs = await db.collection('shifts').where('date', 'in', [yday, today]).get();
+  const list = qs.docs.map((d) => ({ id: d.id, ...d.data() })).filter((s) => s.dept === 'reception' && +s.need > 0 && s.start && s.end);
+  if (!list.length) return null;
+  const scheds = {}, reqs = {};
+  const sched = async (s) => { const h = s.hotel || 'main', w = weekOfIso(s.date), k = h === 'main' ? w : w + '_' + h; if (!(k in scheds)) { const d = await db.doc('schedule/' + k).get(); scheds[k] = d.exists ? d.data() : null; } return scheds[k]; };
+  const hreqs = async (h) => { if (!(h in reqs)) { const q = await db.collection('requests').where('hotel', '==', h).where('status', '==', 'approved').get(); reqs[h] = q.docs.map((d) => d.data()); } return reqs[h]; };
+  let sent = 0;
+  for (const s of list) {
+    const h = s.hotel || 'main', sd = await sched(s); if (!sd || !sd.published) continue;
+    const R = await hreqs(h);
+    let a = [...((sd.assign || {})[s.id] || [])];
+    for (const r of R) {
+      if (r.type === 'extend') continue;
+      if (r.from === s.id) a = a.filter((u) => u !== r.uid); if (r.to === s.id && !a.includes(r.uid)) a.push(r.uid);
+      if (r.type === 'swap' && r.peer) { if (r.from === s.id && !a.includes(r.peer)) a.push(r.peer); if (r.to === s.id) a = a.filter((u) => u !== r.peer); }
+    }
+    const startMs = ilEpoch(s.date, s.start);
+    for (const u of a) {
+      const ext = R.find((r) => r.type === 'extend' && r.shift === s.id && r.uid === u);
+      const end = (ext && ext.newEnd) || ((sd.ext || {})[s.id] || {})[u] || s.end;
+      let endMs = ilEpoch(s.date, end); if (endMs <= startMs) endMs += 864e5; // night shift ends the next day
+      if (now < endMs - 20 * 60000 || now > endMs + 60 * 60000) continue;
+      const key = 'srRemind/' + s.id + '__' + u, done = await db.doc(key).get(); if (done.exists) continue;
+      const rep = await db.collection('shiftReports').where('empUid', '==', u).get();
+      const filed = rep.docs.some((d) => (+d.data().createdAt || 0) >= startMs - 3600e3);
+      await db.doc(key).set({ uid: u, shift: s.id, hotel: h, at: now, filed });
+      if (filed) continue;
+      const hn = await hotelName(h), hhmm = String(end).slice(0, 5);
+      await sendTo([u], { title: '📝 לא לשכוח דוח סוף משמרת', body: `${hn ? hn + ' · ' : ''}המשמרת שלך מסתיימת ב-${hhmm}. לפני שיוצאים ממלאים "דוח סיכום משמרת" בעמוד הקבלה.`, hash: '#front', tag: 'srr-' + s.id + '-' + u });
+      sent++;
+    }
+  }
+  return sent;
+});

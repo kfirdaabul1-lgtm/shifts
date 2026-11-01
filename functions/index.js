@@ -167,8 +167,10 @@ exports.mirrorShiftReport = trig('shiftReports/{id}').onWrite(async (ch, ctx) =>
 });
 
 // ---------- housekeeping: a worker assigned to rooms gets a push ----------
+// a doc of a future day = the next day being planned (owner, Nov 1): no pushes until that day starts (onHkDayStart)
+const hkFuture = (a) => a && a.date && a.date > ilDate(new Date());
 exports.onHkAssign = trig('hk/{id}').onWrite(async (ch) => {
-  if (!ch.after.exists) return;
+  if (!ch.after.exists || hkFuture(ch.after.data())) return;
   const b = (ch.before.exists && ch.before.data().asg) || {}, a = ch.after.data() || {}, asg = a.asg || {};
   const grp = a.grp || {}, vip = a.vip || {}, bk = a.bk || {}, clean = a.clean || {}, pax = a.pax || {}, twin = a.twin || {}, cot = a.cot || {}, wine = a.wine || {}, bal = a.bal || {}, trt = a.trt || {}, pri = a.pri || {};
   const per = {};
@@ -257,7 +259,7 @@ exports.onFaultDone = trig('faults/{id}').onUpdate(async (ch) => {
 // housekeeping: every cleaning update (status or "started cleaning") → the hotel's reception desk, except its own changes
 const HK_TXT = { vc: 'VC · חדר נקי', vi: 'VI · נקי מאתמול', vd: 'VD · חדר מלוכלך', od: 'OD · תפוס מלוכלך', oc: 'OC · תפוס נקי', ooo: 'OOO · תקלה תחזוקתית' };
 exports.onHkUpdate = trig('hk/{id}').onWrite(async (ch) => {
-  if (!ch.after.exists) return;
+  if (!ch.after.exists || hkFuture(ch.after.data())) return;
   const b = ch.before.exists ? ch.before.data() : {}, a = ch.after.data() || {};
   const st = (await stationsOf(a.hotel)).filter((u) => u !== a.lastBy); if (!st.length) return;
   const lines = [], bc = b.clean || {}, ac = a.clean || {}, bs = b.start || {}, as = a.start || {}, who = a.cleanBy || {};
@@ -550,9 +552,25 @@ exports.spaPending = functions.region(REGION).pubsub.schedule('0 9 * * *').timeZ
   return sendTo([...out], { title: `${due.length} טיפולי ספא בלי מטפל מתואם`, body: list + (due.length > 4 ? ` ועוד ${due.length - 4}` : '') + '. צריך לקבוע ולתאם מטפל.', hash: '#spa', tag: 'spapend-' + today });
 });
 
+// ---------- the housekeeping day moved (05:00 or the manual button) → each worker gets the rooms planned for them that day ----------
+exports.onHkDayStart = trig('hkday/{h}').onWrite(async (ch, ctx) => {
+  if (!ch.after.exists) return;
+  const a = ch.after.data() || {}, b = ch.before.exists ? ch.before.data() || {} : {};
+  if (!a.date || a.date === b.date || a.date < ilDate(new Date(Date.now() - 24 * 3600e3))) return;
+  const ds = await db.doc('hk/' + ctx.params.h + '__' + a.date).get(); if (!ds.exists) return;
+  const D = ds.data() || {}, asg = D.asg || {}, pri = D.pri || {}, per = {};
+  for (const [room, uid] of Object.entries(asg)) if (uid) (per[uid] = per[uid] || []).push(room);
+  const uids = Object.keys(per); if (!uids.length) return;
+  const hn = await hotelName(ctx.params.h);
+  return Promise.all(uids.map((u) => {
+    const rooms = per[u].sort((x, y) => (!!pri[y] - !!pri[x]) || String(x).localeCompare(String(y), 'he', { numeric: true }));
+    return sendTo([u], { title: `החדרים שלך להיום · ${rooms.length}`, body: `${hn ? hn + ': ' : ''}חדר ${rooms.map((r) => r + (pri[r] ? ' ❗' : '')).join(', ')}`, hash: '#hk', tag: 'hk-' + u + '-' + a.date });
+  }));
+});
+
 // ---------- a room stopped being OD (occupied) → tell the housekeeping worker assigned to it that it's empty and can be cleaned ----------
 exports.onHkVacant = trig('hk/{id}').onWrite(async (ch) => {
-  if (!ch.after.exists || !ch.before.exists) return;
+  if (!ch.after.exists || !ch.before.exists || hkFuture(ch.after.data())) return;
   const bo = ch.before.data().occ || {}, a = ch.after.data() || {}, ao = a.occ || {}, asg = a.asg || {}, per = {};
   const has = (x) => String(x || '').split(',').includes('oc');
   for (const [r, v] of Object.entries(bo)) if (has(v) && !has(ao[r]) && asg[r]) (per[asg[r]] = per[asg[r]] || []).push(r);
@@ -567,7 +585,7 @@ exports.onHkVacant = trig('hk/{id}').onWrite(async (ch) => {
 // ---------- guest complaint from a shift report → push to everyone with the complaints (cmp) app for that hotel ----------
 // ---------- room inspector: a cleaner finished a room → push the hotel's inspectors (hkchk); sent back to cleaning → push the cleaner ----------
 exports.onHkCheck = trig('hk/{id}').onWrite(async (ch) => {
-  if (!ch.after.exists) return;
+  if (!ch.after.exists || hkFuture(ch.after.data())) return;
   const b = ch.before.exists ? ch.before.data() : {}, a = ch.after.data() || {}, bd = b.done || {}, ad = a.done || {}, bb = b.back || {}, ab = a.back || {};
   const fin = Object.keys(ad).filter((r) => ad[r] && ad[r] !== bd[r]);
   const back = Object.keys(ab).filter((r) => ab[r] && ab[r] !== bb[r]);

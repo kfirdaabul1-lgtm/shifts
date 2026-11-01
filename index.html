@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202611011215"></script>
+<script src="i18n.js?v=202611011350"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -3042,7 +3042,7 @@ function metaCfgHTML(){metaCfgLoad();const c=S.metaCfg;if(c===undefined)return `
       <label class="f">מפתח גישה של משתמש המערכת (Token)<input type="password" dir="ltr" autocomplete="off" data-f="mc_${id}.token" value="${esc(g('token',''))}" placeholder="${has?'שמור. מדביקים רק כדי להחליף':'EAA…'}"></label>
       <label class="f">מספרי חשבונות המודעות (Ad account ID). כמה חשבונות מפרידים בפסיק<input type="text" dir="ltr" data-f="mc_${id}.adAccount" value="${esc(g('adAccount',x.adAccount||''))}" placeholder="למשל 1234567890"></label>
       <div class="actions"><button class="btn pri" data-act="meta-save" data-id="${id}">${has?'שמירה':'שמירה וחיבור'}</button>${has?`<button class="btn ghost" data-act="meta-off" data-id="${id}">${S.confirm==='metaoff:'+id?'לחיצה נוספת תנתק':'ניתוק'}</button>`:''}</div></div>`};
-  return `<div class="card"><h3>חיבור Meta (פייסבוק ואינסטגרם)</h3><p class="muted" style="font-size:.85rem">לידים מטפסי המודעות נכנסים לבד ל"לידים ומכירות" (בדיקה כל 15 דקות) עם שם הקמפיין, ומי שמטפל באירועים מקבל התראה. נתוני המודעות נכנסים לבד לדוחות השבועיים בסושיאל מדיה. אפשר חיבור נפרד לכל מלון (לכל Business portfolio מפתח משלו).</p>
+  return `<div class="card"><h3>חיבור Meta (פייסבוק ואינסטגרם)</h3><p class="muted" style="font-size:.85rem">לידים מטפסי המודעות נכנסים לבד ל"לידים ומכירות" (בדיקה כל 5 דקות) עם שם הקמפיין, ומי שמטפל באירועים מקבל התראה. נתוני המודעות נכנסים לבד לדוחות השבועיים בסושיאל מדיה. אפשר חיבור נפרד לכל מלון (לכל Business portfolio מפתח משלו).</p>
   ${ids.length?ids.map(block).join(''):'<p class="muted" style="font-size:.9rem">עוד לא מחובר.</p>'}
   <div class="actions"><button class="btn" data-act="meta-new">+ ${ids.length?'חיבור נוסף (מלון נוסף)':'חיבור ראשון'}</button>${ids.some(id=>C[id]&&C[id].token)?'<button class="btn" data-act="meta-sync">סנכרון עכשיו</button>':''}<button class="btn ghost" data-act="meta-help">איך משיגים את המפתח?</button></div></div>`}
 function sheetMetaHelp(){return sheetHead('חיבור Meta · הוראות','הגדרה חד־פעמית, בערך 15 דקות, עדיף ממחשב.')+`

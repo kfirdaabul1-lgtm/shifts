@@ -461,7 +461,7 @@ async function metaRun(full) {
   for (const [id, conn] of list) { try { cst[id] = await metaRunOne(cfg, id, conn, full); } catch (e) { cst[id] = { status: { at: Date.now(), ok: false, err: String(e.message || e) } }; } }
   await ref.set({ cst }, { merge: true });
 }
-exports.metaPoll = functions.region(REGION).runWith({ timeoutSeconds: 540 }).pubsub.schedule('every 15 minutes').onRun(() => metaRun(false));
+exports.metaPoll = functions.region(REGION).runWith({ timeoutSeconds: 540 }).pubsub.schedule('every 5 minutes').onRun(() => metaRun(false));
 exports.onMetaCfg = functions.region(REGION).runWith({ timeoutSeconds: 540 }).firestore.document('metacfg/main').onWrite(async (ch) => {
   const a = ch.before.exists ? ch.before.data() : {}, b = ch.after.exists ? ch.after.data() : null;
   if (!b) return;

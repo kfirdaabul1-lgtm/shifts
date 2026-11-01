@@ -196,6 +196,7 @@ body:has(.sheet:not([hidden])) .lang-toggle{display:none!important}
 .crm-row{display:grid;grid-template-columns:120px minmax(0,1fr) 90px;gap:10px;align-items:center;font-size:.9rem;margin:4px 0}.crm-track{height:14px;background:var(--sunk);border-radius:7px;overflow:hidden}.crm-track i{display:block;height:100%;background:var(--accent,#1f5f6b);border-radius:7px}.lead-bar-won{background:var(--ok)!important}.lead-bar-lost{background:var(--bad)!important}.prow.late{border-color:var(--warn)}
 .lead-pipe{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(220px,1fr);gap:10px;overflow-x:auto;padding-bottom:8px}
 .lead-col{background:var(--sunk);border-radius:12px;padding:8px;display:flex;flex-direction:column;gap:8px;min-height:120px}.lead-col-h{display:flex;justify-content:space-between;align-items:center;padding:2px 4px}
+.lead-col.drop{outline:2px dashed var(--accent,#2563eb);outline-offset:-2px}.lead-card.dragging{opacity:.4}
 .lead-col.lead-won{background:var(--ok-bg)}.lead-col.lead-lost{background:var(--bad-bg)}
 .lead-card{display:flex;flex-direction:column;align-items:flex-start;gap:3px;text-align:start;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:inherit;cursor:pointer;width:100%}
 .lead-card.late{border-color:var(--warn);box-shadow:0 0 0 2px var(--warn-bg)}.lead-card small{font-size:.8rem}.lead-tags{display:flex;flex-wrap:wrap;gap:4px}.lead-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px}.bad-t{color:var(--bad)}
@@ -1443,14 +1444,24 @@ function leadSave(){const id=S.sheet.id,l=(S.leads||{})[id]||{},d=S.drafts.lead|
   const o={name,phone:String(v('phone')||'').trim(),email:String(v('email')||'').trim(),company:String(v('company')||'').trim(),type:String(v('type')||'').trim(),date:v('date')||'',guests:+v('guests')||0,venue:v('venue')||'',
     source:v('source')||'',campaign:String(v('campaign')||'').trim(),stage,owner,ownerName:owner?(own[owner]||(owner===l.owner?l.ownerName:'')||''):'',nextAt:v('nextAt')||'',value:+v('value')||0,notes:String(v('notes')||''),lostReason:stage==='lost'?(v('lostReason')||''):'',updatedAt:now};
   if(stage==='won'&&l.stage!=='won')o.wonAt=now;
+  if(d.guests!==undefined)o.guestsTxt='';
   if(isNew){o.createdAt=now;o.createdBy=S.uid;o.acts=[]}
   S.leads[id]={...l,...o};S.drafts.lead=null;fdb.doc('leads/'+id).set(o,{merge:true}).then(()=>toast(isNew?'הליד נשמר':'נשמר'),e=>toast('השמירה נכשלה: '+errMsg(mapErr(e))));
   if(isNew)render();else{S.sheet=null;render()}}
+// pipeline drag & drop (owner, Nov 1): drop a lead card on another column → that stage (+ activity line); won sets wonAt/wonValue, lost opens the lead to pick a reason
+function leadMove(id,s){const l=(S.leads||{})[id];if(!l||(l.stage||'new')===s)return;const now=Date.now(),from=l.stage||'new';
+  const up={stage:s,updatedAt:now,acts:[...(l.acts||[]),{at:now,by:S.uid,byName:S.meName||empName(S.uid)||'',kind:'note',text:'שלב: '+(LSTG[from]||from)+' ← '+(LSTG[s]||s)}]};
+  if(s==='won'&&!l.wonAt){up.wonAt=now;if(!+l.wonValue&&+l.value)up.wonValue=+l.value}if(s!=='lost')up.lostReason='';
+  S.leads[id]={...l,...up};render();fdb.doc('leads/'+id).set(up,{merge:true}).then(()=>{toast('הועבר ל"'+(LSTG[s]||s)+'"');if(s==='lost'){S.drafts.lead={stage:'lost'};S.sheet={type:'lead',id};render()}},e=>toast('לא הצלחתי: '+errMsg(mapErr(e))))}
+document.addEventListener('dragstart',e=>{const c=e.target.closest&&e.target.closest('[data-ldrag]');if(!c)return;S.ldrag=c.dataset.ldrag;c.classList.add('dragging');try{e.dataTransfer.setData('text/plain',S.ldrag);e.dataTransfer.effectAllowed='move'}catch(_){}});
+document.addEventListener('dragend',()=>{S.ldrag=null;document.querySelectorAll('.lead-card.dragging,.lead-col.drop').forEach(x=>x.classList.remove('dragging','drop'))});
+document.addEventListener('dragover',e=>{if(!S.ldrag)return;const col=e.target.closest&&e.target.closest('[data-ldrop]');if(!col)return;e.preventDefault();document.querySelectorAll('.lead-col.drop').forEach(x=>{if(x!==col)x.classList.remove('drop')});col.classList.add('drop')});
+document.addEventListener('drop',e=>{const col=e.target.closest&&e.target.closest('[data-ldrop]');if(!col||!S.ldrag)return;e.preventDefault();const id=S.ldrag;S.ldrag=null;col.classList.remove('drop');leadMove(id,col.dataset.ldrop)});
 function leadOwners(){const o={};o[S.uid]=S.meName||'אני';for(const [u,r] of Object.entries(S.roles||{}))if(roleApps(r).events&&S.emps[u])o[u]=empName(u);
   for(const l of Object.values(S.leads||{}))if(l.owner&&!o[l.owner])o[l.owner]=l.ownerName||'';return o}
 function leadCard(id,l){const late=leadLate(l),lq=leadQuote(id,l),q=lq&&lq[1];
-  return `<button class="lead-card${late?' late':''}" data-act="lead-open" data-id="${id}"><b>${esc(l.name||'ללא שם')}</b>
-    <small>${esc([l.type,l.date?dm(l.date):'',+l.guests?l.guests+' אורחים':''].filter(Boolean).join(' · '))}</small>
+  return `<button class="lead-card${late?' late':''}" data-act="lead-open" data-id="${id}" draggable="true" data-ldrag="${id}"><b>${esc(l.name||'ללא שם')}</b>
+    <small>${esc([String(l.type||'').replace(/_+/g,' ').trim(),l.date?dm(l.date):'',l.guestsTxt?'\u2066'+l.guestsTxt+'\u2069 אורחים':+l.guests?l.guests+' אורחים':''].filter(Boolean).join(' · '))}</small>
     <span class="lead-tags">${l.source?`<span class="pill">${esc(LSRC[l.source]||l.source)}</span>`:''}${l.campaign?`<span class="pill">${esc(l.campaign)}</span>`:''}${q?`<span class="pill ${q.status==='approved'?'ok':''}">הצעה #${esc(q.num||'')}</span>`:''}${(()=>{const c=Object.values(S.waChats||{}).find(x=>x.leadId===id&&+x.unread>0);return c?`<span class="pill" style="background:#25D366;color:#fff">💬 ${+c.unread}</span>`:''})()}</span>
     <small class="${late?'bad-t':'muted'}">${l.nextAt&&leadOpen(l)?`${late?'⚠ ':''}לחזור: ${dm(l.nextAt)}`:''}${l.ownerName?` · ${esc(l.ownerName)}`:(leadOpen(l)?' · <span class="bad-t">ללא מטפל</span>':'')}</small>
     ${l.stage==='won'&&l.wonValue?`<small><b>${ils(l.wonValue)}</b></small>`:+l.value?`<small class="muted">${ils(l.value)} צפוי</small>`:''}</button>`}
@@ -1479,7 +1490,7 @@ function vLeads(){leadsSub();tasksSub();waSub();leadsSync();const f=S.leadF||(S.
   if(f.view==='sales')return wrap(head+salesHTML(f));
   if(f.view==='list')body=`<div class="card"><div class="scroll-x"><table class="plain"><thead><tr><th>ליד</th><th>שלב</th><th>מקור</th><th>אירוע</th><th>לחזור</th><th>מטפל</th><th class="num">סכום</th></tr></thead><tbody>${all.map(([id,l])=>`<tr data-act="lead-open" data-id="${id}" style="cursor:pointer"><td><b>${esc(l.name||'')}</b>${l.company?`<div class="muted" style="font-size:.8rem">${esc(l.company)}</div>`:''}</td><td><span class="pill ${l.stage==='won'?'ok':l.stage==='lost'?'bad':''}">${LSTG[l.stage]||''}</span></td><td>${esc(LSRC[l.source]||'')}${l.campaign?`<div class="muted" style="font-size:.8rem">${esc(l.campaign)}</div>`:''}</td><td>${esc([l.type,l.date?dm(l.date):''].filter(Boolean).join(' · '))}</td><td class="${leadLate(l)?'bad-t':''}">${l.nextAt&&leadOpen(l)?dm(l.nextAt):''}</td><td>${l.ownerName?esc(l.ownerName):(leadOpen(l)?'<span class="bad-t">ללא מטפל</span>':'')}</td><td class="num">${l.stage==='won'?ils(l.wonValue||0):+l.value?ils(l.value):''}</td></tr>`).join('')}</tbody></table></div></div>`;
   else body=`<div class="lead-pipe">${LEAD_STAGES.map(([s,n])=>{const L=all.filter(([,l])=>(l.stage||'new')===s),sum=L.reduce((a,[,l])=>a+(s==='won'?(+l.wonValue||0):(+l.value||0)),0);
-    return `<section class="lead-col lead-${s}"><div class="lead-col-h"><b>${n}</b><span class="muted">${L.length}${sum?' · '+ils(sum):''}</span></div>${L.slice(0,60).map(([id,l])=>leadCard(id,l)).join('')||'<p class="muted" style="font-size:.85rem;margin:6px 0">אין</p>'}</section>`}).join('')}</div>`;
+    return `<section class="lead-col lead-${s}" data-ldrop="${s}"><div class="lead-col-h"><b>${n}</b><span class="muted">${L.length}${sum?' · '+ils(sum):''}</span></div>${L.slice(0,60).map(([id,l])=>leadCard(id,l)).join('')||'<p class="muted" style="font-size:.85rem;margin:6px 0">אין</p>'}</section>`}).join('')}</div>`;
   return wrap(head+k+today+body)}
 function leadCamps(){const s=new Set();for(const c of Object.values(S.camps||{}))if(c.name)s.add(String(c.name).trim());for(const l of Object.values(S.leads||{}))if(l.campaign)s.add(l.campaign);return [...s].sort((a,b)=>a.localeCompare(b,'he'))}
 function sheetLead(){const id=S.sheet.id,l=(S.leads||{})[id]||{},isNew=!(S.leads||{})[id],g=(k,d='')=>dv('lead',k,l[k]??d);liveColl('camps','campaigns');

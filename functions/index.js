@@ -339,7 +339,7 @@ function metaLeadDoc(m, form, pageName) {
   const pick = (re) => { const k = Object.keys(f).find((n) => re.test(n)); if (!k) return ''; const v = f[k]; delete f[k]; return v; };
   let name = pick(/^(full_?name|name|שם מלא|שם)$/i);
   if (!name) { const a = pick(/^first_?name$/i), z = pick(/^last_?name$/i); name = (a + ' ' + z).trim(); }
-  const type = pick(/^(event_?type|type)$|סוג/i);
+  const type = pick(/^(event_?type|type)$|סוג/i).replace(/_+/g, ' ').trim();
   let phone = pick(/phone|טלפון|נייד/i); phone = phone.replace(/[\s-]/g, '').replace(/^\+?972/, '0');
   const email = pick(/e-?mail|מייל|דוא/i), company = pick(/company|חברה|ארגון/i);
   let date = pick(/date|תאריך/i), guests = pick(/guest|people|attend|אורח|משתתפ|כמות|מספר/i);
@@ -349,11 +349,13 @@ function metaLeadDoc(m, form, pageName) {
   if (di) dISO = `${di[1]}-${di[2].padStart(2, '0')}-${di[3].padStart(2, '0')}`;
   else if (dl) dISO = `${dl[3].length === 2 ? '20' + dl[3] : dl[3]}-${dl[2].padStart(2, '0')}-${dl[1].padStart(2, '0')}`;
   if (date && !dISO) notes.push('תאריך: ' + date);
-  const g = parseInt(String(guests).replace(/[^\d]/g, ''), 10); if (guests && !g) notes.push('אורחים: ' + guests);
+  // ranges like "50-100" or "50_100" keep their text (guestsTxt); guests = the first number
+  const gt = String(guests || '').replace(/_/g, ' ').trim(), gm = gt.match(/\d+/g) || [], g = gm.length ? parseInt(gm[0], 10) : 0;
+  const guestsTxt = gm.length > 1 ? gm.slice(0, 2).join('–') : ''; if (guests && !g) notes.push('אורחים: ' + guests);
   Object.entries(f).forEach(([k, v]) => notes.push(k.replace(/_/g, ' ') + ': ' + v));
   const now = Date.now(), plat = String(m.platform || '').toLowerCase() === 'ig' ? 'instagram' : 'facebook';
   return {
-    name: name || 'ליד מ-' + (plat === 'instagram' ? 'אינסטגרם' : 'פייסבוק'), phone, email, company, type, date: dISO, guests: g || 0, venue: '',
+    name: name || 'ליד מ-' + (plat === 'instagram' ? 'אינסטגרם' : 'פייסבוק'), phone, email, company, type, date: dISO, guests: g || 0, guestsTxt, venue: '',
     source: plat, campaign: m.campaign_name || '', stage: 'new', owner: '', ownerName: '', nextAt: ilDate(new Date()), value: 0, notes: notes.join('\n'), lostReason: '',
     acts: [{ at: now, by: 'meta', byName: 'Meta', kind: 'note', text: `נכנס אוטומטית מטופס "${form.name || ''}"${pageName ? ' · ' + pageName : ''}${m.ad_name ? ' · מודעה: ' + m.ad_name : ''}` }],
     metaLeadId: m.id, metaForm: form.id, createdAt: m.created_time ? Date.parse(m.created_time) || now : now, createdBy: 'meta', updatedAt: now,

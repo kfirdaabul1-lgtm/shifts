@@ -233,9 +233,23 @@ exports.hkNightly = functions.region(REGION).pubsub.schedule('0 5 * * *').timeZo
 });
 
 // maintenance: a fault fixed → the hotel's reception desk
+// a fixed fault releases its room from OOO on today's housekeeping board → VD (needs cleaning),
+// unless another fault of the same room is still open (owner, Nov 1)
+async function oooRelease(a, id) {
+  const room = String(a.room || '').trim(); if (!a.hotel || !room) return;
+  const open = await db.collection('faults').where('hotel', '==', a.hotel).where('status', '==', 'open').get();
+  if (open.docs.some((d) => d.id !== id && String(d.data().room || '').trim() === room)) return;
+  const dd = await db.doc('hkday/' + a.hotel).get(), date = (dd.exists && dd.data().date) || ilDate(new Date());
+  const ref = db.doc('hk/' + a.hotel + '__' + date), cur = await ref.get();
+  if (!cur.exists || ((cur.data().clean || {})[room]) !== 'ooo') return;
+  let nm = 'אחזקה';
+  if (a.doneBy) { const e = await db.doc('employees/' + a.doneBy).get(); if (e.exists && e.data().name) nm = 'אחזקה · ' + e.data().name; }
+  await ref.set({ clean: { [room]: 'vd' }, cleanBy: { [room]: nm }, cleanAt: { [room]: Date.now() }, lastBy: a.doneBy || 'server', updatedAt: Date.now() }, { merge: true });
+}
 exports.onFaultDone = trig('faults/{id}').onUpdate(async (ch) => {
   const b = ch.before.data() || {}, a = ch.after.data() || {};
   if (a.status !== 'done' || b.status === 'done') return;
+  await oooRelease(a, ch.after.id).catch((e) => console.error('oooRelease', e));
   const st = await stationsOf(a.hotel); if (!st.length) return;
   return sendTo(st, { title: 'תקלה תוקנה ✓', body: `${a.room ? 'חדר ' + a.room + ' · ' : ''}${a.desc || ''}`, hash: '#front', tag: 'ft-' + ch.after.id });
 });

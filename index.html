@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202610291955"></script>
+<script src="i18n.js?v=202611011040"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -2670,9 +2670,10 @@ function maintHkHTML(h){const d=hkToday(h),D=hkSub(h,d);if(!D)return `<div class
   const fault=r=>{const x=faultsOf(h).find(([,y])=>y.status!=='done'&&String(y.room)===String(r));return x?x[1].desc||'':''};
   const tile=r=>{const c=cl[r],o=(D.occ||{})[r];return `<button class="hk-room hk-${c||'none'}" data-act="mhk-room" data-r="${esc(r)}" title="${esc(fault(r)||'פתיחת תקלה לחדר')}"><b>${esc(r)}</b><span class="hk-c">${c&&HK_CN[c]?HK_CN[c][1]:'—'}</span>${occL(o).length?`<span class="hk-ol">${occTags(o)}</span>`:''}${c==='ooo'&&fault(r)?`<span class="hk-a">${esc(String(fault(r)).slice(0,14))}</span>`:''}</button>`};
   const chip=(k,n)=>`<button class="hk-k ${f===k?'on':''}" data-act="mhk-f" data-v="${k}"><span>${n}</span><b>${k==='all'?rooms.length:cnt(k)}</b></button>`;
-  return `<div class="card"><h3>חדרים במשק · ${dm(d)}</h3><p class="muted" style="font-size:.85rem;margin:0 0 6px">רק חדרים שמסומנים OOO, OD או RES. לחיצה על חדר פותחת עבורו תקלה חדשה.</p>
+  return `<div class="card"><h3>חדרים במשק · ${dm(d)}</h3><p class="muted" style="font-size:.85rem;margin:0 0 6px">רק חדרים שמסומנים OOO, OD או RES. לחיצה על חדר פותחת עבורו תקלה חדשה. כשתקלה מסומנת "תוקן", החדר יוצא מ-OOO ועובר ל-VD (צריך ניקיון).</p>
   <div class="hk-ks">${chip('all','הכול')}${chip('ooo','OOO · תקלה')}${chip('od','OD · תפוס')}${chip('res','RES · הזמנה')}</div>
-  ${shown.length?`<div class="hk-grid" style="margin-top:8px">${shown.map(tile).join('')}</div>`:'<p class="muted">אין כרגע חדרים כאלה.</p>'}</div>`}
+  ${shown.length?`<div class="hk-grid" style="margin-top:8px">${shown.map(tile).join('')}</div>`:'<p class="muted">אין כרגע חדרים כאלה.</p>'}
+  ${(()=>{const oo=rooms.filter(r=>is(r,'ooo'));return oo.length&&(f==='all'||f==='ooo')?`<div class="plist" style="margin-top:10px">${oo.map(r=>`<div class="prow"><span class="who"><b>חדר ${esc(r)} · OOO</b><small>${fault(r)?esc(fault(r)):'אין תקלה פתוחה לחדר'}</small></span><button class="btn sm ${S.confirm==='mf:'+h+':'+r?'danger':'ok'}" data-act="mhk-fix" data-r="${esc(r)}">${S.confirm==='mf:'+h+':'+r?'לחיצה נוספת תאשר':'✓ תוקן · הוצאה מ-OOO'}</button></div>`).join('')}</div>`:''})()}</div>`}
 function vMaint(){const hs=modHs('maint',scopeHs());if(!hs.length)return wrap(emptyBox('אין מלונות בהרשאה',''));if(!hs.includes(S.hotel))S.hotel=hs[0];const h=S.hotel,F=faultsSub(h);
   const chips=hs.length>1?`<div class="chips" style="gap:6px">${hs.map(x=>`<button class="dchip ${x===h?'':'off'}" style="--h:var(--brass)" data-act="gm-hotel" data-h="${x}">${esc(hotelName(x))}</button>`).join('')}</div>`:'';
   const all=faultsOf(h),open=all.filter(([,f])=>f.status!=='done').sort(([,a],[,b])=>(a.openedAt||0)-(b.openedAt||0)),late=open.filter(([,f])=>faultLate(f));
@@ -3781,6 +3782,12 @@ const ACT={
     fdb.doc('hk/'+hkDocId(h,d)).set({hotel:h,date:d,updatedAt:now,lastBy:S.uid,clean:{[r]:'oc'},cleanBy:{[r]:who},cleanAt:{[r]:now},trtDone:{[r]:now},trtBy:{[r]:S.uid},trtByName:{[r]:who}},{merge:true}).then(()=>toast(`${HK_TN[(Dd.trt||{})[r]]?.[1]||'Refresh'} בחדר ${r} סומן כבוצע ✓ · החדר עבר ל-OC`),e=>{toast('השמירה נכשלה: '+errMsg(mapErr(e)));S.hkDays[h+'|'+d]=Dd;render()})},
   'hk-co':D=>{hkCheckout(D.h,String(D.r));S.sheet=null;render()},
   'mhk-f':D=>{S.mhkF=D.v;render()},
+  // maintenance: room fixed → close its open faults (or open+close one); the server then moves the room from OOO to VD
+  'mhk-fix':D=>{const h=S.hotel,r=String(D.r),k='mf:'+h+':'+r;if(S.confirm!==k){S.confirm=k;render();return}S.confirm=null;
+    const open=faultsOf(h).filter(([,y])=>y.status!=='done'&&String(y.room)===r),now=Date.now();
+    const done=(id,f)=>{const doc={...f,status:'done',doneAt:now,doneBy:S.uid};S.faults[h]={...(S.faults[h]||{}),[id]:doc};return fdb.doc('faults/'+id).set(doc)};
+    const p=open.length?Promise.all(open.map(([id,f])=>done(id,f))):(()=>{const id='f'+now.toString(36)+Math.random().toString(36).slice(2,6),f={hotel:h,room:r,desc:'יציאה מ-OOO',status:'open',openedAt:now,openedBy:S.uid,openedByName:S.meName||empName(S.uid)||'',source:'manual'};return fdb.doc('faults/'+id).set(f).then(()=>done(id,f))})();
+    p.then(()=>{render();toast('חדר '+r+' יוצא מ-OOO ועובר ל-VD (צריך ניקיון)')},e=>toast('לא הצלחתי: '+errMsg(mapErr(e))))},
   'mhk-room':D=>{(S.drafts.flt||(S.drafts.flt={})).room=String(D.r);render();setTimeout(()=>{const el=document.getElementById('fl_desc');if(el){el.scrollIntoView({block:'center'});el.focus()}},50)},
   'hk-chk':D=>{const h=D.h,r=String(D.r),d=hkToday(h),Dd=(S.hkDays||{})[h+'|'+d]||{},now=Date.now(),who=S.meName||S.email||'',cs=hkTrtRoom(Dd,r)?'oc':'vc';
     S.hkDays[h+'|'+d]={...Dd,clean:{...(Dd.clean||{}),[r]:cs},chk:{...(Dd.chk||{}),[r]:S.uid}};render();

@@ -334,7 +334,8 @@ async function metaInsights(cfg) {
   return { campaigns: new Set(Object.values(by).map((x) => x.metaId)).size, reports: n };
 }
 // lead form answers → our lead fields; anything we don't recognise goes to notes
-function metaLeadDoc(m, form, pageName) {
+function metaLeadDoc(m, form, pageName, conn) {
+  conn = conn || {};
   const f = {}; (m.field_data || []).forEach((x) => { f[x.name] = (x.values || []).join(', '); });
   const pick = (re) => { const k = Object.keys(f).find((n) => re.test(n)); if (!k) return ''; const v = f[k]; delete f[k]; return v; };
   let name = pick(/^(full_?name|name|שם מלא|שם)$/i);
@@ -355,7 +356,7 @@ function metaLeadDoc(m, form, pageName) {
   Object.entries(f).forEach(([k, v]) => notes.push(k.replace(/_/g, ' ') + ': ' + v));
   const now = Date.now(), plat = String(m.platform || '').toLowerCase() === 'ig' ? 'instagram' : 'facebook';
   return {
-    name: name || 'ליד מ-' + (plat === 'instagram' ? 'אינסטגרם' : 'פייסבוק'), phone, email, company, type, date: dISO, guests: g || 0, guestsTxt, venue: '',
+    name: name || 'ליד מ-' + (plat === 'instagram' ? 'אינסטגרם' : 'פייסבוק'), phone, email, company, type, date: dISO, guests: g || 0, guestsTxt, venue: conn.venue || '', metaConn: conn.id || '', metaConnName: conn.name || '', page: pageName || '',
     source: plat, campaign: m.campaign_name || '', stage: 'new', owner: '', ownerName: '', nextAt: ilDate(new Date()), value: 0, notes: notes.join('\n'), lostReason: '',
     acts: [{ at: now, by: 'meta', byName: 'Meta', kind: 'note', text: `נכנס אוטומטית מטופס "${form.name || ''}"${pageName ? ' · ' + pageName : ''}${m.ad_name ? ' · מודעה: ' + m.ad_name : ''}` }],
     metaLeadId: m.id, metaForm: form.id, createdAt: m.created_time ? Date.parse(m.created_time) || now : now, createdBy: 'meta', updatedAt: now,
@@ -421,7 +422,7 @@ async function metaLeads(cfg) {
       const ls = await graphAll(form.id + '/leads', pt, { fields: 'id,created_time,field_data,campaign_name,ad_name,platform', filtering: [{ field: 'time_created', operator: 'GREATER_THAN', value: since - 600 }], limit: '100' });
       for (const m of ls) {
         const ref = db.doc('leads/meta_' + m.id);
-        try { const doc = metaLeadDoc(m, form, p.name); await ref.create(doc); fresh.push(doc); } catch (e) { /* already in */ }
+        try { const doc = metaLeadDoc(m, form, p.name, cfg.conn); await ref.create(doc); fresh.push(doc); } catch (e) { /* already in */ }
       }
     }
   }
@@ -440,7 +441,7 @@ function metaConnList(cfg) {
 async function metaRunOne(cfg, id, conn, full) {
   const rt = (cfg.cst && cfg.cst[id]) || (id === 'main' ? { status: cfg.status, leadsAt: cfg.leadsAt, insAt: cfg.insAt } : {}) || {};
   const prev = rt.status || {}, st = { ...prev, at: Date.now(), ok: true, err: '', leadErr: '', insErr: '' }, out = { leadsAt: rt.leadsAt || 0, insAt: rt.insAt || 0 };
-  const c = { token: conn.token, adAccount: conn.adAccount, leadsAt: rt.leadsAt };
+  const c = { token: conn.token, adAccount: conn.adAccount, leadsAt: rt.leadsAt, conn: { id, name: conn.name || '', venue: conn.venue || '' } };
   try { const me = await graph('me', c.token, { fields: 'id,name' }); st.user = me.name || me.id; }
   catch (e) { st.ok = false; st.err = String(e.message || e); return { ...out, status: st }; }
   try { const r = await metaLeads(c); st.pages = r.pages; st.forms = r.forms; st.newLeads = r.newLeads; st.leadsTotal = (prev.leadsTotal || 0) + r.newLeads; out.leadsAt = r.leadsAt; }

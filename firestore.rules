@@ -287,7 +287,10 @@ service cloud.firestore {
 
     match /settings/{h} {
       allow read: if seesHotel(h) || canCeo() || (isEmployee() && h == myHotel());
-      allow write: if manages(h);
+      // event places (venues/spaces) decide whose leads and quotes a hotel's people see, so only the owner changes them (Nov 1 security check)
+      allow create: if isOwner() || (manages(h) && !('venues' in request.resource.data) && !('spaces' in request.resource.data));
+      allow update: if isOwner() || (manages(h) && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['venues', 'spaces']));
+      allow delete: if isOwner();
       // מי שמנהל עובדים יוצר/מחליף את קוד ההצטרפות בלבד
       allow create: if hrIn(h) && request.resource.data.keys().hasOnly(['joinCode']);
       allow update: if hrIn(h) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['joinCode']);

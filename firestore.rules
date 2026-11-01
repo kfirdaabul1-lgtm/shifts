@@ -356,18 +356,24 @@ service cloud.firestore {
     match /contracts/{id} { allow read, write: if canEvents(); }
     match /quotes/{id} {
       // מנהל מלון, בריף וקבלה: רק אירועים במקומות של המלונות שלהם
-      allow read: if canEvents() || canCeo()
+      // events holders too: only quotes in their hotels' venues (owner / chain-wide roles / ceo = all) — Nov 1, owner
+      allow read: if canCeo() || (canEvents() && qVenueOk(resource.data.get('event', {}).get('venue', '')))
         || ((gmRole() || briefRole() || (hasRole() && roleApp('front'))) && (roleHotels().size() == 0 || hotelVenueOk(resource.data.event.venue)));
-      allow write: if canEvents();
+      allow create: if canEvents() && qVenueOk(request.resource.data.get('event', {}).get('venue', ''));
+      allow update: if canEvents() && qVenueOk(resource.data.get('event', {}).get('venue', '')) && qVenueOk(request.resource.data.get('event', {}).get('venue', ''));
+      allow delete: if canEvents() && qVenueOk(resource.data.get('event', {}).get('venue', ''));
       // the groups page puts a group's halls on the events board as hotel groups (ids grp_<groupId>_<n>)
       allow create, update: if canGrp() && id.matches('grp_.*') && request.resource.data.kind == 'group';
       allow delete: if canGrp() && id.matches('grp_.*') && resource.data.kind == 'group';
-      match /versions/{v} { allow read, write: if canEvents(); }
+      match /versions/{v} { allow read, write: if canEvents() && qVenueOk(get(/databases/$(database)/documents/quotes/$(id)).data.get('event', {}).get('venue', '')); }
     }
 
     // ---------- לידים ומכירות (CRM לאירועים) ----------
     // אנשי האירועים מנהלים; סושיאל מדיה קורא, כדי לראות כמה לידים ואירועים הביא כל קמפיין
     // לידים לפי מלון: הרשאה עם מלונות רואה רק לידים של המקומות של המלונות שלה (settings.venues) ולידים בלי מקום
+    function qVenueOk(v) { return isOwner() || hotelVenueOk(v); }
+    // shared quote number counter (a hotel-scoped user can't see other hotels' quote numbers)
+    match /qcounter/{id} { allow read, write: if canEvents(); }
     function leadVenueOk(v) { return isOwner() || v == '' || hotelVenueOk(v); }
     match /leads/{id} {
       allow read: if (canEvents() || canMkt()) && leadVenueOk(resource.data.get('venue', ''));

@@ -1441,7 +1441,9 @@ function leadsLive(){if(S.live.leads)return;S.live.leads=true;S.leads=S.leads||{
     const parts={},keys=[...vs,''];keys.forEach(v=>col.where('venue','==',v).onSnapshot(x=>{parts[v]=docsMap(x);if(keys.every(k=>parts[k])){S.leads=Object.assign({},...keys.map(k=>parts[k]));S.leadsReady=true;waApply();render()}},e=>{S.leadsErr=errMsg(mapErr(e));render()}))})()}
 const leadVenueOpts=()=>{const vs=leadScope();return Object.entries(EV_VENUE).filter(([k])=>!vs||vs.includes(k))};
 function waApply(){const sc=leadScope(),raw=S.waChatsRaw||{};S.waChats=sc?Object.fromEntries(Object.entries(raw).filter(([,c])=>!c.leadId||(S.leads||{})[c.leadId])):raw}
-function leadsSub(){leadsLive();if(S.can.events)liveColl('lquotes','quotes')}
+// quotes for the leads page: scoped to the user's hotels' venues like everywhere else (quotesQ; owner/ceo/chain-wide = all)
+function lquotesLive(){if(S.live.lquotes)return;S.live.lquotes=true;S.lquotes=S.lquotes||{};quotesQ().then(q=>{if(!q){S.lquotesReady=true;render();return}q.onSnapshot(x=>{S.lquotes=docsMap(x);S.lquotesReady=true;render()},e=>{S.lquotesErr=errMsg(mapErr(e));render()})})}
+function leadsSub(){leadsLive();if(S.can.events)lquotesLive()}
 // the quote that belongs to a lead: quote.leadId, the lead's quoteId, or the same phone number
 function leadQuote(id,l){const Q=S.lquotes||{};if(l.quoteId&&Q[l.quoteId])return [l.quoteId,Q[l.quoteId]];
   const byLead=Object.entries(Q).find(([,q])=>q.leadId===id&&q.kind!=='group');if(byLead)return byLead;
@@ -3412,7 +3414,7 @@ function subHotels(){if(S.isOwner)return hotelIds();const s=new Set();if(S.admin
   if(S.can.gm||S.can.brief||S.can.front)scopeHs().forEach(h=>s.add(h));
   if(!S.admin&&S.myHotel&&S.myHotel!==CHAIN)s.add(S.myHotel);return hotelIds().filter(h=>s.has(h))}
 // events of the hotels this person sees: by settings.venues (a hotel without venues = all venues)
-async function quotesQ(){const db=S.db,all=db.collection('quotes');if(S.isOwner||S.can.events||S.can.ceo)return all;
+async function quotesQ(){const db=S.db,all=db.collection('quotes');if(S.isOwner||S.can.ceo)return all;
   const hs=(S.role&&S.role.hotels)||[];if(!hs.length)return all;const vs=new Set();
   for(const h of hs){let st=S.settingsAll[h];if(!st){try{const d=await db.doc('settings/'+h).get();st=d.exists?d.data():{};if(d.exists)S.settingsAll[h]=st}catch(_){st={}}}
     (st.venues||[]).forEach(x=>vs.add(x))}

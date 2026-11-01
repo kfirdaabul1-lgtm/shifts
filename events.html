@@ -1021,6 +1021,9 @@ const D = &lt;?!= dJson ?&gt;, S = &lt;?!= sJson ?&gt;;
       let depts=[];if(!ctx.isOwner){try{const e=await ctx.fdb.doc('employees/'+u.uid).get();if(e.exists&&!e.data().mgmt)depts=e.data().depts||[]}catch(_){ }}
       let mods={};try{const oc=await ctx.fdb.doc('orgcfg/main').get();if(oc.exists){const od=oc.data()||{};mods=Object.assign({},od.lic||{},od.mods||{})}}catch(_){ }
       if(mods.events===false&&!ceoMode)ctx.allowed=false;
+      // quotes are separated per hotel (owner, Nov 1): a role scoped to hotels (no ceo) sees only quotes of its hotels' venues (settings.venues); owner / chain-wide see all
+      window.QVENUES=null;
+      if(!ctx.isOwner&&role&&!apps.ceo&&(role.hotels||[]).length){const vs=new Set();for(const h of role.hotels){try{const d=await ctx.fdb.doc('settings/'+h).get();((d.exists&&d.data().venues)||[]).forEach(v=>vs.add(v))}catch(_){ }}window.QVENUES=[...vs]}
       document.getElementById('abItems').innerHTML=abMenuItems(ctx.isOwner,role&&role.station?{front:true}:apps,depts.concat(role&&role.apps&&role.apps.dept?(role.depts||[]):[]),ceoMode,mods);
       document.getElementById('abUser').textContent=(u.displayName?u.displayName+' · ':'')+(u.email||'');
       document.getElementById('abMenu').hidden=false;
@@ -1386,6 +1389,9 @@ let toastT;function toast(m){const t=$('#toast');t.textContent=m;t.hidden=false;
 
 /* ---------- persistence ---------- */
 function nextNum(){return quotes.reduce((m,q)=>Math.max(m,Number(q.num)||0),1000)+1}
+// quote numbers come from a shared counter (qcounter/main) because a hotel-scoped user sees only its own quotes
+async function allocNum(){const loc=nextNum();if(!db||!db.runTransaction)return loc;
+  try{const ref=db.doc('qcounter/main');return await db.runTransaction(async t=>{const d=await t.get(ref),n=Math.max(loc,((d.exists&&d.data().n)||0)+1);t.set(ref,{n,at:Date.now()});return n})}catch(e){console.warn('qnum',e);return loc}}
 const META_KEYS=['updatedAt','updatedBy','createdBy','lastHash'];
 function quoteContent(q){const o=JSON.parse(JSON.stringify(q));META_KEYS.forEach(k=>delete o[k]);return o}
 function strHash(str){let h=5381;for(let i=0;i<str.length;i++)h=((h<<5)+h+str.charCodeAt(i))|0;return (h>>>0).toString(36)}
@@ -1397,7 +1403,7 @@ async function saveQuote(q,action){
       const nm=live.updatedBy&&live.updatedBy!==myId?who(live.updatedBy):'מישהו אחר';
       if(!confirm(`${nm} שמר/ה שינויים בהצעה הזו (${new Date(live.updatedAt).toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'})}) אחרי שפתחת אותה. שמירה עכשיו תדרוס את השינויים שלו/ה.\n\nלשמור בכל זאת?`))throw Object.assign(new Error('cancel'),{code:'cancel'})}}
   q.updatedAt=new Date().toISOString();
-  if(!q.id)q.id=uid();if(!q.num)q.num=nextNum();
+  if(!q.id)q.id=uid();if(!q.num)q.num=await allocNum();
   if(myId){if(!q.createdBy)q.createdBy=myId;q.updatedBy=myId}
   if(q===cur&&db&&q.kind!=='group'&&!q.signature&&!q.signKey)q.signKey=newSignKey();
   const content=quoteContent(q),h=strHash(JSON.stringify(content));
@@ -2328,18 +2334,22 @@ $('#syncState').textContent='';
       try{if(old&&!mine)lsSet('quoteDraft:'+myId,cur);localStorage.removeItem('quoteDraft')}catch(_){}try{fillForm()}catch(_){cur=blankQuote();fillForm()}}$('#meLine').textContent=myId?(me.name?`מחובר/ת: ${me.name}`:''):'לא מזוהה: הצעות יישמרו ללא שם עובד';renderAuthor()}}catch(e){userCap=null}
   settings=structuredClone(DEF_SETTINGS);quotes=[];menus=[];contracts=[];
   try{const o=await db.doc('orgcfg/main').get();if(o.exists){const od=o.data()||{};if(Array.isArray(od.venues)){setVenues(od.venues);brandLine()}if(od.name){document.querySelectorAll('.evbrand,.drawer-h b').forEach(e=>e.textContent=od.name);document.title=document.title.replace('Seven Collection',od.name)}renderVenues&&renderVenues()}}catch(_){ }
+  if(Array.isArray(window.QVENUES)){const keep=VENUES.filter(v=>window.QVENUES.includes(v.id));if(keep.length){VENUES.splice(0,VENUES.length,...keep);if(cur&&!cur.id&&!VENUES.some(v=>v.id===cur.event.venue)){cur.event.venue=VENUES[0].id;cur.event.areas=[];cur.event.area='';try{fillForm()}catch(_){ }}if(typeof SPACES!=='undefined')SPACES.splice(0,SPACES.length,...mkSpaces());brandLine();renderVenues&&renderVenues()}}
   db.doc('wapub/main').onSnapshot(s=>{$('#btnWaSys').hidden=!(s.exists&&s.data().on);$('#prWaSys').hidden=$('#btnWaSys').hidden},()=>{});
   db.doc('config/main').onSnapshot(s=>{
     if(s.exists){settings=Object.assign(structuredClone(DEF_SETTINGS),structuredClone(s.data()));settings.business=Object.assign({},DEF_SETTINGS.business,settings.business||{})}
     applySettings();if(!$('#tab-settings').hidden)renderSettings();
     seedState.cfg=true;seedMenus();
   },()=>{});
-  db.collection('quotes').onSnapshot(s=>{
-    quotes=s.docs.map(d=>structuredClone(d.data()));
+  const onQuotes=docs=>{
+    quotes=docs.map(d=>structuredClone(d.data()));
     {const m=/^#q=([\w-]+)/.exec(location.hash);if(m){const q=quotes.find(x=>x.id===m[1]);if(q){history.replaceState(null,'',location.pathname);cur=structuredClone(q);viewingVer=null;qkOpen=false;fillForm();showTab('new');window.scrollTo(0,0)}}}
     if(!$('#tab-list').hidden)renderList();renderClash();
     if(!$('#tab-board').hidden)renderBoard();if(!$('#tab-ceo').hidden)renderCeo();
-  },()=>{$('#syncState').textContent='הסנכרון נותק – רענן את הדף'});
+  },qErr=()=>{$('#syncState').textContent='הסנכרון נותק – רענן את הדף'};
+  if(!Array.isArray(window.QVENUES))db.collection('quotes').onSnapshot(s=>onQuotes(s.docs),qErr);
+  else{const parts={},vs=window.QVENUES;if(!vs.length)onQuotes([]);
+    vs.forEach(v=>db.collection('quotes').where('event.venue','==',v).onSnapshot(s=>{parts[v]=s.docs;if(vs.every(k=>parts[k]))onQuotes(vs.flatMap(k=>parts[k]))},qErr))}
   db.collection('menus').onSnapshot(s=>{
     menus=s.docs.map(d=>structuredClone(d.data()));refresh();
     if(!$('#tab-menus').hidden)renderMenus();

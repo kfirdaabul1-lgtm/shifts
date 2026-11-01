@@ -851,3 +851,10 @@ exports.srRemind = functions.region(REGION).pubsub.schedule('every 5 minutes').t
   }
   return sent;
 });
+
+// WhatsApp templates approved in Meta reach the system by themselves: re-read them every 30 minutes (owner, Nov 1:
+// new templates only appeared after a manual "רענון תבניות")
+exports.waTplSync = functions.region(REGION).pubsub.schedule('every 30 minutes').timeZone('Asia/Jerusalem').onRun(async () => {
+  const c = await db.doc('wacfg/main').get(); if (!c.exists || !c.data().token) return;
+  await waSync().catch((e) => console.error('waTplSync', e));
+});

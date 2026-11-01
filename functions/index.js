@@ -691,7 +691,7 @@ async function waSave(chatId, msgId, data, chatUp) {
 async function waIncoming(m, name, push) {
   const chat = m.from, at = (+m.timestamp || Date.now() / 1000) * 1000, text = waText(m);
   const cref = db.doc('waChats/' + chat), cs = await cref.get(), c = cs.exists ? cs.data() : {};
-  const up = { lastAt: at, lastText: text.slice(0, 200), lastDir: 'in', lastInAt: at, unread: admin.firestore.FieldValue.increment(1) };
+  const up = { lastAt: at, lastText: text.slice(0, 200), lastDir: 'in', lastInAt: at, unread: admin.firestore.FieldValue.increment(1), status: 'open' };
   if (name && !c.name) up.name = name;
   if (!(await waSave(chat, m.id, { dir: 'in', type: m.type, text, at, src: 'customer', media: (m[m.type] && m[m.type].id) || '', mime: (m[m.type] && m[m.type].mime_type) || '', replyTo: (m.context && m.context.id) || '' }, up))) return;
   let leadId = c.leadId, owner = '';

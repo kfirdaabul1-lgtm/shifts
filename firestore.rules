@@ -376,7 +376,7 @@ service cloud.firestore {
     match /waChats/{id} {
       allow read: if canEvents();
       allow create: if canEvents() && request.resource.data.keys().hasOnly(['waId', 'phone', 'name', 'leadId', 'createdAt', 'createdBy', 'unread']);
-      allow update: if canEvents() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['unread', 'readAt', 'readBy', 'leadId', 'name']);
+      allow update: if canEvents() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['unread', 'readAt', 'readBy', 'leadId', 'name', 'status', 'doneAt', 'doneBy']);
       match /msgs/{m} {
         allow read: if canEvents();
         allow create: if canEvents() && request.resource.data.dir == 'out' && request.resource.data.status == 'queued' && request.resource.data.by == request.auth.uid;

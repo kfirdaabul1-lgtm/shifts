@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202611011440"></script>
+<script src="i18n.js?v=202611011430b"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1472,7 +1472,7 @@ function leadCard(id,l){const late=leadLate(l),lq=leadQuote(id,l),q=lq&&lq[1];
 const myTasksDue=()=>Object.values(S.tasks||{}).filter(t=>!t.done&&t.owner===S.uid&&t.due&&t.due<=todayISO()).length;
 function vLeads(){leadsSub();tasksSub();waSub();leadsSync();const f=S.leadF||(S.leadF={view:'pipe',own:'all',src:'all',q:''});
   const head=`<section class="head"><div class="head-t"><h1>לידים ומכירות</h1><button class="btn pri" data-act="lead-new">+ ליד חדש</button></div>
-    <div class="chips" style="gap:6px;margin-top:8px"><button class="dchip ${f.view==='pipe'?'':'off'}" data-act="lead-view" data-v="pipe">פייפליין</button><button class="dchip ${f.view==='list'?'':'off'}" data-act="lead-view" data-v="list">רשימה</button><button class="dchip ${f.view==='clients'?'':'off'}" data-act="lead-view" data-v="clients">לקוחות</button><button class="dchip ${f.view==='tasks'?'':'off'}" data-act="lead-view" data-v="tasks">משימות${myTasksDue()?` (${myTasksDue()})`:''}</button><button class="dchip ${f.view==='sales'?'':'off'}" data-act="lead-view" data-v="sales">דשבורד מכירות</button><button class="dchip ${f.view==='wa'?'':'off'}" data-act="lead-view" data-v="wa">💬 וואטסאפ${waUnread()?` (${waUnread()})`:''}</button>
+    <div class="chips" style="gap:6px;margin-top:8px"><button class="dchip ${f.view==='pipe'?'':'off'}" data-act="lead-view" data-v="pipe">פייפליין</button><button class="dchip ${f.view==='list'?'':'off'}" data-act="lead-view" data-v="list">רשימה</button><button class="dchip ${f.view==='clients'?'':'off'}" data-act="lead-view" data-v="clients">לקוחות</button><button class="dchip ${f.view==='tasks'?'':'off'}" data-act="lead-view" data-v="tasks">משימות${myTasksDue()?` (${myTasksDue()})`:''}</button><button class="dchip ${f.view==='sales'?'':'off'}" data-act="lead-view" data-v="sales">דשבורד מכירות</button><button class="dchip ${f.view==='wa'?'':'off'}" data-act="lead-view" data-v="wa">💬 וואטסאפ${waUnread()?` (${waUnread()})`:''}</button><button class="dchip ${f.view==='auto'?'':'off'}" data-act="lead-view" data-v="auto">⚡ אוטומציות</button>
     <select data-leadf="own" style="width:auto"><option value="all">כל המטפלים</option><option value="me" ${f.own==='me'?'selected':''}>רק שלי</option><option value="none" ${f.own==='none'?'selected':''}>ללא מטפל</option></select>
     <select data-leadf="ven" style="width:auto"><option value="all">כל המקומות</option>${Object.entries(EV_VENUE).map(([k,n])=>`<option value="${k}" ${f.ven===k?'selected':''}>${esc(n)}</option>`).join('')}<option value="none" ${f.ven==='none'?'selected':''}>מקום לא ידוע</option></select>
     <select data-leadf="src" style="width:auto"><option value="all">כל המקורות</option>${LEAD_SRC.map(([k,n])=>`<option value="${k}" ${f.src===k?'selected':''}>${n}</option>`).join('')}</select>
@@ -1488,6 +1488,7 @@ function vLeads(){leadsSub();tasksSub();waSub();leadsSync();const f=S.leadF||(S.
   const k=`<div class="kpis">${kpi('לידים פתוחים',String(open.length),`${newM.length} חדשים החודש`)}${kpi('לחזור היום',String(late.length),late.length?'כולל באיחור':'אין',late.length?'bad':'ok')}${kpi('נסגרו החודש',String(wonM.length),ils(wonM.reduce((a,[,l])=>a+(+l.wonValue||0),0))+' לפני מע״מ')}${kpi('אחוז סגירה',won+lost?Math.round(won/(won+lost)*100)+'%':'—',`${won} נסגרו · ${lost} לא נסגרו`)}</div>`;
   const today=late.length?`<div class="card" style="border-color:var(--warn)"><h3>לחזור היום · ${late.length}</h3><div class="lead-row">${late.sort(([,a],[,b])=>String(a.nextAt).localeCompare(String(b.nextAt))).map(([id,l])=>leadCard(id,l)).join('')}</div></div>`:'';
   if(f.view==='wa')return wrap(head+waListHTML(f));
+  if(f.view==='auto'){waSub();const W=S.wapub||{};return wrap(head+(!S.isOwner?'<div class="notice">את האוטומציות מגדיר בעל המערכת.</div>':!W.on?'<div class="notice">קודם מחברים את וואטסאפ (בלשונית "💬 וואטסאפ"), ואז אפשר להגדיר כאן הודעות אוטומטיות.</div>':waAutoHTML()))}
   if(!Object.keys(S.leads||{}).length)return wrap(head+k+emptyBox('עוד אין לידים','כל פנייה של לקוח לאירוע נרשמת כאן כליד: מאיפה הגיע, מי מטפל ומתי לחזור אליו. כשנשלחת לו הצעה ונסגרת, הליד מתעדכן לבד.','<button class="btn pri" data-act="lead-new">+ ליד ראשון</button>'));
   let body;
   if(f.view==='clients')return wrap(head+clientsHTML(f));
@@ -1619,7 +1620,7 @@ function waListHTML(f){waSub();const W=S.wapub||{},q=String(S.waQ||'').trim().to
   const pass=([id,c])=>{const L=waLeadOf(id,c);if(F==='unread'&&!(+c.unread>0))return false;if(F==='open'&&c.status==='done')return false;if(F==='done'&&c.status!=='done')return false;if(F==='win'&&!waOpenWin(c))return false;if(F==='lead'&&!L)return false;if(F==='nolead'&&L)return false;
     return !q||String(c.name||'').toLowerCase().includes(q)||(L&&String(L[1].name||'').toLowerCase().includes(q))||(qt.length>=4&&leadTel(waLocalOf(id)).includes(qt))||String(c.lastText||'').toLowerCase().includes(q)};
   const rows=all.filter(pass);
-  const head=(S.isOwner?waCfgHTML()+(W.on?waAutoHTML():''):'')+(!W.on?`<div class="notice">${S.isOwner?'וואטסאפ עוד לא מחובר. ממלאים את "חיבור וואטסאפ" למעלה.':'וואטסאפ עוד לא חובר למערכת. הבעלים מחבר אותו מהעמוד הזה.'}</div>`:'');
+  const head=(S.isOwner?waCfgHTML():'')+(!W.on?`<div class="notice">${S.isOwner?'וואטסאפ עוד לא מחובר. ממלאים את "חיבור וואטסאפ" למעלה.':'וואטסאפ עוד לא חובר למערכת. הבעלים מחבר אותו מהעמוד הזה.'}</div>`:'');
   if(S.waErr)return head+`<div class="notice bad">לא הצלחתי לטעון שיחות: ${esc(S.waErr)}</div>`;
   if(!S.waReady)return head+'<p class="muted">טוען שיחות…</p>';
   const wide=waWide(),sel=wide?S.waSel:'';

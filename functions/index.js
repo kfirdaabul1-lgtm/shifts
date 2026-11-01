@@ -329,7 +329,7 @@ async function metaInsights(cfg) {
   const b = db.batch(); let n = 0;
   for (const [k, x] of Object.entries(by)) {
     if (!x.spend && !x.leads && !x.impressions) continue;
-    b.set(db.doc('campaigns/meta_' + k), { name: x.name, platform: 'meta', target: 'Meta Ads', week: x.week, start: x.week, end: isoAdd(x.week, 6), spend: Math.round(x.spend * 100) / 100, leads: x.leads, msgs: x.msgs, impressions: x.impressions, clicks: x.clicks, auto: 'meta', metaId: x.metaId, updatedAt: Date.now() }, { merge: true });
+    b.set(db.doc('campaigns/meta_' + k), { name: x.name, platform: 'meta', target: 'Meta Ads', week: x.week, start: x.week, end: isoAdd(x.week, 6), spend: Math.round(x.spend * 100) / 100, leads: x.leads, msgs: x.msgs, impressions: x.impressions, clicks: x.clicks, auto: 'meta', metaId: x.metaId, metaConn: (cfg.conn && cfg.conn.id) || '', metaConnName: (cfg.conn && cfg.conn.name) || '', venue: (cfg.conn && cfg.conn.venue) || '', updatedAt: Date.now() }, { merge: true });
     n++;
   }
   if (n) await b.commit();

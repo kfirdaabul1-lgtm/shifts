@@ -385,9 +385,16 @@ exports.quoteExpiry = functions.region(REGION).pubsub.schedule('0 9 * * *').time
   })));
   return null;
 });
-async function eventsPeople() {
-  const out = new Set(), rs = await db.collection('roles').get();
-  rs.forEach((d) => { const r = d.data() || {}; if (!r.station && r.apps && r.apps.events) out.add(d.id); });
+// events users; with a venue, only those who may see that venue's leads (owner, Nov 1: leads separated per hotel):
+// roles with no hotels = all, otherwise one of their hotels' settings.venues must include it (a lead with no venue goes to everyone)
+async function eventsPeople(venue) {
+  const out = new Set(), rs = await db.collection('roles').get(), vc = {};
+  const vOf = async (h) => { if (!(h in vc)) { try { const d = await db.doc('settings/' + h).get(); vc[h] = (d.exists && d.data().venues) || []; } catch (e) { vc[h] = []; } } return vc[h]; };
+  for (const d of rs.docs) {
+    const r = d.data() || {}; if (r.station || !(r.apps && r.apps.events)) continue;
+    const hs = r.hotels || []; if (!venue || !hs.length) { out.add(d.id); continue; }
+    for (const h of hs) if ((await vOf(h)).includes(venue)) { out.add(d.id); break; }
+  }
   const own = await db.collection('pushTokens').where('owner', '==', true).get(); own.forEach((d) => out.add(d.id));
   return [...out];
 }
@@ -428,9 +435,10 @@ async function metaLeads(cfg) {
       }
     }
   }
-  if (fresh.length) {
-    const who = await eventsPeople();
-    await sendTo(who, { title: fresh.length === 1 ? 'ליד חדש מ-Meta' : `${fresh.length} לידים חדשים מ-Meta`, body: fresh.slice(0, 3).map((l) => l.name + (l.campaign ? ' · ' + l.campaign : '')).join(' | '), hash: '#leads', tag: 'meta-leads' });
+  const byV = {}; for (const l of fresh) (byV[l.venue || ''] = byV[l.venue || ''] || []).push(l);
+  for (const [v, fl] of Object.entries(byV)) {
+    const who = await eventsPeople(v);
+    await sendTo(who, { title: fl.length === 1 ? 'ליד חדש מ-Meta' : `${fl.length} לידים חדשים מ-Meta`, body: fl.slice(0, 3).map((l) => l.name + (l.campaign ? ' · ' + l.campaign : '')).join(' | '), hash: '#leads', tag: 'meta-leads-' + v });
   }
   return { pages: pages.map((p) => p.name), forms, newLeads: fresh.length, leadsAt: started };
 }
@@ -695,7 +703,7 @@ function waText(m) {
 async function waLead(waId, name) {
   const t = waTail(waId), ls = await db.collection('leads').get(); let hit = null;
   ls.forEach((d) => { if (!hit && t.length >= 9 && waTail(d.data().phone) === t) hit = d; });
-  if (hit) return { id: hit.id, owner: hit.data().owner || '', isNew: false };
+  if (hit) return { id: hit.id, owner: hit.data().owner || '', venue: hit.data().venue || '', isNew: false };
   const id = 'wa_' + waId, now = Date.now();
   await db.doc('leads/' + id).set({ name: name || waLocal(waId), phone: waLocal(waId), email: '', company: '', type: '', date: '', guests: 0, venue: '', source: 'whatsapp', campaign: '', stage: 'new', owner: '', ownerName: '', nextAt: new Date(now + 3 * 3600e3).toISOString().slice(0, 10), value: 0, notes: '', acts: [], createdAt: now, createdBy: 'whatsapp', updatedAt: now }, { merge: true });
   return { id, owner: '', isNew: true };
@@ -712,10 +720,10 @@ async function waIncoming(m, name, push) {
   const up = { lastAt: at, lastText: text.slice(0, 200), lastDir: 'in', lastInAt: at, unread: admin.firestore.FieldValue.increment(1), status: 'open' };
   if (name && !c.name) up.name = name;
   if (!(await waSave(chat, m.id, { dir: 'in', type: m.type, text, at, src: 'customer', media: (m[m.type] && m[m.type].id) || '', mime: (m[m.type] && m[m.type].mime_type) || '', replyTo: (m.context && m.context.id) || '' }, up))) return;
-  let leadId = c.leadId, owner = '';
-  if (!leadId) { try { const L = await waLead(chat, name || c.name); leadId = L.id; owner = L.owner; await cref.set({ leadId }, { merge: true }); } catch (e) { console.warn('wa lead', e.message); } }
-  else { try { const l = await db.doc('leads/' + leadId).get(); owner = (l.exists && l.data().owner) || ''; } catch (e) { } }
-  if (push) await sendTo(owner ? [owner] : await eventsPeople(), { title: '💬 ' + (name || c.name || waLocal(chat)), body: text.slice(0, 140), hash: '#leads?wa=' + chat, tag: 'wa-' + chat });
+  let leadId = c.leadId, owner = '', venue = '';
+  if (!leadId) { try { const L = await waLead(chat, name || c.name); leadId = L.id; owner = L.owner; venue = L.venue || ''; await cref.set({ leadId }, { merge: true }); } catch (e) { console.warn('wa lead', e.message); } }
+  else { try { const l = await db.doc('leads/' + leadId).get(); owner = (l.exists && l.data().owner) || ''; venue = (l.exists && l.data().venue) || ''; } catch (e) { } }
+  if (push) await sendTo(owner ? [owner] : await eventsPeople(venue), { title: '💬 ' + (name || c.name || waLocal(chat)), body: text.slice(0, 140), hash: '#leads?wa=' + chat, tag: 'wa-' + chat });
 }
 async function waOutgoing(chat, m, src) {
   const at = (+m.timestamp || Date.now() / 1000) * 1000, text = waText(m);

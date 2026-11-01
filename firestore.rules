@@ -364,9 +364,13 @@ service cloud.firestore {
 
     // ---------- לידים ומכירות (CRM לאירועים) ----------
     // אנשי האירועים מנהלים; סושיאל מדיה קורא, כדי לראות כמה לידים ואירועים הביא כל קמפיין
+    // לידים לפי מלון: הרשאה עם מלונות רואה רק לידים של המקומות של המלונות שלה (settings.venues) ולידים בלי מקום
+    function leadVenueOk(v) { return isOwner() || v == '' || hotelVenueOk(v); }
     match /leads/{id} {
-      allow read: if canEvents() || canMkt();
-      allow write: if canEvents();
+      allow read: if (canEvents() || canMkt()) && leadVenueOk(resource.data.get('venue', ''));
+      allow create: if canEvents() && leadVenueOk(request.resource.data.get('venue', ''));
+      allow update: if canEvents() && leadVenueOk(resource.data.get('venue', '')) && leadVenueOk(request.resource.data.get('venue', ''));
+      allow delete: if canEvents() && leadVenueOk(resource.data.get('venue', ''));
     }
     // משימות ותזכורות של צוות המכירות, והערות לכל לקוח
     match /tasks/{id} {

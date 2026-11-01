@@ -1428,7 +1428,18 @@ const qTime=q=>typeof q.createdAt==='number'?q.createdAt:(Date.parse(q.createdAt
 const leadTel=p=>String(p||'').replace(/\D/g,'').replace(/^972/,'0').slice(-9);
 const leadOpen=l=>l.stage!=='won'&&l.stage!=='lost'&&l.stage!=='junk';
 const leadLate=l=>leadOpen(l)&&l.nextAt&&l.nextAt<=todayISO();
-function leadsSub(){liveColl('leads','leads');if(S.can.events)liveColl('lquotes','quotes')}
+// leads are separated per hotel (owner, Nov 1): a role scoped to hotels sees only leads whose venue is in those hotels' settings.venues,
+// plus leads with no venue yet (venue ''), so someone can pick them up; owner and all-hotel roles (hotels []) see everything. Rules enforce it (leadVenueOk).
+function leadScope(){if(S.isOwner)return null;const hs=(S.role&&S.role.hotels)||[];if(!hs.length)return null;const vs=new Set();for(const h of hs)(((S.settingsAll||{})[h]||{}).venues||[]).forEach(v=>vs.add(v));return [...vs]}
+async function leadScopeLoad(){S.settingsAll=S.settingsAll||{};for(const h of (S.role&&S.role.hotels)||[]){if(!S.settingsAll[h]){try{const d=await S.db.doc('settings/'+h).get();S.settingsAll[h]=d.exists?d.data():{}}catch(_){}}}}
+function leadsLive(){if(S.live.leads)return;S.live.leads=true;S.leads=S.leads||{};
+  // scoped: one equality listener per venue (+ '' for leads with no venue) so the rules can check each query; results merged
+  (async()=>{if(!S.isOwner)await leadScopeLoad();const vs=leadScope(),col=S.db.collection('leads');
+    if(!vs){col.onSnapshot(x=>{S.leads=docsMap(x);S.leadsReady=true;waApply();render()},e=>{S.leadsErr=errMsg(mapErr(e));render()});return}
+    const parts={},keys=[...vs,''];keys.forEach(v=>col.where('venue','==',v).onSnapshot(x=>{parts[v]=docsMap(x);if(keys.every(k=>parts[k])){S.leads=Object.assign({},...keys.map(k=>parts[k]));S.leadsReady=true;waApply();render()}},e=>{S.leadsErr=errMsg(mapErr(e));render()}))})()}
+const leadVenueOpts=()=>{const vs=leadScope();return Object.entries(EV_VENUE).filter(([k])=>!vs||vs.includes(k))};
+function waApply(){const sc=leadScope(),raw=S.waChatsRaw||{};S.waChats=sc?Object.fromEntries(Object.entries(raw).filter(([,c])=>!c.leadId||(S.leads||{})[c.leadId])):raw}
+function leadsSub(){leadsLive();if(S.can.events)liveColl('lquotes','quotes')}
 // the quote that belongs to a lead: quote.leadId, the lead's quoteId, or the same phone number
 function leadQuote(id,l){const Q=S.lquotes||{};if(l.quoteId&&Q[l.quoteId])return [l.quoteId,Q[l.quoteId]];
   const byLead=Object.entries(Q).find(([,q])=>q.leadId===id&&q.kind!=='group');if(byLead)return byLead;
@@ -1475,7 +1486,7 @@ function vLeads(){leadsSub();tasksSub();waSub();leadsSync();const f=S.leadF||(S.
   const head=`<section class="head"><div class="head-t"><h1>לידים ומכירות</h1><button class="btn pri" data-act="lead-new">+ ליד חדש</button></div>
     <div class="chips" style="gap:6px;margin-top:8px"><button class="dchip ${f.view==='pipe'?'':'off'}" data-act="lead-view" data-v="pipe">פייפליין</button><button class="dchip ${f.view==='list'?'':'off'}" data-act="lead-view" data-v="list">רשימה</button><button class="dchip ${f.view==='clients'?'':'off'}" data-act="lead-view" data-v="clients">לקוחות</button><button class="dchip ${f.view==='tasks'?'':'off'}" data-act="lead-view" data-v="tasks">משימות${myTasksDue()?` (${myTasksDue()})`:''}</button><button class="dchip ${f.view==='sales'?'':'off'}" data-act="lead-view" data-v="sales">דשבורד מכירות</button><button class="dchip ${f.view==='wa'?'':'off'}" data-act="lead-view" data-v="wa">💬 וואטסאפ${waUnread()?` (${waUnread()})`:''}</button><button class="dchip ${f.view==='auto'?'':'off'}" data-act="lead-view" data-v="auto">⚡ אוטומציות</button>
     <select data-leadf="own" style="width:auto"><option value="all">כל המטפלים</option><option value="me" ${f.own==='me'?'selected':''}>רק שלי</option><option value="none" ${f.own==='none'?'selected':''}>ללא מטפל</option></select>
-    <select data-leadf="ven" style="width:auto"><option value="all">כל המקומות</option>${Object.entries(EV_VENUE).map(([k,n])=>`<option value="${k}" ${f.ven===k?'selected':''}>${esc(n)}</option>`).join('')}<option value="none" ${f.ven==='none'?'selected':''}>מקום לא ידוע</option></select>
+    <select data-leadf="ven" style="width:auto"><option value="all">כל המקומות</option>${leadVenueOpts().map(([k,n])=>`<option value="${k}" ${f.ven===k?'selected':''}>${esc(n)}</option>`).join('')}<option value="none" ${f.ven==='none'?'selected':''}>מקום לא ידוע</option></select>
     <select data-leadf="src" style="width:auto"><option value="all">כל המקורות</option>${LEAD_SRC.map(([k,n])=>`<option value="${k}" ${f.src===k?'selected':''}>${n}</option>`).join('')}</select>
     <input type="search" data-leadf="q" value="${esc(f.q||'')}" placeholder="חיפוש לפי שם, טלפון או חברה" style="max-width:240px"></div></section>`;
   if(S.leadsErr)return wrap(head+`<div class="notice">לא הצלחתי לטעון: ${esc(S.leadsErr)}</div>`);
@@ -1514,7 +1525,7 @@ function sheetLead(){const id=S.sheet.id,l=(S.leads||{})[id]||{},isNew=!(S.leads
   <div class="row"><label class="f">שם מלא<input type="text" data-f="lead.name" value="${esc(g('name'))}"></label><label class="f">טלפון<input type="tel" dir="ltr" data-f="lead.phone" value="${esc(g('phone'))}"></label></div>
   <div class="row"><label class="f">אימייל<input type="email" dir="ltr" data-f="lead.email" value="${esc(g('email'))}"></label><label class="f">חברה<input type="text" data-f="lead.company" value="${esc(g('company'))}"></label></div>
   <div class="row"><label class="f">סוג אירוע<input type="text" list="lead-types" data-f="lead.type" value="${esc(g('type'))}" placeholder="אירוע חברה, חתונה…"><datalist id="lead-types">${['אירוע חברה','חתונה','בר / בת מצווה','יום הולדת','אירוע פרטי','השקה','כנס'].map(x=>`<option value="${x}">`).join('')}</datalist></label><label class="f">תאריך מבוקש<input type="date" data-f="lead.date" value="${esc(g('date'))}"></label><label class="f" style="max-width:110px">אורחים<input type="number" min="0" data-f="lead.guests" value="${esc(g('guests'))}"></label></div>
-  <div class="row"><label class="f">מקום<select data-f="lead.venue"><option value="">עוד לא ידוע</option>${Object.entries(EV_VENUE).map(([k,n])=>`<option value="${k}" ${g('venue')===k?'selected':''}>${esc(n)}</option>`).join('')}</select></label><label class="f">סכום צפוי (₪, לפני מע״מ)<input type="number" min="0" data-f="lead.value" value="${esc(g('value'))}"></label></div>
+  <div class="row"><label class="f">מקום<select data-f="lead.venue"><option value="">עוד לא ידוע</option>${leadVenueOpts().map(([k,n])=>`<option value="${k}" ${g('venue')===k?'selected':''}>${esc(n)}</option>`).join('')}</select></label><label class="f">סכום צפוי (₪, לפני מע״מ)<input type="number" min="0" data-f="lead.value" value="${esc(g('value'))}"></label></div>
   <div class="row"><label class="f">מאיפה הגיע<select data-f="lead.source"><option value="">בחירה…</option>${LEAD_SRC.map(([k,n])=>`<option value="${k}" ${g('source')===k?'selected':''}>${n}</option>`).join('')}</select></label>
   <label class="f">קמפיין<input type="text" list="lead-camps" data-f="lead.campaign" value="${esc(g('campaign'))}" placeholder="שם הקמפיין בסושיאל"><datalist id="lead-camps">${camps.map(x=>`<option value="${esc(x)}">`).join('')}</datalist></label></div>
   <div class="row"><label class="f">מטפל/ת<select data-f="lead.owner"><option value="" ${g('owner')?'':'selected'}>— עוד לא נבחר —</option>${Object.entries(own).map(([u,n])=>`<option value="${u}" ${g('owner')===u?'selected':''}>${esc(n)}</option>`).join('')}</select></label><label class="f">לחזור ללקוח בתאריך<input type="date" data-f="lead.nextAt" value="${esc(g('nextAt'))}"></label></div>
@@ -1565,7 +1576,7 @@ const waLocalOf=id=>{const d=String(id||'');return d.startsWith('972')?'0'+d.sli
 const waUnread=()=>S.can&&S.can.events?Object.values(S.waChats||{}).filter(c=>+c.unread>0).length:0;
 const waOpenWin=c=>!!(c&&c.lastInAt&&Date.now()-c.lastInAt<864e5);
 function waSub(){if(!S.can||!S.can.events||S.live.wa)return;S.live.wa=true;
-  fdb.collection('waChats').orderBy('lastAt','desc').limit(300).onSnapshot(q=>{S.waChats=docsMap(q);S.waReady=true;if(S.waPend){const id=S.waPend;S.waPend='';waOpen(id)}render()},e=>{S.waErr=errMsg(mapErr(e));render()});
+  fdb.collection('waChats').orderBy('lastAt','desc').limit(300).onSnapshot(q=>{S.waChatsRaw=docsMap(q);waApply();S.waReady=true;if(S.waPend){const id=S.waPend;S.waPend='';waOpen(id)}render()},e=>{S.waErr=errMsg(mapErr(e));render()});
   S.db.doc('wapub/main').onSnapshot(d=>{S.wapub=d.exists?d.data():{};render()},()=>{S.wapub={}})}
 function waMsgsSub(id){if(S.waMsgsId===id)return;if(S.waMsgsUn){try{S.waMsgsUn()}catch(_){}}S.waMsgsId=id;S.waMsgs=null;
   S.waMsgsUn=fdb.collection('waChats/'+id+'/msgs').orderBy('at','desc').limit(300).onSnapshot(q=>{S.waMsgs=q.docs.map(d=>({id:d.id,...d.data()})).reverse();render()},e=>{S.waMsgs=[];S.waMsgsErr=errMsg(mapErr(e));render()})}
@@ -4281,7 +4292,7 @@ async function start(u){
     db.collection('requests').where('uid','==',S.uid).onSnapshot(q=>{own=docsMap(q);mix()},onErr);
     db.collection('requests').where('peer','==',S.uid).onSnapshot(q=>{peer=docsMap(q);mix()},()=>{});
     db.collection('requests').where('hotel','==',S.myHotel===CHAIN?S.hotel:(S.myHotel||S.hotel)).where('status','==','approved').onSnapshot(q=>{hot=docsMap(q);mix()},()=>{})}
-  subWeek();S.ready=true;render();checkJoinCodes();if(!S.station){alertsSub();myCallsSub()}setInterval(()=>{if(Object.values(S.myCalls||{}).some(c=>c.status==='open')||S.tab==='front')render()},60000);if(S.can.events){liveColl('leads','leads');tasksSub();waSub()}setTimeout(pushInit,1500);setTimeout(pushAsk,2500);
+  subWeek();S.ready=true;render();checkJoinCodes();if(!S.station){alertsSub();myCallsSub()}setInterval(()=>{if(Object.values(S.myCalls||{}).some(c=>c.status==='open')||S.tab==='front')render()},60000);if(S.can.events){leadsLive();tasksSub();waSub()}setTimeout(pushInit,1500);setTimeout(pushAsk,2500);
 }
 (function boot(){
   render();

@@ -127,7 +127,7 @@ exports.onStock = trig('inventory/{id}').onWrite(async (ch) => {
 // A small Google Apps Script in the owner's own Drive calls this once a day with the key stored in backupcfg/main
 // (only the owner can read or change it) and saves the JSON it gets into a Drive folder. Same format as the
 // "גיבוי" button on the Permissions page, so the Import card can restore it. Invoice images are left out (size).
-const BACKUP_COLLS = ['waChats', 'srImgs', 'shiftKinds', 'signs', 'receipts', 'orgcfg', 'groups', 'agents', 'priceLists', 'jobRoles', 'vchCodes', 'hkday', 'faultsAck', 'srDrafts', 'vchcfg', 'hotels', 'settings', 'employees', 'mgr', 'avail', 'shifts', 'schedule', 'requests', 'roles', 'joinCodes', 'config', 'menus', 'contracts', 'quotes', 'campaigns', 'suppliers', 'invoices', 'expcfg', 'inventory', 'purchaseReqs', 'shiftReports', 'faults', 'hk', 'hkcfg', 'hkLog', 'hkComplaints', 'leads', 'tasks', 'clients', 'hkCalls', 'spa', 'spacfg', 'vouchers'];
+const BACKUP_COLLS = ['waauto', 'waChats', 'srImgs', 'shiftKinds', 'signs', 'receipts', 'orgcfg', 'groups', 'agents', 'priceLists', 'jobRoles', 'vchCodes', 'hkday', 'faultsAck', 'srDrafts', 'vchcfg', 'hotels', 'settings', 'employees', 'mgr', 'avail', 'shifts', 'schedule', 'requests', 'roles', 'joinCodes', 'config', 'menus', 'contracts', 'quotes', 'campaigns', 'suppliers', 'invoices', 'expcfg', 'inventory', 'purchaseReqs', 'shiftReports', 'faults', 'hk', 'hkcfg', 'hkLog', 'hkComplaints', 'leads', 'tasks', 'clients', 'hkCalls', 'spa', 'spacfg', 'vouchers'];
 const plain = (v) => {
   if (v instanceof admin.firestore.Timestamp) return { seconds: v.seconds, nanoseconds: v.nanoseconds };
   if (Array.isArray(v)) return v.map(plain);
@@ -857,4 +857,29 @@ exports.srRemind = functions.region(REGION).pubsub.schedule('every 5 minutes').t
 exports.waTplSync = functions.region(REGION).pubsub.schedule('every 30 minutes').timeZone('Asia/Jerusalem').onRun(async () => {
   const c = await db.doc('wacfg/main').get(); if (!c.exists || !c.data().token) return;
   await waSync().catch((e) => console.error('waTplSync', e));
+});
+
+// automatic WhatsApp template to every new lead, chosen by the lead's place (waauto/main, owner card on the leads WhatsApp tab)
+const waIdFrom = (p) => { let d = String(p || '').replace(/\D/g, ''); if (d.startsWith('00')) d = d.slice(2); if (d.startsWith('0')) d = '972' + d.slice(1); else if (d.length === 9 && d[0] === '5') d = '972' + d; return d.length >= 11 && d.length <= 15 ? d : ''; };
+exports.onLeadAuto = trig('leads/{id}').onCreate(async (snap) => {
+  const l = snap.data() || {}, id = snap.id;
+  if (l.source === 'whatsapp' || l.waAutoAt || /^wa_/.test(id)) return;
+  if (l.createdAt && Date.now() - l.createdAt > 2 * 864e5) return; // old leads that arrive late (backfills) are not messaged
+  const a = (await db.doc('waauto/main').get()).data() || {}; if (!a.on) return;
+  if (a.metaOnly && !/^meta_/.test(id)) return;
+  const rules = a.rules || {}, r = rules[l.venue || ''] || rules['*']; if (!r || !r.tpl) return;
+  const pub = (await db.doc('wapub/main').get()).data() || {}; if (!pub.on) return;
+  const t = (pub.templates || []).find((x) => x.name === r.tpl && (!r.lang || x.lang === r.lang));
+  const to = waIdFrom(l.phone), now = Date.now();
+  const note = (txt) => snap.ref.update({ waAutoAt: now, acts: admin.firestore.FieldValue.arrayUnion({ at: now, by: 'auto', byName: 'אוטומטי', kind: 'whatsapp', text: txt }) });
+  if (!t) return note('הודעת וואטסאפ אוטומטית לא נשלחה: התבנית ' + r.tpl + ' לא נמצאה ברשימת התבניות המאושרות');
+  if (!to) return note('הודעת וואטסאפ אוטומטית לא נשלחה: אין מספר טלפון תקין');
+  const first = String(l.name || '').trim().split(/\s+/)[0] || '';
+  const params = Array.from({ length: t.n || 0 }, (_, i) => { const p = (r.params || [])[i] || {}; const v = p.src === 'first' ? first : p.src === 'name' ? l.name : p.src === 'venue' ? (r.venueName || '') : p.text; return String(v || '').trim() || '-'; });
+  const text = String(t.body || '').replace(/\{\{(\d+)\}\}/g, (m, n) => params[+n - 1] || m);
+  const cref = db.doc('waChats/' + to), cs = await cref.get();
+  if (!cs.exists) await cref.set({ waId: to, phone: waLocal(to), name: l.name || '', leadId: id, createdAt: now, createdBy: 'auto', unread: 0, status: 'open' });
+  else if (!cs.data().leadId) await cref.set({ leadId: id }, { merge: true });
+  await cref.collection('msgs').add({ dir: 'out', type: 'template', tpl: { name: t.name, lang: t.lang, params }, text, status: 'queued', by: 'auto', byName: 'הודעה אוטומטית', at: now, src: 'auto' });
+  await note('נשלחה הודעת וואטסאפ אוטומטית (' + t.name + ')');
 });

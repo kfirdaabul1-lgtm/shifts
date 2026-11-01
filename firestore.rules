@@ -385,6 +385,10 @@ service cloud.firestore {
     match /wacfg/{id} {
       allow read, write: if isOwner();
     }
+    match /waauto/{id} {
+      allow read: if canEvents();
+      allow write: if isOwner();
+    }
     match /wapub/{id} {
       allow read: if canEvents();
       allow write: if isOwner();

@@ -127,7 +127,7 @@ exports.onStock = trig('inventory/{id}').onWrite(async (ch) => {
 // A small Google Apps Script in the owner's own Drive calls this once a day with the key stored in backupcfg/main
 // (only the owner can read or change it) and saves the JSON it gets into a Drive folder. Same format as the
 // "גיבוי" button on the Permissions page, so the Import card can restore it. Invoice images are left out (size).
-const BACKUP_COLLS = ['waauto', 'waChats', 'srImgs', 'shiftKinds', 'signs', 'receipts', 'orgcfg', 'groups', 'agents', 'priceLists', 'jobRoles', 'vchCodes', 'hkday', 'faultsAck', 'srDrafts', 'vchcfg', 'hotels', 'settings', 'employees', 'mgr', 'avail', 'shifts', 'schedule', 'requests', 'roles', 'joinCodes', 'config', 'menus', 'contracts', 'quotes', 'campaigns', 'suppliers', 'invoices', 'expcfg', 'inventory', 'purchaseReqs', 'shiftReports', 'faults', 'hk', 'hkcfg', 'hkLog', 'hkComplaints', 'leads', 'tasks', 'clients', 'hkCalls', 'spa', 'spacfg', 'vouchers'];
+const BACKUP_COLLS = ['broadcasts', 'waauto', 'waChats', 'srImgs', 'shiftKinds', 'signs', 'receipts', 'orgcfg', 'groups', 'agents', 'priceLists', 'jobRoles', 'vchCodes', 'hkday', 'faultsAck', 'srDrafts', 'vchcfg', 'hotels', 'settings', 'employees', 'mgr', 'avail', 'shifts', 'schedule', 'requests', 'roles', 'joinCodes', 'config', 'menus', 'contracts', 'quotes', 'campaigns', 'suppliers', 'invoices', 'expcfg', 'inventory', 'purchaseReqs', 'shiftReports', 'faults', 'hk', 'hkcfg', 'hkLog', 'hkComplaints', 'leads', 'tasks', 'clients', 'hkCalls', 'spa', 'spacfg', 'vouchers'];
 const plain = (v) => {
   if (v instanceof admin.firestore.Timestamp) return { seconds: v.seconds, nanoseconds: v.nanoseconds };
   if (Array.isArray(v)) return v.map(plain);
@@ -882,4 +882,10 @@ exports.onLeadAuto = trig('leads/{id}').onCreate(async (snap) => {
   else if (!cs.data().leadId) await cref.set({ leadId: id }, { merge: true });
   await cref.collection('msgs').add({ dir: 'out', type: 'template', tpl: { name: t.name, lang: t.lang, params }, text, status: 'queued', by: 'auto', byName: 'הודעה אוטומטית', at: now, src: 'auto' });
   await note('נשלחה הודעת וואטסאפ אוטומטית (' + t.name + ')');
+});
+
+// hotel manager's message to everyone on shift (broadcasts, gm page card) → push to each recipient
+exports.onBroadcast = trig('broadcasts/{id}').onCreate(async (snap) => {
+  const b = snap.data() || {}, to = (b.to || []).filter(Boolean); if (!to.length) return;
+  return sendTo(to, { title: '📣 הודעה מ' + (b.byName || 'המנהל'), body: String(b.text || '').slice(0, 180), hash: '#', tag: 'bc-' + snap.id });
 });

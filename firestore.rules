@@ -385,6 +385,11 @@ service cloud.firestore {
     match /wacfg/{id} {
       allow read, write: if isOwner();
     }
+    match /broadcasts/{id} {
+      allow read: if request.auth != null && (request.auth.uid in resource.data.to || gmIn(resource.data.hotel) || manages(resource.data.hotel));
+      allow create: if (gmIn(request.resource.data.hotel) || manages(request.resource.data.hotel)) && request.resource.data.by == request.auth.uid && request.resource.data.to.size() <= 300;
+      allow update: if request.auth != null && request.auth.uid in resource.data.to && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reads']);
+    }
     match /waauto/{id} {
       allow read: if canEvents();
       allow write: if isOwner();

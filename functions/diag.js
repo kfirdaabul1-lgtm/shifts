@@ -10,7 +10,12 @@ const waIdFrom = (p) => { let d = String(p || '').replace(/\D/g, ''); if (d.star
   if(seen.has(to)){skip.push(l.name+' (dup phone)');continue}seen.add(to);
   const c=cs.docs.find(x=>x.id===to);
   if(c){const ms=await c.ref.collection('msgs').where('dir','==','out').get();if(!ms.empty){skip.push(l.name+' (already messaged)');continue}}
-  send++;
+  const pub=(await db.doc('wapub/main').get()).data()||{},t=(pub.templates||[]).find(x=>x.name==='gutman_lead_reply');if(!t)throw new Error('no template');
+  const now=Date.now(),cref=db.doc('waChats/'+to);
+  if(!c)await cref.set({waId:to,phone:'0'+to.slice(3),name:l.name||'',leadId:d.id,createdAt:now,createdBy:'auto',unread:0,status:'open'});else if(!c.data().leadId)await cref.set({leadId:d.id},{merge:true});
+  await cref.collection('msgs').add({dir:'out',type:'template',tpl:{name:t.name,lang:t.lang,params:[]},text:String(t.body||''),status:'queued',by:'auto',byName:'הודעה אוטומטית',at:now,src:'auto'});
+  await d.ref.update({waAutoAt:now,acts:admin.firestore.FieldValue.arrayUnion({at:now,by:'auto',byName:'אוטומטי',kind:'whatsapp',text:'נשלחה הודעת וואטסאפ (gutman_lead_reply) · שליחה ללידים קיימים'})});
+  send++;await new Promise(r=>setTimeout(r,400));
  }
- n('would send='+send+' skip='+JSON.stringify(skip));
+ n('sent='+send+' skip='+JSON.stringify(skip));
 })().catch(e=>n('ERR '+e.message));

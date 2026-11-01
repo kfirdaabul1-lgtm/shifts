@@ -450,14 +450,14 @@ function metaConnList(cfg) {
 }
 async function metaRunOne(cfg, id, conn, full) {
   const rt = (cfg.cst && cfg.cst[id]) || (id === 'main' ? { status: cfg.status, leadsAt: cfg.leadsAt, insAt: cfg.insAt } : {}) || {};
-  const prev = rt.status || {}, st = { ...prev, at: Date.now(), ok: true, err: '', leadErr: '', insErr: '' }, out = { leadsAt: rt.leadsAt || 0, insAt: rt.insAt || 0 };
+  const prev = rt.status || {}, st = { ...prev, at: Date.now(), ok: true, err: '', leadErr: '', insErr: prev.insErr || '' }, out = { leadsAt: rt.leadsAt || 0, insAt: rt.insAt || 0 };
   const c = { token: conn.token, adAccount: conn.adAccount, leadsAt: rt.leadsAt, conn: { id, name: conn.name || '', venue: conn.venue || '' } };
   try { const me = await graph('me', c.token, { fields: 'id,name' }); st.user = me.name || me.id; }
   catch (e) { st.ok = false; st.err = String(e.message || e); return { ...out, status: st }; }
   try { const r = await metaLeads(c); st.pages = r.pages; st.forms = r.forms; st.newLeads = r.newLeads; st.leadsTotal = (prev.leadsTotal || 0) + r.newLeads; out.leadsAt = r.leadsAt; }
   catch (e) { st.leadErr = String(e.message || e); }
   if (full || !rt.insAt || Date.now() - rt.insAt > 3 * 3600e3) {
-    try { const r = await metaInsights(c); st.campaigns = r.campaigns; st.reports = r.reports; }
+    try { const r = await metaInsights(c); st.campaigns = r.campaigns; st.reports = r.reports; st.insErr = ''; }
     catch (e) { st.insErr = String(e.message || e); }
     out.insAt = Date.now();
   }

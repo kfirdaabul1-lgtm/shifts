@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202611011900"></script>
+<script src="i18n.js?v=202611012000"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -197,7 +197,7 @@ body:has(.sheet:not([hidden])) .lang-toggle{display:none!important}
 .lead-pipe{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(220px,1fr);gap:10px;overflow-x:auto;padding-bottom:8px}
 .lead-col{background:var(--sunk);border-radius:12px;padding:8px;display:flex;flex-direction:column;gap:8px;min-height:120px}.lead-col-h{display:flex;justify-content:space-between;align-items:center;padding:2px 4px}
 .lead-col.drop{outline:2px dashed var(--accent,#2563eb);outline-offset:-2px}.lead-card.dragging{opacity:.4}
-.lead-col.lead-won{background:var(--ok-bg)}.lead-col.lead-lost{background:var(--bad-bg)}.lead-col.lead-junk{opacity:.75}
+.lead-col.lead-won{background:var(--ok-bg)}.lead-col.lead-lost{background:var(--bad-bg)}.lead-col.lead-junk{opacity:.75}.wa-inf{margin:0 0 8px}.wa-inf-sum{all:unset;cursor:pointer;display:block;width:100%;box-sizing:border-box;padding:7px 10px;border-radius:10px;background:var(--brass-bg,#F6F1E6);font-weight:600;font-size:.9rem}.wa-inf-body{margin-top:6px;padding:8px 10px;border:1px solid var(--line);border-radius:10px;display:grid;gap:4px}.wa-inf-r{display:flex;gap:8px;justify-content:space-between;font-size:.9rem}
 .lead-card{display:flex;flex-direction:column;align-items:flex-start;gap:3px;text-align:start;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:inherit;cursor:pointer;width:100%}
 .lead-card.late{border-color:var(--warn);box-shadow:0 0 0 2px var(--warn-bg)}.lead-card small{font-size:.8rem}.lead-tags{display:flex;flex-wrap:wrap;gap:4px}.lead-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px}.bad-t{color:var(--bad)}
 .hk-ks{display:flex;flex-wrap:wrap;gap:6px}.hk-sep{width:1px;background:var(--line);margin:0 4px}
@@ -1671,7 +1671,11 @@ function waChatBody(id,inPane){const c=(S.waChats||{})[id]||{},L=waLeadOf(id,c),
     ${T.length?`<label class="f">תבנית<select data-f="wa.tpl">${T.map((x,i)=>`<option value="${i}" ${i===ti?'selected':''}>${esc(x.name)} (${esc(x.lang)})</option>`).join('')}</select></label>${t?`<p class="muted" style="font-size:.85rem;white-space:pre-wrap;margin:4px 0">${esc(t.body)}</p>${Array.from({length:t.n},(_,i)=>`<label class="f">ערך ל-{{${i+1}}}<input type="text" data-f="wa.p${i+1}" value="${esc(dv('wa','p'+(i+1),i===0&&l?l.name:''))}"></label>`).join('')}<div class="actions"><button class="btn pri" data-act="wa-tpl-send">שליחת התבנית</button></div>`:''}`:'<p class="muted">אין עדיין תבניות מאושרות. יוצרים אותן ב-WhatsApp Manager של Meta.</p>'}`;
   setTimeout(()=>{const b=document.querySelector('.wa-msgs');if(b)b.scrollTop=S.waAtBottom!==false?b.scrollHeight:(S.waKeep??b.scrollTop)},0);
   const sub=`<span dir="ltr">${esc(waLocalOf(id))}</span>${c.lastAt?' · הודעה אחרונה '+waTime(c.lastAt):''}`,doneBtn=`<button class="btn sm ${c.status==='done'?'':'ok'}" data-act="wa-done" data-id="${id}">${c.status==='done'?'↺ פתיחה מחדש':'✓ סימון כטופל'}</button>`;
-  return (inPane?`<div class="wa-ph"><span class="wa-av">${esc(waInit(name))}</span><div style="flex:1;min-width:0"><b>${esc(name)}</b><div class="muted" style="font-size:.85rem">${sub}</div></div></div>`:sheetHead('💬 '+esc(name),sub))+`
+  // lead details from the Meta form (owner, Nov 1): a one-line summary under the header; tapping the name / summary opens all fields
+  const gst=l?(l.guestsTxt||(+l.guests?String(l.guests):'')):'',sum=l?[l.type,gst?'\u2066'+gst+'\u2069 משתתפים':'',l.date?dm(l.date):''].filter(Boolean).join(' · '):'',inf=!!S.waInfo&&!!l;
+  const row=(k,v)=>v?`<div class="wa-inf-r"><span class="muted">${k}</span><b>${v}</b></div>`:'';
+  const info=l?`<div class="wa-inf"><button class="wa-inf-sum" data-act="wa-info">${sum?esc(sum):'פרטי הפנייה'} <span class="muted">${inf?'▲':'▼'}</span></button>${inf?`<div class="wa-inf-body">${row('סוג אירוע',esc(l.type||''))}${row('משתתפים',gst?'\u2066'+esc(gst)+'\u2069':'')}${row('תאריך',l.date?esc(dm(l.date)):'')}${row('מקום',esc(EV_VENUE[l.venue]||''))}${row('מקור',esc(LSRC[l.source]||l.source||''))}${row('קמפיין',esc(l.campaign||''))}${row('חברה',esc(l.company||''))}${row('אימייל',esc(l.email||''))}${row('נכנס',l.createdAt?esc(new Date(l.createdAt).toLocaleString('he-IL',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})):'')}${l.notes?`<div class="wa-inf-r" style="display:block"><span class="muted">עוד פרטים מהטופס</span><div style="white-space:pre-wrap;margin-top:2px">${esc(l.notes)}</div></div>`:''}</div>`:''}</div>`:'';
+  return (inPane?`<div class="wa-ph"><span class="wa-av" data-act="wa-info" style="cursor:pointer">${esc(waInit(name))}</span><div style="flex:1;min-width:0"><b data-act="wa-info" style="cursor:pointer">${esc(name)}</b><div class="muted" style="font-size:.85rem">${sub}</div></div></div>`:sheetHead('💬 '+esc(name),sub))+info+`
   <div class="actions" style="margin-bottom:8px">${doneBtn}${L?`<button class="btn sm" data-act="lead-open" data-id="${L[0]}">כרטיס הליד · ${esc(LSTG[l.stage]||'')}</button><button class="btn sm ${l.stage==='junk'?'':'ghost'}" data-act="lead-junk" data-id="${L[0]}" data-chat="${esc(id)}">${l.stage==='junk'?'↺ החזרה ללידים':'🚫 לא רלוונטי'}</button>`:`<button class="btn sm" data-act="wa-mklead">+ יצירת ליד</button>`}<a class="btn sm ghost" href="tel:${esc(waLocalOf(id))}">📞 חיוג</a></div>
   <div class="wa-msgs">${bubbles}</div>${comp}`}
 
@@ -3719,6 +3723,7 @@ const ACT={
     for(const [v,r] of Object.entries(D.rules)){r.venueName=v==='*'?'':(EV_VENUE[v]||'');if((r.params||[]).some(p=>p.src==='text'&&!String(p.text||'').trim())){toast('צריך למלא את הטקסט הקבוע בתבנית של '+(v==='*'?'ליד בלי מקום':EV_VENUE[v]||v));return}}
     if(D.on&&!Object.keys(D.rules).length){toast('צריך לבחור תבנית לפחות למקום אחד');return}
     try{await fdb.doc('waauto/main').set({on:!!D.on,metaOnly:!!D.metaOnly,rules:D.rules,updatedAt:Date.now(),by:S.uid});S.waaD=null;toast(D.on?'נשמר. כל ליד חדש יקבל הודעה אוטומטית':'נשמר (כבוי)')}catch(e){toast('לא הצלחתי: '+errMsg(mapErr(e)))}},
+  'wa-info':()=>{S.waInfo=!S.waInfo;render()},
   'lead-openall':()=>{S.leadOpenAll=!S.leadOpenAll;render()},
   'lead-junkf':()=>{S.leadF={...S.leadF,junk:!S.leadF.junk};render()},
   'lead-junk':async D=>{const l=(S.leads||{})[D.id];if(!l)return;const back=l.stage==='junk';leadMove(D.id,back?'new':'junk');

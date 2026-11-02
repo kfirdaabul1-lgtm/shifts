@@ -1683,14 +1683,14 @@ const waArch=(id,c)=>{const L=waLeadOf(id,c);return !!(L&&L[1].stage==='junk')},
 // a chat whose lead was opened automatically by WhatsApp (no campaign / kind yet) is unsorted ('') and shows in every inbox with assign chips
 function waCatOf(id,c){if(c&&c.cat&&LCAT[c.cat])return c.cat;const L=waLeadOf(id,c||{});if(!L)return '';const l=L[1];if(l.cat&&LCAT[l.cat])return l.cat;
   if(l.source==='whatsapp'&&!campCatOf(l.campaign))return '';return leadCat(l)}
-const waUnreadCat=k=>Object.entries(S.waChats||{}).filter(([id,c])=>+c.unread>0&&!waArch(id,c)&&waCatOf(id,c)===k).length;
+const waUnreadCat=k=>Object.entries(S.waChats||{}).filter(([id,c])=>+c.unread>0&&!waArch(id,c)&&(waCatOf(id,c)||'events')===k).length;
 const WA_F=[['all','הכול'],['unread','לא נקראו'],['wait','מחכים לתשובה'],['open','פתוחות'],['done','טופלו'],['win','חלון 24 שעות פתוח'],['lead','משויכות לליד'],['nolead','בלי ליד'],['arch','ארכיון']];
 const waInit=n=>{const w=String(n||'').trim().split(/\s+/).filter(Boolean);return w.length>1?(w[0][0]+w[1][0]):(w[0]||'#').slice(0,2)};
 const waColor=id=>{let h=0;for(const ch of String(id))h=(h*31+ch.charCodeAt(0))%360;return `hsl(${h},42%,46%)`};
 function waListTime(t){if(!t)return '';const d=new Date(t),iso=d.toLocaleDateString('en-CA');if(iso===todayISO())return d.toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'});if(iso===addDays(todayISO(),-1))return 'אתמול';return d.toLocaleDateString('en-GB',{day:'2-digit',month:'2-digit',year:'2-digit'})}
 function waStamp(t){if(!t)return '';const d=new Date(t);return d.toLocaleDateString('en-GB',{day:'2-digit',month:'2-digit'})+' '+d.toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'})}
 function waListHTML(f){waSub();leadCatsLive();const W=S.wapub||{},q=String(S.waQ||'').trim().toLowerCase(),qt=leadTel(q),F=S.waF||'all',cat=f.cat||'events';
-  const all=Object.entries(S.waChats||{}).filter(([id,c])=>{const k=waCatOf(id,c);return !k||k===cat});
+  const all=Object.entries(S.waChats||{}).filter(([id,c])=>(waCatOf(id,c)||'events')===cat);
   const pass=([id,c])=>{const L=waLeadOf(id,c);if((F==='arch')!==waArch(id,c))return false;if(F==='wait'&&!waWait(c))return false;if(F==='unread'&&!(+c.unread>0))return false;if(F==='open'&&c.status==='done')return false;if(F==='done'&&c.status!=='done')return false;if(F==='win'&&!waOpenWin(c))return false;if(F==='lead'&&!L)return false;if(F==='nolead'&&L)return false;
     return !q||String(c.name||'').toLowerCase().includes(q)||(L&&String(L[1].name||'').toLowerCase().includes(q))||(qt.length>=4&&leadTel(waLocalOf(id)).includes(qt))||String(c.lastText||'').toLowerCase().includes(q)};
   const rows=all.filter(pass);

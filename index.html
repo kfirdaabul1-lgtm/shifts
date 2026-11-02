@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202611021445"></script>
+<script src="i18n.js?v=202611021500"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1526,8 +1526,8 @@ function leadCard(id,l){const late=leadLate(l),lq=leadQuote(id,l),q=lq&&lq[1];
 const myTasksDue=()=>Object.values(S.tasks||{}).filter(t=>!t.done&&t.owner===S.uid&&t.due&&t.due<=todayISO()).length;
 function vLeads(){leadsSub();tasksSub();waSub();leadCatsLive();leadsSync();const f=S.leadF||(S.leadF={view:'pipe',own:'all',src:'all',q:''});const cat=f.cat||(f.cat='events');
   const catN=k=>Object.values(S.leads||{}).filter(l=>leadCat(l)===k&&leadOpen(l)).length,catNew=k=>Object.values(S.leads||{}).filter(l=>leadCat(l)===k&&(l.stage||'new')==='new').length;
-  const catBar=f.view==='auto'?'':`<div class="lead-cats">${LEAD_CAT.map(([k,n,i])=>`<button class="lead-cat ${cat===k?'on':''}" data-act="lead-catv" data-v="${k}"><span>${i}</span><b>${n}</b><small>${f.view==='wa'?`💬 ${waUnreadCat(k)?`<i>${waUnreadCat(k)} לא נקראו</i>`:'אין חדשות'}`:`${catN(k)} פתוחים${catNew(k)?` · <i>${catNew(k)} חדשים</i>`:''}`}</small></button>`).join('')}</div>`;
-  const head=`<section class="head"><div class="head-t"><h1>לידים ומכירות</h1><button class="btn pri" data-act="lead-new">+ ליד חדש${f.view==='auto'?'':' · '+LCAT[cat]}</button></div>${catBar}
+  const catBar=`<div class="lead-cats">${LEAD_CAT.map(([k,n,i])=>`<button class="lead-cat ${cat===k?'on':''}" data-act="lead-catv" data-v="${k}"><span>${i}</span><b>${n}</b><small>${f.view==='wa'?`💬 ${waUnreadCat(k)?`<i>${waUnreadCat(k)} לא נקראו</i>`:'אין חדשות'}`:`${catN(k)} פתוחים${catNew(k)?` · <i>${catNew(k)} חדשים</i>`:''}`}</small></button>`).join('')}</div>`;
+  const head=`<section class="head"><div class="head-t"><h1>לידים ומכירות</h1><button class="btn pri" data-act="lead-new">+ ליד חדש · ${LCAT[cat]}</button></div>${catBar}
     <div class="chips" style="gap:6px;margin-top:8px"><button class="dchip ${f.view==='pipe'?'':'off'}" data-act="lead-view" data-v="pipe">פייפליין</button><button class="dchip ${f.view==='list'?'':'off'}" data-act="lead-view" data-v="list">רשימה</button>${cat==='events'?`<button class="dchip ${f.view==='clients'?'':'off'}" data-act="lead-view" data-v="clients">לקוחות</button>`:''}<button class="dchip ${f.view==='tasks'?'':'off'}" data-act="lead-view" data-v="tasks">משימות${myTasksDue()?` (${myTasksDue()})`:''}</button><button class="dchip ${f.view==='sales'?'':'off'}" data-act="lead-view" data-v="sales">דשבורד מכירות</button><button class="dchip ${f.view==='wa'?'':'off'}" data-act="lead-view" data-v="wa">💬 וואטסאפ${waUnread()?` (${waUnread()})`:''}</button><button class="dchip ${f.view==='auto'?'':'off'}" data-act="lead-view" data-v="auto">⚡ אוטומציות</button>
     ${f.view==='wa'||f.view==='auto'?'':`    <select data-leadf="own" style="width:auto"><option value="all">כל המטפלים</option><option value="me" ${f.own==='me'?'selected':''}>רק שלי</option><option value="none" ${f.own==='none'?'selected':''}>ללא מטפל</option></select>
     <select data-leadf="ven" style="width:auto"><option value="all">כל המקומות</option>${leadVenueOpts().map(([k,n])=>`<option value="${k}" ${f.ven===k?'selected':''}>${esc(n)}</option>`).join('')}<option value="none" ${f.ven==='none'?'selected':''}>מקום לא ידוע</option></select>
@@ -1646,12 +1646,14 @@ const waHook=()=>`https://europe-west1-${(CFG.firebase&&CFG.firebase.projectId)|
 function waAutoSub(){if(S.live.waauto)return;S.live.waauto=true;S.db.doc('waauto/main').onSnapshot(d=>{S.waAuto=d.exists?d.data():{};render()},()=>{S.waAuto={}})}
 const WAA_SRC=[['first','שם פרטי של הליד'],['name','שם מלא של הליד'],['venue','שם המקום'],['text','טקסט קבוע']];
 function waAutoHTML(){waAutoSub();const A=S.waAuto;if(A===undefined)return '';const D=S.waaD||(S.waaD=JSON.parse(JSON.stringify({on:!!A.on,metaOnly:!!A.metaOnly,rules:A.rules||{}})));
-  const T=(S.wapub||{}).templates||[],places=[...Object.entries(EV_VENUE),['*','ליד בלי מקום']];
+  // one rule set per lead kind (owner, Nov 2): events keep the old keys (venue / '*'), rooms and spa use 'rooms:<venue>' / 'spa:*' …
+  const cat=(S.leadF&&S.leadF.cat)||'events',pre=cat==='events'?'':cat+':';
+  const T=(S.wapub||{}).templates||[],places=[...Object.entries(EV_VENUE).map(([k,n])=>[pre+k,n]),[pre+'*',Object.keys(EV_VENUE).length?'כל ליד אחר (בלי מקום)':'כל ליד']];
   const row=([v,n])=>{const r=D.rules[v]||{},ti=T.findIndex(x=>x.name===r.tpl&&(!r.lang||x.lang===r.lang)),t=T[ti];
     return `<div class="wa-arow"><b>${esc(n)}</b><select data-waa="tpl|${v}"><option value="">— לא לשלוח —</option>${T.map((x,i)=>`<option value="${i}" ${i===ti?'selected':''}>${esc(x.name)} (${esc(x.lang)})</option>`).join('')}</select>
       ${t?`<p class="muted" style="font-size:.82rem;white-space:pre-wrap;margin:4px 0">${esc(t.body)}</p>${Array.from({length:t.n},(_,i)=>{const p=(r.params||[])[i]||{src:i===0?'first':'text'};return `<div class="row" style="align-items:flex-end;gap:6px"><label class="f" style="margin:0">{{${i+1}}}<select data-waa="src|${v}|${i}">${WAA_SRC.map(([k,m])=>`<option value="${k}" ${p.src===k?'selected':''}>${m}</option>`).join('')}</select></label>${p.src==='text'?`<label class="f" style="margin:0;flex:2"><input type="text" data-waa="text|${v}|${i}" value="${esc(p.text||'')}" placeholder="הטקסט שייכנס"></label>`:''}</div>`}).join('')}`:''}</div>`};
-  return `<details class="card" ${A.on?'':'open'}><summary><b>הודעה אוטומטית לכל ליד חדש</b> ${A.on?'<span class="pill ok">פעיל</span>':'<span class="pill">כבוי</span>'}</summary>
-    <p class="muted" style="font-size:.85rem">כשליד חדש נכנס (עם מספר טלפון), המערכת שולחת לו מיד בוואטסאפ את התבנית שבחרת לפי המקום שהוא פנה אליו. ההודעה מופיעה בשיחה וביומן הליד, וכשהלקוח עונה השיחה נפתחת כאן. לידים שהגיעו מוואטסאפ עצמו לא מקבלים אותה.</p>
+  return `${(()=>{const has=Object.keys(A.rules||{}).some(k=>pre?k.startsWith(pre):!k.includes(':'));return `<details class="card" ${A.on&&has?'':'open'}><summary><b>הודעה אוטומטית לכל ליד חדש · ${LCAT[cat]}</b> ${A.on&&has?'<span class="pill ok">פעיל</span>':A.on?'<span class="pill">לא נבחרה תבנית</span>':'<span class="pill">כבוי</span>'}</summary>`})()}
+    <p class="muted" style="font-size:.85rem">כשליד חדש נכנס (עם מספר טלפון), המערכת שולחת לו מיד בוואטסאפ את התבנית שבחרת לפי סוג הליד (אירועים / חדרים / ספא, לפי הכפתורים למעלה) והמקום שהוא פנה אליו. לכל סוג בוחרים תבנית משלו. ההודעה מופיעה בשיחה וביומן הליד, וכשהלקוח עונה השיחה נפתחת כאן. לידים שהגיעו מוואטסאפ עצמו לא מקבלים אותה.</p>
     <label class="check"><input type="checkbox" data-waa="on" ${D.on?'checked':''}> שליחה אוטומטית פעילה</label>
     <label class="check"><input type="checkbox" data-waa="metaOnly" ${D.metaOnly?'checked':''}> רק לידים שנכנסים ממטא (טפסי מודעות בפייסבוק/אינסטגרם)</label>
     ${T.length?places.map(row).join(''):'<p class="muted">אין עדיין תבניות מאושרות.</p>'}
@@ -3784,7 +3786,7 @@ const ACT={
     try{await fdb.collection('broadcasts').add({hotel:h,day:todayISO(),text,scope:S.bcScope||'now',to,toNames,by:S.uid,byName:S.meName||empName(S.uid)||'',at:now,reads:{}});S.drafts.bc=null;render();toast('ההודעה נשלחה ל-'+to.length+' עובדים')}catch(e){toast('לא נשלח: '+errMsg(mapErr(e)))}},
   'bc-read':D=>{const b=(S.myBc||{})[D.id];if(b){S.myBc[D.id]={...b,reads:{...(b.reads||{}),[S.uid]:Date.now()}};render()}fdb.doc('broadcasts/'+D.id).update({['reads.'+S.uid]:Date.now()}).catch(e=>toast('לא הצלחתי: '+errMsg(mapErr(e))))},
   'waa-save':async()=>{const D=S.waaD;if(!D)return;document.querySelectorAll('[data-waa^="text|"]').forEach(el=>{const [,v,i]=el.dataset.waa.split('|');const r=D.rules[v];if(r&&r.params&&r.params[+i])r.params[+i].text=el.value});
-    for(const [v,r] of Object.entries(D.rules)){r.venueName=v==='*'?'':(EV_VENUE[v]||'');if((r.params||[]).some(p=>p.src==='text'&&!String(p.text||'').trim())){toast('צריך למלא את הטקסט הקבוע בתבנית של '+(v==='*'?'ליד בלי מקום':EV_VENUE[v]||v));return}}
+    for(const [v,r] of Object.entries(D.rules)){const [c0,v0]=v.includes(':')?v.split(':'):['events',v];r.venueName=v0==='*'?'':(EV_VENUE[v0]||'');if((r.params||[]).some(p=>p.src==='text'&&!String(p.text||'').trim())){toast('צריך למלא את הטקסט הקבוע בתבנית של '+LCAT[c0]+' · '+(v0==='*'?'כל ליד אחר':EV_VENUE[v0]||v0));return}}
     if(D.on&&!Object.keys(D.rules).length){toast('צריך לבחור תבנית לפחות למקום אחד');return}
     try{await fdb.doc('waauto/main').set({on:!!D.on,metaOnly:!!D.metaOnly,rules:D.rules,updatedAt:Date.now(),by:S.uid});S.waaD=null;toast(D.on?'נשמר. כל ליד חדש יקבל הודעה אוטומטית':'נשמר (כבוי)')}catch(e){toast('לא הצלחתי: '+errMsg(mapErr(e)))}},
   'wa-info':()=>{S.waInfo=!S.waInfo;render()},

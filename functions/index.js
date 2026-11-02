@@ -893,7 +893,12 @@ exports.onLeadAuto = trig('leads/{id}').onCreate(async (snap) => {
   if (l.createdAt && Date.now() - l.createdAt > 2 * 864e5) return; // old leads that arrive late (backfills) are not messaged
   const a = (await db.doc('waauto/main').get()).data() || {}; if (!a.on) return;
   if (a.metaOnly && !/^meta_/.test(id)) return;
-  const rules = a.rules || {}, r = rules[l.venue || ''] || rules['*']; if (!r || !r.tpl) return;
+  // lead kind (events / rooms / spa), same as the client's leadCat: own cat, else the campaign's mapping, else words, else events
+  let cat = l.cat || '';
+  if (!cat) { try { const m = ((await db.doc('leadcats/main').get()).data() || {}).campCat || {}; cat = m[String(l.campaign || '').trim()] || ''; } catch (e) {} }
+  if (!cat) { const g = (x) => /ספא|spa|עיסוי|massage|טיפולי|טיפול זוגי|wellness/i.test(x) ? 'spa' : /חדר|חדרים|room|לינה|נופש|חופש|stay|night|לילה|לילות|סוויט|suite|booking|הזמנת מלון/i.test(x) ? 'rooms' : ''; cat = g(String(l.campaign || '')) || g([l.type, l.notes].join(' ')) || 'events'; }
+  const pre = cat === 'events' ? '' : cat + ':';
+  const rules = a.rules || {}, r = rules[pre + (l.venue || '')] || rules[pre + '*']; if (!r || !r.tpl) return;
   const pub = (await db.doc('wapub/main').get()).data() || {}; if (!pub.on) return;
   const t = (pub.templates || []).find((x) => x.name === r.tpl && (!r.lang || x.lang === r.lang));
   const to = waIdFrom(l.phone), now = Date.now();
@@ -904,7 +909,7 @@ exports.onLeadAuto = trig('leads/{id}').onCreate(async (snap) => {
   const params = Array.from({ length: t.n || 0 }, (_, i) => { const p = (r.params || [])[i] || {}; const v = p.src === 'first' ? first : p.src === 'name' ? l.name : p.src === 'venue' ? (r.venueName || '') : p.text; return String(v || '').trim() || '-'; });
   const text = String(t.body || '').replace(/\{\{(\d+)\}\}/g, (m, n) => params[+n - 1] || m);
   const cref = db.doc('waChats/' + to), cs = await cref.get();
-  if (!cs.exists) await cref.set({ waId: to, phone: waLocal(to), name: l.name || '', leadId: id, createdAt: now, createdBy: 'auto', unread: 0, status: 'open' });
+  if (!cs.exists) await cref.set({ waId: to, phone: waLocal(to), name: l.name || '', leadId: id, createdAt: now, createdBy: 'auto', unread: 0, status: 'open', cat });
   else if (!cs.data().leadId) await cref.set({ leadId: id }, { merge: true });
   await cref.collection('msgs').add({ dir: 'out', type: 'template', tpl: { name: t.name, lang: t.lang, params }, text, status: 'queued', by: 'auto', byName: 'הודעה אוטומטית', at: now, src: 'auto' });
   await note('נשלחה הודעת וואטסאפ אוטומטית (' + t.name + ')');

@@ -528,6 +528,20 @@ exports.onEmpNew = trig('employees/{uid}').onCreate(async (snap) => {
 });
 
 // ---------- spa: every new treatment pops up for everyone with the spa permission ----------
+// ---------- spa health declaration (owner, Nov 3): spaHealth/{key} signed by the guest → mark the booking (hl.<idx>) + push spa people ----------
+function spaHealthKey() { return 'h' + require('crypto').randomBytes(16).toString('hex'); }
+function spaHealthExp(date) { return Date.parse(date + 'T23:59:59+02:00') + 86400000; }
+exports.onSpaHealth = trig('spaHealth/{id}').onUpdate(async (ch, ctx) => {
+  const a = ch.before.data() || {}, b = ch.after.data() || {};
+  if (a.status === 'signed' || b.status !== 'signed' || !b.bookingId) return null;
+  const ref = db.doc('spa/' + b.bookingId), bs = await ref.get(); if (!bs.exists) return null;
+  await ref.update({ ['hl.' + (+b.idx || 0)]: { k: ctx.params.id, ok: true, name: b.signName || '', at: b.signedAt || Date.now(), flag: !!b.flag }, updatedAt: Date.now() });
+  const bk = bs.data() || {}, out = new Set(), rs = await db.collection('roles').get();
+  rs.forEach((d) => { const r = d.data() || {}; if (!r.station && r.apps && r.apps.spa) out.add(d.id); });
+  const own = await db.collection('pushTokens').where('owner', '==', true).get(); own.forEach((d) => out.add(d.id));
+  const dd = String(bk.date || ''), dm = dd ? dd.slice(8, 10) + '.' + dd.slice(5, 7) : '';
+  return sendTo([...out], { title: b.flag ? '⚕️ הצהרת בריאות נחתמה · יש סימון רפואי' : '✅ הצהרת בריאות נחתמה', body: `${b.signName || ''} · ${dm} ${bk.time || ''} · ${bk.treatment || ''}${b.flag ? ' · כדאי לעבור על התשובות לפני הטיפול' : ''}`, hash: '#spa', tag: 'spah-' + ctx.params.id });
+});
 exports.onSpaNew = trig('spa/{id}').onCreate(async (snap) => {
   const b = snap.data() || {}; if (b.kind === 'block') return null;
   const out = new Set(), rs = await db.collection('roles').get();
@@ -929,7 +943,31 @@ const SPA_RATE_H = 6; // max bookings per IP per hour
 const hmMin = (s) => { const [h, m] = String(s || '0:0').split(':').map(Number); return (h || 0) * 60 + (m || 0); };
 const minHm = (m) => String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
 async function spaOnlineCfg() { const d = await db.doc('spacfg/main').get(); const c = d.exists ? d.data() : {}; return { c, o: c.online || {} }; }
-function spaFree(o, c, date, mins, dayDocs, nowMs) {
+// therapists (owner, Nov 2): the guest asks per person for 'any' | 'm' | 'f'; a slot is offered only when enough therapists of that kind are on shift that day
+// (spaShifts/{date}.ther {tid:{o,c}}) for the whole treatment and not busy with another treatment (assigned tid, or an unassigned person counted by kind).
+// When no therapists are defined at all (spacfg.ther empty) the therapist check is skipped and only rooms count.
+function spaTherPick(c, roster, dayDocs, date, a, e, want) {
+  const thers = (c.ther || []).filter((t) => t.active !== false), brk = Math.max(0, +c.brk || 0);
+  if (!thers.length) return { ok: true, pick: want.map(() => '') };
+  const on = thers.filter((t) => { const r = roster[t.id]; return r && hmMin(r.o) <= a && hmMin(r.c) >= e - brk; });
+  const busy = new Set(), need = { m: 0, f: 0, any: 0 };
+  for (const b of dayDocs) {
+    if (b.status === 'canceled' || b.kind === 'block') continue;
+    const ba = hmMin(b.time), be = ba + (+b.mins || 60) + brk; if (!(ba < e && a < be)) continue;
+    const n = +b.people || 1;
+    for (let i = 0; i < n; i++) { const tid = (b.tid || [])[i]; if (tid) busy.add(tid); else { const k = (b.ther || [])[i] || 'any'; need[k === 'm' || k === 'f' ? k : 'any']++; } }
+  }
+  const free = on.filter((t) => !busy.has(t.id)), fm = free.filter((t) => t.g === 'm'), ff = free.filter((t) => t.g !== 'm');
+  const wm = want.filter((k) => k === 'm').length, wf = want.filter((k) => k === 'f').length, wa = want.length - wm - wf;
+  const nm = need.m + wm, nf = need.f + wf, na = need.any + wa;
+  if (fm.length < nm || ff.length < nf || (fm.length - nm) + (ff.length - nf) < na) return { ok: false };
+  // pick therapists for the new booking, leaving the ones older unassigned bookings still need
+  const poolM = fm.slice(need.m), poolF = ff.slice(need.f), pick = [];
+  for (const k of want) pick.push(k === 'm' ? poolM.shift() : k === 'f' ? poolF.shift() : null);
+  for (let i = 0; i < pick.length; i++) if (!pick[i]) pick[i] = (poolF.length >= poolM.length ? poolF.shift() : poolM.shift()) || poolM.shift() || poolF.shift();
+  return { ok: true, pick: pick.map((t) => (t ? t.id : '')) };
+}
+function spaFree(o, c, date, mins, dayDocs, nowMs, roster, want) {
   const dow = new Date(date + 'T12:00:00Z').getUTCDay(), h = (o.hours || {})[dow] || {};
   if (h.off || !h.o || !h.c) return [];
   const open = hmMin(h.o), close = hmMin(h.c), step = Math.max(10, +o.step || 30), rooms = Math.max(1, +o.rooms || 1), brk = Math.max(0, +c.brk || 0);
@@ -939,7 +977,7 @@ function spaFree(o, c, date, mins, dayDocs, nowMs) {
     if (ilEpoch(date, minHm(t)) < minStart) continue;
     const e = t + mins + brk; let n = 0, blocked = false;
     for (const x of busy) { if (x.a < e && t < x.e) { if (x.all) { blocked = true; break; } n++; } }
-    if (!blocked && n < rooms) out.push(minHm(t));
+    if (!blocked && n < rooms && (!want || spaTherPick(c, roster || {}, dayDocs, date, t, e, want).ok)) out.push(minHm(t));
   }
   return out;
 }
@@ -954,37 +992,46 @@ exports.spaPublic = functions.region(REGION).https.onRequest(async (req, res) =>
     const items = spaItems(c), biz = { name: (c.qbiz && c.qbiz.name) || '', phone: (c.qbiz && c.qbiz.phone) || '' };
     if (req.method === 'GET') {
       const date = String(req.query.date || ''), item = items.find((x) => x.id === String(req.query.item || ''));
-      const base = { on: true, biz, items, intro: o.intro || '', policy: o.policy || (c.qbiz && c.qbiz.terms) || '', maxPpl: Math.max(1, +o.maxPpl || 2), today, last, hours: o.hours || {} };
+      const base = { on: true, biz, items, thers: (c.ther || []).some((t) => t.active !== false), intro: o.intro || '', policy: o.policy || (c.qbiz && c.qbiz.terms) || '', maxPpl: Math.max(1, +o.maxPpl || 2), today, last, hours: o.hours || {} };
       if (!date || !item) { res.json(base); return; }
       if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || date < today || date > last) { res.json({ ...base, slots: [] }); return; }
-      const qs = await db.collection('spa').where('date', '==', date).get();
-      res.json({ ...base, date, slots: spaFree(o, c, date, item.mins, qs.docs.map((d) => d.data()), Date.now()) });
+      const want = String(req.query.ther || 'any').split(',').slice(0, 6).map((k) => (k === 'm' || k === 'f' ? k : 'any'));
+      const [qs, rs] = await Promise.all([db.collection('spa').where('date', '==', date).get(), db.doc('spaShifts/' + date).get()]);
+      res.json({ ...base, date, slots: spaFree(o, c, date, item.mins, qs.docs.map((d) => d.data()), Date.now(), (rs.exists && rs.data().ther) || {}, want) });
       return;
     }
     if (req.method !== 'POST') { res.status(405).send('method'); return; }
     const b = req.body || {}, name = String(b.name || '').trim().slice(0, 80), phone = String(b.phone || '').replace(/[^\d+]/g, '').slice(0, 20), email = String(b.email || '').trim().slice(0, 120);
     const item = items.find((x) => x.id === String(b.item || '')), date = String(b.date || ''), time = String(b.time || ''), ppl = Math.min(Math.max(1, +o.maxPpl || 2), Math.max(1, Math.round(+b.people || 1)));
+    const want = Array.from({ length: ppl }, (_, i) => { const k = (Array.isArray(b.ther) ? b.ther : [])[i]; return k === 'm' || k === 'f' ? k : 'any'; });
     if (!item || !/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{2}:\d{2}$/.test(time) || date < today || date > last) { res.status(400).json({ error: 'פרטי ההזמנה לא תקינים' }); return; }
     if (name.length < 2 || phone.replace(/\D/g, '').length < 9) { res.status(400).json({ error: 'צריך שם וטלפון תקינים' }); return; }
     if (!b.privacy) { res.status(400).json({ error: 'צריך לאשר את מדיניות הפרטיות' }); return; }
     if (b.website) { res.json({ ok: true }); return; } // honeypot
     const ip = String(req.get('x-forwarded-for') || req.ip || '').split(',')[0].trim(), ipKey = require('crypto').createHash('sha256').update(ip + ':' + today).digest('hex').slice(0, 32);
     const hour = new Date().toISOString().slice(0, 13), rateRef = db.doc('spaRate/' + ipKey), ref = db.collection('spa').doc('on' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6));
-    const local = phone.replace(/^\+?972/, '0');
+    const local = phone.replace(/^\+?972/, '0'), hkeys = [];
+    let hname = ''; try { const hd = await db.doc('hotels/' + (o.hotel || '-')).get(); hname = (hd.exists && hd.data().name) || ''; } catch (e) {}
     await db.runTransaction(async (tx) => {
+      hkeys.length = 0;
       const rs = await tx.get(rateRef), rd = rs.exists ? rs.data() : {}, n = rd.hour === hour ? (+rd.n || 0) : 0;
       if (n >= SPA_RATE_H) throw Object.assign(new Error('יותר מדי ניסיונות. נסו שוב מאוחר יותר או התקשרו אלינו.'), { code: 429 });
-      const qs = await tx.get(db.collection('spa').where('date', '==', date));
-      const free = spaFree(o, c, date, item.mins, qs.docs.map((d) => d.data()), Date.now());
-      if (!free.includes(time)) throw Object.assign(new Error('השעה הזו כבר נתפסה. בחרו שעה אחרת.'), { code: 409 });
+      const qs = await tx.get(db.collection('spa').where('date', '==', date)), shd = await tx.get(db.doc('spaShifts/' + date));
+      const docs = qs.docs.map((d) => d.data()), roster = (shd.exists && shd.data().ther) || {};
+      const free = spaFree(o, c, date, item.mins, docs, Date.now(), roster, want);
+      const tp = spaTherPick(c, roster, docs, date, hmMin(time), hmMin(time) + item.mins + Math.max(0, +c.brk || 0), want), tn = (id) => ((c.ther || []).find((t) => t.id === id) || {}).name || '';
+      if (!free.includes(time) || !tp.ok) throw Object.assign(new Error('השעה הזו כבר נתפסה. בחרו שעה אחרת.'), { code: 409 });
       tx.set(rateRef, { hour, n: n + 1, at: Date.now() });
-      tx.set(ref, { hotel: o.hotel || '', date, time, treatment: item.name, mins: item.mins, people: ppl, ther: Array(ppl).fill('any'), tid: Array(ppl).fill(''), tname: Array(ppl).fill(''), tok: Array(ppl).fill(false),
+      const hl = {};
+      for (let i = 0; i < ppl; i++) { const k = spaHealthKey(); hl[i] = { k, ok: false }; hkeys.push(k);
+        tx.set(db.doc('spaHealth/' + k), { status: 'pending', bookingId: ref.id, idx: i, people: ppl, hotel: o.hotel || '', hotelName: hname, date, time, treatment: item.name, name: i ? '' : name, phone: i ? '' : local, expMs: spaHealthExp(date), createdAt: Date.now(), createdBy: 'online' }); }
+      tx.set(ref, { hl, hotel: o.hotel || '', date, time, treatment: item.name, mins: item.mins, people: ppl, ther: want, tid: tp.pick, tname: tp.pick.map(tn), tok: Array(ppl).fill(false),
         amount: item.price * ppl, adds: [], name, phone: local, email, notes: String(b.notes || '').trim().slice(0, 300), status: 'booked', source: 'online', itemId: item.id,
         consent: { privacy: true, marketing: !!b.marketing, at: Date.now() }, createdAt: Date.now(), createdBy: 'online', createdByName: 'הזמנה אונליין', updatedAt: Date.now() });
     });
     // a spa lead with the same phone is now won (best effort)
     try { const ls = await db.collection('leads').where('phone', '==', local).limit(5).get(); for (const d of ls.docs) { const l = d.data(); if (['won', 'junk'].includes(l.stage)) continue;
       await d.ref.update({ stage: 'won', wonAt: Date.now(), wonValue: Math.round(item.price * ppl), updatedAt: Date.now(), acts: admin.firestore.FieldValue.arrayUnion({ at: Date.now(), by: 'online', byName: 'הזמנה אונליין', kind: 'note', text: `הזמין/ה טיפול ספא אונליין: ${item.name} · ${date.slice(8, 10)}.${date.slice(5, 7)} ${time}` }) }); } } catch (e) {}
-    res.json({ ok: true, id: ref.id, date, time, item: item.name, mins: item.mins, people: ppl, total: item.price * ppl });
+    res.json({ ok: true, id: ref.id, health: hkeys, date, time, item: item.name, mins: item.mins, people: ppl, total: item.price * ppl });
   } catch (e) { res.status(e.code === 429 || e.code === 409 ? e.code : 500).json({ error: e.code === 429 || e.code === 409 ? e.message : 'משהו השתבש. נסו שוב או התקשרו אלינו.' }); if (!(e.code === 429 || e.code === 409)) console.error('spaPublic', e); }
 });

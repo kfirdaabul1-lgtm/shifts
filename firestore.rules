@@ -609,6 +609,24 @@ service cloud.firestore {
         && (roleHotels().size() == 0 || resource.data.get('hotel', '') in roleHotels()));
       allow write: if canSpa();
     }
+    // therapist shifts per day (online booking checks them on the server)
+    match /spaShifts/{id} {
+      allow read, write: if canSpa();
+    }
+    // spa health declaration: guest opens the secret link while pending, signs once; spa staff read/create/delete
+    match /spaHealth/{id} {
+      allow get: if canSpa() || resource.data.status == 'pending';
+      allow list, delete: if canSpa();
+      allow create: if canSpa() && request.resource.data.status == 'pending';
+      allow update: if (canSpa() && resource.data.status == 'pending' && request.resource.data.status == 'pending')
+        || (resource.data.status == 'pending' && request.resource.data.status == 'signed'
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'signName', 'signPhone', 'idNo', 'answers', 'qs', 'details', 'flag', 'sig', 'signedAt', 'agree', 'ua'])
+            && request.resource.data.agree == true && request.resource.data.answers is map
+            && request.resource.data.signName is string && request.resource.data.signName.size() >= 2 && request.resource.data.signName.size() <= 90
+            && request.resource.data.details is string && request.resource.data.details.size() <= 1500
+            && request.resource.data.sig is string && request.resource.data.sig.size() < 400000
+            && (resource.data.get('expMs', 0) == 0 || request.time.toMillis() <= resource.data.expMs));
+    }
     match /groups/{id} {
       // gm (their hotels) and CEO read groups for the revenue figures
       allow read: if canGrp() || canCeo() || (gmRole() && (roleHotels().size() == 0 || resource.data.hotel in roleHotels()));

@@ -1,0 +1,122 @@
+<!doctype html>
+<html dir="rtl" lang="he">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>הצהרת בריאות</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;500;600;700&display=swap">
+<style>
+:root{--ink:#1d2230;--muted:#666b78;--line:#e4e1da;--acc:#6d28d9;--ok:#2f7a4a;--bad:#a3354a}
+*{box-sizing:border-box}
+html,body{overflow-x:hidden}
+body{margin:0;background:#f5f3fb;color:var(--ink);font-family:"Assistant","Segoe UI",Arial,sans-serif;padding:16px 12px 48px;font-size:16px;line-height:1.55}
+.wrap{max-width:640px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+.box{background:#fff;border-radius:14px;padding:18px 18px;box-shadow:0 6px 24px rgba(0,0,0,.06);display:flex;flex-direction:column;gap:12px}
+h1{font-size:1.45rem;margin:0}h2{font-size:1.1rem;margin:0}
+.muted{color:var(--muted);font-size:.92rem}
+.center{text-align:center;padding:40px 12px;color:var(--muted)}
+label.f{display:flex;flex-direction:column;gap:4px;font-size:.95rem}
+input[type=text],input[type=tel],textarea{font:inherit;font-size:16px;padding:10px 12px;border:1px solid #ccc;border-radius:8px;width:100%}
+textarea{min-height:70px;resize:vertical}
+.q{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
+.q:last-of-type{border-bottom:0}
+.q span{flex:1;min-width:0}
+.yn{display:flex;gap:6px;flex-shrink:0}
+.yn button{min-width:58px;padding:8px 10px;font-size:15px}
+.yn button[aria-pressed=true].y{background:var(--bad);border-color:var(--bad);color:#fff}
+.yn button[aria-pressed=true].n{background:var(--ok);border-color:var(--ok);color:#fff}
+.pad{position:relative;border:1.5px dashed #bbb;border-radius:10px;background:#fff;height:190px;touch-action:none}
+.pad canvas{width:100%;height:100%;display:block}
+.pad .hint{position:absolute;inset:auto 0 8px 0;text-align:center;color:#9a968c;font-size:13px;pointer-events:none}
+.chk{display:flex;gap:10px;align-items:flex-start}.chk input{width:22px;height:22px;flex-shrink:0;margin-top:2px}
+button{font:inherit;font-size:16px;border-radius:8px;padding:12px 18px;border:1px solid #ccc;background:#fff;cursor:pointer;color:var(--ink)}
+button.pri{background:var(--acc);border-color:var(--acc);color:#fff;font-weight:700}
+button:disabled{opacity:.6}
+.row{display:flex;gap:10px;flex-wrap:wrap}.row button{flex:1 1 140px}
+.msg{padding:14px 16px;border-radius:10px;line-height:1.6}
+.msg.ok{background:#e7f3ec;color:var(--ok)}.msg.err{background:#f8e8ec;color:var(--bad)}
+.det{background:#faf7ff;border-radius:10px;padding:10px 12px}
+:focus-visible{outline:3px solid #a78bfa;outline-offset:2px}
+</style>
+</head>
+<body>
+<main class="wrap" id="app"><p class="center">טוען את הטופס…</p></main>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="config.js"></script>
+<script>
+(function(){
+  // spa health declaration (owner, Nov 3): one doc per person in spaHealth/{key}; readable only while pending (rules), signed once.
+  var Q=[
+    ['preg','האם את בהריון או בתקופה שלאחר לידה (עד 3 חודשים)?'],
+    ['heart','מחלת לב, קוצב לב, או לחץ דם גבוה / נמוך?'],
+    ['blood','קרישי דם, דליות או ורידים בולטים, או נטילת מדללי דם?'],
+    ['diab','סוכרת?'],
+    ['epi','אפילפסיה או אירועי עילפון?'],
+    ['skin','מחלת עור, פצע פתוח, זיהום, דלקת או כוויה באזור הטיפול?'],
+    ['surg','ניתוח, שבר או פציעה ב-6 החודשים האחרונים?'],
+    ['back','בעיות גב, פריצת דיסק או כאבי מפרקים?'],
+    ['onco','מחלה אונקולוגית או טיפול אונקולוגי בשנה האחרונה?'],
+    ['resp','אסתמה או קשיי נשימה?'],
+    ['allg','אלרגיה (לשמנים, אגוזים, קרמים, ריחות או לטקס)?'],
+    ['meds','נטילת תרופות באופן קבוע?'],
+    ['other','מצב רפואי אחר שהמטפל/ת צריך/ה לדעת עליו?']
+  ];
+  var CFG=window.APP_CONFIG||{},app=document.getElementById('app');
+  var esc=function(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})};
+  var fail=function(t){app.innerHTML='<div class="box"><p class="center" style="padding:20px 0">'+esc(t)+'</p></div>'};
+  var id=new URLSearchParams(location.search).get('k')||'';
+  if(!/^h[0-9a-f]{32}$/.test(id))return fail('הקישור אינו תקין. בקשו מהספא קישור חדש.');
+  try{firebase.initializeApp(CFG.firebase)}catch(e){return fail('לא הצלחתי להתחבר.')}
+  var db=firebase.firestore();
+  if(window.SC_NEED_CHAIN){var cid=window.SC_NEED_CHAIN;db.doc('chains/'+cid).get().then(function(d){if(!d.exists)return fail('הקישור אינו תקין.');try{var o=d.data();o.id=cid;localStorage.setItem('scChainCfg:'+cid,JSON.stringify(o))}catch(e){}location.reload()},function(){fail('לא הצלחתי להתחבר.')});return}
+  var dm=function(d){var p=String(d||'').split('-');return p.length===3?(+p[2])+'/'+(+p[1])+'/'+p[0]:''};
+  var ref=db.doc('spaHealth/'+id),ans={};
+  ref.get().then(function(sn){
+    if(!sn.exists)return fail('הטופס לא נמצא. בקשו מהספא קישור חדש.');
+    var s=sn.data();
+    if(s.status!=='pending')return fail('הטופס כבר מולא ונחתם. תודה!');
+    if(s.expMs&&Date.now()>s.expMs)return fail('תוקף הקישור פג. בקשו מהספא קישור חדש.');
+    var head='<div class="box"><h1>הצהרת בריאות לפני טיפול</h1><div class="muted">'+esc(s.hotelName||'הספא')+(s.treatment?' · '+esc(s.treatment):'')+(s.date?' · '+dm(s.date)+(s.time?' בשעה '+esc(s.time):''):'')+(s.people>1?' · אדם '+((+s.idx||0)+1)+' מתוך '+s.people:'')+'</div>'+
+      '<p style="margin:0">כדי שנוכל לתת לך טיפול בטוח, נבקש למלא את הטופס ולחתום עליו. <b>אי אפשר לקבל את הטיפול בלי הצהרה חתומה.</b> הפרטים נשמרים אצל הספא בלבד ומשמשים רק לטיפול.</p></div>';
+    var qs='<div class="box"><h2>שאלות בריאות</h2><div class="muted">יש לענות על כל השאלות.</div>'+Q.map(function(q){return '<div class="q" role="group" aria-label="'+esc(q[1])+'"><span>'+esc(q[1])+'</span><div class="yn"><button type="button" class="y" data-q="'+q[0]+'" data-v="1" aria-pressed="false">כן</button><button type="button" class="n" data-q="'+q[0]+'" data-v="0" aria-pressed="false">לא</button></div></div>'}).join('')+
+      '<div class="det" id="detw" hidden><label class="f">פרטים על התשובות שסימנת "כן"<textarea id="det" maxlength="1500"></textarea></label></div></div>';
+    var me='<div class="box"><h2>פרטים וחתימה</h2>'+
+      '<label class="f">שם מלא<input type="text" id="nm" autocomplete="name" maxlength="90" value="'+esc(s.name||'')+'"></label>'+
+      '<label class="f">טלפון<input type="tel" id="ph" dir="ltr" autocomplete="tel" maxlength="30" value="'+esc(s.phone||'')+'"></label>'+
+      '<label class="f">תעודת זהות (לא חובה)<input type="text" id="idn" inputmode="numeric" dir="ltr" maxlength="12"></label>'+
+      '<label class="chk"><input type="checkbox" id="ag"><span>אני מצהיר/ה שכל הפרטים שמסרתי נכונים ומלאים, שאני כשיר/ה לקבל את הטיפול, ושאין לי מגבלה רפואית שמונעת זאת מלבד מה שציינתי. אם יש לי ספק, אתייעץ עם רופא לפני הטיפול. אעדכן את המטפל/ת על כל שינוי במצבי, וידוע לי שהמטפל/ת רשאי/ת לא לתת טיפול אם יש סיבה רפואית לכך.</span></label>'+
+      '<div><div style="font-size:14px;margin-bottom:4px">חתימה</div><div class="pad"><canvas id="cv" aria-label="משטח חתימה"></canvas><div class="hint" id="hint">חותמים כאן עם האצבע</div></div></div>'+
+      '<div class="err msg" id="er" role="alert" hidden></div>'+
+      '<div class="row"><button type="button" id="clr">ניקוי חתימה</button><button type="button" class="pri" id="go">שליחה וחתימה</button></div></div>';
+    app.innerHTML=head+qs+me;
+    app.querySelectorAll('[data-q]').forEach(function(b){b.onclick=function(){var k=b.dataset.q;ans[k]=b.dataset.v==='1';
+      app.querySelectorAll('[data-q="'+k+'"]').forEach(function(x){x.setAttribute('aria-pressed',String(x===b))});
+      document.getElementById('detw').hidden=!Object.keys(ans).some(function(x){return ans[x]})}});
+    var cv=document.getElementById('cv'),cx=cv.getContext('2d'),dirty=false,draw=false,last=null;
+    function size(){var r=cv.getBoundingClientRect(),dpr=window.devicePixelRatio||1;cv.width=Math.max(1,r.width*dpr);cv.height=Math.max(1,r.height*dpr);cx.setTransform(dpr,0,0,dpr,0,0);cx.lineWidth=2.4;cx.lineCap='round';cx.lineJoin='round';cx.strokeStyle='#1d2230';dirty=false;document.getElementById('hint').hidden=false}
+    size();var pt=function(e){var r=cv.getBoundingClientRect();return {x:e.clientX-r.left,y:e.clientY-r.top}};
+    cv.addEventListener('pointerdown',function(e){e.preventDefault();draw=true;last=pt(e);try{cv.setPointerCapture(e.pointerId)}catch(_){}document.getElementById('hint').hidden=true});
+    cv.addEventListener('pointermove',function(e){if(!draw)return;e.preventDefault();var p=pt(e);cx.beginPath();cx.moveTo(last.x,last.y);cx.lineTo(p.x,p.y);cx.stroke();last=p;dirty=true});
+    ['pointerup','pointercancel'].forEach(function(t){cv.addEventListener(t,function(){draw=false})});
+    document.getElementById('clr').onclick=size;
+    document.getElementById('go').onclick=function(){var er=document.getElementById('er'),btn=this,name=document.getElementById('nm').value.trim(),phone=document.getElementById('ph').value.trim(),idn=document.getElementById('idn').value.replace(/\D/g,''),det=document.getElementById('det').value.trim();er.hidden=true;
+      var bad=function(t){er.textContent=t;er.hidden=false};
+      var miss=Q.filter(function(q){return !(q[0] in ans)});
+      if(miss.length)return bad('נא לענות על כל שאלות הבריאות ('+miss.length+' עוד לא נענו).');
+      var yes=Q.filter(function(q){return ans[q[0]]});
+      if(yes.length&&det.length<2)return bad('נא לפרט את התשובות שסימנת "כן".');
+      if(name.length<2)return bad('נא למלא שם מלא.');
+      if(!document.getElementById('ag').checked)return bad('נא לסמן את ההצהרה.');
+      if(!dirty)return bad('נא לחתום במסגרת.');
+      var w=Math.min(600,cv.width),h=Math.round(cv.height*w/cv.width),o=document.createElement('canvas');o.width=w;o.height=h;var oc=o.getContext('2d');oc.fillStyle='#fff';oc.fillRect(0,0,w,h);oc.drawImage(cv,0,0,w,h);
+      btn.disabled=true;btn.textContent='שולח…';
+      ref.update({status:'signed',signName:name.slice(0,90),signPhone:phone.slice(0,30),idNo:idn.slice(0,12),answers:ans,qs:Q.map(function(q){return q[1]}),details:det.slice(0,1500),flag:yes.length>0,sig:o.toDataURL('image/png'),signedAt:Date.now(),agree:true,ua:String(navigator.userAgent||'').slice(0,200)}).then(function(){
+        app.innerHTML='<div class="box"><div class="msg ok">תודה '+esc(name)+'! הצהרת הבריאות נחתמה ונשלחה לספא. מחכים לך'+(s.date?' ב-'+dm(s.date)+(s.time?' בשעה '+esc(s.time):''):'')+'.</div></div>';window.scrollTo(0,0)
+      },function(){btn.disabled=false;btn.textContent='שליחה וחתימה';bad('השליחה נכשלה. ייתכן שהטופס כבר נחתם או שתוקף הקישור פג. נסו לרענן את הדף.')})};
+  },function(){fail('הטופס כבר מולא, או שהקישור אינו תקין. אם צריך, בקשו מהספא קישור חדש.')});
+})();
+</script>
+</body>
+</html>

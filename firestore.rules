@@ -620,6 +620,9 @@ service cloud.firestore {
     match /priceLists/{id} {
       allow read, write: if canGrp();
     }
+    match /spaQuotes/{id} {
+      allow read, write: if canSpa();
+    }
     match /spacfg/{id} {
       allow read, write: if canSpa();
     }

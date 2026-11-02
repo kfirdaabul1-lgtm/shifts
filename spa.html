@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>הזמנת טיפול ספא</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f6f2ec;--card:#fff;--ink:#2b2622;--muted:#6f6559;--line:#e6ddd1;--acc:#8a6d46;--acc2:#5f4a2f;--ok:#2f7a4f;--bad:#b3261e;--focus:#1d4ed8}
+*{box-sizing:border-box}
+body{margin:0;font-family:Heebo,Arial,sans-serif;background:var(--bg);color:var(--ink);line-height:1.5}
+.wrap{max-width:720px;margin:0 auto;padding:20px 16px 60px}
+header{text-align:center;padding:18px 0 8px}
+header h1{font-size:28px;margin:0;letter-spacing:.3px}
+header p{color:var(--muted);margin:6px 0 0;white-space:pre-wrap}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;margin-top:16px;box-shadow:0 1px 3px rgba(0,0,0,.04)}
+h2{font-size:18px;margin:0 0 12px;display:flex;align-items:center;gap:8px}
+h2 .n{display:inline-grid;place-items:center;width:26px;height:26px;border-radius:50%;background:var(--acc);color:#fff;font-size:14px}
+.items{display:grid;gap:10px}
+.item{display:flex;justify-content:space-between;gap:12px;align-items:center;text-align:start;width:100%;padding:14px;border:2px solid var(--line);border-radius:12px;background:#fff;font:inherit;color:inherit;cursor:pointer}
+.item[aria-pressed="true"]{border-color:var(--acc);background:#fbf7f1}
+.item b{font-size:16px}.item small{color:var(--muted);display:block}.item .pr{font-weight:700;white-space:nowrap}
+.chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:6px;scrollbar-width:thin}
+.chip{flex:none;padding:10px 14px;border-radius:12px;border:2px solid var(--line);background:#fff;font:inherit;color:inherit;cursor:pointer;text-align:center;min-width:64px}
+.chip small{display:block;color:var(--muted);font-size:12px}
+.chip[aria-pressed="true"]{border-color:var(--acc);background:var(--acc);color:#fff}.chip[aria-pressed="true"] small{color:#f1e7d8}
+.times{display:grid;grid-template-columns:repeat(auto-fill,minmax(78px,1fr));gap:8px}
+.muted{color:var(--muted)}
+label.f{display:block;margin:10px 0}label.f span{display:block;font-weight:500;margin-bottom:4px}
+input[type=text],input[type=tel],input[type=email],input[type=date],select,textarea{width:100%;padding:11px 12px;border:1px solid #cbbfae;border-radius:10px;font:inherit;background:#fff;color:inherit}
+textarea{min-height:70px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.check{display:flex;gap:8px;align-items:flex-start;margin:10px 0;font-size:14px}.check input{margin-top:4px;width:18px;height:18px}
+.btn{display:inline-block;width:100%;padding:14px;border:0;border-radius:12px;background:var(--acc2);color:#fff;font:inherit;font-weight:700;font-size:17px;cursor:pointer}
+.btn[disabled]{opacity:.55;cursor:not-allowed}
+.sum{background:#fbf7f1;border-radius:12px;padding:12px 14px;margin:12px 0;font-size:15px}
+.policy{white-space:pre-wrap;font-size:14px;color:var(--muted);background:#faf8f5;border-radius:10px;padding:10px 12px;margin:10px 0}
+.err{color:var(--bad);font-weight:500;margin:8px 0}
+.done{text-align:center}.done .big{font-size:46px}
+a{color:var(--acc2)}
+:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+.hp{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap}html,body{overflow-x:hidden}
+footer{text-align:center;font-size:12px;color:var(--muted);margin-top:24px}
+@media(max-width:480px){.row{grid-template-columns:1fr}header h1{font-size:24px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header><h1 id="bizName">הזמנת טיפול ספא</h1><p id="intro"></p></header>
+  <main id="app" aria-live="polite"><div class="card"><p class="muted">טוען…</p></div></main>
+  <footer>ההזמנה נשמרת אצלנו רק לצורך הטיפול. <a href="privacy.html" target="_blank" rel="noopener">מדיניות פרטיות</a></footer>
+</div>
+<script src="config.js"></script>
+<script>
+(function(){
+  const cfg=window.APP_CONFIG||{},pid=(cfg.firebase||{}).projectId||'hotel-shifts',API='https://europe-west1-'+pid+'.cloudfunctions.net/spaPublic';
+  const $=s=>document.querySelector(s),app=$('#app');
+  const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const ils=n=>'₪'+Math.round(n||0).toLocaleString('he-IL');
+  const DOW=['א׳','ב׳','ג׳','ד׳','ה׳','ו׳','ש׳'];
+  const addD=(iso,n)=>{const d=new Date(iso+'T12:00:00Z');d.setUTCDate(d.getUTCDate()+n);return d.toISOString().slice(0,10)};
+  const dowOf=iso=>new Date(iso+'T12:00:00Z').getUTCDay();
+  const nice=iso=>new Date(iso+'T12:00:00').toLocaleDateString('he-IL',{weekday:'long',day:'numeric',month:'long'});
+  let B=null,st={item:'',date:'',time:'',ppl:1,slots:null,loading:false,err:'',sending:false,done:null};
+  const f={name:'',phone:'',email:'',notes:'',privacy:false,marketing:false};
+  async function load(){try{const r=await fetch(API);B=await r.json()}catch(e){B={err:1}}
+    if(B.err||!B.on){app.innerHTML=`<div class="card"><p>${B&&B.on===false?'ההזמנה אונליין לא זמינה כרגע. אפשר להתקשר אלינו להזמנה.':'לא הצלחנו לטעון את העמוד. נסו שוב מאוחר יותר.'}</p></div>`;return}
+    if(B.biz&&B.biz.name){$('#bizName').textContent=B.biz.name;document.title='הזמנת טיפול · '+B.biz.name}
+    $('#intro').textContent=B.intro||'בחרו טיפול, תאריך ושעה פנויה. התשלום במקום.';
+    st.ppl=1;render()}
+  function openDays(){const out=[];let d=B.today;while(d<=B.last&&out.length<60){const h=(B.hours||{})[dowOf(d)]||{};if(!h.off)out.push(d);d=addD(d,1)}return out}
+  async function fetchSlots(){if(!st.item||!st.date)return;st.slots=null;st.loading=true;st.time='';render();
+    try{const r=await fetch(API+'?date='+encodeURIComponent(st.date)+'&item='+encodeURIComponent(st.item));const j=await r.json();st.slots=j.slots||[]}catch(e){st.slots=[];st.err='לא הצלחנו לבדוק שעות פנויות.'}
+    st.loading=false;render()}
+  function render(){if(st.done)return renderDone();const it=(B.items||[]).find(x=>x.id===st.item),days=openDays(),max=Math.max(1,+B.maxPpl||1);
+    let h=`<section class="card" aria-labelledby="s1"><h2 id="s1"><span class="n">1</span>בחירת טיפול</h2><div class="items">${(B.items||[]).map(x=>`<button type="button" class="item" data-item="${esc(x.id)}" aria-pressed="${x.id===st.item}"><span><b>${esc(x.name)}</b><small>${x.mins} דקות${x.desc?' · '+esc(x.desc):''}</small></span><span class="pr">${ils(x.price)}<small style="font-weight:400">לאדם</small></span></button>`).join('')||'<p class="muted">אין כרגע טיפולים להזמנה אונליין.</p>'}</div>
+      ${it&&max>1?`<label class="f"><span>כמה אנשים</span><select id="ppl">${Array.from({length:max},(_,i)=>`<option value="${i+1}" ${st.ppl===i+1?'selected':''}>${i+1}</option>`).join('')}</select></label>`:''}</section>`;
+    if(it)h+=`<section class="card" aria-labelledby="s2"><h2 id="s2"><span class="n">2</span>תאריך</h2><div class="chips" role="group" aria-label="תאריכים">${days.map(d=>`<button type="button" class="chip" data-date="${d}" aria-pressed="${d===st.date}" aria-label="${esc(nice(d))}">${DOW[dowOf(d)]}<small>${d.slice(8,10)}.${d.slice(5,7)}</small></button>`).join('')}</div></section>`;
+    if(it&&st.date)h+=`<section class="card" aria-labelledby="s3"><h2 id="s3"><span class="n">3</span>שעה · ${esc(nice(st.date))}</h2>${st.loading?'<p class="muted">בודקים שעות פנויות…</p>':!st.slots||!st.slots.length?'<p class="muted">אין שעות פנויות ביום הזה לטיפול שבחרתם. נסו יום אחר.</p>':`<div class="times" role="group" aria-label="שעות פנויות">${st.slots.map(t=>`<button type="button" class="chip" data-time="${t}" aria-pressed="${t===st.time}">${t}</button>`).join('')}</div>`}</section>`;
+    if(it&&st.date&&st.time)h+=`<section class="card" aria-labelledby="s4"><h2 id="s4"><span class="n">4</span>פרטים ואישור</h2>
+      <div class="sum"><b>${esc(it.name)}</b> · ${it.mins} דק׳${st.ppl>1?' · '+st.ppl+' אנשים':''}<br>${esc(nice(st.date))} בשעה ${st.time}<br>סה״כ לתשלום במקום: <b>${ils(it.price*st.ppl)}</b></div>
+      <form id="frm" novalidate><div class="row"><label class="f"><span>שם מלא *</span><input type="text" id="f_name" autocomplete="name" required value="${esc(f.name)}"></label><label class="f"><span>טלפון *</span><input type="tel" id="f_phone" autocomplete="tel" dir="ltr" inputmode="tel" required value="${esc(f.phone)}"></label></div>
+      <label class="f"><span>אימייל (לא חובה)</span><input type="email" id="f_email" autocomplete="email" dir="ltr" value="${esc(f.email)}"></label>
+      <label class="f"><span>הערות (לא חובה)</span><textarea id="f_notes" placeholder="למשל: מעדיפים מטפלת">${esc(f.notes)}</textarea></label>
+      <div class="hp" aria-hidden="true"><label>אתר<input type="text" id="f_web" tabindex="-1" autocomplete="off"></label></div>
+      ${B.policy?`<div class="policy"><b>תנאי ההזמנה</b>\n${esc(B.policy)}</div>`:''}
+      <label class="check"><input type="checkbox" id="f_priv" ${f.privacy?'checked':''}><span>קראתי ואני מסכים/ה ל<a href="privacy.html" target="_blank" rel="noopener">מדיניות הפרטיות</a>${B.policy?' ולתנאי ההזמנה':''}. הפרטים משמשים רק לתיאום הטיפול. *</span></label>
+      <label class="check"><input type="checkbox" id="f_mkt" ${f.marketing?'checked':''}><span>אשמח לקבל הטבות ועדכונים (לא חובה)</span></label>
+      ${st.err?`<p class="err" role="alert">${esc(st.err)}</p>`:''}
+      <button class="btn" type="submit" ${st.sending?'disabled':''}>${st.sending?'שולחים…':'אישור ההזמנה'}</button></form></section>`;
+    else if(st.err)h+=`<p class="err" role="alert">${esc(st.err)}</p>`;
+    app.innerHTML=h}
+  function renderDone(){const d=st.done;app.innerHTML=`<div class="card done"><div class="big" aria-hidden="true">✓</div><h2 style="justify-content:center">ההזמנה התקבלה!</h2>
+    <p><b>${esc(d.item)}</b> · ${d.mins} דק׳${d.people>1?' · '+d.people+' אנשים':''}<br>${esc(nice(d.date))} בשעה ${esc(d.time)}<br>לתשלום במקום: <b>${ils(d.total)}</b></p>
+    <p class="muted">נשמח לראותכם. אם צריך לשנות או לבטל${B.biz&&B.biz.phone?`, התקשרו אלינו: <a href="tel:${esc(B.biz.phone)}" dir="ltr">${esc(B.biz.phone)}</a>`:', צרו איתנו קשר'}.</p></div>`;app.querySelector('h2').focus&&app.querySelector('h2').setAttribute('tabindex','-1');app.querySelector('h2').focus()}
+  function keep(){const v=id=>{const e=document.getElementById(id);return e?e:null};if(v('f_name')){f.name=v('f_name').value;f.phone=v('f_phone').value;f.email=v('f_email').value;f.notes=v('f_notes').value;f.privacy=v('f_priv').checked;f.marketing=v('f_mkt').checked}}
+  app.addEventListener('click',e=>{const b=e.target.closest('button');if(!b||b.type==='submit')return;keep();st.err='';
+    if(b.dataset.item){st.item=b.dataset.item;st.time='';if(st.date)fetchSlots();else render()}
+    else if(b.dataset.date){st.date=b.dataset.date;fetchSlots()}
+    else if(b.dataset.time){st.time=b.dataset.time;render();setTimeout(()=>{const s=document.getElementById('s4');s&&s.scrollIntoView({behavior:'smooth',block:'start'})},50)}});
+  app.addEventListener('change',e=>{if(e.target.id==='ppl'){keep();st.ppl=+e.target.value||1;render()}});
+  app.addEventListener('submit',async e=>{e.preventDefault();keep();st.err='';
+    if(f.name.trim().length<2){st.err='צריך למלא שם מלא';render();return}
+    if(f.phone.replace(/\D/g,'').length<9){st.err='צריך מספר טלפון תקין';render();return}
+    if(!f.privacy){st.err='צריך לאשר את מדיניות הפרטיות';render();return}
+    st.sending=true;render();
+    try{const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({item:st.item,date:st.date,time:st.time,people:st.ppl,name:f.name,phone:f.phone,email:f.email,notes:f.notes,privacy:f.privacy,marketing:f.marketing,website:(document.getElementById('f_web')||{}).value||''})});
+      const j=await r.json().catch(()=>({}));if(!r.ok||!j.ok){st.sending=false;st.err=j.error||'ההזמנה לא נשלחה. נסו שוב.';if(r.status===409){st.time='';fetchSlots()}render();return}
+      st.done=j;render()}catch(err){st.sending=false;st.err='אין חיבור לאינטרנט. נסו שוב.';render()}});
+  load();
+})();
+</script>
+</body>
+</html>

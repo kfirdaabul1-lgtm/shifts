@@ -28,5 +28,9 @@ async function grant(fn = 'driveBackup') {
   let w = await fetch(W).then(async (x) => ({ s: x.status, b: (await x.text()).slice(0, 60) })).catch((e) => ({ s: 0, b: e.message }));
   note('WhatsApp probe', `status ${w.s} · ${w.b.replace(/<[^>]+>/g, ' ').trim()}`);
   if (w.s !== 403 || w.b.trim() !== 'forbidden') { note('WhatsApp invoker', await grant('waWebhook').catch((e) => 'grant failed: ' + e.message)); await new Promise((x) => setTimeout(x, 20000)); w = await fetch(W).then(async (x) => ({ s: x.status, b: (await x.text()).slice(0, 60) })).catch((e) => ({ s: 0, b: e.message })); note('WhatsApp probe 2', `status ${w.s} · ${w.b.replace(/<[^>]+>/g, ' ').trim()}`); }
+  // spa online booking endpoint must be public (the booking page calls it)
+  const SP = 'https://europe-west1-hotel-shifts.cloudfunctions.net/spaPublic';
+  let sp = await fetch(SP).then((x) => x.status).catch(() => 0); note('Spa booking probe', 'status ' + sp);
+  if (sp !== 200) { note('Spa booking invoker', await grant('spaPublic').catch((e) => 'grant failed: ' + e.message)); await new Promise((x) => setTimeout(x, 20000)); sp = await fetch(SP).then((x) => x.status).catch(() => 0); note('Spa booking probe 2', 'status ' + sp); }
   // no real call here: a real call would update lastAt and hide a broken Apps Script schedule
 })().catch((e) => { note('Backup check error', e.message); });

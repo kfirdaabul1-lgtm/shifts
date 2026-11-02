@@ -403,6 +403,10 @@ service cloud.firestore {
       allow create: if (gmIn(request.resource.data.hotel) || manages(request.resource.data.hotel)) && request.resource.data.by == request.auth.uid && request.resource.data.to.size() <= 300;
       allow update: if request.auth != null && request.auth.uid in resource.data.to && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reads']);
     }
+    match /leadcats/{id} {
+      allow read: if canEvents() || canMkt();
+      allow write: if canEvents();
+    }
     match /waauto/{id} {
       allow read: if canEvents();
       allow write: if isOwner();

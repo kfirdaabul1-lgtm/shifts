@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202611021130"></script>
+<script src="i18n.js?v=202611021430"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -222,7 +222,8 @@ body:has(.sheet:not([hidden])) .lang-toggle{display:none!important}
 .wa-newc{display:flex;gap:6px}.wa-newc input{flex:1}
 .wa-rows{max-height:none}.wa-row{padding:10px 12px;gap:12px;border-bottom:0;position:relative}.wa-row::after{content:'';position:absolute;bottom:0;inset-inline-start:72px;inset-inline-end:0;border-bottom:1px solid var(--line)}.wa-row .wa-av{width:48px;height:48px;font-size:1rem}
 .wa-mid{gap:1px}.wa-r1,.wa-r2{display:flex;align-items:center;gap:8px}.wa-r1 b{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600;font-size:1rem}.wa-row .wa-when{font-size:.75rem;color:var(--muted);flex:none}.wa-row.un .wa-when{color:#1DAA61;font-weight:700}.wa-row.un .wa-r1 b{font-weight:800}
-.wa-r2 .wa-prev{flex:1;min-width:0;font-size:.9rem}.wa-row.un .wa-prev{color:var(--ink)}.wa-tk{color:#53BDEB}.wa-r2 .wa-u{background:#25D366;margin:0;flex:none;min-width:20px;line-height:20px;padding:0 6px}.wa-wait{flex:none;width:10px;height:10px;border-radius:50%;background:#3B82F6}.wa-r3{font-size:.72rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wa-r2 .wa-prev{flex:1;min-width:0;font-size:.9rem}.wa-row.un .wa-prev{color:var(--ink)}.wa-tk{color:#53BDEB}.wa-r2 .wa-u{background:#25D366;margin:0;flex:none;min-width:20px;line-height:20px;padding:0 6px}.lead-cats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}.lead-cat{display:flex;flex-direction:column;align-items:center;gap:2px;padding:10px 6px;border:2px solid var(--line,#e5e5e5);border-radius:14px;background:var(--card,#fff);cursor:pointer;font:inherit;color:inherit}.lead-cat span{font-size:1.4rem;line-height:1}.lead-cat small{color:var(--muted,#777);font-size:.75rem}.lead-cat small i{color:#E23022;font-style:normal;font-weight:600}.lead-cat.on{border-color:var(--ink,#111);background:var(--ink,#111);color:#fff}.lead-cat.on small{color:#ddd}.lead-cat.on small i{color:#FCA5A5}
+.wa-wait{flex:none;width:10px;height:10px;border-radius:50%;background:#3B82F6}.wa-r3{font-size:.72rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .panel.wa-full{position:fixed;inset:0;width:100%;max-width:none;max-height:none;height:100dvh;border-radius:0;padding:0;gap:0;overflow:hidden}
 .wac{display:flex;flex-direction:column;height:100%;min-height:0;background:#EFEAE2}.wac.pane{height:calc(100vh - 150px);min-height:480px;border-radius:14px;overflow:hidden}
 .wac-h{display:flex;align-items:center;gap:10px;background:#008069;color:#fff;padding:10px 12px;padding-top:max(10px,env(safe-area-inset-top,0px))}.wac-h .wa-av{width:40px;height:40px;cursor:pointer}.wac-t{flex:1;min-width:0;cursor:pointer;display:flex;flex-direction:column}.wac-t b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.wac-t small{opacity:.85;font-size:.75rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -1449,6 +1450,20 @@ const LACT=Object.fromEntries(LEAD_ACTS);
 const LEAD_LOST=['מחיר','תאריך תפוס','בחרו מקום אחר','לא ענו','האירוע בוטל','אחר'];
 const qTime=q=>typeof q.createdAt==='number'?q.createdAt:(Date.parse(q.createdAt||'')||0);
 const leadTel=p=>String(p||'').replace(/\D/g,'').replace(/^972/,'0').slice(-9);
+// three kinds of leads (owner, Nov 2): events / rooms / spa. A lead's kind = its own `cat`, else the kind its campaign is mapped to
+// (leadcats/main.campCat {campaign name: cat}, set on the leads page), else a guess from the campaign/type/notes words, else events.
+const LEAD_CAT=[['events','אירועים','🎉'],['rooms','חדרים','🛏️'],['spa','ספא','💆']],LCAT=Object.fromEntries(LEAD_CAT.map(([k,n])=>[k,n]));
+function leadCatGuess(t){t=String(t||'');if(/ספא|spa|עיסוי|massage|טיפולי|טיפול זוגי|wellness/i.test(t))return 'spa';if(/חדר|חדרים|room|לינה|נופש|חופש|stay|night|לילה|לילות|סוויט|suite|booking|הזמנת מלון/i.test(t))return 'rooms';return ''}
+function campCatOf(name){name=String(name||'').trim();if(!name)return '';const m=(S.leadCats&&S.leadCats.campCat)||{};return m[name]||leadCatGuess(name)}
+function leadCat(l){if(l.cat&&LCAT[l.cat])return l.cat;return campCatOf(l.campaign)||leadCatGuess([l.type,l.notes].join(' '))||'events'}
+function leadCatsLive(){if(S.live.leadCats)return;S.live.leadCats=true;fdb.doc('leadcats/main').onSnapshot(d=>{S.leadCats=d.exists?d.data():{};render()},()=>{S.leadCats={}})}
+function leadCatCardHTML(){const m=(S.leadCats&&S.leadCats.campCat)||{},camps=leadCamps();
+  return `<details class="card"><summary><b>שיוך קמפיינים לסוג ליד</b> <span class="muted" style="font-size:.85rem">· כל קמפיין נכנס לעמוד שלו</span></summary>
+  <p class="muted" style="font-size:.85rem;margin:8px 0">כל ליד שמגיע מקמפיין נכנס לעמוד שבחרתם לו כאן. קמפיין שלא שויך מסווג לפי המילים בשם שלו (ספא / חדר, לינה, נופש), אחרת לאירועים.</p>
+  ${camps.length?`<div class="plist">${camps.map(c=>{const v=m[c]||'',g=leadCatGuess(c)||'events';return `<div class="prow" style="align-items:center;gap:8px"><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis">${esc(c)}</span><select data-leadcat="${esc(c)}" style="width:auto"><option value="">אוטומטי (${LCAT[g]})</option>${LEAD_CAT.map(([k,n,i])=>`<option value="${k}" ${v===k?'selected':''}>${i} ${n}</option>`).join('')}</select></div>`}).join('')}</div>`:'<p class="muted">עוד אין קמפיינים.</p>'}</details>`}
+document.addEventListener('change',e=>{const t=e.target;if(!t.matches||!t.matches('[data-leadcat]'))return;const name=t.dataset.leadcat,v=t.value;
+  S.leadCats=S.leadCats||{};S.leadCats.campCat={...(S.leadCats.campCat||{}),[name]:v};
+  fdb.doc('leadcats/main').set({campCat:{[name]:v?v:firebase.firestore.FieldValue.delete()},updatedAt:Date.now(),by:S.uid},{merge:true}).then(()=>{toast('הקמפיין שויך ל'+(v?LCAT[v]:'זיהוי אוטומטי'));render()},err=>toast('לא נשמר: '+errMsg(mapErr(err))))});
 const leadOpen=l=>l.stage!=='won'&&l.stage!=='lost'&&l.stage!=='junk';
 const leadLate=l=>leadOpen(l)&&l.nextAt&&l.nextAt<=todayISO();
 // leads are separated per hotel (owner, Nov 1): a role scoped to hotels sees only leads whose venue is in those hotels' settings.venues,
@@ -1473,7 +1488,7 @@ function leadQuote(id,l){const Q=S.lquotes||{};if(l.quoteId&&Q[l.quoteId])return
 const quoteVal=q=>quoteNet(q,(S.lcfg&&S.lcfg.vat)||18);
 // keep stages in step with the quotes (events users only; writes only what changed)
 function leadsSync(){if(!S.can.events||!S.lquotesReady||!S.leadsReady)return;const now=Date.now();
-  for(const [id,l] of Object.entries(S.leads||{})){const lq=leadQuote(id,l);if(!lq)continue;const [qid,q]=lq,up={};
+  for(const [id,l] of Object.entries(S.leads||{})){if(leadCat(l)!=='events')continue;const lq=leadQuote(id,l);if(!lq)continue;const [qid,q]=lq,up={};
     if(l.quoteId!==qid){up.quoteId=qid;up.quoteNum=q.num||null}
     const st=q.status==='approved'?'won':q.status==='declined'?'lost':(q.status==='sent'&&LSTG_I[l.stage]<LSTG_I.quote)?'quote':null;
     if(st&&st!==l.stage&&!((l.stage==='lost'||l.stage==='junk')&&st!=='won')){up.stage=st;if(st==='won')up.wonAt=now}
@@ -1484,6 +1499,7 @@ function leadSave(){const id=S.sheet.id,l=(S.leads||{})[id]||{},d=S.drafts.lead|
   const own=leadOwners(),owner=v('owner')||'',now=Date.now(),stage=v('stage')||'new';
   const o={name,phone:String(v('phone')||'').trim(),email:String(v('email')||'').trim(),company:String(v('company')||'').trim(),type:String(v('type')||'').trim(),date:v('date')||'',guests:+v('guests')||0,venue:v('venue')||'',
     source:v('source')||'',campaign:String(v('campaign')||'').trim(),stage,owner,ownerName:owner?(own[owner]||(owner===l.owner?l.ownerName:'')||''):'',nextAt:v('nextAt')||'',value:+v('value')||0,notes:String(v('notes')||''),lostReason:stage==='lost'?(v('lostReason')||''):'',updatedAt:now};
+  if(d.cat!==undefined||isNew)o.cat=d.cat||leadCat(l.name?l:{...l,campaign:o.campaign,type:o.type,notes:o.notes})||'events';
   if(stage==='won'&&l.stage!=='won')o.wonAt=now;
   if(d.guests!==undefined)o.guestsTxt='';
   if(isNew){o.createdAt=now;o.createdBy=S.uid;o.acts=[]}
@@ -1508,9 +1524,11 @@ function leadCard(id,l){const late=leadLate(l),lq=leadQuote(id,l),q=lq&&lq[1];
     <small class="${late?'bad-t':'muted'}">${l.nextAt&&leadOpen(l)?`${late?'⚠ ':''}לחזור: ${dm(l.nextAt)}`:''}${l.ownerName?` · ${esc(l.ownerName)}`:(leadOpen(l)?' · <span class="bad-t">ללא מטפל</span>':'')}</small>
     ${l.stage==='won'&&l.wonValue?`<small><b>${ils(l.wonValue)}</b></small>`:+l.value?`<small class="muted">${ils(l.value)} צפוי</small>`:''}</button>`}
 const myTasksDue=()=>Object.values(S.tasks||{}).filter(t=>!t.done&&t.owner===S.uid&&t.due&&t.due<=todayISO()).length;
-function vLeads(){leadsSub();tasksSub();waSub();leadsSync();const f=S.leadF||(S.leadF={view:'pipe',own:'all',src:'all',q:''});
-  const head=`<section class="head"><div class="head-t"><h1>לידים ומכירות</h1><button class="btn pri" data-act="lead-new">+ ליד חדש</button></div>
-    <div class="chips" style="gap:6px;margin-top:8px"><button class="dchip ${f.view==='pipe'?'':'off'}" data-act="lead-view" data-v="pipe">פייפליין</button><button class="dchip ${f.view==='list'?'':'off'}" data-act="lead-view" data-v="list">רשימה</button><button class="dchip ${f.view==='clients'?'':'off'}" data-act="lead-view" data-v="clients">לקוחות</button><button class="dchip ${f.view==='tasks'?'':'off'}" data-act="lead-view" data-v="tasks">משימות${myTasksDue()?` (${myTasksDue()})`:''}</button><button class="dchip ${f.view==='sales'?'':'off'}" data-act="lead-view" data-v="sales">דשבורד מכירות</button><button class="dchip ${f.view==='wa'?'':'off'}" data-act="lead-view" data-v="wa">💬 וואטסאפ${waUnread()?` (${waUnread()})`:''}</button><button class="dchip ${f.view==='auto'?'':'off'}" data-act="lead-view" data-v="auto">⚡ אוטומציות</button>
+function vLeads(){leadsSub();tasksSub();waSub();leadCatsLive();leadsSync();const f=S.leadF||(S.leadF={view:'pipe',own:'all',src:'all',q:''});const cat=f.cat||(f.cat='events');
+  const catN=k=>Object.values(S.leads||{}).filter(l=>leadCat(l)===k&&leadOpen(l)).length,catNew=k=>Object.values(S.leads||{}).filter(l=>leadCat(l)===k&&(l.stage||'new')==='new').length;
+  const catBar=f.view==='wa'||f.view==='auto'?'':`<div class="lead-cats">${LEAD_CAT.map(([k,n,i])=>`<button class="lead-cat ${cat===k?'on':''}" data-act="lead-catv" data-v="${k}"><span>${i}</span><b>${n}</b><small>${catN(k)} פתוחים${catNew(k)?` · <i>${catNew(k)} חדשים</i>`:''}</small></button>`).join('')}</div>`;
+  const head=`<section class="head"><div class="head-t"><h1>לידים ומכירות</h1><button class="btn pri" data-act="lead-new">+ ליד חדש${f.view==='wa'||f.view==='auto'?'':' · '+LCAT[cat]}</button></div>${catBar}
+    <div class="chips" style="gap:6px;margin-top:8px"><button class="dchip ${f.view==='pipe'?'':'off'}" data-act="lead-view" data-v="pipe">פייפליין</button><button class="dchip ${f.view==='list'?'':'off'}" data-act="lead-view" data-v="list">רשימה</button>${cat==='events'?`<button class="dchip ${f.view==='clients'?'':'off'}" data-act="lead-view" data-v="clients">לקוחות</button>`:''}<button class="dchip ${f.view==='tasks'?'':'off'}" data-act="lead-view" data-v="tasks">משימות${myTasksDue()?` (${myTasksDue()})`:''}</button><button class="dchip ${f.view==='sales'?'':'off'}" data-act="lead-view" data-v="sales">דשבורד מכירות</button><button class="dchip ${f.view==='wa'?'':'off'}" data-act="lead-view" data-v="wa">💬 וואטסאפ${waUnread()?` (${waUnread()})`:''}</button><button class="dchip ${f.view==='auto'?'':'off'}" data-act="lead-view" data-v="auto">⚡ אוטומציות</button>
     ${f.view==='wa'||f.view==='auto'?'':`    <select data-leadf="own" style="width:auto"><option value="all">כל המטפלים</option><option value="me" ${f.own==='me'?'selected':''}>רק שלי</option><option value="none" ${f.own==='none'?'selected':''}>ללא מטפל</option></select>
     <select data-leadf="ven" style="width:auto"><option value="all">כל המקומות</option>${leadVenueOpts().map(([k,n])=>`<option value="${k}" ${f.ven===k?'selected':''}>${esc(n)}</option>`).join('')}<option value="none" ${f.ven==='none'?'selected':''}>מקום לא ידוע</option></select>
     <select data-leadf="src" style="width:auto"><option value="all">כל המקורות</option>${LEAD_SRC.map(([k,n])=>`<option value="${k}" ${f.src===k?'selected':''}>${n}</option>`).join('')}</select>
@@ -1518,7 +1536,7 @@ function vLeads(){leadsSub();tasksSub();waSub();leadsSync();const f=S.leadF||(S.
   if(S.leadsErr)return wrap(head+`<div class="notice">לא הצלחתי לטעון: ${esc(S.leadsErr)}</div>`);
   if(!S.leadsReady)return wrap(head+'<p class="muted">טוען…</p>');
   const q=String(f.q||'').trim().toLowerCase(),qt=leadTel(q);
-  let all=Object.entries(S.leads||{}).filter(([,l])=>(f.own!=='me'||l.owner===S.uid)&&(f.own!=='none'||!l.owner)&&(f.src==='all'||l.source===f.src)&&(!f.ven||f.ven==='all'||(f.ven==='none'?!l.venue:l.venue===f.ven))&&(!q||[l.name,l.company,l.email].some(x=>String(x||'').toLowerCase().includes(q))||(qt.length>=4&&leadTel(l.phone).includes(qt))));
+  let all=Object.entries(S.leads||{}).filter(([,l])=>leadCat(l)===cat&&(f.own!=='me'||l.owner===S.uid)&&(f.own!=='none'||!l.owner)&&(f.src==='all'||l.source===f.src)&&(!f.ven||f.ven==='all'||(f.ven==='none'?!l.venue:l.venue===f.ven))&&(!q||[l.name,l.company,l.email].some(x=>String(x||'').toLowerCase().includes(q))||(qt.length>=4&&leadTel(l.phone).includes(qt))));
   all.sort(([,a],[,b])=>(b.updatedAt||b.createdAt||0)-(a.updatedAt||a.createdAt||0));
   // not-relevant leads (owner, Nov 1) are hidden from the list/pipeline cards unless the 'לא רלוונטיים' chip is on
   const junkN=all.filter(([,l])=>l.stage==='junk').length,allJ=all;if(!f.junk)all=all.filter(([,l])=>l.stage!=='junk');
@@ -1535,30 +1553,31 @@ function vLeads(){leadsSub();tasksSub();waSub();leadsSync();const f=S.leadF||(S.
   let body;
   if(f.view==='clients')return wrap(head+clientsHTML(f));
   if(f.view==='tasks')return wrap(head+k+tasksHTML(f));
-  if(f.view==='sales')return wrap(head+salesHTML(f));
+  if(f.view==='sales')return wrap(head+salesHTML(f)+leadCatCardHTML());
   const junkChip=junkN||f.junk?`<div class="actions" style="margin:-4px 0 8px"><button class="btn sm ${f.junk?'':'ghost'}" data-act="lead-junkf">${f.junk?'הסתרת הלא רלוונטיים':`🚫 הצגת לא רלוונטיים (${junkN})`}</button></div>`:'';
   if(f.view==='list')body=junkChip+`<div class="card"><div class="scroll-x"><table class="plain"><thead><tr><th>ליד</th><th>שלב</th><th>מקור</th><th>אירוע</th><th>לחזור</th><th>מטפל</th><th class="num">סכום</th></tr></thead><tbody>${all.map(([id,l])=>`<tr data-act="lead-open" data-id="${id}" style="cursor:pointer"><td><b>${esc(l.name||'')}</b>${l.company?`<div class="muted" style="font-size:.8rem">${esc(l.company)}</div>`:''}</td><td><span class="pill ${l.stage==='won'?'ok':l.stage==='lost'?'bad':l.stage==='junk'?'muted':''}">${LSTG[l.stage]||''}</span></td><td>${esc(LSRC[l.source]||'')}${l.campaign?`<div class="muted" style="font-size:.8rem">${esc(l.campaign)}</div>`:''}</td><td>${esc([l.type,l.date?dm(l.date):''].filter(Boolean).join(' · '))}</td><td class="${leadLate(l)?'bad-t':''}">${l.nextAt&&leadOpen(l)?dm(l.nextAt):''}</td><td>${l.ownerName?esc(l.ownerName):(leadOpen(l)?'<span class="bad-t">ללא מטפל</span>':'')}</td><td class="num">${l.stage==='won'?ils(l.wonValue||0):+l.value?ils(l.value):''}</td></tr>`).join('')}</tbody></table></div></div>`;
   else body=junkChip+`<div class="lead-pipe">${LEAD_STAGES.map(([s,n])=>{const L=(s==='junk'?allJ:all).filter(([,l])=>(l.stage||'new')===s),sum=L.reduce((a,[,l])=>a+(s==='won'?(+l.wonValue||0):(+l.value||0)),0);
     return `<section class="lead-col lead-${s}" data-ldrop="${s}"><div class="lead-col-h"><b>${n}</b><span class="muted">${L.length}${sum?' · '+ils(sum):''}</span></div>${s==='junk'&&!f.junk?'<p class="muted" style="font-size:.85rem;margin:6px 0">גוררים לכאן ליד שלא רלוונטי. הוא יוסתר מהרשימות.</p>':L.slice(0,60).map(([id,l])=>leadCard(id,l)).join('')||'<p class="muted" style="font-size:.85rem;margin:6px 0">אין</p>'}</section>`}).join('')}</div>`;
-  return wrap(head+k+today+body)}
+  return wrap(head+k+today+body+leadCatCardHTML())}
 function leadCamps(){const s=new Set();for(const c of Object.values(S.camps||{}))if(c.name)s.add(String(c.name).trim());for(const l of Object.values(S.leads||{}))if(l.campaign)s.add(l.campaign);return [...s].sort((a,b)=>a.localeCompare(b,'he'))}
 function sheetLead(){const id=S.sheet.id,l=(S.leads||{})[id]||{},isNew=!(S.leads||{})[id],g=(k,d='')=>dv('lead',k,l[k]??d);liveColl('camps','campaigns');
   const st=g('stage','new'),own=leadOwners(),lq=isNew?null:leadQuote(id,l),q=lq&&lq[1],camps=leadCamps(),tel=leadTel(l.phone);
   const acts=(l.acts||[]).slice().sort((a,b)=>(b.at||0)-(a.at||0));
   const qOpts=Object.entries(S.lquotes||{}).filter(([,x])=>x.kind!=='group').sort(([,a],[,b])=>qTime(b)-qTime(a)).slice(0,80);
-  return sheetHead(isNew?'ליד חדש':esc(l.name||'ליד'),isNew?'פנייה של לקוח לאירוע':`${LSTG[l.stage]||''}${l.createdAt?' · נפתח '+new Date(l.createdAt).toLocaleDateString('he-IL'):''}`)+`
+  return sheetHead(isNew?'ליד חדש':esc(l.name||'ליד'),isNew?'פנייה חדשה של לקוח':`${LSTG[l.stage]||''}${l.createdAt?' · נפתח '+new Date(l.createdAt).toLocaleDateString('he-IL'):''}`)+`
   ${!isNew&&tel.length>=9?`<div class="actions"><a class="btn sm" href="tel:${esc(l.phone)}">📞 חיוג</a>${S.wapub&&S.wapub.on?`<button class="btn sm pri" data-act="wa-lead" data-id="${id}">💬 וואטסאפ במערכת</button>`:''}<a class="btn sm" href="https://wa.me/972${tel}" target="_blank" rel="noopener">${S.wapub&&S.wapub.on?'וואטסאפ בטלפון':'וואטסאפ'}</a>${l.email?`<a class="btn sm" href="mailto:${esc(l.email)}">מייל</a>`:''}</div>`:''}
+  ${(()=>{const c=S.drafts.lead&&S.drafts.lead.cat||leadCat(l);return `<div class="f"><span>סוג ליד</span><div class="chips" style="gap:6px">${LEAD_CAT.map(([k,n,i])=>`<button class="dchip ${c===k?'':'off'}" data-act="lead-catset" data-v="${k}">${i} ${n}</button>`).join('')}</div></div>`})()}
   <div class="f"><span>שלב</span><div class="chips" style="gap:6px">${LEAD_STAGES.map(([k,n])=>`<button class="dchip ${st===k?'':'off'}" style="--h:${k==='won'?150:k==='lost'?5:k==='junk'?30:210}" data-act="lead-stage" data-v="${k}">${n}</button>`).join('')}</div></div>
   ${st==='lost'?`<label class="f">למה לא נסגר<select data-f="lead.lostReason"><option value="">בחירה…</option>${LEAD_LOST.map(x=>`<option ${g('lostReason')===x?'selected':''}>${x}</option>`).join('')}</select></label>`:''}
   <div class="row"><label class="f">שם מלא<input type="text" data-f="lead.name" value="${esc(g('name'))}"></label><label class="f">טלפון<input type="tel" dir="ltr" data-f="lead.phone" value="${esc(g('phone'))}"></label></div>
   <div class="row"><label class="f">אימייל<input type="email" dir="ltr" data-f="lead.email" value="${esc(g('email'))}"></label><label class="f">חברה<input type="text" data-f="lead.company" value="${esc(g('company'))}"></label></div>
-  <div class="row"><label class="f">סוג אירוע<input type="text" list="lead-types" data-f="lead.type" value="${esc(g('type'))}" placeholder="אירוע חברה, חתונה…"><datalist id="lead-types">${['אירוע חברה','חתונה','בר / בת מצווה','יום הולדת','אירוע פרטי','השקה','כנס'].map(x=>`<option value="${x}">`).join('')}</datalist></label><label class="f">תאריך מבוקש<input type="date" data-f="lead.date" value="${esc(g('date'))}"></label><label class="f" style="max-width:110px">אורחים<input type="number" min="0" data-f="lead.guests" value="${esc(g('guests'))}"></label></div>
+  <div class="row"><label class="f">${{rooms:'סוג חדר / חבילה',spa:'סוג טיפול'}[S.drafts.lead&&S.drafts.lead.cat||leadCat(l)]||'סוג אירוע'}<input type="text" list="lead-types" data-f="lead.type" value="${esc(g('type'))}" placeholder="אירוע חברה, חתונה…"><datalist id="lead-types">${['אירוע חברה','חתונה','בר / בת מצווה','יום הולדת','אירוע פרטי','השקה','כנס'].map(x=>`<option value="${x}">`).join('')}</datalist></label><label class="f">תאריך מבוקש<input type="date" data-f="lead.date" value="${esc(g('date'))}"></label><label class="f" style="max-width:110px">אורחים<input type="number" min="0" data-f="lead.guests" value="${esc(g('guests'))}"></label></div>
   <div class="row"><label class="f">מקום<select data-f="lead.venue"><option value="">עוד לא ידוע</option>${leadVenueOpts().map(([k,n])=>`<option value="${k}" ${g('venue')===k?'selected':''}>${esc(n)}</option>`).join('')}</select></label><label class="f">סכום צפוי (₪, לפני מע״מ)<input type="number" min="0" data-f="lead.value" value="${esc(g('value'))}"></label></div>
   <div class="row"><label class="f">מאיפה הגיע<select data-f="lead.source"><option value="">בחירה…</option>${LEAD_SRC.map(([k,n])=>`<option value="${k}" ${g('source')===k?'selected':''}>${n}</option>`).join('')}</select></label>
   <label class="f">קמפיין<input type="text" list="lead-camps" data-f="lead.campaign" value="${esc(g('campaign'))}" placeholder="שם הקמפיין בסושיאל"><datalist id="lead-camps">${camps.map(x=>`<option value="${esc(x)}">`).join('')}</datalist></label></div>
   <div class="row"><label class="f">מטפל/ת<select data-f="lead.owner"><option value="" ${g('owner')?'':'selected'}>— עוד לא נבחר —</option>${Object.entries(own).map(([u,n])=>`<option value="${u}" ${g('owner')===u?'selected':''}>${esc(n)}</option>`).join('')}</select></label><label class="f">לחזור ללקוח בתאריך<input type="date" data-f="lead.nextAt" value="${esc(g('nextAt'))}"></label></div>
   <label class="f">הערות<textarea rows="2" data-f="lead.notes">${esc(g('notes'))}</textarea></label>
-  <div class="actions"><button class="btn pri" data-act="lead-save">שמירה</button>${isNew?'':`<button class="btn" data-act="lead-quote">${q?'פתיחת אפליקציית האירועים':'יצירת הצעת מחיר'}</button><button class="btn ghost" data-act="lead-del">${S.confirm==='lead-del'?'לחיצה נוספת תמחק':'מחיקה'}</button>`}</div>
+  <div class="actions"><button class="btn pri" data-act="lead-save">שמירה</button>${isNew?'':`${(S.drafts.lead&&S.drafts.lead.cat||leadCat(l))!=='events'?'':`<button class="btn" data-act="lead-quote">${q?'פתיחת אפליקציית האירועים':'יצירת הצעת מחיר'}</button>`}<button class="btn ghost" data-act="lead-del">${S.confirm==='lead-del'?'לחיצה נוספת תמחק':'מחיקה'}</button>`}</div>
   ${isNew?'':`<div class="sep"></div><h3>הצעת מחיר</h3>${q?`<p style="margin:0"><b>הצעה #${esc(q.num||'')}</b> · ${esc({draft:'טיוטה',sent:'נשלחה',approved:'אושרה',declined:'נדחתה'}[q.status]||'')} · ${ils(quoteVal(q))} לפני מע״מ</p><p class="muted" style="font-size:.82rem;margin:4px 0 0">השלב של הליד מתעדכן לבד לפי ההצעה.</p>`:'<p class="muted" style="margin:0">עוד אין הצעה. "יצירת הצעת מחיר" פותחת הצעה חדשה עם פרטי הליד. הצעה עם אותו טלפון מתחברת לבד.</p>'}
   ${S.can.events&&qOpts.length?`<label class="f" style="margin-top:8px">חיבור להצעה קיימת<select data-leadq="1"><option value="">${l.quoteId?'שינוי…':'בחירה…'}</option>${qOpts.map(([qid,x])=>`<option value="${qid}" ${l.quoteId===qid?'selected':''}>#${esc(x.num||'')} · ${esc((x.client&&x.client.name)||'')} · ${x.event&&x.event.date?dm(x.event.date):''}</option>`).join('')}</select></label>`:''}
   <div class="sep"></div><h3>משימות לליד</h3>${(()=>{tasksSub();const T=Object.entries(S.tasks||{}).filter(([,t])=>t.leadId===id);return (T.length?`<div class="plist">${T.map(([tid,t])=>taskRow(tid,t)).join('')}</div>`:'')+taskFormHTML(id)})()}
@@ -1727,7 +1746,7 @@ function tasksHTML(f){tasksSub();const all=Object.entries(S.tasks||{}).filter(([
 const LEAD_PROB={new:.1,contacted:.2,meeting:.4,quote:.6};
 function salesHTML(f){const per=f.per||'month',now=todayISO(),M=now.slice(0,7),PM=monAdd(M,-1),Y=now.slice(0,4);
   const inP=t=>{if(!t)return false;const d=new Date(t).toISOString().slice(0,10);return per==='month'?d.slice(0,7)===M:per==='prev'?d.slice(0,7)===PM:d.slice(0,4)===Y};
-  const all=Object.entries(S.leads||{}).map(([,l])=>l),created=all.filter(l=>inP(l.createdAt)),won=all.filter(l=>l.stage==='won'&&inP(l.wonAt||l.updatedAt)),lost=all.filter(l=>l.stage==='lost'&&inP(l.updatedAt));
+  const cat=f.cat||'events',all=Object.values(S.leads||{}).filter(l=>leadCat(l)===cat),created=all.filter(l=>inP(l.createdAt)),won=all.filter(l=>l.stage==='won'&&inP(l.wonAt||l.updatedAt)),lost=all.filter(l=>l.stage==='lost'&&inP(l.updatedAt));
   const rev=won.reduce((a,l)=>a+(+l.wonValue||0),0),days=won.filter(l=>l.wonAt&&l.createdAt).map(l=>(l.wonAt-l.createdAt)/864e5);
   const open=all.filter(leadOpen),pipe=open.reduce((a,l)=>a+(+l.value||0),0),wpipe=open.reduce((a,l)=>a+(+l.value||0)*(LEAD_PROB[l.stage||'new']||0),0);
   const perSel=`<div class="chips" style="gap:6px;margin-bottom:8px">${[['month','החודש'],['prev','החודש הקודם'],['year','השנה']].map(([k,n])=>`<button class="dchip ${per===k?'':'off'}" data-act="sales-per" data-v="${k}">${n}</button>`).join('')}</div>`;
@@ -1744,7 +1763,7 @@ function salesHTML(f){const per=f.per||'month',now=todayISO(),M=now.slice(0,7),P
   const upc=`<div class="card"><h3>אירועים סגורים לחודשים הקרובים</h3>${up.map(([m,v])=>`<div class="crm-row"><span>${monLabel(m)}</span><div class="crm-track"><i style="width:${v/umx*100}%"></i></div><b class="mono">${ils(v)}</b></div>`).join('')}<p class="muted" style="font-size:.82rem;margin:6px 0 0">לפי תאריך האירוע, הצעות שאושרו, לפני מע״מ.</p></div>`;
   const lostR={};lost.forEach(l=>{const r=l.lostReason||'לא צוין';lostR[r]=(lostR[r]||0)+1});
   const lostC=lost.length?`<div class="card"><h3>למה לא נסגרו</h3>${Object.entries(lostR).sort((a,b)=>b[1]-a[1]).map(([r,c])=>`<div class="crm-row"><span>${esc(r)}</span><div class="crm-track"><i class="lead-bar-lost" style="width:${c/lost.length*100}%"></i></div><b class="mono">${c}</b></div>`).join('')}</div>`:'';
-  return perSel+k+`<div class="setgrid">${funnel}${upc}</div>`+grp('מקור','לפי מקור',l=>LSRC[l.source]||'')+grp('מטפל/ת','לפי איש מכירות',l=>l.ownerName||'')+grp('מקום','לפי מקום',l=>EV_VENUE[l.venue]||'')+lostC}
+  return perSel+k+`<div class="setgrid">${funnel}${cat==='events'?upc:''}</div>`+grp('מקור','לפי מקור',l=>LSRC[l.source]||'')+grp('מטפל/ת','לפי איש מכירות',l=>l.ownerName||'')+grp('מקום','לפי מקום',l=>EV_VENUE[l.venue]||'')+lostC}
 // social media dashboard: a month of spend (weekly reports) next to what the leads page shows really came in
 const SRC_PLAT={instagram:'meta',facebook:'meta',google:'google',tiktok:'tiktok'};
 function mktDashHTML(){leadsSub();if(!S.leadsReady)return '<p class="muted">טוען לידים…</p>';if(S.leadsErr)return `<div class="notice">אין גישה ללידים: ${esc(S.leadsErr)}</div>`;
@@ -3744,9 +3763,11 @@ const ACT={
   'app-front':()=>{S.menu=false;const cw=weekOf(todayISO());if(S.week!==cw){S.tab='front';setWeek(cw)}setTab('front')},
   'app-maint':()=>{S.menu=false;setTab('maint')},
   'app-leads':()=>{S.menu=false;setTab('leads')},
-  'lead-new':()=>{S.drafts.lead={stage:'new',owner:''};S.confirm=null;S.sheet={type:'lead',id:'l'+Date.now().toString(36)+Math.random().toString(36).slice(2,6)};render()},
+  'lead-new':()=>{S.drafts.lead={stage:'new',owner:'',cat:(S.leadF&&S.leadF.cat)||'events'};S.confirm=null;S.sheet={type:'lead',id:'l'+Date.now().toString(36)+Math.random().toString(36).slice(2,6)};render()},
   'lead-open':D=>{S.drafts.lead=null;S.confirm=null;S.sheet={type:'lead',id:D.id};render()},
   'lead-view':D=>{S.leadF.view=D.v;render()},
+  'lead-catv':D=>{S.leadF.cat=D.v;if(S.leadF.view==='clients'&&D.v!=='events')S.leadF.view='pipe';render()},
+  'lead-catset':D=>{S.drafts.lead={...(S.drafts.lead||{}),cat:D.v};render()},
   'wa-open':D=>waOpen(D.id),
   'wa-cfgt':()=>{S.waCfgOpen=!S.waCfgOpen;render()},
   'wa-newt':()=>{S.waNewOpen=!S.waNewOpen;render()},

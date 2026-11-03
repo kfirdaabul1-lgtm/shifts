@@ -331,6 +331,27 @@ input[type=text],input[type=tel],input[type=number],input[type=time],input[type=
 .panel{border-radius:10px 10px 0 0}
 @media (min-width:720px){.panel{border-radius:10px}}
 .panel-h h2,.panel h2:first-child{font-family:var(--f-display)}
+
+/* filter topics (chipSelects) */
+.fsel-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px}
+.fsel-box{display:flex!important;margin:0!important}
+.fsel-box>button.dchip{display:none!important}
+.fsel{position:relative}
+.fsel-b{font:inherit;font-size:.9rem;display:inline-flex;align-items:center;gap:6px;min-height:38px;padding:6px 12px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink);cursor:pointer;white-space:nowrap}
+.fsel-b.on{border-color:var(--gold);background:var(--brass-bg);color:var(--brass);font-weight:600}
+.fsel-b[aria-expanded="true"] svg{transform:rotate(180deg)}
+.fsel-m{position:absolute;top:calc(100% + 4px);inset-inline-start:0;z-index:40;min-width:200px;max-width:min(320px,88vw);max-height:60vh;overflow:auto;background:var(--surface);border:1px solid var(--line);border-radius:8px;box-shadow:0 10px 28px rgb(20 33 61 / .16);padding:4px;display:flex;flex-direction:column}
+.fsel-o{font:inherit;font-size:.92rem;text-align:start;border:0;background:none;color:var(--ink);padding:10px 12px;border-radius:5px;cursor:pointer;min-height:40px}
+.fsel-o:hover{background:var(--sunk)}
+.fsel-o.cur{font-weight:700;color:var(--brass)}
+.fsel-o.cur::after{content:" ✓"}
+details.fold>summary{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:10px}
+details.fold>summary::-webkit-details-marker{display:none}
+details.fold>summary::after{content:"";width:9px;height:9px;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:rotate(45deg);transition:transform .15s;flex:none;margin-top:-4px}
+details.fold[open]>summary::after{transform:rotate(-135deg);margin-top:4px}
+details.card.fold{gap:10px}
+details.sub-fold{border-top:1px solid var(--line);padding-top:8px}
+details.sub-fold>summary h4{margin:0}
 </style>
 </head>
 <body>
@@ -599,7 +620,28 @@ function sheetIosPush(){return sheetHead('התראות באייפון','')+`<p>�
   <ol style="padding-inline-start:20px;line-height:1.9"><li>פותחים את האתר ב-<b>Safari</b>.</li><li>לוחצים על כפתור השיתוף <b>⎙</b> (ריבוע עם חץ למעלה) בתחתית המסך.</li><li>בוחרים <b>"הוסף למסך הבית"</b> ולוחצים "הוסף".</li><li>פותחים את <b>${esc(appName())}</b> מהאייקון החדש במסך הבית.</li><li>בתפריט לוחצים <b>"הפעלת התראות"</b> ומאשרים.</li></ol>
   <p class="muted" style="font-size:.85rem">צריך iOS 16.4 ומעלה. אחרי ההתקנה האתר נפתח כמו אפליקציה, בלי שורת הכתובת.</p>
   <div class="actions"><button class="btn pri" data-act="close">הבנתי</button></div>`}
-function render(){if(isTyping()){S.pending=true;return}S.pending=false;renderTop();renderDrawer();$('#main').innerHTML=bcBannerHTML()+callsBannerHTML()+viewHTML();renderSheet()}
+function render(){if(isTyping()){S.pending=true;return}S.pending=false;renderTop();renderDrawer();$('#main').innerHTML=bcBannerHTML()+callsBannerHTML()+viewHTML();try{chipSelects($('#main'))}catch(e){}renderSheet()}
+// filter chip rows → one compact "filter topic" button with a drop-down (owner, Nov 3). Only single-choice rows on the page (not in sheets):
+// every child a button.dchip, exactly one active, at least 3 options, and not a view switch or a multi-select row.
+const FSEL_SKIP=/-view$|^exp-tab$|^call-t$|^pcall-t$|^kc-dept$|^job-dept$|^perm-|^emp-dept$|^pf-dept$|^vchn-vh$|^pl-ag$|^pl-m$|^lead-catset$|^spa-mins$|^lead-stage$/;
+function chipSelects(root){if(!root)return;root.querySelectorAll('.chips,.dfilter').forEach(box=>{if(box.closest('.sheet')||box.classList.contains('fsel-box')||box.hasAttribute('data-nosel'))return;
+  const kids=[...box.children],bs=kids.filter(b=>b.matches('button.dchip'));if(bs.length<3||bs.length!==kids.length)return;
+  const acts=new Set(bs.map(b=>b.dataset.act||''));if(acts.size!==1||FSEL_SKIP.test([...acts][0]))return;
+  const on=bs.filter(b=>!b.classList.contains('off'));if(on.length!==1)return;
+  box.classList.add('fsel-box');const w=document.createElement('div');w.className='fsel';
+  const isFirst=on[0]===bs[0],b=document.createElement('button');b.type='button';b.className='fsel-b'+(isFirst?'':' on');b.setAttribute('aria-haspopup','listbox');b.setAttribute('aria-expanded','false');
+  b.innerHTML=`<span>${on[0].innerHTML}</span><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M6 9l6 6 6-6"/></svg>`;
+  const m=document.createElement('div');m.className='fsel-m';m.setAttribute('role','listbox');m.hidden=true;
+  bs.forEach(o=>{const it=document.createElement('button');it.type='button';it.className='fsel-o'+(o===on[0]?' cur':'');it.setAttribute('role','option');it.setAttribute('aria-selected',o===on[0]?'true':'false');it.innerHTML=o.innerHTML;
+    it.addEventListener('click',ev=>{ev.stopPropagation();m.hidden=true;b.setAttribute('aria-expanded','false');if(o!==on[0])o.click()});m.appendChild(it)});
+  b.addEventListener('click',ev=>{ev.stopPropagation();const open=m.hidden;document.querySelectorAll('.fsel-m').forEach(x=>{x.hidden=true;x.previousSibling&&x.previousSibling.setAttribute&&x.previousSibling.setAttribute('aria-expanded','false')});m.hidden=!open;b.setAttribute('aria-expanded',open?'true':'false')});
+  w.appendChild(b);w.appendChild(m);box.appendChild(w)});
+  root.querySelectorAll('.fsel-box').forEach(box=>{if(box.parentElement.classList.contains('fsel-row'))return;const prev=box.previousElementSibling;
+    if(prev&&prev.classList.contains('fsel-row'))prev.appendChild(box);else{const row=document.createElement('div');row.className='fsel-row';box.parentNode.insertBefore(row,box);row.appendChild(box)}})}
+document.addEventListener('click',e=>{if(!e.target.closest||!e.target.closest('.fsel'))document.querySelectorAll('.fsel-m').forEach(x=>{if(!x.hidden){x.hidden=true;x.previousSibling&&x.previousSibling.setAttribute('aria-expanded','false')}})});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')document.querySelectorAll('.fsel-m').forEach(x=>x.hidden=true)});
+document.addEventListener('toggle',e=>{const d=e.target;if(d&&d.dataset&&d.dataset.fold){(S.fold||(S.fold={}))[d.dataset.fold]=d.open}},true);
+const foldOpen=k=>!!(S.fold&&S.fold[k]);
 function renderTop(){
   const c=cfg();
   const tabs=S.admin?(S.deptOnly?[['sched','סידור'],['shifts','משמרות פתוחות']]:[['sched','סידור'],['shifts','משמרות פתוחות'],['costs','עלויות'],['settings','הגדרות']]):S.myHotel===CHAIN||isMgmt(S.uid)?[['profile','הפרופיל שלי']]:[['avail','הזמינות שלי'],['mine','המשמרות שלי'+(myPending().length?` (${myPending().length})`:'')],['profile','הפרופיל שלי']];
@@ -1489,8 +1531,8 @@ const hrNoDept=()=>S.can&&S.can.hr?Object.entries(S.emps||{}).filter(([u,e])=>hr
 // join codes live on the employees page (owner's wish): hr holders create / replace them per hotel (+ chain for all-hotel hr)
 function joinCodesCardHTML(){if(!S.can.hr)return '';const hs=hrHotels().concat(S.isOwner||!((S.role&&S.role.hotels)||[]).length?[CHAIN]:[]);
   hs.forEach(h=>{if(!S.settingsAll[h]&&!S.live['jcs:'+h]){S.live['jcs:'+h]=true;fdb.doc('settings/'+h).get().then(d=>{if(d.exists){S.settingsAll[h]=d.data();render()}}).catch(()=>{})}});
-  return `<div class="card"><h3>קודי הצטרפות</h3><p class="muted" style="font-size:.85rem">עובד חדש נכנס לאתר, מתחבר ומקליד את קוד ההצטרפות של המלון שלו, וכך הוא משויך למלון הנכון. עובד רשת (הנהלה, משרד) מקבל את קוד הרשת: הוא לא נספר בנוכחות ולא משתבץ במשמרות. החלפת קוד מבטלת את הקוד הישן.</p>
-  <div class="plist">${hs.map(h=>{const code=validCode(h);return `<div class="prow" style="flex-wrap:wrap"><span class="who"><b>${h===CHAIN?'עובדי רשת':esc(hotelName(h))}</b><small>${code?`קוד: <b class="code" dir="ltr">${esc(code)}</b>`:'עוד אין קוד'}</small></span><span class="actions">${code?`<button class="btn sm ghost" data-act="jc-copy" data-c="${esc(code)}" data-h="${h}">העתקה להודעה</button>`:''}<button class="btn sm" data-act="join-new" data-h="${h}">${code?'החלפת קוד':'יצירת קוד'}</button></span></div>`}).join('')}</div></div>`}
+  return `<details class="card fold" data-fold="jc" ${foldOpen('jc')?'open':''}><summary><h3>קודי הצטרפות</h3></summary><p class="muted" style="font-size:.85rem">עובד חדש נכנס לאתר, מתחבר ומקליד את קוד ההצטרפות של המלון שלו, וכך הוא משויך למלון הנכון. עובד רשת (הנהלה, משרד) מקבל את קוד הרשת: הוא לא נספר בנוכחות ולא משתבץ במשמרות. החלפת קוד מבטלת את הקוד הישן.</p>
+  <div class="plist">${hs.map(h=>{const code=validCode(h);return `<div class="prow" style="flex-wrap:wrap"><span class="who"><b>${h===CHAIN?'עובדי רשת':esc(hotelName(h))}</b><small>${code?`קוד: <b class="code" dir="ltr">${esc(code)}</b>`:'עוד אין קוד'}</small></span><span class="actions">${code?`<button class="btn sm ghost" data-act="jc-copy" data-c="${esc(code)}" data-h="${h}">העתקה להודעה</button>`:''}<button class="btn sm" data-act="join-new" data-h="${h}">${code?'החלפת קוד':'יצירת קוד'}</button></span></div>`}).join('')}</div></details>`}
 // shift kinds card (Employees page): rename the built-in kinds, add new kinds with default hours and departments
 function kcDraft(){if(!S.drafts.kc){const d=S.kindsCfg||{};S.drafts.kc={names:{...(d.names||{})},custom:JSON.parse(JSON.stringify(Array.isArray(d.custom)?d.custom:[]))}}return S.drafts.kc}
 function kindsCardHTML(){if(!(S.can.hr||S.isOwner))return '';const d=kcDraft(),dirty=!!S.kcDirty;
@@ -1501,10 +1543,10 @@ function kindsCardHTML(){if(!(S.can.hr||S.isOwner))return '';const d=kcDraft(),d
     <label class="f" style="flex:1;min-width:90px;margin:0">סיום<input type="time" data-kc="c|${i}|e" value="${esc(c.e||'')}"></label>
     <button class="btn sm ghost" data-act="kc-del" data-i="${i}" aria-label="מחיקת המשמרת">מחיקה</button>
     <div class="chips" style="gap:5px;flex-basis:100%"><small class="muted" style="align-self:center">מחלקות:</small>${DEPTS.map(dp=>`<button class="dchip ${(c.depts||[]).includes(dp.k)?'':'off'}" style="--h:${dp.h}" data-act="kc-dept" data-i="${i}" data-d="${dp.k}">${dp.n}</button>`).join('')}</div></div>`).join('');
-  return `<div class="card"><h3>סוגי משמרות</h3><p class="muted" style="font-size:.85rem">כאן קובעים את שמות המשמרות ומוסיפים משמרות חדשות. משמרת חדשה מופיעה בסידור של המחלקות שסימנתם, עם השעות שנקבעו כאן. מנהל הסידור יכול לשנות את השעות לכל מחלקה בלשונית ההגדרות.</p>
-  <h4 style="margin:8px 0 4px">שמות המשמרות הקבועות</h4><div class="plist">${base}</div>
-  <h4 style="margin:12px 0 4px">משמרות נוספות</h4>${cus?`<div class="plist">${cus}</div>`:'<p class="muted">עוד לא נוספו משמרות.</p>'}
-  <div class="actions" style="margin-top:8px"><button class="btn" data-act="kc-add">+ משמרת חדשה</button><button class="btn pri" data-act="kc-save" ${dirty?'':'disabled'}>שמירת המשמרות</button></div></div>`}
+  return `<details class="card fold" data-fold="kc" ${foldOpen('kc')?'open':''}><summary><h3>סוגי משמרות</h3></summary><p class="muted" style="font-size:.85rem">כאן קובעים את שמות המשמרות ומוסיפים משמרות חדשות. משמרת חדשה מופיעה בסידור של המחלקות שסימנתם, עם השעות שנקבעו כאן. מנהל הסידור יכול לשנות את השעות לכל מחלקה בלשונית ההגדרות.</p>
+  <details class="fold sub-fold" data-fold="kcb" ${foldOpen('kcb')?'open':''}><summary><h4>שמות המשמרות הקבועות</h4></summary><div class="plist" style="margin-top:6px">${base}</div></details>
+  <details class="fold sub-fold" data-fold="kcc" ${foldOpen('kcc')||S.kcDirty?'open':''}><summary><h4>משמרות נוספות</h4></summary><div style="margin-top:6px">${cus?`<div class="plist">${cus}</div>`:'<p class="muted">עוד לא נוספו משמרות.</p>'}</div></details>
+  <div class="actions" style="margin-top:8px"><button class="btn" data-act="kc-add">+ משמרת חדשה</button><button class="btn pri" data-act="kc-save" ${dirty?'':'disabled'}>שמירת המשמרות</button></div></details>`}
 document.addEventListener('input',e=>{const a=e.target.dataset&&e.target.dataset.kc;if(!a)return;const d=kcDraft(),p=a.split('|');
   if(p[0]==='name')d.names[p[1]]=e.target.value;else if(p[0]==='c'&&d.custom[+p[1]])d.custom[+p[1]][p[2]]=e.target.value;
   if(!S.kcDirty){S.kcDirty=true;const b=document.querySelector('[data-act="kc-save"]');if(b)b.disabled=false}});

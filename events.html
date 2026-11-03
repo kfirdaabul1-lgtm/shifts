@@ -2380,4 +2380,17 @@ $('#syncState').textContent='';
 <style>.ceo-mode nav.tabs,.ceo-mode #syncState{display:none!important}</style>
 
 
+<script>
+/* Nightly refresh (owner, Nov 3): after midnight every open page reloads once, so everyone runs the latest version.
+   Waits while the person is typing or has a sheet/window open; on phones it runs when the app is opened again. */
+(function(){
+  const day0=new Date().toDateString();
+  function busy(){const a=document.activeElement;
+    return !!((a&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName))||document.querySelector('.sheet:not([hidden]),dialog[open]')||window.__sigDrawing)}
+  function tick(){if(new Date().toDateString()!==day0&&!busy())location.reload()}
+  setInterval(tick,60000);
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)setTimeout(tick,300)});
+  window.addEventListener('focus',()=>setTimeout(tick,300));
+})();
+</script>
 </body></html>

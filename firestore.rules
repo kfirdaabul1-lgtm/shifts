@@ -208,15 +208,15 @@ service cloud.firestore {
       allow get: if signedIn() && (request.auth.uid == uid || canPerms() || (hasRole() && roleApp('hr')));
       allow list: if canPerms() || (hasRole() && roleApp('hr'));
       // מי שמנהל עובדים משייך תפקיד (רק הרשאות שיש לו בעצמו, באותם כללים)
-      allow create, update: if hasRole() && roleApp('hr') && grantOk(request.resource.data) && (resource == null || existingOk(resource.data)) && targetInScope(uid) && !request.resource.data.get('station', false);
-      allow delete: if hasRole() && roleApp('hr') && existingOk(resource.data) && targetInScope(uid) && !resource.data.get('station', false);
-      allow create, update: if hasRole() && roleApp('hr') && chainTarget(uid) && chainGrantOk(request.resource.data) && (resource == null || appsWithin(resource.data.get('apps', {'shifts': true}))) && !request.resource.data.get('station', false);
-      allow delete: if hasRole() && roleApp('hr') && chainTarget(uid) && appsWithin(resource.data.get('apps', {'shifts': true})) && !resource.data.get('station', false);
-      allow create: if isOwner() || (canPerms() && grantOk(request.resource.data)
+      allow create, update: if request.auth.uid != uid && hasRole() && roleApp('hr') && grantOk(request.resource.data) && (resource == null || existingOk(resource.data)) && targetInScope(uid) && !request.resource.data.get('station', false);
+      allow delete: if request.auth.uid != uid && hasRole() && roleApp('hr') && existingOk(resource.data) && targetInScope(uid) && !resource.data.get('station', false);
+      allow create, update: if request.auth.uid != uid && hasRole() && roleApp('hr') && chainTarget(uid) && chainGrantOk(request.resource.data) && (resource == null || appsWithin(resource.data.get('apps', {'shifts': true}))) && !request.resource.data.get('station', false);
+      allow delete: if request.auth.uid != uid && hasRole() && roleApp('hr') && chainTarget(uid) && appsWithin(resource.data.get('apps', {'shifts': true})) && !resource.data.get('station', false);
+      allow create: if isOwner() || (request.auth.uid != uid && canPerms() && grantOk(request.resource.data)
         && (targetInScope(uid) || stationOk(request.resource.data)));
-      allow update: if isOwner() || (canPerms() && grantOk(request.resource.data) && existingOk(resource.data)
+      allow update: if isOwner() || (request.auth.uid != uid && canPerms() && grantOk(request.resource.data) && existingOk(resource.data)
         && (targetInScope(uid) || (stationOk(resource.data) && stationOk(request.resource.data))));
-      allow delete: if isOwner() || (canPerms() && existingOk(resource.data) && (targetInScope(uid) || stationOk(resource.data)));
+      allow delete: if isOwner() || (request.auth.uid != uid && canPerms() && existingOk(resource.data) && (targetInScope(uid) || stationOk(resource.data)));
     }
 
     // ---------- סידור עבודה ----------
@@ -224,8 +224,8 @@ service cloud.firestore {
     match /joinCodes/{code} {
       allow get: if signedIn();
       allow list: if shiftsAllHotels();
-      allow create: if manages(request.resource.data.hotel) || hrIn(request.resource.data.hotel);
-      allow update: if (manages(resource.data.hotel) && manages(request.resource.data.hotel)) || (hrIn(resource.data.hotel) && hrIn(request.resource.data.hotel));
+      allow create: if (manages(request.resource.data.hotel) || hrIn(request.resource.data.hotel)) && (request.resource.data.hotel != 'chain' || allHotels());
+      allow update: if ((manages(resource.data.hotel) && manages(request.resource.data.hotel)) || (hrIn(resource.data.hotel) && hrIn(request.resource.data.hotel))) && (request.resource.data.hotel != 'chain' || allHotels());
       allow delete: if manages(resource.data.hotel) || hrIn(resource.data.hotel);
     }
     // תפקידים: תבניות הרשאות (שם + אפליקציות); אצל כל אדם roles/{uid}.job מצביע על התפקיד
@@ -242,7 +242,7 @@ service cloud.firestore {
       allow list: if seesHotel(resource.data.hotel) || (isEmployee() && resource.data.hotel == myHotel());
       // הרשמה עצמית רק עם קוד הצטרפות תקף, למלון של הקוד
       // עובד נרשם בעצמו בלי מחלקה; את המחלקה קובע מי שיש לו הרשאת עובדים
-      allow create: if hrIn(hotelOf(request.resource.data)) || (
+      allow create: if (hrIn(hotelOf(request.resource.data)) && (hotelOf(request.resource.data) != 'chain' || allHotels())) || (
         signedIn() && request.auth.uid == uid
         && request.resource.data.get('depts', []).size() == 0
         && request.resource.data.joinCode is string
@@ -250,9 +250,12 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/joinCodes/$(request.resource.data.joinCode)).data.hotel == request.resource.data.hotel
       );
       // עובד מעדכן רק שם, טלפון, תפקיד, משמרות רצויות ומחלקות
-      allow update: if (hrIn(hotelOf(resource.data)) && hrIn(hotelOf(request.resource.data)))
-        // מסך ההרשאות: העברת מלון / תפקיד ניהולי בלבד
+      allow update: if (hrIn(hotelOf(resource.data)) && hrIn(hotelOf(request.resource.data))
+            && (hotelOf(resource.data) == hotelOf(request.resource.data) || (hotelOf(resource.data) != 'chain' && hotelOf(request.resource.data) != 'chain') || allHotels()))
+        // מסך ההרשאות: העברת מלון / תפקיד ניהולי בלבד (רק למלון שבהרשאה; לרשת רק בהרשאה לכל המלונות)
         || ((manages(hotelOf(resource.data)) || (canPerms() && seesHotel(hotelOf(resource.data))))
+            && (manages(hotelOf(request.resource.data)) || (canPerms() && seesHotel(hotelOf(request.resource.data))))
+            && (hotelOf(resource.data) == hotelOf(request.resource.data) || (hotelOf(resource.data) != 'chain' && hotelOf(request.resource.data) != 'chain') || allHotels())
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['hotel', 'mgmt']))
         || (signedIn() && request.auth.uid == uid
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'phone', 'title', 'want']));
@@ -458,14 +461,15 @@ service cloud.firestore {
     // קישור חתימה ללקוח: המזהה סודי (s + 32 תווים); הלקוח בלי התחברות רק חותם פעם אחת לפני שפג התוקף
     match /signs/{id} {
       allow get: if true;
-      allow list, delete: if canEvents();
-      allow create: if canEvents() && request.resource.data.status == 'pending';
-      allow update: if (canEvents() && resource.data.status == 'pending' && request.resource.data.status == 'pending')
+      allow list: if isOwner();
+      allow delete: if canEvents() && qVenueOk(resource.data.get('venue', ''));
+      allow create: if canEvents() && request.resource.data.status == 'pending' && qVenueOk(request.resource.data.get('venue', ''));
+      allow update: if (canEvents() && resource.data.status == 'pending' && request.resource.data.status == 'pending' && qVenueOk(request.resource.data.get('venue', '')))
         || (resource.data.status == 'pending' && request.resource.data.status == 'signed'
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'signName', 'sig', 'signedAt', 'agree', 'ua'])
             && request.resource.data.agree == true
             && request.resource.data.signName is string && request.resource.data.signName.size() >= 2 && request.resource.data.signName.size() <= 90
-            && request.resource.data.sig is string && request.resource.data.sig.size() < 400000
+            && request.resource.data.sig is string && request.resource.data.sig.size() < 400000 && request.resource.data.sig.matches('^data:image/png;base64,[A-Za-z0-9+/=]+$')
             && (resource.data.get('expMs', 0) == 0 || request.time.toMillis() <= resource.data.expMs));
     }
     match /receipts/{id} {
@@ -569,7 +573,8 @@ service cloud.firestore {
     // זמני ניקיון (התחלה–סיום) לכל חדר: העובד כותב את שלו, רק מנהלים קוראים (ממוצע לעובד)
     match /hkLog/{id} {
       allow read: if manages(resource.data.hotel) || gmIn(resource.data.hotel) || canCeo();
-      allow create, update: if isOwner() || (hkWorkIn(request.resource.data.hotel) && request.resource.data.uid == request.auth.uid);
+      allow create: if isOwner() || (hkWorkIn(request.resource.data.hotel) && request.resource.data.uid == request.auth.uid);
+      allow update: if isOwner() || (hkWorkIn(request.resource.data.hotel) && request.resource.data.uid == request.auth.uid && resource.data.uid == request.auth.uid);
       allow delete: if manages(resource.data.hotel) || gmIn(resource.data.hotel);
     }
     // תלונות אורחים על חדר (מדוח סיכום משמרת), נרשמות על המנקה: הקבלה כותבת, רק מנהלים קוראים
@@ -627,7 +632,7 @@ service cloud.firestore {
             && request.resource.data.agree == true && request.resource.data.answers is map
             && request.resource.data.signName is string && request.resource.data.signName.size() >= 2 && request.resource.data.signName.size() <= 90
             && request.resource.data.details is string && request.resource.data.details.size() <= 1500
-            && request.resource.data.sig is string && request.resource.data.sig.size() < 400000
+            && request.resource.data.sig is string && request.resource.data.sig.size() < 400000 && request.resource.data.sig.matches('^data:image/png;base64,[A-Za-z0-9+/=]+$')
             && (resource.data.get('expMs', 0) == 0 || request.time.toMillis() <= resource.data.expMs));
     }
     match /groups/{id} {
@@ -653,7 +658,7 @@ service cloud.firestore {
       allow create: if canVch() && request.resource.data.createdBy == request.auth.uid && request.resource.data.status == 'active';
       // issuers (vch) may cancel; redeemers (vchr) may only record a redemption
       allow update: if (canVch() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'hist', 'updatedAt']) && request.resource.data.status == 'cancelled')
-        || (canVchR() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['balance', 'status', 'hist', 'updatedAt']) && request.resource.data.status in ['partial', 'redeemed'])
+        || (canVchR() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['balance', 'status', 'hist', 'updatedAt']) && request.resource.data.status in ['partial', 'redeemed'] && request.resource.data.balance is number && request.resource.data.balance >= 0 && request.resource.data.balance <= resource.data.get('balance', 0))
         || isOwner();
       allow delete: if isOwner();
     }
@@ -679,8 +684,10 @@ service cloud.firestore {
     // chain settings (name, event venues, spa hotel): every member reads, only the owner writes
     // username → e-mail for username/password sign-in (looked up before signing in)
     match /usernames/{u} {
-      allow get: if true;
-      allow create: if signedIn() && request.resource.data.uid == request.auth.uid && u.matches('^[a-z0-9._-]{3,30}$');
+      // the username → e-mail map is private (Nov 4): sign-in resolves usernames on the server (function pwGuard)
+      allow get: if isOwner() || (signedIn() && resource.data.uid == request.auth.uid);
+      allow create: if signedIn() && request.resource.data.uid == request.auth.uid && u.matches('^[a-z0-9._-]{3,30}$')
+        && request.resource.data.email == request.auth.token.email;
       allow delete: if isOwner() || (signedIn() && resource.data.uid == request.auth.uid);
     }
     // chains/hotels registry (home database only): web config needed to open a chain, readable by anyone who has the id
@@ -703,8 +710,15 @@ service cloud.firestore {
     match /metacfg/{id} {
       allow read, write: if isOwner();
     }
+    // login lockout (written by the pwGuard function only): managers see who is locked to reset them
+    match /authLockPub/{uid} {
+      allow read: if canPerms() || (hasRole() && roleApp('hr'));
+    }
     match /pushTokens/{uid} {
-      allow read, write: if signedIn() && (request.auth.uid == uid || isOwner());
+      // owner:true makes the server send the owner's notifications to this device → only the owner may set it
+      allow read, delete: if signedIn() && (request.auth.uid == uid || isOwner());
+      allow create, update: if signedIn() && (request.auth.uid == uid || isOwner())
+        && (request.resource.data.get('owner', false) == false || isOwner());
     }
 
     // כל השאר חסום

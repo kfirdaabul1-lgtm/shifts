@@ -15,6 +15,18 @@ async function org() {
   orgC = { name: o.name || 'Seven Collection', url: o.appUrl || APP }; orgAt = Date.now(); return orgC;
 }
 const DEPT = { ops: 'תפעול', reception: 'קבלה', housekeeping: 'משק', public: 'שטחים ציבוריים', maintenance: 'אחזקה', kitchen: 'מטבח', dining: 'חדר אוכל', bar: 'בר', dishwash: 'שוטף כלים', laundry: 'מכבסה' };
+// owner devices: pushTokens docs flagged owner:true, double-checked against the account e-mail (a flag alone is not trusted)
+let ownU = {}, ownAt = 0;
+async function ownTok() {
+  const q = await db.collection('pushTokens').where('owner', '==', true).get();
+  if (Date.now() - ownAt > 600e3) { ownU = {}; ownAt = Date.now(); }
+  const docs = [];
+  for (const d of q.docs) {
+    if (ownU[d.id] === undefined) { try { const u = await admin.auth().getUser(d.id); ownU[d.id] = await pwIsOwnerMail(u.email); } catch (e) { ownU[d.id] = false; } }
+    if (ownU[d.id]) docs.push(d);
+  }
+  return { docs, empty: !docs.length, size: docs.length, forEach: (f) => docs.forEach(f) };
+}
 const trig = (path) => functions.region(REGION).firestore.document(path);
 
 // ---------- who gets it ----------
@@ -30,7 +42,7 @@ async function roleHolders(hotel, apps, dept) {
     if (apps.some((k) => a[k])) out.add(d.id);
     else if (dept && a.dept && (r.depts || []).includes(dept)) out.add(d.id);
   });
-  const own = await db.collection('pushTokens').where('owner', '==', true).get();
+  const own = await ownTok();
   own.forEach((d) => out.add(d.id));
   return [...out];
 }
@@ -138,7 +150,7 @@ exports.driveBackup = functions.region(REGION).runWith({ timeoutSeconds: 300, me
   try {
     const cfg = await db.doc('backupcfg/main').get(), key = cfg.exists ? String(cfg.data().key || '') : '';
     const got = String(req.query.key || req.get('x-backup-key') || '');
-    if (!key || key.length < 24 || got !== key) { res.status(403).send('forbidden'); return; }
+    if (!key || key.length < 24 || !((a, b) => a.length === b.length && require('crypto').timingSafeEqual(a, b))(Buffer.from(got), Buffer.from(key))) { res.status(403).send('forbidden'); return; }
     const out = { exportedAt: new Date().toISOString(), by: 'auto-drive', collections: {} };
     let n = 0;
     for (const c of BACKUP_COLLS) {
@@ -395,14 +407,14 @@ async function eventsPeople(venue, lead) {
     const hs = r.hotels || []; if (!hs.length) { out.add(d.id); continue; } if (!venue) { if (!lead) out.add(d.id); continue; } // lead with no place → chain staff only
     for (const h of hs) if ((await vOf(h)).includes(venue)) { out.add(d.id); break; }
   }
-  const own = await db.collection('pushTokens').where('owner', '==', true).get(); own.forEach((d) => out.add(d.id));
+  const own = await ownTok(); own.forEach((d) => out.add(d.id));
   return [...out];
 }
 // cost-per-lead alert: a weekly campaign report over its limit (campaigns.cplMax or mktcfg/main.cplMax) → push social media holders, once a day per campaign
 async function mktPeople() {
   const out = new Set(), rs = await db.collection('roles').get();
   rs.forEach((d) => { const r = d.data() || {}; if (!r.station && r.apps && r.apps.mkt) out.add(d.id); });
-  const own = await db.collection('pushTokens').where('owner', '==', true).get(); own.forEach((d) => out.add(d.id));
+  const own = await ownTok(); own.forEach((d) => out.add(d.id));
   return [...out];
 }
 exports.onCampaignCpl = trig('campaigns/{id}').onWrite(async (ch) => {
@@ -486,7 +498,7 @@ exports.backupWatch = functions.region(REGION).pubsub.schedule('15 9 * * *').tim
   const c = d.data() || {}; if (!c.key) return;
   const since = Math.max(c.lastAt || 0, c.createdAt || 0);
   if (Date.now() - since < 30 * 3600e3) return;
-  const own = await db.collection('pushTokens').where('owner', '==', true).get();
+  const own = await ownTok();
   return sendTo(own.docs.map((x) => x.id), { title: 'הגיבוי האוטומטי לא רץ', body: c.lastAt ? 'הגיבוי האחרון לדרייב היה לפני יותר מיום. כדאי לבדוק ב-script.google.com ← Executions.' : 'עוד לא נשמר אף גיבוי אוטומטי לדרייב. כדאי לבדוק את ההגדרה בעמוד הגדרות מלון.', hash: '#cfg', tag: 'backup-watch' });
 });
 
@@ -512,7 +524,7 @@ exports.onSrInvoice = trig('invoices/{id}').onCreate(async (snap) => {
   const v = snap.data() || {}; if (v.source !== 'sr') return;
   const out = new Set(), rs = await db.collection('roles').get();
   rs.forEach((d) => { const r = d.data() || {}; if (r.station || !(r.apps && r.apps.exp)) return; const hs = r.expHotels || r.hotels || []; if (!hs.length || hs.includes(v.hotel)) out.add(d.id); });
-  const own = await db.collection('pushTokens').where('owner', '==', true).get(); own.forEach((d) => out.add(d.id));
+  const own = await ownTok(); own.forEach((d) => out.add(d.id));
   const hn = await hotelName(v.hotel);
   return sendTo([...out], { title: 'חשבונית מהקופה ממתינה לאישור', body: `${hn ? hn + ' · ' : ''}₪${v.total || 0}${v.supplierName ? ' · ' + v.supplierName : ''} · ${v.notes || ''}`.slice(0, 180), hash: '#exp', tag: 'srinv-' + snap.id });
 });
@@ -522,7 +534,7 @@ exports.onEmpNew = trig('employees/{uid}').onCreate(async (snap) => {
   const e = snap.data() || {}; if (e.manual) return;
   const h = e.hotel || 'main', out = new Set(), rs = await db.collection('roles').get();
   rs.forEach((d) => { const r = d.data() || {}; if (r.station || !(r.apps && r.apps.hr)) return; const hs = r.hotels || []; if (!hs.length || hs.includes(h)) out.add(d.id); });
-  const own = await db.collection('pushTokens').where('owner', '==', true).get(); own.forEach((d) => out.add(d.id));
+  const own = await ownTok(); own.forEach((d) => out.add(d.id));
   const hn = h === 'chain' ? 'עובדי רשת' : await hotelName(h);
   return sendTo([...out], { title: 'עובד חדש נרשם', body: `${e.name || ''}${hn ? ' · ' + hn : ''}${h === 'chain' ? '' : ' · צריך לשייך מחלקה'}`, hash: '#hr', tag: 'empnew-' + snap.id });
 });
@@ -538,7 +550,7 @@ exports.onSpaHealth = trig('spaHealth/{id}').onUpdate(async (ch, ctx) => {
   await ref.update({ ['hl.' + (+b.idx || 0)]: { k: ctx.params.id, ok: true, name: b.signName || '', at: b.signedAt || Date.now(), flag: !!b.flag }, updatedAt: Date.now() });
   const bk = bs.data() || {}, out = new Set(), rs = await db.collection('roles').get();
   rs.forEach((d) => { const r = d.data() || {}; if (!r.station && r.apps && r.apps.spa) out.add(d.id); });
-  const own = await db.collection('pushTokens').where('owner', '==', true).get(); own.forEach((d) => out.add(d.id));
+  const own = await ownTok(); own.forEach((d) => out.add(d.id));
   const dd = String(bk.date || ''), dm = dd ? dd.slice(8, 10) + '.' + dd.slice(5, 7) : '';
   return sendTo([...out], { title: b.flag ? '⚕️ הצהרת בריאות נחתמה · יש סימון רפואי' : '✅ הצהרת בריאות נחתמה', body: `${b.signName || ''} · ${dm} ${bk.time || ''} · ${bk.treatment || ''}${b.flag ? ' · כדאי לעבור על התשובות לפני הטיפול' : ''}`, hash: '#spa', tag: 'spah-' + ctx.params.id });
 });
@@ -546,7 +558,7 @@ exports.onSpaNew = trig('spa/{id}').onCreate(async (snap) => {
   const b = snap.data() || {}; if (b.kind === 'block') return null;
   const out = new Set(), rs = await db.collection('roles').get();
   rs.forEach((d) => { const r = d.data() || {}; if (!r.station && r.apps && r.apps.spa) out.add(d.id); });
-  const own = await db.collection('pushTokens').where('owner', '==', true).get(); own.forEach((d) => out.add(d.id));
+  const own = await ownTok(); own.forEach((d) => out.add(d.id));
   out.delete(b.createdBy);
   const t = b.ther || [], m = t.filter((x) => x === 'm').length, f = t.filter((x) => x === 'f').length;
   const th = [m ? `${m} מטפל` : '', f ? `${f} מטפלת` : ''].filter(Boolean).join(' + ');
@@ -569,7 +581,7 @@ exports.spaPending = functions.region(REGION).pubsub.schedule('0 9 * * *').timeZ
   due.sort((x, y) => (x.date + x.time).localeCompare(y.date + y.time));
   const out = new Set(), rs = await db.collection('roles').get();
   rs.forEach((d) => { const r = d.data() || {}; if (!r.station && r.apps && r.apps.spa) out.add(d.id); });
-  const own = await db.collection('pushTokens').where('owner', '==', true).get(); own.forEach((d) => out.add(d.id));
+  const own = await ownTok(); own.forEach((d) => out.add(d.id));
   const dm = (iso) => iso.slice(8, 10) + '.' + iso.slice(5, 7);
   const list = due.slice(0, 4).map((b) => `${b.date === today ? 'היום' : dm(b.date)} ${b.time || ''} ${b.name || b.treatment || ''}`).join(' · ');
   return sendTo([...out], { title: `${due.length} טיפולי ספא בלי מטפל מתואם`, body: list + (due.length > 4 ? ` ועוד ${due.length - 4}` : '') + '. צריך לקבוע ולתאם מטפל.', hash: '#spa', tag: 'spapend-' + today });
@@ -625,7 +637,7 @@ exports.onHkCheck = trig('hk/{id}').onWrite(async (ch) => {
 exports.onCmpNew = trig('hkComplaints/{id}').onCreate(async (snap) => {
   const c = snap.data() || {}, h = c.hotel || 'main', out = new Set(), rs = await db.collection('roles').get();
   rs.forEach((d) => { const r = d.data() || {}; if (r.station || !(r.apps && r.apps.cmp)) return; const hs = r.hotels || []; if (!hs.length || hs.includes(h)) out.add(d.id); });
-  const own = await db.collection('pushTokens').where('owner', '==', true).get(); own.forEach((d) => out.add(d.id));
+  const own = await ownTok(); own.forEach((d) => out.add(d.id));
   const hn = await hotelName(h);
   return sendTo([...out], { title: `תלונת אורח · חדר ${c.room || ''}`, body: `${hn ? hn + ' · ' : ''}${c.note || ''}${c.cleanerName ? ' · ניקה: ' + c.cleanerName : ''}`.slice(0, 180), hash: '#cmp', tag: 'cmp-' + snap.id });
 });
@@ -674,6 +686,8 @@ exports.onSignDone = trig('signs/{id}').onUpdate(async (ch) => {
   const qref = db.doc('quotes/' + a.quoteId), qs = await qref.get();
   if (!qs.exists) return null;
   const q = qs.data() || {};
+  // the sign doc must be the one the quote points at, and the signature a plain PNG data URL
+  if (q.signKey !== ch.after.id || !/^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(String(a.sig || ''))) { console.warn('onSignDone: rejected', ch.after.id); return null; }
   await qref.update({ signature: { name: a.signName || '', at, img: a.sig || '', remote: true, signId: ch.after.id }, status: 'approved', updatedAt: new Date().toISOString() });
   await ch.after.ref.update({ signedAtTxt: at }).catch(() => {});
   await db.collection('quotes/' + a.quoteId + '/versions').doc(Date.now().toString(36) + '-sign').set({ at: new Date().toISOString(), by: null, action: 'signed', total: a.total || 0, status: 'approved', data: { remoteSign: true, name: a.signName || '' } }).catch(() => {});
@@ -764,6 +778,8 @@ function waErr(e) {
   return (e.title || e.message || 'שגיאה') + (c ? ' (' + c + ')' : '');
 }
 const crypto = require('crypto');
+const waIdOk = (x) => /^\d{6,20}$/.test(String(x || ''));
+const waMsgIdOk = (x) => /^[A-Za-z0-9._=:+-]{4,200}$/.test(String(x || ''));
 exports.waWebhook = functions.region(REGION).https.onRequest(async (req, res) => {
   try {
     const c = await waCfg();
@@ -779,16 +795,18 @@ exports.waWebhook = functions.region(REGION).https.onRequest(async (req, res) =>
     const b = req.body || {}, biz = String((c.status && c.status.phoneDigits) || '');
     for (const en of b.entry || []) for (const ch of en.changes || []) {
       const v = ch.value || {}, f = ch.field;
-      if (c.phoneId && v.metadata && v.metadata.phone_number_id && v.metadata.phone_number_id !== c.phoneId) continue;
+      // only events for OUR number (the phone id is not public); without the app secret this is what stops forged posts
+      if (c.phoneId && (c.provider === '360dialog' ? (v.metadata && v.metadata.phone_number_id && v.metadata.phone_number_id !== c.phoneId) : (!v.metadata || v.metadata.phone_number_id !== c.phoneId))) continue;
       if (f === 'messages') {
         const names = {}; (v.contacts || []).forEach((x) => { names[x.wa_id] = (x.profile && x.profile.name) || ''; });
-        for (const m of v.messages || []) await waIncoming(m, names[m.from] || '', true);
-        for (const s of v.statuses || []) await waStatus(s);
+        for (const m of v.messages || []) if (waIdOk(m.from) && waMsgIdOk(m.id)) await waIncoming(m, String(names[m.from] || '').slice(0, 80), true);
+        for (const s of v.statuses || []) if (waMsgIdOk(s.id)) await waStatus(s);
       } else if (f === 'smb_message_echoes') {
-        for (const m of v.message_echoes || []) await waOutgoing(m.to, m, 'app');
+        for (const m of v.message_echoes || []) if (waIdOk(m.to) && waMsgIdOk(m.id)) await waOutgoing(m.to, m, 'app');
       } else if (f === 'history') {
         const me = String((v.metadata && v.metadata.display_phone_number) || biz).replace(/\D/g, '');
         for (const h of v.history || []) for (const t of h.threads || []) for (const m of t.messages || []) {
+          if (!waIdOk(t.id) || !waMsgIdOk(m.id)) continue;
           if (String(m.from).replace(/\D/g, '') === me) await waOutgoing(t.id, m, 'history');
           else { const cref = db.doc('waChats/' + t.id), at = (+m.timestamp || 0) * 1000, text = waText(m); await waSave(t.id, m.id, { dir: 'in', type: m.type, text, at, src: 'history' }, { lastAt: at, lastText: text.slice(0, 200), lastDir: 'in', lastInAt: at }); }
         }
@@ -1034,4 +1052,150 @@ exports.spaPublic = functions.region(REGION).https.onRequest(async (req, res) =>
       await d.ref.update({ stage: 'won', wonAt: Date.now(), wonValue: Math.round(item.price * ppl), updatedAt: Date.now(), acts: admin.firestore.FieldValue.arrayUnion({ at: Date.now(), by: 'online', byName: 'הזמנה אונליין', kind: 'note', text: `הזמין/ה טיפול ספא אונליין: ${item.name} · ${date.slice(8, 10)}.${date.slice(5, 7)} ${time}` }) }); } } catch (e) {}
     res.json({ ok: true, id: ref.id, health: hkeys, date, time, item: item.name, mins: item.mins, people: ppl, total: item.price * ppl });
   } catch (e) { res.status(e.code === 429 || e.code === 409 ? e.code : 500).json({ error: e.code === 429 || e.code === 409 ? e.message : 'משהו השתבש. נסו שוב או התקשרו אלינו.' }); if (!(e.code === 429 || e.code === 409)) console.error('spaPublic', e); }
+});
+
+// ---- Login lockout (Nov 4, owner): 3 wrong passwords in a row lock the account until the password is reset ----
+// Username/password sign-in goes through pwGuard op 'login': the server resolves the username, checks the lock,
+// verifies the password with the Auth REST API and counts real failures. On the 3rd failure the password is replaced
+// with a random one (so the old one no longer works anywhere) and, for real e-mails, Firebase sends a reset mail.
+// On success it returns the account e-mail and the app signs in with it. Unknown logins get the same answers
+// (a counter keyed by a hash of the login), so the endpoint doesn't reveal who has an account.
+// Accounts without a real e-mail (reception desks, old usernames) are reset by a manager (op 'set').
+// Docs authLocks/{key} and authRate/{ip} are admin-only (no rules match); authLockPub/{uid} is a readable mirror.
+const PW_MAX = 3, PW_WIN = 24 * 3600e3;
+const PW_DOMAINS = ['users.seven-collection.app', 'front.seven-collection.app'];
+const WEB_KEY = process.env.WEB_API_KEY || 'AIzaSyAvI0CfZXIiiNql51SYTdGJT7XdPbWUOaA'; // public web key (same as config.js)
+const realMail = (e) => !!e && !PW_DOMAINS.some((d) => String(e).toLowerCase().endsWith('@' + d));
+const pwNorm = (l) => String(l || '').trim().toLowerCase().slice(0, 120);
+async function pwUser(login) {
+  login = pwNorm(login);
+  if (!login) return null;
+  const tries = [];
+  if (login.includes('@')) tries.push(login);
+  else {
+    if (!/^[a-z0-9._-]{1,60}$/.test(login)) return null;
+    try { const d = await db.doc('usernames/' + login).get(); if (d.exists && d.data().email) tries.push(String(d.data().email).toLowerCase()); } catch (e) {}
+    tries.push(login + '@' + PW_DOMAINS[0], login + '@' + PW_DOMAINS[1]);
+  }
+  for (const em of tries) { try { return await admin.auth().getUserByEmail(em); } catch (e) {} }
+  return null;
+}
+async function pwCaller(req) {
+  const m = String(req.get('authorization') || '').match(/^Bearer (.+)$/);
+  if (!m) return null;
+  try { return await admin.auth().verifyIdToken(m[1]); } catch (e) { return null; }
+}
+async function pwIsOwnerMail(em) {
+  em = String(em || '').toLowerCase();
+  if (!em) return false;
+  if (em === 'kfirdaabul1@gmail.com') return true;
+  try { const o = await db.doc('orgcfg/main').get(); return !!(o.exists && String(o.data().ownerEmail || '').toLowerCase() === em); } catch (e) { return false; }
+}
+const pwIp = (req) => { const x = String(req.get('x-forwarded-for') || '').split(',').map((v) => v.trim()).filter(Boolean); return x.length ? x[x.length - 1] : String(req.ip || ''); };
+async function pwRate(req, max) {
+  const ref = db.doc('authRate/' + crypto.createHash('sha256').update(pwIp(req) + ':' + new Date().toISOString().slice(0, 13)).digest('hex').slice(0, 32));
+  const n = await db.runTransaction(async (tx) => { const s = await tx.get(ref); const k = ((s.exists && s.data().n) || 0) + 1; tx.set(ref, { n: k, at: Date.now() }); return k; });
+  return n > max;
+}
+async function pwResetMail(email) {
+  const x = await fetch('https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key=' + WEB_KEY, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ requestType: 'PASSWORD_RESET', email }) }).catch(() => null);
+  return !!(x && x.ok);
+}
+exports.pwGuard = functions.region(REGION).https.onRequest(async (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*'); res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization'); res.set('Access-Control-Allow-Methods', 'POST');
+  if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
+  if (req.method !== 'POST') { res.status(405).send('method'); return; }
+  const b = req.body || {}, op = String(b.op || '');
+  try {
+    if (op === 'login') {
+      const login = pwNorm(b.login), pw = String(b.password || '');
+      if (!login || !pw || pw.length > 200) { res.json({ err: 'cred' }); return; }
+      if (await pwRate(req, 40)) { res.json({ rate: true }); return; }
+      const u0 = await pwUser(login), now = Date.now();
+      // only accounts that really sign in with a password are counted / locked (never touch a Google-only account)
+      const u = u0 && (u0.providerData || []).some((p) => p.providerId === 'password') ? u0 : null;
+      const ref = db.doc('authLocks/' + (u ? u.uid : 'x' + crypto.createHash('sha256').update(login).digest('hex').slice(0, 30)));
+      const cur = await ref.get(), d = cur.exists ? cur.data() : {};
+      const mail = !!u && realMail(u.email);
+      if (d.locked) {
+        if (mail && now - (d.mailAt || 0) > 10 * 60e3 && (await pwResetMail(u.email))) await ref.set({ mailAt: now }, { merge: true });
+        res.json({ locked: true, mail }); return;
+      }
+      let ok = false;
+      if (u && u.email) {
+        const r = await fetch('https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=' + WEB_KEY, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: u.email, password: pw, returnSecureToken: false }) }).catch(() => null);
+        const j = r ? await r.json().catch(() => ({})) : {};
+        if (r && r.ok) ok = true;
+        else {
+          const m = String((j.error && j.error.message) || '');
+          if (/TOO_MANY_ATTEMPTS/.test(m)) { res.json({ rate: true }); return; }
+          if (/USER_DISABLED/.test(m)) { res.json({ err: 'disabled' }); return; }
+          if (!r || !/INVALID|PASSWORD|NOT_FOUND|CREDENTIAL/.test(m)) { console.error('pwGuard verify', m || (r && r.status)); res.status(503).json({ err: 'verify' }); return; }
+        }
+      }
+      if (ok) { if (cur.exists) await ref.delete().catch(() => {}); res.json({ ok: true, email: u.email }); return; }
+      const fails = (d.lastAt && now - d.lastAt < PW_WIN ? d.fails || 0 : 0) + 1;
+      const owner = !!u && (await pwIsOwnerMail(u.email));
+      const locked = fails >= PW_MAX && !owner; // the owner is never locked out (only Firebase's own throttling)
+      await ref.set({ uid: u ? u.uid : '', fails, lastAt: now, locked, lockedAt: locked ? now : null });
+      if (locked && u) {
+        await admin.auth().updateUser(u.uid, { password: crypto.randomBytes(24).toString('base64') });
+        await admin.auth().revokeRefreshTokens(u.uid).catch(() => {});
+        if (mail && (await pwResetMail(u.email))) await ref.set({ mailAt: now }, { merge: true });
+      }
+      res.json(locked ? { locked: true, mail } : { err: 'cred', left: Math.max(1, PW_MAX - fails) });
+      return;
+    }
+    if (op === 'reset') {
+      // "forgot password": resolve a username on the server (the username → e-mail map is not public)
+      if (await pwRate(req, 40)) { res.json({ rate: true }); return; }
+      const u = await pwUser(b.login);
+      if (u && realMail(u.email)) await pwResetMail(u.email);
+      res.json({ ok: true, mail: !!u && realMail(u.email), none: !u || !realMail(u.email) });
+      return;
+    }
+    if (op === 'free') {
+      const n = pwNorm(b.u);
+      if (!/^[a-z0-9._-]{3,30}$/.test(n)) { res.json({ free: false }); return; }
+      if (await pwRate(req, 60)) { res.json({ rate: true }); return; }
+      const x = await db.doc('usernames/' + n).get();
+      res.json({ free: !x.exists });
+      return;
+    }
+    const tok = await pwCaller(req);
+    if (!tok) { res.status(401).json({ error: 'auth' }); return; }
+    if (op === 'set') {
+      // a manager sets a new password for a reception desk or a username account (no real e-mail to reset with)
+      const uid = String(b.uid || ''), pw = String(b.password || '');
+      if (!/^[A-Za-z0-9_-]{6,128}$/.test(uid) || pw.length < 6 || pw.length > 128) { res.status(400).json({ error: 'bad' }); return; }
+      let target = null; try { target = await admin.auth().getUser(uid); } catch (e) {}
+      if (!target || !(target.providerData || []).some((p) => p.providerId === 'password')) { res.status(404).json({ error: 'nouser' }); return; }
+      const owner = tok.email_verified !== false && (await pwIsOwnerMail(tok.email));
+      let ok = owner;
+      if (!ok) {
+        if (realMail(target.email) || (await pwIsOwnerMail(target.email)) || uid === tok.uid) { res.status(403).json({ error: 'realmail' }); return; }
+        const [cr, tr, te] = await Promise.all([db.doc('roles/' + tok.uid).get(), db.doc('roles/' + uid).get(), db.doc('employees/' + uid).get()]);
+        const c = cr.exists ? cr.data() : {}, apps = c.apps || {}, hs = Array.isArray(c.hotels) ? c.hotels : [];
+        const inH = (h) => hs.length === 0 || hs.includes(h);
+        const t = tr.exists ? tr.data() : null;
+        // never a target that holds pages the caller doesn't have
+        const within = !t || Object.entries(t.apps || {}).every(([k, v]) => !v || apps[k] === true || (t.station && k === 'front'));
+        if (t && t.station) ok = !!apps.perms && !c.station && inH((t.hotels || [])[0]);
+        else if (te.exists) ok = !!apps.hr && !c.station && inH(te.data().hotel || '') && within;
+      }
+      if (!ok) { res.status(403).json({ error: 'forbidden' }); return; }
+      await admin.auth().updateUser(uid, { password: pw });
+      await db.doc('authLocks/' + uid).delete().catch(() => {});
+      res.json({ ok: true });
+      return;
+    }
+    res.status(400).json({ error: 'op' });
+  } catch (e) { console.error('pwGuard', e); res.status(500).json({ error: 'server' }); }
+});
+
+// managers see who is locked out (for the reset button): mirror only {locked, lockedAt} to a readable doc
+exports.onAuthLock = trig('authLocks/{uid}').onWrite(async (ch, ctx) => {
+  const a = ch.after.exists ? ch.after.data() : null, ref = db.doc('authLockPub/' + ctx.params.uid);
+  if (a && a.locked) await ref.set({ uid: ctx.params.uid, locked: true, lockedAt: a.lockedAt || Date.now() });
+  else await ref.delete().catch(() => {});
 });

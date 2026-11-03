@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202611032100"></script>
+<script src="i18n.js?v=202611040100"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -373,6 +373,8 @@ details.sub-fold>summary h4{margin:0}
 <!-- Connection settings: fill in config.js -->
 <script src="config.js"></script>
 <script>
+const imgSrc=v=>{v=String(v||'');return /^data:image\/(png|jpe?g|webp|gif);base64,[A-Za-z0-9+/=\s]+$/.test(v)||/^https:\/\/[^"'<>\s`]+$/.test(v)?v.replace(/\s/g,''):''};
+
 const CFG=window.APP_CONFIG||{};
 // organisation (chain) settings: config.js gives the defaults, orgcfg/main (owner, הגדרות מלון) overrides them.
 // legacyPresets:false (a new chain) = no built-in event venues, room lists or spa hotel taken from Seven's hotel names.
@@ -511,7 +513,7 @@ function errMsg(e){const c=e&&e.code;
   if(c==='revoked')return 'ההרשאות השתנו. רעננו את הדף.';
   return 'לא נשמר כרגע, נסו שוב בעוד רגע.'}
 function onErr(e){toast(errMsg(e))}
-let toastT;function toast(m){const t=$('#toast');t.textContent=m;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,4200)}
+let toastT;function toast(m,ms){const t=$('#toast');t.textContent=m;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,ms||4200)}
 
 /* drafts for form fields */
 const dv=(f,k,fb)=>{const d=S.drafts[f];return d&&k in d?d[k]:fb};
@@ -988,7 +990,7 @@ function sheetSpaHl(){const h=S.sheet.hd;if(!h)return sheetHead('הצהרת בר
   ${h.flag?'<div class="notice bad">יש תשובות "כן" — כדאי שהמטפל/ת יעבור/תעבור עליהן לפני הטיפול.</div>':'<div class="notice">כל התשובות "לא".</div>'}
   <div style="display:flex;flex-direction:column">${['preg','heart','blood','diab','epi','skin','surg','back','onco','resp','allg','meds','other'].map((k,i)=>k in (h.answers||{})?`<div style="display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-bottom:1px solid var(--line)"><span style="flex:1;min-width:0">${esc(qs[i]||k)}</span><b style="flex-shrink:0;color:${h.answers[k]?'#B42318':'#1D734A'}">${h.answers[k]?'כן':'לא'}</b></div>`:'').join('')}</div>
   ${h.details?`<p><b>פרטים:</b> ${esc(h.details)}</p>`:''}
-  ${/^data:image\/png;base64,/.test(h.sig||'')?`<div><b>חתימה</b><br><img src="${h.sig}" alt="חתימה" style="max-width:100%;border:1px solid var(--line);border-radius:8px;background:#fff"></div>`:''}
+  ${/^data:image\/png;base64,/.test(h.sig||'')?`<div><b>חתימה</b><br><img src="${imgSrc(h.sig)}" alt="חתימה" style="max-width:100%;border:1px solid var(--line);border-radius:8px;background:#fff"></div>`:''}
   <div class="actions"><button class="btn" data-act="spah-back">חזרה לטיפול</button></div>`}
 // therapist shifts (owner, Nov 2: online booking offers only times with a free therapist of the asked kind on shift): spaShifts/{date} {date, ther:{tid:{o,c}}}
 function spaShiftSub(W){const k='spsh:'+W;S.spaSh=S.spaSh||{};if(S.live[k])return;S.live[k]=true;
@@ -2220,7 +2222,7 @@ function sheetInv(){const d=invDraft(),isNew=!(S.invs||{})[d.id],T=invTotals(d),
   <label class="f">מלון<select data-inv="hotel">${expHs().map(h=>`<option value="${h}" ${d.hotel===h?'selected':''}>${esc(hotelName(h))}</option>`).join('')}</select></label></div>
   ${d.supplier==='__new'?`<label class="f">שם הספק החדש<input type="text" data-inv="newSup" value="${esc(d.newSup||'')}"></label>`:''}
   <div class="row"><label class="f">תאריך החשבונית<input type="date" data-inv="date" value="${esc(d.date)}"></label><label class="f">מספר חשבונית<input type="text" data-inv="number" value="${esc(d.number||'')}" dir="ltr"></label></div>
-  <div class="f"><span>צילום החשבונית</span>${img?`<img src="${img}" alt="צילום החשבונית" style="max-height:260px;border-radius:8px;border:1px solid var(--line);object-fit:contain;background:#fff">`:d.hasImg?'<span class="muted">טוען את הצילום…</span>':''}
+  <div class="f"><span>צילום החשבונית</span>${img?`<img src="${imgSrc(img)}" alt="צילום החשבונית" style="max-height:260px;border-radius:8px;border:1px solid var(--line);object-fit:contain;background:#fff">`:d.hasImg?'<span class="muted">טוען את הצילום…</span>':''}
     <label class="btn" style="width:fit-content;cursor:pointer">${img||d.hasImg?'צילום מחדש':'צילום / בחירת תמונה'}<input type="file" accept="image/*" capture="environment" id="inv_img" hidden></label>
     ${img?(S.invScan&&S.invScan.inv===d.id&&S.invScan.busy?'<div class="notice">🤖 קורא את החשבונית ומזין את המוצרים… (עד חצי דקה)</div>':`<button class="btn sm" style="width:fit-content" data-act="inv-scan">🤖 מילוי אוטומטי מהצילום</button>`):''}
     ${S.invScan&&S.invScan.inv===d.id&&S.invScan.err?`<div class="notice">${esc(S.invScan.err)}</div>`:''}${S.invScan&&S.invScan.inv===d.id&&S.invScan.msg?`<p style="font-size:.85rem;margin:0">${S.invScan.msg}</p>`:''}</div>
@@ -2535,7 +2537,7 @@ function sheetRcpt(){const id=S.sheet.id,v=(S.rcpts||{})[id];if(v===undefined){S
   if(!v)return sheetHead('אישור קבלת סחורה','')+(v===false?'<p class="muted">האישור לא נמצא</p>':'<p class="muted">טוען…</p>');
   return sheetHead('אישור קבלת סחורה',esc(hotelName(v.hotel))+(v.supplierName?' · '+esc(v.supplierName):''))+`<p><b>${esc(v.name||'')}</b> · ${new Date(v.at).toLocaleString('he-IL',{dateStyle:'short',timeStyle:'short'})}</p>
   <table class="plain"><thead><tr><th>פריט</th><th class="num">הוזמן</th><th class="num">התקבל</th></tr></thead><tbody>${(v.items||[]).map(i=>`<tr${+i.qty<+i.ordered?' style="background:var(--bad-bg)"':''}><td>${esc(i.name)}${i.unit?` <span class="muted">(${esc(i.unit)})</span>`:''}</td><td class="num">${+i.ordered}</td><td class="num">${+i.qty}</td></tr>`).join('')}</tbody></table>
-  ${v.note?`<p>הערה: ${esc(v.note)}</p>`:''}${v.sig&&/^data:image\/png;base64,/.test(v.sig)?`<div><p class="muted" style="margin:8px 0 4px">חתימה</p><img src="${v.sig}" alt="חתימה" style="width:100%;max-width:420px;background:#fff;border:1px solid var(--line);border-radius:8px"></div>`:''}`}
+  ${v.note?`<p>הערה: ${esc(v.note)}</p>`:''}${v.sig&&/^data:image\/png;base64,/.test(v.sig)?`<div><p class="muted" style="margin:8px 0 4px">חתימה</p><img src="${imgSrc(v.sig)}" alt="חתימה" style="width:100%;max-width:420px;background:#fff;border:1px solid var(--line);border-radius:8px"></div>`:''}`}
 function sheetStock(){const id=S.sheet.id,h=S.hotel,x=((S.stockAll||{})[h]||{})[id]||{},g=k=>dv('stk',k,x[k]??''),isNew=!((S.stockAll||{})[h]||{})[id],ds=stockDepts();
   return sheetHead(isNew?'פריט חדש במלאי':esc(x.name),esc(hotelName(h)))+`<label class="f">שם הפריט<input type="text" id="st_n" data-f="stk.name" value="${esc(g('name'))}" placeholder="למשל: מגבות גוף, נייר טואלט, שמן"></label>
   <div class="row"><label class="f">מחלקה<select id="st_d" data-f="stk.dept">${ds.map(k=>`<option value="${k}" ${String(g('dept')||(S.stockF?.d!=='all'?S.stockF?.d:ds[0]))===k?'selected':''}>${DMAP[k].n}</option>`).join('')}</select></label><label class="f">יחידה<input type="text" id="st_u" data-f="stk.unit" value="${esc(g('unit'))}" placeholder="יח׳ / ק״ג / ארגז"></label></div>
@@ -2773,13 +2775,13 @@ function srInvHTML(g){const img=S.srInv||'';
   return `<div class="card" style="background:var(--sunk);border:0;padding:12px;margin:6px 0"><b style="font-size:.95rem">שולם מהקופה מול חשבונית?</b>
     <p class="muted" style="font-size:.82rem;margin:4px 0 8px">סורקים את החשבונית ורושמים כמה שולם. היא תיכנס להוצאות, ומי שאחראי על ההוצאות יאשר אותה.</p>
     <div class="actions" style="align-items:center"><label class="btn" style="width:fit-content;cursor:pointer">📷 ${img?'סריקה מחדש':'סריקת חשבונית'}<input type="file" accept="image/*" capture="environment" id="sr_inv" hidden></label>
-    ${img?`<img src="${img}" alt="החשבונית" style="height:64px;border-radius:8px;border:1px solid var(--line)"><button class="btn sm ghost" data-act="sr-inv-x">הסרה</button>`:''}</div>
+    ${img?`<img src="${imgSrc(img)}" alt="החשבונית" style="height:64px;border-radius:8px;border:1px solid var(--line)"><button class="btn sm ghost" data-act="sr-inv-x">הסרה</button>`:''}</div>
     ${img?`<div class="row" style="margin-top:8px"><label class="f">כמה שולם בחשבונית (₪)<input type="number" min="0" step="0.01" inputmode="decimal" id="sr_invamt" data-f="sr.invAmt" value="${esc(g('invAmt',''))}"></label>
     <label class="f">ממי החשבונית (שם העסק)<input type="text" id="sr_invsup" data-f="sr.invSup" value="${esc(g('invSup',''))}" placeholder="לא חובה"></label></div>`:''}</div>`}
 // "is the reception / bar clean?" — yes requires a photo (srImgs/{reportId}); owner's wish Oct 24
 function srCleanHTML(g){const c=g('clean',''),img=S.srCleanImg||'';
   return `<div class="f"><span>האם הקבלה והבר נקיים?</span><div class="chips" style="gap:6px"><button type="button" class="hchip" data-act="sr-clean" data-v="yes" aria-pressed="${c==='yes'}">כן</button><button type="button" class="hchip" data-act="sr-clean" data-v="no" aria-pressed="${c==='no'}">לא</button></div>
-  ${c==='yes'?`<div class="actions" style="align-items:center;margin-top:6px"><label class="btn${img?'':' pri'}" style="width:fit-content;cursor:pointer">📷 ${img?'צילום מחדש':'צילום קבלה ובר (חובה)'}<input type="file" accept="image/*" capture="environment" id="sr_cimg" hidden></label>${img?`<img src="${img}" alt="צילום קבלה ובר" style="height:64px;border-radius:8px;border:1px solid var(--line)"><button class="btn sm ghost" data-act="sr-cimg-x">הסרה</button>`:''}</div>`:''}
+  ${c==='yes'?`<div class="actions" style="align-items:center;margin-top:6px"><label class="btn${img?'':' pri'}" style="width:fit-content;cursor:pointer">📷 ${img?'צילום מחדש':'צילום קבלה ובר (חובה)'}<input type="file" accept="image/*" capture="environment" id="sr_cimg" hidden></label>${img?`<img src="${imgSrc(img)}" alt="צילום קבלה ובר" style="height:64px;border-radius:8px;border:1px solid var(--line)"><button class="btn sm ghost" data-act="sr-cimg-x">הסרה</button>`:''}</div>`:''}
   ${c==='no'?`<label class="f" style="margin-top:6px">מה לא נקי? (לא חובה)<input type="text" id="sr_cnote" data-f="sr.cleanNote" value="${esc(g('cleanNote',''))}" placeholder="למשל: הדלפק, הפח, הכיור בבר"></label>`:''}</div>`}
 function srCleanTxt(r){return r.clean==='yes'?`קבלה ובר נקיים ✓${r.cleanImg?' 📷':''}`:r.clean==='no'?`קבלה ובר לא נקיים${r.cleanNote?': '+esc(r.cleanNote):''}`:''}
 function srImgSub(id){S.srImgs=S.srImgs||{};if(S.srImgs[id]===undefined){S.srImgs[id]=null;fdb.doc('srImgs/'+id).get().then(d=>{S.srImgs[id]=d.exists?d.data().data:'';render()},()=>{S.srImgs[id]='';render()})}return S.srImgs[id]}
@@ -2864,7 +2866,7 @@ function sheetSrView(){const r=srFind(S.sheet.id);if(!r)return sheetHead('דוח
     <div class="srv-sec"><h3>מספרים</h3>${r.booking!=null?row('הודעות בוקינג שלא נענו',n(r.booking)):''}${r.arsona!=null?row('פניות פתוחות ארסונה',n(r.arsona)):''}${r.ciLeft!=null?row('צ׳ק אין שנשארו להיום',n(r.ciLeft)):''}${r.coLeft!=null?row('צ׳ק אאוט שנשארו',n(r.coLeft)):''}${r.cid!=null?row('צ׳ק אין דורמס',n(r.cid)):''}${r.ci!=null?row('צ׳ק אין'+(r.cid!=null?' פרייבט':''),n(r.ci)):''}${r.co!=null?row('צ׳ק אאוט',n(r.co)):''}</div>
     ${list('חדרים OOO',r.ooo)}${list('תקלות פתוחות',r.faults)}${list('אבדות ומציאות',r.lost)}${(r.cmp||[]).length?list('תלונות אורחים על חדר',r.cmp):''}
   </div>
-  ${r.clean?`<div class="srv-sec${r.clean==='no'?' srv-bad':''}"><h3>ניקיון הקבלה והבר</h3><p style="margin:0">${srCleanTxt(r)}</p>${r.cleanImg?(()=>{const im=srImgSub(S.sheet.id);return im?`<img src="${im}" alt="צילום קבלה ובר" style="margin-top:8px;max-width:100%;max-height:420px;border-radius:10px;border:1px solid var(--line)">`:im===''?'<p class="muted">התמונה לא נמצאה.</p>':'<p class="muted">טוען את התמונה…</p>'})():''}</div>`:''}
+  ${r.clean?`<div class="srv-sec${r.clean==='no'?' srv-bad':''}"><h3>ניקיון הקבלה והבר</h3><p style="margin:0">${srCleanTxt(r)}</p>${r.cleanImg?(()=>{const im=srImgSub(S.sheet.id);return im?`<img src="${imgSrc(im)}" alt="צילום קבלה ובר" style="margin-top:8px;max-width:100%;max-height:420px;border-radius:10px;border:1px solid var(--line)">`:im===''?'<p class="muted">התמונה לא נמצאה.</p>':'<p class="muted">טוען את התמונה…</p>'})():''}</div>`:''}
   ${r.notes?`<div class="srv-sec"><h3>הערות נוספות</h3><p style="white-space:pre-wrap;margin:0">${esc(r.notes)}</p></div>`:''}
   ${r.unusual?`<div class="srv-sec srv-bad"><h3>⚠ אירועים חריגים</h3><p style="white-space:pre-wrap;margin:0">${esc(r.details||'')}</p></div>`:''}
   <div class="actions"><button class="btn pri" data-act="close">סגירה</button></div>`}
@@ -3395,7 +3397,7 @@ function sheetEmp(){
   <p class="muted" style="font-size:.82rem;margin-top:-6px">הסכום יורד מהנטו של העובד, לא מהברוטו. עלות המעסיק והתוספות מחושבות על השכר המלא, וההורדה רק מקזזת את העלות שלך.</p>
   <label class="check"><input type="checkbox" id="e_active" data-f="emp.active" ${dv('emp','active',m.active!==false)?'checked':''}> עובד פעיל (נכלל בשיבוץ ובעלויות)</label>
   ${roleHTML(u,e,isNew)}
-  ${isNew||String(u).startsWith('m_')?'':pushReqHTML(u,e)}
+  ${isNew||String(u).startsWith('m_')?'':pushReqHTML(u,e)+pwCardHTML(u)}
   <div class="actions"><button class="btn pri" data-act="emp-save">שמירה</button>${isNew?'':`<button class="btn ${S.confirm==='del'?'danger':'ghost'}" data-act="emp-del">${S.confirm==='del'?'לחיצה נוספת תמחק את העובד':'מחיקת עובד'}</button>`}</div>
   ${manual&&!isNew?`<div class="sep"></div><h3>זמינות לשבוע ${weekLabel(S.week)}</h3>${slotsHTML(u,S.week,false,'av-t')}`:''}`;
 }
@@ -3620,14 +3622,27 @@ function hotelAddHTML(){return `<div class="card"><h3>הוספת מלון לרש
   <div class="actions" style="align-items:flex-end"><label class="f" style="flex:1;min-width:180px">שם המלון החדש<input type="text" id="new_hotel" data-f="nh.name" value="${esc(dv('nh','name',''))}" placeholder="למשל: מלון הגליל"></label><button class="btn" data-act="hotel-add">הוספת מלון</button></div>
   <p class="muted" style="font-size:.82rem">המלון החדש מקבל עותק של שעות המשמרות וההגדרות של המלון שנבחר כרגע בסידור, בלי קוד הצטרפות. אחרי ההוספה יוצרים לו קוד בעמוד עובדים.</p></div>`}
 // shared reception-desk logins (not a person): username + password, front desk page of one hotel
+/* Login lockout (Nov 4): server function pwGuard counts wrong passwords; 3 in a row lock the account (see functions/index.js) */
+const pwgUrl=()=>'https://europe-west1-'+((CFG.firebase||{}).projectId||'')+'.cloudfunctions.net/pwGuard';
+async function pwGuard(body,auth){const h={'Content-Type':'application/json'};if(auth){if(!fauth.currentUser)throw {code:'auth'};h.Authorization='Bearer '+await fauth.currentUser.getIdToken()}
+  const r=await fetch(pwgUrl(),{method:'POST',headers:h,body:JSON.stringify(body)});const j=await r.json().catch(()=>({}));if(!r.ok)throw {code:j.error||String(r.status)};return j}
+function locksSub(){if(S.locksOn)return;S.locksOn=true;S.locks={};try{fdb.collection('authLockPub').onSnapshot(q=>{const m={};q.forEach(d=>m[d.id]=d.data());S.locks=m;render()},()=>{})}catch(_){ }}
+const isLocked=u=>{locksSub();return !!(S.locks&&S.locks[u])};
+async function pwSetFor(u,pw){if(String(pw||'').length<6){toast('הסיסמה צריכה להיות באורך 6 תווים לפחות');return false}
+  try{await pwGuard({op:'set',uid:u,password:pw},true);toast('הסיסמה החדשה נשמרה. אפשר להיכנס איתה.');return true}
+  catch(e){toast(e.code==='forbidden'?'אין לך הרשאה לאפס את הסיסמה של המשתמש הזה':e.code==='nouser'?'לעובד הזה אין משתמש כניסה (הוא נוסף ידנית)':'איפוס הסיסמה נכשל ('+(e.code||'')+')');return false}}
+function pwCardHTML(u){const lk=isLocked(u);
+  return `<div class="sep"></div><h3>סיסמה לכניסה</h3>${lk?'<p class="pill bad" style="display:inline-block;margin:0 0 6px">🔒 החשבון ננעל אחרי 3 ניסיונות כניסה שגויים</p>':''}
+  <p class="muted" style="font-size:.85rem;margin:0 0 6px">אם העובד שכח את הסיסמה או שהחשבון ננעל: קובעים כאן סיסמה חדשה ומוסרים לו אותה.</p>
+  <div class="row" style="align-items:flex-end"><label class="f">סיסמה חדשה<input type="text" id="e_pw" data-f="epw.v" dir="ltr" autocomplete="off" placeholder="6 תווים לפחות" value="${esc(dv('epw','v',''))}"></label><button class="btn" data-act="emp-pwset" data-u="${u}">קביעת סיסמה חדשה</button></div>`}
 function stationsCardHTML(){if(!myApps().front)return '';const hs=grantableHotels();if(!hs.length)return '';
   const list=Object.entries(S.roles).filter(([,r])=>r&&r.station&&hs.includes((r.hotels||[])[0])).sort(([,a],[,b])=>String(a.login||'').localeCompare(String(b.login||'')));
   const nh=dv('st','hotel',hs[0]),pwFor=S.drafts.st&&S.drafts.st.pwFor;
   return `<div class="card"><h3>משתמשי עמדת קבלה</h3>
   <p class="muted" style="font-size:.85rem">משתמש אחד לכל עמדת קבלה, לא של אדם מסוים: כל מי שבמשמרת נכנס איתו. נכנסים במסך הכניסה ב"כניסת עמדת קבלה" עם שם המשתמש והסיסמה, והמחשב בעמדה נשאר מחובר. המשתמש רואה רק את עמוד הקבלה של המלון: סידור העבודה, האירועים והזנת 10days.</p>
-  ${list.length?`<div class="plist">${list.map(([u,r])=>`<div class="prow" style="flex-wrap:wrap"><span class="who"><b>${esc(hotelName((r.hotels||[])[0]))}</b><small>שם משתמש: <bdi dir="ltr">${esc(r.login||'')}</bdi></small></span>
+  ${list.length?`<div class="plist">${list.map(([u,r])=>`<div class="prow" style="flex-wrap:wrap"><span class="who"><b>${esc(hotelName((r.hotels||[])[0]))}</b><small>שם משתמש: <bdi dir="ltr">${esc(r.login||'')}</bdi>${isLocked(u)?' · <b style="color:var(--bad,#B42318)">🔒 ננעל אחרי 3 ניסיונות שגויים</b>':''}</small></span>
     <span class="actions"><button class="btn sm" data-act="st-pwopen" data-u="${u}">שינוי סיסמה</button><button class="btn sm ${S.confirm==='st:'+u?'danger':'ghost'}" data-act="st-del" data-u="${u}">${S.confirm==='st:'+u?'לחיצה נוספת תבטל':'ביטול המשתמש'}</button></span>
-    ${pwFor===u?`<div class="row" style="width:100%;align-items:flex-end"><label class="f">הסיסמה הנוכחית<input type="password" id="st_old" data-f="st.old" dir="ltr" autocomplete="off"></label><label class="f">סיסמה חדשה<input type="password" id="st_new" data-f="st.new" dir="ltr" autocomplete="new-password"></label><button class="btn pri" data-act="st-pw" data-u="${u}">שמירה</button></div>`:''}</div>`).join('')}</div>`:'<p class="muted">עוד אין משתמשי קבלה.</p>'}
+    ${pwFor===u?`<div class="row" style="width:100%;align-items:flex-end"><label class="f">הסיסמה הנוכחית (אפשר להשאיר ריק)<input type="password" id="st_old" data-f="st.old" dir="ltr" autocomplete="off"></label><label class="f">סיסמה חדשה<input type="password" id="st_new" data-f="st.new" dir="ltr" autocomplete="new-password"></label><button class="btn pri" data-act="st-pw" data-u="${u}">שמירה</button></div>`:''}</div>`).join('')}</div>`:'<p class="muted">עוד אין משתמשי קבלה.</p>'}
   <div class="sep"></div><h3>משתמש קבלה חדש</h3>
   <div class="row" style="align-items:flex-end">${hs.length>1?`<label class="f">מלון<select id="st_hotel" data-f="st.hotel">${hs.map(h=>`<option value="${h}" ${h===nh?'selected':''}>${esc(hotelName(h))}</option>`).join('')}</select></label>`:''}
   <label class="f">שם משתמש<input type="text" id="st_user" data-f="st.user" dir="ltr" autocapitalize="none" autocomplete="off" placeholder="reception1" value="${esc(dv('st','user',''))}"></label>
@@ -4266,6 +4281,7 @@ const ACT={
   'hk-cfg-save':D=>{const h=D.h,v=k=>{const el=document.querySelector(`[data-hkc="${h}|${k}"]`);return el?el.value:''};const o={hotel:h,rooms:v('rooms').trim(),dorms:v('dorms').trim(),beds:Math.max(0,+v('beds')||0),areas:v('areas').split('\n').map(x=>x.trim()).filter(Boolean).join('\n'),updatedAt:Date.now()};
     S.hkCfg=S.hkCfg||{};S.hkCfg[h]=o;fdb.doc('hkcfg/'+h).set(o).then(()=>toast(`נשמר: ${hkParse(o.rooms).length+hkParse(o.dorms).length} חדרים`),e=>toast('השמירה נכשלה: '+errMsg(mapErr(e))));render()},
   'notif-on':()=>{S.menu=false;pushEnable()},
+  'emp-pwset':async D=>{if(!S.can.hr)return;if(await pwSetFor(D.u,dv('epw','v',''))){S.drafts.epw={};render()}},
   'emp-pushreq':D=>{const u=D.u,t=Date.now();if(!S.emps[u])return;S.emps[u]={...S.emps[u],pushReq:t};fdb.doc('employees/'+u).set({pushReq:t},{merge:true}).then(()=>{toast('נשלח. הבקשה תקפוץ לעובד כשיפתח את האתר');render()},e=>toast('לא הצלחתי לשלוח: '+errMsg(mapErr(e))))},
   'push-yes':()=>{S.sheet=null;render();pushEnable()},
   'push-later':()=>{try{localStorage.setItem('pushAsk:'+S.uid,String(Date.now()+3*864e5))}catch(_){ }S.sheet=null;render()},
@@ -4618,16 +4634,25 @@ Object.assign(ACT,{
     try{await S.db.doc('roles/'+uid).set({apps:{front:true},hotels:[h],depts:[],station:true,login:u,name:'קבלה · '+hotelName(h),createdAt:Date.now(),by:S.uid})}catch(e){toast(errMsg(e));return}
     S.drafts.st={hotel:h};render();toast(`המשתמש נוצר: ${u}`)},
   'st-pwopen':D=>{S.drafts.st={...(S.drafts.st||{}),pwFor:(S.drafts.st||{}).pwFor===D.u?null:D.u,old:'',new:''};render()},
-  'st-pw':async D=>{const r=S.roles[D.u];if(!r)return;const o=String(dv('st','old','')),n=String(dv('st','new',''));if(!o){toast('צריך להקליד את הסיסמה הנוכחית');return}if(n.length<6){toast('הסיסמה צריכה להיות באורך 6 תווים לפחות');return}
+  'st-pw':async D=>{const r=S.roles[D.u];if(!r)return;const o=String(dv('st','old','')),n=String(dv('st','new',''));if(n.length<6){toast('הסיסמה צריכה להיות באורך 6 תווים לפחות');return}
+    if(!o){if(await pwSetFor(D.u,n)){S.drafts.st={hotel:dv('st','hotel','')};render()}return}
     const au=stationAuth();try{const c=await au.signInWithEmailAndPassword(stationEmail(r.login),o);await c.user.updatePassword(n);try{await au.signOut()}catch(_){ }S.drafts.st={hotel:dv('st','hotel','')};render();toast('הסיסמה עודכנה')}
     catch(e){toast(['auth/wrong-password','auth/invalid-credential','auth/invalid-login-credentials'].includes(e.code)?'הסיסמה הנוכחית שגויה':'שינוי הסיסמה נכשל ('+(e.code||'')+')')}},
   'st-del':async D=>{if(S.confirm!=='st:'+D.u){S.confirm='st:'+D.u;render();return}S.confirm=null;
     try{await S.db.doc('roles/'+D.u).delete();toast('המשתמש בוטל. מי שמחובר איתו ינותק ברענון הבא.')}catch(e){toast(errMsg(e))}},
   'station-login':async()=>{const u=String(dv('login','user','')).trim(),pw=String(dv('login','pass',''));if(!u||!pw){toast('צריך להקליד שם משתמש וסיסמה');return}
     try{await fauth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)}catch(_){ }
-    let tries=u.includes('@')?[u.toLowerCase()]:[userEmail(u),stationEmail(u)];let last=null;
-    if(!u.includes('@')){try{const d=await fdb.doc('usernames/'+u.toLowerCase()).get();if(d.exists&&d.data().email)tries=[d.data().email,...tries]}catch(_){ }}
-    for(const em of tries){try{await fauth.signInWithEmailAndPassword(em,pw);return}catch(e){last=e;if(!['auth/user-not-found','auth/invalid-credential','auth/invalid-login-credentials','auth/wrong-password'].includes(e.code))break}}
+    const BAD=['auth/user-not-found','auth/invalid-credential','auth/invalid-login-credentials','auth/wrong-password'];
+    // the server checks the password, counts wrong attempts (3 → locked) and returns the account e-mail
+    let g=null;try{g=await pwGuard({op:'login',login:u,password:pw})}catch(_){g=null}
+    if(g&&g.ok&&g.email){try{await fauth.signInWithEmailAndPassword(g.email,pw);return}catch(e){return toast(PW_ERR(e))}}
+    if(g&&g.rate)return toast('יותר מדי ניסיונות כניסה מהמכשיר הזה. נסו שוב בעוד שעה.');
+    if(g&&g.locked)return toast(g.mail?'החשבון ננעל אחרי 3 ניסיונות שגויים. שלחנו לך מייל לאיפוס הסיסמה.':'החשבון ננעל אחרי 3 ניסיונות שגויים. פנו למנהל כדי לקבוע סיסמה חדשה.',9000);
+    if(g&&g.err==='disabled')return toast('המשתמש הזה הושבת. פנו למנהל.');
+    if(g&&g.err==='cred')return toast(g.left===1?'שם המשתמש או הסיסמה שגויים. נשאר ניסיון אחד לפני שהחשבון יינעל.':g.left===2?'שם המשתמש או הסיסמה שגויים. נשארו 2 ניסיונות לפני שהחשבון יינעל.':'שם המשתמש או הסיסמה שגויים',7000);
+    // no lock service here (another chain without server functions): plain sign-in
+    const tries=u.includes('@')?[u.toLowerCase()]:[userEmail(u),stationEmail(u)];let last=null;
+    for(const em of tries){try{await fauth.signInWithEmailAndPassword(em,pw);return}catch(e){last=e;if(!BAD.includes(e.code))break}}
     toast(PW_ERR(last||{}))},
   'pw-mode':D=>{S.pwMode=D.v;render()},
   'auth-view':D=>{S.authView=D.v;render()},
@@ -4635,7 +4660,7 @@ Object.assign(ACT,{
     if(!/^[A-Z0-9]{4,12}$/.test(code))return toast('צריך את קוד ההצטרפות שקיבלתם מהמנהל');if(!name)return toast('צריך למלא שם');
     if(!/^[a-z0-9._-]{3,30}$/.test(u))return toast('שם משתמש: 3–30 אותיות באנגלית, ספרות, נקודה או מקף');
     if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em))return toast('צריך מייל תקין');if(pw.length<6)return toast('הסיסמה קצרה מדי (לפחות 6 תווים)');if(pw!==pw2)return toast('הסיסמאות לא זהות');
-    try{const x=await fdb.doc('usernames/'+u).get();if(x.exists)return toast('שם המשתמש תפוס. בחרו שם אחר.')}catch(_){ }
+    try{const x=await pwGuard({op:'free',u});if(x&&x.free===false)return toast('שם המשתמש תפוס. בחרו שם אחר.')}catch(_){ }
     S.drafts.reg={code,name,phone};S.signingUp=true;
     try{await fauth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)}catch(_){ }
     let cred;try{cred=await fauth.createUserWithEmailAndPassword(em,pw)}catch(e){S.signingUp=false;return toast(PW_ERR(e))}
@@ -4646,8 +4671,10 @@ Object.assign(ACT,{
       try{await fauth.currentUser.updateProfile({displayName:name})}catch(_){ }
       toast('נרשמת! טוען…');setTimeout(()=>location.reload(),800)}catch(e){S.signingUp=false;toast(errMsg(e))}},
   'pw-reset':async()=>{let u=String(dv('login','user','')).trim().toLowerCase();if(!u)return toast('הקלידו את שם המשתמש או המייל ולחצו שוב');
-    if(!u.includes('@')){try{const d=await fdb.doc('usernames/'+u).get();if(d.exists&&d.data().email)u=d.data().email}catch(_){ }}
-    if(!u.includes('@'))return toast('לשם המשתמש הזה אין מייל לאיפוס. פנו למנהל.');
+    if(!u.includes('@')){let g=null;try{g=await pwGuard({op:'reset',login:u})}catch(_){ }
+      if(g&&g.rate)return toast('יותר מדי ניסיונות כניסה מהמכשיר הזה. נסו שוב בעוד שעה.');
+      if(g&&g.mail)return toast('שלחנו מייל לאיפוס הסיסמה');
+      return toast('לשם המשתמש הזה אין מייל לאיפוס. פנו למנהל.')}
     try{await fauth.sendPasswordResetEmail(u);toast('שלחנו מייל לאיפוס הסיסמה')}catch(e){toast(PW_ERR(e))}},
   'email-finish':()=>{const em=String(dv('login','email2','')).trim();if(em)finishEmailLink(em)},
   'phone-send':async()=>{const ph=normPhone(dv('login','phone',''));if(!ph){toast('מספר הטלפון לא תקין');return}

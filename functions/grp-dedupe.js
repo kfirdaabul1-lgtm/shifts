@@ -5,14 +5,16 @@ const score=g=>(g.source==='import'?0:100)+((g.lines||[]).some(l=>+l.rooms)?20:0
 (async()=>{
   const all=(await db.collection('groups').get()).docs.map(d=>({id:d.id,...d.data()}));
   const sets={};all.forEach(g=>{const k=(g.hotel||'')+'|'+norm(g.name);if(!norm(g.name))return;(sets[k]=sets[k]||[]).push(g)});
-  const dup=Object.values(sets).filter(a=>a.length>1);let del=0,adj=0,gap=0,man=0;const upd=[],rm=[];
+  const add1=d=>{const t=new Date(d+'T12:00:00Z');t.setUTCDate(t.getUTCDate()+1);return t.toISOString().slice(0,10)};
+  const dup=[];let del=0;const upd=[],rm=[];
+  for(const a of Object.values(sets)){if(a.length<2)continue;const s2=[...a].filter(g=>g.ci&&g.co).sort((x,y)=>x.ci<y.ci?-1:1);let cl=[];
+    const flush=()=>{if(cl.length>1)dup.push(cl);cl=[]};
+    for(const g of s2){if(cl.length&&g.ci<=add1(cl.reduce((m,x)=>x.co>m?x.co:m,''))){cl.push(g)}else{flush();cl=[g]}}flush()}
   for(const a of dup){a.sort((x,y)=>score(y)-score(x)||(x.createdAt||0)-(y.createdAt||0));const keep=a[0];
-    const ci=a.map(g=>g.ci).filter(Boolean).sort()[0]||keep.ci,co=a.map(g=>g.co).filter(Boolean).sort().pop()||keep.co;
-    const byCi=[...a].sort((x,y)=>(x.ci||'')<(y.ci||'')?-1:1);let contiguous=true;for(let i=1;i<byCi.length;i++)if((byCi[i].ci||'')>(byCi[i-1].co||''))contiguous=false;
-    contiguous?adj++:gap++;if(a.some(g=>g.source!=='import'))man++;
+    const ci=a.map(g=>g.ci).sort()[0],co=a.map(g=>g.co).sort().pop();
     upd.push([keep.id,{ci,co,mergedFrom:a.slice(1).map(g=>g.id),updatedAt:Date.now(),updatedBy:'dedupe'}]);a.slice(1).forEach(g=>{rm.push(g);del++});
-    n(`set ${a.length}: ${a.map(g=>(g.source==='import'?'imp':'man')+' '+g.ci+'..'+g.co+' st='+g.status+' rooms='+(g.rooms||0)+(g.halls&&g.halls.length?' halls':'')).join(' | ')} -> keep ${keep.id.slice(0,8)} ${ci}..${co}`)}
-  n(`groups ${all.length}, duplicate sets ${dup.length}, contiguous ${adj}, with gaps ${gap}, sets with manual docs ${man}, to delete ${del}`+(GO?'':' (dry)'));
+    n(`merge ${a.length}: ${a.map(g=>(g.source==='import'?'imp':'man')+' '+g.ci+'..'+g.co+' rooms='+(g.rooms||0)).join(' | ')} -> ${ci}..${co}`)}
+  n(`groups ${all.length}, merged sets ${dup.length}, to delete ${del}`+(GO?'':' (dry)'));
   if(!GO)return;
   const ops=[...upd.map(([id,d])=>b=>b.set(db.doc('groups/'+id),d,{merge:true})),...rm.map(g=>b=>b.delete(db.doc('groups/'+g.id)))];
   for(const g of rm)for(const h of g.halls||[])if(h.qid)ops.push(b=>b.delete(db.doc('quotes/'+h.qid)));

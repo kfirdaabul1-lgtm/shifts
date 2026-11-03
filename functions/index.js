@@ -911,7 +911,7 @@ exports.onLeadAuto = trig('leads/{id}').onCreate(async (snap) => {
   // lead kind (events / rooms / spa), same as the client's leadCat: own cat, else the campaign's mapping, else words, else events
   let cat = l.cat || '';
   if (!cat) { try { const m = ((await db.doc('leadcats/main').get()).data() || {}).campCat || {}; cat = m[String(l.campaign || '').trim()] || ''; } catch (e) {} }
-  if (!cat) { const g = (x) => /ספא|spa|עיסוי|massage|טיפולי|טיפול זוגי|wellness/i.test(x) ? 'spa' : /חדר|חדרים|room|לינה|נופש|חופש|stay|night|לילה|לילות|סוויט|suite|booking|הזמנת מלון/i.test(x) ? 'rooms' : ''; cat = g(String(l.campaign || '')) || g([l.type, l.notes].join(' ')) || 'events'; }
+  if (!cat) { const g = (x) => /כלה|כלות|התארגנות|bride|bridal/i.test(x) ? 'bride' : /ספא|spa|עיסוי|massage|טיפולי|טיפול זוגי|wellness/i.test(x) ? 'spa' : /חדר|חדרים|room|לינה|נופש|חופש|stay|night|לילה|לילות|סוויט|suite|booking|הזמנת מלון/i.test(x) ? 'rooms' : ''; cat = g(String(l.campaign || '')) || g([l.type, l.notes].join(' ')) || 'events'; }
   const pre = cat === 'events' ? '' : cat + ':';
   const rules = a.rules || {}, r = rules[pre + (l.venue || '')] || rules[pre + '*']; if (!r || !r.tpl) return;
   const pub = (await db.doc('wapub/main').get()).data() || {}; if (!pub.on) return;

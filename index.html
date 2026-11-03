@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#132033">
+<meta name="theme-color" content="#14213D">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icon-180.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -13,29 +13,29 @@
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500&family=IBM+Plex+Sans+Hebrew:wght@400;500;600&family=Suez+One&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500&family=Assistant:wght@400;500;600;700&family=Frank+Ruhl+Libre:wght@500;700&display=swap">
 <style>
 html,body{margin:0}[hidden]{display:none!important}img{max-width:100%}
 :root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 /* Layout: a front-desk operations board — sticky header with week + tabs, department sections holding day×shift grids. */
 :root{
-  --bg:#EDF0F4; --surface:#FFFFFF; --sunk:#E2E7EE; --ink:#132033; --muted:#566377; --line:#D2D9E3;
-  --brass:#8A5E0E; --brass-bg:#F2E4C4;
+  --bg:#F6F1E7; --surface:#FFFDF8; --sunk:#EFE8DA; --ink:#1B2336; --muted:#5A6172; --line:#E4DBC8;
+  --brass:#7A5C2E; --brass-bg:#F1E6CF; --navy:#14213D; --gold:#B08D57;
   --ok:#1D734A; --ok-bg:#DCEFE4; --warn:#A04B17; --warn-bg:#FAE6D4; --bad:#AE2318; --bad-bg:#F9E0DC;
   --chipS:52%; --chipL:90%; --chipFg:26%;
   --scrim:rgb(12 18 28 / .45);
-  --f-display:"Suez One","Frank Ruhl Libre",Georgia,serif;
-  --f-body:"IBM Plex Sans Hebrew","Rubik","Segoe UI",system-ui,sans-serif;
+  --f-display:"Frank Ruhl Libre",Georgia,serif;
+  --f-body:"Assistant","Rubik","Segoe UI",system-ui,sans-serif;
   --f-mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",monospace;
 }
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
-  --bg:#0E131A; --surface:#17202B; --sunk:#111822; --ink:#E4EAF2; --muted:#97A3B4; --line:#29344399;
-  --brass:#E2B65E; --brass-bg:#3A2D14;
+  --bg:#0C1322; --surface:#141E33; --sunk:#0F1829; --ink:#EEE8DC; --muted:#A9A496; --line:#2A3650;
+  --brass:#D6B57E; --brass-bg:#33291A; --navy:#0A1020; --gold:#D6B57E;
   --ok:#57C891; --ok-bg:#163326; --warn:#F2A267; --warn-bg:#3A2414; --bad:#F2806F; --bad-bg:#3B1A17;
   --chipS:40%; --chipL:22%; --chipFg:82%; --scrim:rgb(0 0 0 / .6); color-scheme:dark}}
 :root[data-theme="dark"]{
-  --bg:#0E131A; --surface:#17202B; --sunk:#111822; --ink:#E4EAF2; --muted:#97A3B4; --line:#29344399;
-  --brass:#E2B65E; --brass-bg:#3A2D14;
+  --bg:#0C1322; --surface:#141E33; --sunk:#0F1829; --ink:#EEE8DC; --muted:#A9A496; --line:#2A3650;
+  --brass:#D6B57E; --brass-bg:#33291A; --navy:#0A1020; --gold:#D6B57E;
   --ok:#57C891; --ok-bg:#163326; --warn:#F2A267; --warn-bg:#3A2414; --bad:#F2806F; --bad-bg:#3B1A17;
   --chipS:40%; --chipL:22%; --chipFg:82%; --scrim:rgb(0 0 0 / .6); color-scheme:dark}
 
@@ -306,6 +306,31 @@ html:has(.drawer),body:has(.drawer){overflow:hidden}
 @media (prefers-reduced-motion:no-preference){.cell,.slot,.btn{transition:background-color .15s,border-color .15s}}
 body.nocopy{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 body.nocopy input,body.nocopy textarea,body.nocopy select{-webkit-user-select:text;user-select:text}
+
+/* Classic Lobby theme (owner, Nov 3): navy header with brass details, serif display, cream paper, finer corners */
+h1{font-weight:500;letter-spacing:.2px}h2{font-weight:500}
+body::before{background:var(--navy)}
+.top{background:var(--navy);border-bottom:1px solid color-mix(in srgb,var(--gold) 45%,transparent);
+  --surface:#14213D;--ink:#F6F1E7;--muted:#C9C2B2;--line:rgba(246,241,231,.22);--sunk:#1C2B4B;--brass:#D6B57E;--brass-bg:#2A3757;color:var(--ink)}
+.top input,.top select{background:#1C2B4B;color:#F6F1E7;border-color:rgba(246,241,231,.25)}
+.mark{background:transparent;border:1px solid var(--gold);color:var(--gold);border-radius:50%;font-family:var(--f-display)}
+.b1{font-family:var(--f-display);letter-spacing:.4px}
+.b2{letter-spacing:.6px}
+.tabs button{color:#C9C2B2}
+.tabs button[aria-current="page"]{color:#F6F1E7;border-bottom-color:var(--gold)}
+.btn{border-radius:6px}
+.btn.pri{background:var(--navy);border-color:var(--navy);color:#F6F1E7}
+.btn.pri:hover{background:#1C2B4B}
+.btn.brass{background:var(--brass-bg);color:var(--brass)}
+.card,.list,.day,.tbl,.empty-state,.srv-sec{border-radius:6px}
+.kpi{border-radius:6px;border-top:2px solid var(--gold)}
+.kpi .v{font-family:var(--f-display);font-weight:500;font-size:1.6rem}
+input[type=text],input[type=tel],input[type=number],input[type=time],input[type=url],input[type=email],input[type=password],input[type=date],textarea,select{border-radius:6px}
+.seg{border-radius:7px}.seg button{border-radius:5px}
+.notice{border-radius:6px;border:1px solid color-mix(in srgb,var(--gold) 40%,transparent)}
+.panel{border-radius:10px 10px 0 0}
+@media (min-width:720px){.panel{border-radius:10px}}
+.panel-h h2,.panel h2:first-child{font-family:var(--f-display)}
 </style>
 </head>
 <body>

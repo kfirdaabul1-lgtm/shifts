@@ -1,5 +1,6 @@
-name: diag
-on: { workflow_dispatch: {} }
+name: diag2
+on:
+  workflow_dispatch:
 jobs:
   run:
     runs-on: ubuntu-latest

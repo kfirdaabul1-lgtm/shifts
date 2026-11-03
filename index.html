@@ -1088,7 +1088,7 @@ const plRate=(pl,l,board,ci,co,days)=>{const n=+(l&&l.ppr)||0;if(plHasGrid0(pl))
   const r=plRow(pl,l);return r?+r.rate||0:null};
 // pick the best price list for a group: the agent's own list first, then a general one; active, matching hotel, valid on the arrival date
 // a price list can belong to several agents and an agent can have several lists (owner, Nov 3): agentIds [] (legacy agentId); none = general list
-const plAgents=l=>Array.isArray(l&&l.agentIds)?l.agentIds:(l&&l.agentId?[l.agentId]:[]);
+const plAgents=l=>Array.isArray(l&&l.agentIds)&&l.agentIds.length?l.agentIds:(l&&l.agentId?[l.agentId]:[]);
 const plForAg=(l,ag)=>{const a=plAgents(l);return !a.length||a.includes(ag)};
 const plAgNames=l=>plAgents(l).map(a=>((S.agents||{})[a]||{}).name||'סוכן').join(', ');
 function plSpan(cur){const a=cur.ci||todayISO(),b=cur.co&&cur.co>a?addDays(cur.co,-1):a;return [a,b]}
@@ -3227,7 +3227,7 @@ function renderSheet(){
   const el=$('#sheet');if(!S.sheet){el.hidden=true;el.innerHTML='';return}
   let h='';if(S.sheet.type==='wachat')h=sheetWaChat();else if(S.sheet.type==='spahl')h=sheetSpaHl();else if(S.sheet.type==='spablk')h=sheetSpaBlk();else if(S.sheet.type==='spq')h=sheetSpq();else if(S.sheet.type==='pushdenied')h=sheetPushDenied();else if(S.sheet.type==='recv')h=sheetRecv();else if(S.sheet.type==='rcpt')h=sheetRcpt();else if(S.sheet.type==='stkimp')h=sheetStkImp();else if(S.sheet.type==='chadd')h=sheetChAdd();else if(S.sheet.type==='clic')h=sheetCLic();else if(S.sheet.type==='job')h=sheetJob();else if(S.sheet.type==='subs')h=sheetSubs();else if(S.sheet.type==='perm')h=sheetPerm();else if(S.sheet.type==='cell')h=sheetCell();else if(S.sheet.type==='emp')h=sheetEmp();else if(S.sheet.type==='send')h=sheetSend();else if(S.sheet.type==='remind')h=sheetRemind();else if(S.sheet.type==='camp')h=sheetCamp();else if(S.sheet.type==='sup')h=sheetSup();else if(S.sheet.type==='inv')h=sheetInv();else if(S.sheet.type==='stock')h=sheetStock();else if(S.sheet.type==='preq')h=sheetPreq();else if(S.sheet.type==='swap')h=sheetSwap();else if(S.sheet.type==='iospush')h=sheetIosPush();else if(S.sheet.type==='pushask')h=sheetPushAsk();else if(S.sheet.type==='srview')h=sheetSrView();else if(S.sheet.type==='bkauto')h=sheetBkAuto();else if(S.sheet.type==='metahelp')h=sheetMetaHelp();else if(S.sheet.type==='spa')h=sheetSpa();else if(S.sheet.type==='grp')h=sheetGrp();else if(S.sheet.type==='agent')h=sheetAgent();else if(S.sheet.type==='pl')h=sheetPl();else if(S.sheet.type==='vchnew')h=sheetVchNew();else if(S.sheet.type==='vch')h=sheetVch();else if(S.sheet.type==='hk')h=sheetHk();else if(S.sheet.type==='lead')h=sheetLead();else if(S.sheet.type==='client')h=sheetClient();else if(S.sheet.type==='hkooo')h=sheetHkOoo();
   if(!h){S.sheet=null;el.hidden=true;return}
-  el.innerHTML=`<div class="panel${S.sheet.type==='srview'||S.sheet.type==='subs'?' big':S.sheet.type==='wachat'?' wa-full':''}" role="dialog" aria-modal="true">${h}</div>`;el.hidden=false;sigRestore();
+  el.innerHTML=`<div class="panel${['srview','subs','grp','pl','agent'].includes(S.sheet.type)?' big':S.sheet.type==='wachat'?' wa-full':''}" role="dialog" aria-modal="true">${h}</div>`;el.hidden=false;sigRestore();
   if(S.sheet.type==='wachat'){const b=el.querySelector('.wa-msgs');if(b)b.scrollTop=S.waAtBottom===false&&S.waKeep!=null?S.waKeep:b.scrollHeight}
 }
 const sheetHead=(t,s)=>`<div class="panel-h"><div><h2>${t}</h2>${s?`<p class="muted">${s}</p>`:''}</div><button class="x" data-act="close" aria-label="סגירה">×</button></div>`;
@@ -4038,7 +4038,7 @@ const ACT={
   'grp-new':()=>{S.drafts.grp=null;S.confirm=null;S.sheet={type:'grp',id:'g'+Date.now().toString(36)+Math.random().toString(36).slice(2,6)};
     const h0=grpHs()[0]||'',t=todayISO(),act=Object.entries(S.pls||{}).filter(([,l])=>l.active!==false&&(!l.hotel||l.hotel===h0)),cur=act.find(([,l])=>(!l.from||l.from<=t)&&(!l.to||l.to>=t))||act[0];
     if(cur){S.drafts.grp={plId:plPick({hotel:h0})||cur[0]};grpApplyPl('plId')}render()},
-  'grp-open':D=>{S.drafts.grp=null;S.confirm=null;S.sheet={type:'grp',id:D.id};render()},
+  'grp-open':D=>{S.drafts.grp=null;S.confirm=null;S.sheet={type:'grp',id:D.id};const x=(S.grps||{})[D.id]||{};if(!x.plId&&!x.noPl&&grpMode(x)==='pl'){const p=plPick(x);if(p){S.drafts.grp={plId:p};grpApplyPl('plId')}}render()},
   'grp-save':()=>{const id=S.sheet.id,x=(S.grps||{})[id]||{},isNew=!(S.grps||{})[id],g=k=>dv('grp',k,x[k]??''),num=k=>{const v=+g(k);return isFinite(v)&&v>0?v:0},now=Date.now();
     const name=String(g('name')).trim(),ci=String(g('ci')),co=String(g('co')),hotel=String(g('hotel')||grpHs()[0]||''),agentId=String(g('agentId')||'');
     if(!name){toast('צריך לרשום שם לקבוצה');return}if(!String(g('origin')||'')){toast('צריך לבחור מאיפה האורחים (ישראלים או תיירים), בשביל המע״מ');return}if(!ci||!co){toast('צריך תאריך הגעה ותאריך עזיבה');return}if(co<=ci){toast('העזיבה צריכה להיות אחרי ההגעה');return}

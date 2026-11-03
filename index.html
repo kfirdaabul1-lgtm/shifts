@@ -1553,7 +1553,8 @@ document.addEventListener('input',e=>{const a=e.target.dataset&&e.target.dataset
 function vHr(){const hs=hrHotels().concat(S.can.hr?[CHAIN]:[]);if(!hs.length)return wrap(emptyBox('אין מלונות בהרשאה',''));if(!hs.includes(S.hrH))S.hrH=hs.includes(S.hotel)?S.hotel:hs[0];
   const chips=hs.length>1?`<div class="chips" style="gap:6px;margin-bottom:6px">${hs.map(x=>`<button class="dchip ${x===S.hrH?'':'off'}" style="--h:var(--brass)" data-act="hr-hotel" data-h="${x}">${esc(hotelName(x))}</button>`).join('')}</div>`:'';
   const prev=S.hotel;S.hotel=S.hrH;let h;try{h=vStaff()}finally{S.hotel=prev}
-  const top=chips+joinCodesCardHTML()+kindsCardHTML();return top?h.replace('<div class="wrap stack">','<div class="wrap stack">'+top):h}
+  if(chips)h=h.replace('<div class="wrap stack">','<div class="wrap stack">'+chips);
+  const bottom=joinCodesCardHTML()+kindsCardHTML();if(bottom&&h.endsWith('</div>'))h=h.slice(0,-6)+bottom+'</div>';return h}
 function vStaff(){
   const ow=openWeek(),cost=computeCost(S.week);
   const home=Object.keys(S.emps).filter(isHome);

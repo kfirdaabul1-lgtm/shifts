@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202611031140"></script>
+<script src="i18n.js?v=202611031230"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -2401,6 +2401,31 @@ function briefLoad(h,d){const B=S.briefData||(S.briefData={}),k=h+'|'+d;if(B[k])
   if(!S.live['bemps:'+h]){S.live['bemps:'+h]=true;db.collection('employees').where('hotel','==',h).onSnapshot(q=>{S.emps={...S.emps,...docsMap(q)};render()},()=>{})}
   subQuotes();
   return B[k]}
+
+// brief: yesterday's summary (owner, Nov 3): shift reports without money, open faults, housekeeping refresh / deep refresh / DND, guest complaints
+function briefYHTML(h,d){const y=addDays(d,-1);srPubSub(h,y.slice(0,7));
+  const P=(S.srepsPub||{})[h+'|'+y.slice(0,7)],ord={night:2,morning:0,noon:1,evening:1.5};
+  const reps=P&&!P.__err?Object.entries(P).filter(([,r])=>r.date===y).sort(([,a],[,b])=>(ord[a.shift]??1)-(ord[b.shift]??1)):[];
+  const li=(t,arr)=>arr&&arr.length?`<div style="font-size:.85rem"><b>${t}:</b> ${arr.map(x=>esc((x.room?x.room+' – ':'')+(x.note||''))).join(' · ')}</div>`:'';
+  const repCard=`<div class="card"><h3>דוחות סוף משמרת · ${dm(y)}${reps.length?' · '+reps.length:''}</h3>${!P?'<p class="muted">טוען…</p>':P.__err?'<p class="muted">אין לך גישה לדוחות.</p>':reps.length?`<div class="plist">${reps.map(([id,r])=>`<div class="prow" style="align-items:flex-start"><span class="who"><b><button class="linkbtn" data-act="sr-view" data-id="${id}" data-h="${h}" data-pub="1">${esc(r.name||'')}</button> · משמרת ${SR_N[r.shift]||''}</b><small>${[r.booking!=null?`בוקינג שלא נענו: ${+r.booking}`:'',r.arsona!=null?`ארסונה פתוחות: ${+r.arsona}`:'',r.ciLeft!=null?`צ׳ק אין שנשארו: ${+r.ciLeft}`:'',r.coLeft!=null?`צ׳ק אאוט שנשארו: ${+r.coLeft}`:'',r.shift==='night'&&r.ci!=null?`צ׳ק אין מחר: ${+r.ci}${r.cid!=null?' + '+(+r.cid)+' מיטות':''}`:'',r.shift==='night'&&r.co!=null?`צ׳ק אאוט מחר: ${+r.co}`:'',r.clean?srCleanTxt(r):''].filter(Boolean).join(' · ')}</small>
+      ${r.unusual?`<div style="font-size:.85rem;color:var(--bad)">⚠️ ${esc(r.details||'אירוע חריג')}</div>`:''}${r.notes?`<div style="font-size:.85rem">📝 ${esc(r.notes)}</div>`:''}${li('חפצים שנמצאו',r.lost)}${li('תלונות',r.cmp)}</span><button class="btn sm" data-act="sr-view" data-id="${id}" data-h="${h}" data-pub="1">פתיחה</button></div>`).join('')}</div>`:'<p class="muted">לא הוגשו דוחות ביום הזה.</p>'}</div>`;
+  const F=faultsSub(h),fo=F&&!F.__err?Object.entries(F).filter(([,f])=>f.status==='open').sort(([,a],[,b])=>(a.openedAt||0)-(b.openedAt||0)):[];
+  const fCard=`<div class="card"><h3>תקלות פתוחות${fo.length?' · '+fo.length:''}</h3>${!F?'<p class="muted">טוען…</p>':F.__err?'<p class="muted">אין לך גישה לתקלות.</p>':fo.length?`<div class="plist">${fo.map(([,f])=>`<div class="prow"><span class="who"><b>חדר ${esc(f.room||'—')} · ${esc(f.desc||'')}</b><small>פתוחה ${ageText(f.openedAt||Date.now())}${f.openedByName?' · נפתחה ע״י '+esc(f.openedByName):''}</small></span></div>`).join('')}</div>`:'<p class="muted">אין תקלות פתוחות 👍</p>'}</div>`;
+  const D=hkSub(h,y),trt=(D&&D.trt)||{},td=(D&&D.trtDone)||{},dnd=(D&&D.dnd)||{},rs=o=>Object.keys(o).filter(k=>o[k]).sort((a,b)=>String(a).localeCompare(String(b),undefined,{numeric:true}));
+  const full=rs(trt).filter(r=>trt[r]==='full'),ref=rs(trt).filter(r=>trt[r]==='ref'),dn=rs(dnd);
+  const rl=(arr)=>arr.map(r=>`<span class="pill" style="margin:2px">${esc(r)}${td[r]?' ✓':''}</span>`).join('');
+  const hkCard=`<div class="card"><h3>משק · ${dm(y)}</h3>${!D?'<p class="muted">טוען…</p>':D.__err?'<p class="muted">אין לך גישה ללוח המשק.</p>':(full.length||ref.length||dn.length)?`
+    <div style="margin-bottom:8px"><b>Deep refresh (Full refresh) · ${full.length}</b><div>${full.length?rl(full):'<span class="muted">אין</span>'}</div></div>
+    <div style="margin-bottom:8px"><b>Refresh · ${ref.length}</b><div>${ref.length?rl(ref):'<span class="muted">אין</span>'}</div></div>
+    <div><b>שלט DND · ${dn.length}</b><div>${dn.length?dn.map(r=>`<span class="pill" style="margin:2px">${esc(r)}</span>`).join(''):'<span class="muted">אין</span>'}</div></div>
+    ${full.length||ref.length?'<p class="muted" style="font-size:.8rem;margin:6px 0 0">✓ = הריפרש בוצע</p>':''}`:'<p class="muted">לא סומנו חדרים לריפרש או DND.</p>'}</div>`;
+  const C=frontCmpSub(h,y),cl=C&&!C.__err?Object.values(C).sort((a,b)=>String(a.room).localeCompare(String(b.room),undefined,{numeric:true})):[];
+  const cCard=`<div class="card"><h3>תלונות אורחים · ${dm(y)}${cl.length?' · '+cl.length:''}</h3>${!C?'<p class="muted">טוען…</p>':C.__err?'<p class="muted">אין לך גישה לתלונות.</p>':cl.length?`<div class="plist">${cl.map(c=>`<div class="prow"><span class="who"><b>חדר ${esc(c.room||'—')} · ${esc(c.note||'')}</b><small>${c.cleanerName?'ניקה/תה: '+esc(c.cleanerName)+' · ':''}${c.byName?'נרשם ע״י '+esc(c.byName):''}</small></span>${c.status==='done'?'<span class="pill ok">טופל</span>':'<span class="pill warn">פתוחה</span>'}</div>`).join('')}</div>`:'<p class="muted">אין תלונות 👍</p>'}</div>`;
+  const txt=`\n\nסיכום אתמול (${dm(y)}):`+(reps.length?'\nדוחות משמרת: '+reps.map(([,r])=>`${SR_N[r.shift]||''} – ${r.name||''}${r.unusual?' ⚠️ '+(r.details||'אירוע חריג'):''}`).join(' | '):'\nלא הוגשו דוחות משמרת.')+
+    `\nתקלות פתוחות: ${fo.length}${fo.length?' ('+fo.slice(0,8).map(([,f])=>`${f.room||''} ${f.desc||''}`.trim()).join(', ')+')':''}`+
+    (full.length?`\nDeep refresh: ${full.join(', ')}`:'')+(ref.length?`\nRefresh: ${ref.join(', ')}`:'')+(dn.length?`\nDND: ${dn.join(', ')}`:'')+
+    `\nתלונות אורחים: ${cl.length}${cl.length?' ('+cl.map(c=>`${c.room||''} ${c.note||''}`.trim()).join(', ')+')':''}`;
+  return {html:`<h2 style="margin:18px 0 8px;font-size:1.15rem">סיכום יום קודם · ${DAYS[dow(y)]} ${dm(y)}</h2><div class="setgrid">${repCard}${fCard}${hkCard}${cCard}</div>`,txt}}
 const EV_VENUE={};
 function briefText(h,d,daily,evs,crew){const DAILY=dailyRows(h);return `בריף יומי · ${hotelName(h)} · יום ${DAYS[dow(d)]} ${dm(d)}\n`+
   DAILY.filter(([k])=>daily[k]!=null).map(([k,n])=>`${n}: ${daily[k]}`).join('\n')+
@@ -2427,8 +2452,9 @@ function vBrief(){const hs=modHs('brief',scopeHs());if(!hs.length)return wrap(em
   const crewCard=`<div class="card"><h3>במשמרת היום</h3>${why}${!sched.published&&B.schedExists?'<p class="muted" style="font-size:.85rem">הסידור לשבוע הזה עוד לא פורסם, מוצג השיבוץ הנוכחי.</p>':''}${crew.length?crew.map(([k,l])=>`<div style="margin-bottom:8px"><b style="color:hsl(${DMAP[k].h} 45% 38%)">${DMAP[k].n}</b><div class="muted" style="font-size:.9rem">${l.map(x=>`${esc(x.name)} <span class="mono">(${esc(x.t)})</span>`).join(' · ')}</div></div>`).join(''):'<p class="muted">אין שיבוצים ליום הזה.</p>'}</div>`;
   const spaL=h&&h===spaHotel()?spaDaySub(h,d):undefined;
   const spaCard=spaL===undefined?'':`<div class="card"><h3>טיפולי ספא היום${spaL?' · '+spaL.length:''}</h3>${spaL===null?'<p class="muted">אין לך גישה לטיפולי הספא.</p>':!spaL?'<p class="muted">טוען…</p>':spaL.length?`<div class="plist">${spaL.map(b=>`<div class="prow"><span class="who"><b>${esc(b.time||'')} · ${esc(b.treatment||'')}</b><small>${+b.mins||60} דק׳ · ${+b.people||1} ${+b.people===1?'אדם':'אנשים'}${spaTh(b)?' · '+spaTh(b):''}${(b.tname||[]).filter(Boolean).length?' · '+esc((b.tname||[]).filter(Boolean).join(', ')):''}${b.name?' · '+esc(b.name):''}</small></span>${b.status==='done'?'<span class="pill ok">בוצע</span>':''}</div>`).join('')}</div>`:'<p class="muted">אין טיפולים היום.</p>'}</div>`;
-  const wa=`https://wa.me/?text=${encodeURIComponent(briefText(h,d,daily,evs,crew)+(spaL&&spaL.length?`\n\nספא:\n`+spaL.map(b=>`• ${b.time} ${b.treatment} · ${+b.mins||60} דק׳ · ${+b.people||1} אנשים${spaTh(b)?' · '+spaTh(b):''}`).join('\n'):''))}`;
-  return wrap(head+`<div class="setgrid">${nums}${evCard}${spaCard}${crewCard}</div><div class="actions"><a class="btn brass" href="${wa}" target="_blank" rel="noopener">שליחת הבריף בוואטסאפ</a></div>`);
+  const YS=briefYHTML(h,d);
+  const wa=`https://wa.me/?text=${encodeURIComponent(briefText(h,d,daily,evs,crew)+YS.txt+(spaL&&spaL.length?`\n\nספא:\n`+spaL.map(b=>`• ${b.time} ${b.treatment} · ${+b.mins||60} דק׳ · ${+b.people||1} אנשים${spaTh(b)?' · '+spaTh(b):''}`).join('\n'):''))}`;
+  return wrap(head+`<div class="setgrid">${nums}${evCard}${spaCard}${crewCard}</div>${YS.html}<div class="actions"><a class="btn brass" href="${wa}" target="_blank" rel="noopener">שליחת הבריף בוואטסאפ</a></div>`);
 }
 /* ---------- front desk (reception user): hotel schedule (read-only), the hotel's events, 10days entry ---------- */
 // which event venues belong to a hotel: settings.venues (empty = all venues)
@@ -2501,7 +2527,7 @@ function callsBannerHTML(){const mine=Object.entries(S.myCalls||{}).filter(([,c]
     return `<div class="prow" style="flex-wrap:wrap"><span class="who"><b style="font-size:1.15rem">${c.kind==='pub'?'📍 ':''}${esc(callWhere(c))}</b><small style="font-size:.95rem;color:var(--ink)">${esc(callTasks(c))}</small><small>מ${esc(c.openedByName||'הקבלה')} · ${new Date(c.openedAt||0).toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'})} · <b style="color:${m>=30?'var(--bad)':'var(--warn)'}">פתוחה ${minsTxt(m)}</b></small></span>
       <button class="btn pri" style="min-height:44px" data-act="call-done" data-id="${id}">טופל ✓</button></div>`}).join('')}</div></div></div>`}
 // guest complaints are opened from the reception page (not the shift report): hkComplaints {…, source:'front'}; onCmpNew pushes cmp holders
-function frontCmpSub(h){const d=todayISO(),k='fcmp:'+h+'|'+d;S.fCmp=S.fCmp||{};if(!S.live[k]){S.live[k]=true;
+function frontCmpSub(h,dd){const d=dd||todayISO(),k='fcmp:'+h+'|'+d;S.fCmp=S.fCmp||{};if(!S.live[k]){S.live[k]=true;
   fdb.collection('hkComplaints').where('hotel','==',h).where('date','==',d).onSnapshot(q=>{S.fCmp[h+'|'+d]=docsMap(q);render()},e=>{S.fCmp[h+'|'+d]={__err:errMsg(mapErr(e))};render()})}return S.fCmp[h+'|'+d]}
 function frontCmpHTML(h){const C=frontCmpSub(h),g=(k,d)=>dv('fcmp',k,d);
   const list=C&&!C.__err?Object.entries(C).sort(([,a],[,b])=>(b.createdAt||0)-(a.createdAt||0)):[];

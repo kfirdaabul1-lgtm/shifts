@@ -238,6 +238,7 @@ table.plain.plg{width:100%;table-layout:fixed;min-width:0}.plg th,table.plain.pl
 .wac-sub{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .wa-inbox .wa-pane{padding:0;overflow:hidden;border:0;background:none}
 @media (min-width:720px){.panel.big{width:min(1000px,94vw);min-height:70vh}}
+@media (max-width:719px){.panel.big{position:fixed;inset:0;width:100%;max-width:none;max-height:none;border-radius:0;padding-top:calc(14px + env(safe-area-inset-top,0px));overscroll-behavior:contain}}
 .srv-top{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .srv-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
 .srv-sec{border:1px solid var(--line);border-radius:12px;padding:12px 14px}.srv-sec h3{margin:0 0 8px;font-size:1rem}.srv-sec ul{margin:0;padding-inline-start:18px;line-height:1.8}

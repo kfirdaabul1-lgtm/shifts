@@ -374,7 +374,8 @@ service cloud.firestore {
     function qVenueOk(v) { return isOwner() || hotelVenueOk(v); }
     // shared quote number counter (a hotel-scoped user can't see other hotels' quote numbers)
     match /qcounter/{id} { allow read, write: if canEvents(); }
-    function leadVenueOk(v) { return isOwner() || v == '' || hotelVenueOk(v); }
+    // a lead with no venue: only owner + chain (all-hotel) roles until someone sets its place (owner, Nov 3)
+    function leadVenueOk(v) { return isOwner() || (v == '' ? roleHotels().size() == 0 : hotelVenueOk(v)); }
     match /leads/{id} {
       allow read: if (canEvents() || canMkt()) && leadVenueOk(resource.data.get('venue', ''));
       allow create: if canEvents() && leadVenueOk(request.resource.data.get('venue', ''));

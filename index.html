@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202611030030"></script>
+<script src="i18n.js?v=202611031140"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1619,10 +1619,10 @@ const leadLate=l=>leadOpen(l)&&l.nextAt&&l.nextAt<=todayISO();
 function leadScope(){if(S.isOwner)return null;const hs=(S.role&&S.role.hotels)||[];if(!hs.length)return null;const vs=new Set();for(const h of hs)(((S.settingsAll||{})[h]||{}).venues||[]).forEach(v=>vs.add(v));return [...vs]}
 async function leadScopeLoad(){S.settingsAll=S.settingsAll||{};for(const h of (S.role&&S.role.hotels)||[]){if(!S.settingsAll[h]){try{const d=await S.db.doc('settings/'+h).get();S.settingsAll[h]=d.exists?d.data():{}}catch(_){}}}}
 function leadsLive(){if(S.live.leads)return;S.live.leads=true;S.leads=S.leads||{};
-  // scoped: one equality listener per venue (+ '' for leads with no venue) so the rules can check each query; results merged
+  // scoped: one equality listener per venue so the rules can check each query; results merged. Leads with no venue ('') are seen only by owner + chain (all-hotel) roles until someone sets the place (owner, Nov 3)
   (async()=>{if(!S.isOwner)await leadScopeLoad();const vs=leadScope(),col=S.db.collection('leads');
     if(!vs){col.onSnapshot(x=>{S.leads=docsMap(x);S.leadsReady=true;waApply();render()},e=>{S.leadsErr=errMsg(mapErr(e));render()});return}
-    const parts={},keys=[...vs,''];keys.forEach(v=>col.where('venue','==',v).onSnapshot(x=>{parts[v]=docsMap(x);if(keys.every(k=>parts[k])){S.leads=Object.assign({},...keys.map(k=>parts[k]));S.leadsReady=true;waApply();render()}},e=>{S.leadsErr=errMsg(mapErr(e));render()}))})()}
+    const parts={},keys=[...vs];if(!keys.length){S.leads={};S.leadsReady=true;waApply();render();return}keys.forEach(v=>col.where('venue','==',v).onSnapshot(x=>{parts[v]=docsMap(x);if(keys.every(k=>parts[k])){S.leads=Object.assign({},...keys.map(k=>parts[k]));S.leadsReady=true;waApply();render()}},e=>{S.leadsErr=errMsg(mapErr(e));render()}))})()}
 const leadVenueOpts=()=>{const vs=leadScope();return Object.entries(EV_VENUE).filter(([k])=>!vs||vs.includes(k))};
 function waApply(){const sc=leadScope(),raw=S.waChatsRaw||{};S.waChats=sc?Object.fromEntries(Object.entries(raw).filter(([,c])=>!c.leadId||(S.leads||{})[c.leadId])):raw}
 // quotes for the leads page: scoped to the user's hotels' venues like everywhere else (quotesQ; owner/ceo/chain-wide = all)
@@ -1644,6 +1644,7 @@ function leadsSync(){if(!S.can.events||!S.lquotesReady||!S.leadsReady)return;con
     if(Object.keys(up).length){up.updatedAt=now;S.leads[id]={...l,...up};fdb.doc('leads/'+id).set(up,{merge:true}).catch(()=>{})}}}
 function leadSave(){const id=S.sheet.id,l=(S.leads||{})[id]||{},d=S.drafts.lead||{},isNew=!(S.leads||{})[id],v=k=>d[k]!==undefined?d[k]:l[k];
   const name=String(v('name')||'').trim();if(!name){toast('צריך למלא שם');return}
+  if(leadScope()&&!v('venue')){toast('צריך לבחור מקום. ליד בלי מקום רואים רק עובדי הרשת.');return}
   const own=leadOwners(),owner=v('owner')||'',now=Date.now(),stage=v('stage')||'new';
   const o={name,phone:String(v('phone')||'').trim(),email:String(v('email')||'').trim(),company:String(v('company')||'').trim(),type:String(v('type')||'').trim(),date:v('date')||'',guests:+v('guests')||0,venue:v('venue')||'',
     source:v('source')||'',campaign:String(v('campaign')||'').trim(),stage,owner,ownerName:owner?(own[owner]||(owner===l.owner?l.ownerName:'')||''):'',nextAt:v('nextAt')||'',value:+v('value')||0,notes:String(v('notes')||''),lostReason:stage==='lost'?(v('lostReason')||''):'',updatedAt:now};
@@ -1678,7 +1679,7 @@ function vLeads(){leadsSub();tasksSub();waSub();leadCatsLive();leadsSync();const
   const head=`<section class="head"><div class="head-t"><h1>לידים ומכירות</h1><button class="btn pri" data-act="lead-new">+ ליד חדש · ${LCAT[cat]}</button></div>${catBar}
     <div class="chips" style="gap:6px;margin-top:8px"><button class="dchip ${f.view==='pipe'?'':'off'}" data-act="lead-view" data-v="pipe">פייפליין</button><button class="dchip ${f.view==='list'?'':'off'}" data-act="lead-view" data-v="list">רשימה</button>${cat==='events'?`<button class="dchip ${f.view==='clients'?'':'off'}" data-act="lead-view" data-v="clients">לקוחות</button>`:''}<button class="dchip ${f.view==='tasks'?'':'off'}" data-act="lead-view" data-v="tasks">משימות${myTasksDue()?` (${myTasksDue()})`:''}</button><button class="dchip ${f.view==='sales'?'':'off'}" data-act="lead-view" data-v="sales">דשבורד מכירות</button><button class="dchip ${f.view==='wa'?'':'off'}" data-act="lead-view" data-v="wa">💬 וואטסאפ${waUnread()?` (${waUnread()})`:''}</button><button class="dchip ${f.view==='auto'?'':'off'}" data-act="lead-view" data-v="auto">⚡ אוטומציות</button>
     ${f.view==='wa'||f.view==='auto'?'':`    <select data-leadf="own" style="width:auto"><option value="all">כל המטפלים</option><option value="me" ${f.own==='me'?'selected':''}>רק שלי</option><option value="none" ${f.own==='none'?'selected':''}>ללא מטפל</option></select>
-    <select data-leadf="ven" style="width:auto"><option value="all">כל המקומות</option>${leadVenueOpts().map(([k,n])=>`<option value="${k}" ${f.ven===k?'selected':''}>${esc(n)}</option>`).join('')}<option value="none" ${f.ven==='none'?'selected':''}>מקום לא ידוע</option></select>
+    <select data-leadf="ven" style="width:auto"><option value="all">כל המקומות</option>${leadVenueOpts().map(([k,n])=>`<option value="${k}" ${f.ven===k?'selected':''}>${esc(n)}</option>`).join('')}${leadScope()?'':`<option value="none" ${f.ven==='none'?'selected':''}>מקום לא ידוע</option>`}</select>
     <select data-leadf="src" style="width:auto"><option value="all">כל המקורות</option>${LEAD_SRC.map(([k,n])=>`<option value="${k}" ${f.src===k?'selected':''}>${n}</option>`).join('')}</select>
     <input type="search" data-leadf="q" value="${esc(f.q||'')}" placeholder="חיפוש לפי שם, טלפון או חברה" style="max-width:240px">`}</div></section>`;
   if(S.leadsErr)return wrap(head+`<div class="notice">לא הצלחתי לטעון: ${esc(S.leadsErr)}</div>`);
@@ -1720,7 +1721,7 @@ function sheetLead(){const id=S.sheet.id,l=(S.leads||{})[id]||{},isNew=!(S.leads
   <div class="row"><label class="f">שם מלא<input type="text" data-f="lead.name" value="${esc(g('name'))}"></label><label class="f">טלפון<input type="tel" dir="ltr" data-f="lead.phone" value="${esc(g('phone'))}"></label></div>
   <div class="row"><label class="f">אימייל<input type="email" dir="ltr" data-f="lead.email" value="${esc(g('email'))}"></label><label class="f">חברה<input type="text" data-f="lead.company" value="${esc(g('company'))}"></label></div>
   <div class="row"><label class="f">${{rooms:'סוג חדר / חבילה',spa:'סוג טיפול'}[S.drafts.lead&&S.drafts.lead.cat||leadCat(l)]||'סוג אירוע'}<input type="text" list="lead-types" data-f="lead.type" value="${esc(g('type'))}" placeholder="אירוע חברה, חתונה…"><datalist id="lead-types">${['אירוע חברה','חתונה','בר / בת מצווה','יום הולדת','אירוע פרטי','השקה','כנס'].map(x=>`<option value="${x}">`).join('')}</datalist></label><label class="f">תאריך מבוקש<input type="date" data-f="lead.date" value="${esc(g('date'))}"></label><label class="f" style="max-width:110px">אורחים<input type="number" min="0" data-f="lead.guests" value="${esc(g('guests'))}"></label></div>
-  <div class="row"><label class="f">מקום<select data-f="lead.venue"><option value="">עוד לא ידוע</option>${leadVenueOpts().map(([k,n])=>`<option value="${k}" ${g('venue')===k?'selected':''}>${esc(n)}</option>`).join('')}</select></label><label class="f">סכום צפוי (₪, לפני מע״מ)<input type="number" min="0" data-f="lead.value" value="${esc(g('value'))}"></label></div>
+  <div class="row"><label class="f">מקום<select data-f="lead.venue">${leadScope()?`<option value="" disabled ${g('venue')?'':'selected'}>בחירת מקום…</option>`:'<option value="">עוד לא ידוע · רק עובדי הרשת יראו</option>'}${leadVenueOpts().map(([k,n])=>`<option value="${k}" ${g('venue')===k?'selected':''}>${esc(n)}</option>`).join('')}</select></label><label class="f">סכום צפוי (₪, לפני מע״מ)<input type="number" min="0" data-f="lead.value" value="${esc(g('value'))}"></label></div>
   <div class="row"><label class="f">מאיפה הגיע<select data-f="lead.source"><option value="">בחירה…</option>${LEAD_SRC.map(([k,n])=>`<option value="${k}" ${g('source')===k?'selected':''}>${n}</option>`).join('')}</select></label>
   <label class="f">קמפיין<input type="text" list="lead-camps" data-f="lead.campaign" value="${esc(g('campaign'))}" placeholder="שם הקמפיין בסושיאל"><datalist id="lead-camps">${camps.map(x=>`<option value="${esc(x)}">`).join('')}</datalist></label></div>
   <div class="row"><label class="f">מטפל/ת<select data-f="lead.owner"><option value="" ${g('owner')?'':'selected'}>— עוד לא נבחר —</option>${Object.entries(own).map(([u,n])=>`<option value="${u}" ${g('owner')===u?'selected':''}>${esc(n)}</option>`).join('')}</select></label><label class="f">לחזור ללקוח בתאריך<input type="date" data-f="lead.nextAt" value="${esc(g('nextAt'))}"></label></div>

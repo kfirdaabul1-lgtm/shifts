@@ -387,12 +387,12 @@ exports.quoteExpiry = functions.region(REGION).pubsub.schedule('0 9 * * *').time
 });
 // events users; with a venue, only those who may see that venue's leads (owner, Nov 1: leads separated per hotel):
 // roles with no hotels = all, otherwise one of their hotels' settings.venues must include it (a lead with no venue goes to everyone)
-async function eventsPeople(venue) {
+async function eventsPeople(venue, lead) {
   const out = new Set(), rs = await db.collection('roles').get(), vc = {};
   const vOf = async (h) => { if (!(h in vc)) { try { const d = await db.doc('settings/' + h).get(); vc[h] = (d.exists && d.data().venues) || []; } catch (e) { vc[h] = []; } } return vc[h]; };
   for (const d of rs.docs) {
     const r = d.data() || {}; if (r.station || !(r.apps && r.apps.events)) continue;
-    const hs = r.hotels || []; if (!venue || !hs.length) { out.add(d.id); continue; }
+    const hs = r.hotels || []; if (!hs.length) { out.add(d.id); continue; } if (!venue) { if (!lead) out.add(d.id); continue; } // lead with no place → chain staff only
     for (const h of hs) if ((await vOf(h)).includes(venue)) { out.add(d.id); break; }
   }
   const own = await db.collection('pushTokens').where('owner', '==', true).get(); own.forEach((d) => out.add(d.id));
@@ -437,7 +437,7 @@ async function metaLeads(cfg) {
   }
   const byV = {}; for (const l of fresh) (byV[l.venue || ''] = byV[l.venue || ''] || []).push(l);
   for (const [v, fl] of Object.entries(byV)) {
-    const who = await eventsPeople(v);
+    const who = await eventsPeople(v, true);
     await sendTo(who, { title: fl.length === 1 ? 'ליד חדש מ-Meta' : `${fl.length} לידים חדשים מ-Meta`, body: fl.slice(0, 3).map((l) => l.name + (l.campaign ? ' · ' + l.campaign : '')).join(' | '), hash: '#leads', tag: 'meta-leads-' + v });
   }
   return { pages: pages.map((p) => p.name), forms, newLeads: fresh.length, leadsAt: started };
@@ -738,7 +738,7 @@ async function waIncoming(m, name, push) {
   let leadId = c.leadId, owner = '', venue = '';
   if (!leadId) { try { const L = await waLead(chat, name || c.name); leadId = L.id; owner = L.owner; venue = L.venue || ''; await cref.set({ leadId }, { merge: true }); } catch (e) { console.warn('wa lead', e.message); } }
   else { try { const l = await db.doc('leads/' + leadId).get(); owner = (l.exists && l.data().owner) || ''; venue = (l.exists && l.data().venue) || ''; } catch (e) { } }
-  if (push) await sendTo(owner ? [owner] : await eventsPeople(venue), { title: '💬 ' + (name || c.name || waLocal(chat)), body: text.slice(0, 140), hash: '#leads?wa=' + chat, tag: 'wa-' + chat });
+  if (push) await sendTo(owner ? [owner] : await eventsPeople(venue, true), { title: '💬 ' + (name || c.name || waLocal(chat)), body: text.slice(0, 140), hash: '#leads?wa=' + chat, tag: 'wa-' + chat });
 }
 async function waOutgoing(chat, m, src) {
   const at = (+m.timestamp || Date.now() / 1000) * 1000, text = waText(m);

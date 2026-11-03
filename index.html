@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202611031730"></script>
+<script src="i18n.js?v=202611031800"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -470,7 +470,7 @@ const dv=(f,k,fb)=>{const d=S.drafts[f];return d&&k in d?d[k]:fb};
 function onField(e){if(e.target.dataset&&e.target.dataset.orgv){const [i,k]=e.target.dataset.orgv.split('|'),d=orgDraft();(d.venues[+i]||(d.venues[+i]={}))[k]=e.target.value;return}
   const f=e.target.dataset&&e.target.dataset.f;if(!f)return;const [form,key]=f.split('.');(S.drafts[form]||(S.drafts[form]={}))[key]=e.target.type==='checkbox'?e.target.checked:e.target.value;
   if(form==='pl'&&e.type==='change'&&(key==='from'||key==='to'))renderSheet();
-  if(form==='grp'){if(e.target.tagName==='SELECT'&&e.type==='change'){if(['plId','roomType','board','agentId'].includes(key))grpApplyPl(key);render()}else if((key==='ci'||key==='co')&&e.type==='change'){grpApplyPl('dates');renderSheet()}else{const el=document.getElementById('grpTot');if(el&&S.sheet&&S.sheet.type==='grp')el.innerHTML=grpTotHTML({...((S.grps||{})[S.sheet.id]||{}),...(S.drafts.grp||{})})}}
+  if(form==='grp'){if(e.target.tagName==='SELECT'&&e.type==='change'){if(['plId','roomType','board','agentId','hotel'].includes(key))grpApplyPl(key);render()}else if((key==='ci'||key==='co')&&e.type==='change'){grpApplyPl('dates');renderSheet()}else{const el=document.getElementById('grpTot');if(el&&S.sheet&&S.sheet.type==='grp')el.innerHTML=grpTotHTML({...((S.grps||{})[S.sheet.id]||{}),...(S.drafts.grp||{})})}}
   if(form==='set'){if(e.target.type==='checkbox'){if(e.type==='change')render()}else S.pending=true}
   if((form==='wa'&&key==='tpl')||(form==='wac'&&key==='provider')){if(e.type==='change')render()}
   if(form==='sr'&&(key==='shift'||((key==='r420'||key==='cash')&&e.type==='change'))){if(key==='shift')e.target.blur();if(e.type==='change')render()}}
@@ -1084,11 +1084,15 @@ const plRate=(pl,l,board,ci,co)=>{const n=+(l&&l.ppr)||0;if(plHasGrid0(pl)){cons
 const plAgents=l=>Array.isArray(l&&l.agentIds)?l.agentIds:(l&&l.agentId?[l.agentId]:[]);
 const plForAg=(l,ag)=>{const a=plAgents(l);return !a.length||a.includes(ag)};
 const plAgNames=l=>plAgents(l).map(a=>((S.agents||{})[a]||{}).name||'סוכן').join(', ');
-function plPick(cur){const t=cur.ci||todayISO(),ok=Object.entries(S.pls||{}).filter(([,l])=>l.active!==false&&(!l.hotel||l.hotel===cur.hotel)&&plForAg(l,cur.agentId));
-  const valid=([,l])=>(!l.from||l.from<=t)&&(!l.to||l.to>=t),sc=e=>(cur.agentId&&plAgents(e[1]).includes(cur.agentId)?2:0)+(valid(e)?1:0);return (ok.sort((a,b)=>sc(b)-sc(a))[0]||[])[0]||''}
+function plSpan(cur){const a=cur.ci||todayISO(),b=cur.co&&cur.co>a?addDays(cur.co,-1):a;return [a,b]}
+function plValidFor(l,cur){const [a,b]=plSpan(cur);return (!l.from||l.from<=a)&&(!l.to||l.to>=b)}
+function plCands(cur){const base=Object.entries(S.pls||{}).filter(([,l])=>l.active!==false&&(!l.hotel||l.hotel===cur.hotel)&&plValidFor(l,cur));
+  const own=cur.agentId?base.filter(([,l])=>plAgents(l).includes(cur.agentId)):[];if(own.length)return own;return base.filter(([,l])=>!plAgents(l).length)}
+function plWhyNot(pid,cur){const l=plOf(pid);if(!l)return '';if(l.active===false)return 'לא פעיל';if(!plValidFor(l,cur))return 'לא בתוקף לתאריכים';if(plAgents(l).length&&!plAgents(l).includes(cur.agentId))return 'של סוכן אחר';return 'לא רלוונטי'}
+function plPick(cur){return ((plCands(cur)[0])||[])[0]||''}
 function grpApplyPl(key){const d=S.drafts.grp||(S.drafts.grp={}),x=((S.grps||{})[S.sheet&&S.sheet.id])||{};
-  if(key==='agentId'&&grpMode({...x,...d})==='pl'){const cur0={...x,...d},p=plPick(cur0),ol=plOf(cur0.plId),olOwn=ol&&cur0.agentId&&plAgents(ol).includes(cur0.agentId),pOwn=p&&cur0.agentId&&plAgents(plOf(p)).includes(cur0.agentId);
-    if(ol&&plForAg(ol,cur0.agentId)&&(olOwn||!pOwn))return;if(!p){d.plId='';return}d.plId=p;key='plId'}
+  if((key==='agentId'||key==='dates'||key==='hotel')&&grpMode({...x,...d})==='pl'){const cur0={...x,...d},C=plCands(cur0);
+    if(!C.some(([pid])=>pid===cur0.plId)){const p=(C[0]||[])[0]||'';if(!p){if(key!=='dates')d.plId='';return}d.plId=p;key='plId'}else if(key!=='dates')return}
   const cur={...x,...d},l=plOf(cur.plId);if(!l)return;
   if(key==='plId'&&plHasGrid0(l)&&!cur.board){d.board=plBoardFirst(l);cur.board=d.board}
   if(plHasGrid0(l)&&(key==='plId'||key==='board'||key==='dates')){d.boardPrice='';d.lines=grpLines({...cur,...d}).map(x=>{const r=plRate(l,x,cur.board,cur.ci,cur.co);return {...x,price:r==null?0:r}})}
@@ -1128,7 +1132,9 @@ function sheetGrp(){const id=S.sheet.id,x=(S.grps||{})[id]||{},isNew=!(S.grps||{
   <div class="row"><label class="f">מלון<select data-f="grp.hotel">${hs.map(h=>`<option value="${h}" ${cur.hotel===h?'selected':''}>${esc(hotelName(h))}</option>`).join('')}</select></label>
   <label class="f">סטטוס<select data-f="grp.status">${GRP_ST.map(([k,n])=>`<option value="${k}" ${(cur.status||'offer')===k?'selected':''}>${n}</option>`).join('')}</select></label></div>
   <div class="f"><span>מחיר</span><div class="seg" role="group"><button data-act="grp-mode" data-v="pl" aria-pressed="${grpMode(cur)==='pl'}">לפי מחירון</button><button data-act="grp-mode" data-v="free" aria-pressed="${grpMode(cur)==='free'}">הצעה מיוחדת (בלי מחירון)</button></div></div>
-  ${grpMode(cur)==='pl'?`<label class="f">מחירון<select data-f="grp.plId"><option value="">בוחרים מחירון…</option>${Object.entries(S.pls||{}).filter(([pid,l])=>(l.active!==false||pid===cur.plId)&&(!l.hotel||l.hotel===cur.hotel)&&(plForAg(l,cur.agentId)||pid===cur.plId)).sort(([,a],[,b])=>(plAgents(b).length?1:0)-(plAgents(a).length?1:0)).map(([pid,l])=>`<option value="${pid}" ${cur.plId===pid?'selected':''}>${esc(l.name||'מחירון')}${plAgents(l).length?' · '+esc(plAgNames(l)):''}${l.from||l.to?' · '+(l.from?dm(l.from):'')+'–'+(l.to?dm(l.to):''):''}</option>`).join('')}</select></label>`:''}
+  ${grpMode(cur)==='pl'?`<label class="f">מחירון<select data-f="grp.plId"><option value="">בוחרים מחירון…</option>${(()=>{const C=plCands(cur),L=[...C];if(cur.plId&&plOf(cur.plId)&&!C.some(([pid])=>pid===cur.plId))L.push([cur.plId,plOf(cur.plId)]);
+    return L.map(([pid,l])=>{const bad=!C.some(([q])=>q===pid);return `<option value="${pid}" ${cur.plId===pid?'selected':''}>${bad?'⚠️ ':''}${esc(l.name||'מחירון')}${plAgents(l).length?' · '+esc(plAgNames(l)):''}${l.from||l.to?' · '+(l.from?dm(l.from):'')+'–'+(l.to?dm(l.to):''):''}${bad?' · '+plWhyNot(pid,cur):''}</option>`}).join('')})()}</select></label>
+  ${!plCands(cur).length?`<div class="muted" style="color:var(--bad,#c0392b)">${cur.agentId?'אין חוזה בתוקף לסוכן הזה לתאריכים האלה':'אין מחירון כללי בתוקף לתאריכים האלה'}</div>`:cur.plId&&!plCands(cur).some(([q])=>q===cur.plId)?`<div class="muted" style="color:var(--bad,#c0392b)">המחירון שנבחר ${plWhyNot(cur.plId,cur)} — כדאי לבחור חוזה אחר</div>`:''}`:''}
   ${(cur.status||'offer')==='option'?`<label class="f">האופציה שמורה עד<input type="date" data-f="grp.optUntil" value="${esc(g('optUntil',''))}"></label>`:''}
   <div class="row"><label class="f">סוכן<select data-f="grp.agentId"><option value="">בלי סוכן</option>${ags.map(([aid,a])=>`<option value="${aid}" ${cur.agentId===aid?'selected':''}>${esc(a.name||'')}${a.company?' · '+esc(a.company):''}</option>`).join('')}</select></label>
   <label class="f">איש קשר בקבוצה<input type="text" data-f="grp.contact" value="${esc(g('contact',''))}" placeholder="לא חובה"></label></div>

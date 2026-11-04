@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202611041210"></script>
+<script src="i18n.js?v=202611041220"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -353,6 +353,9 @@ details.card.fold{gap:10px}
 details.sub-fold{border-top:1px solid var(--line);padding-top:8px}
 details.sub-fold>summary h4{margin:0}
 .td-row{display:grid;gap:6px;margin-top:8px}.td-b{border:1px solid var(--line);border-top:2px solid var(--gold);border-radius:6px;padding:6px 2px;text-align:center;background:var(--surface)}.td-v{font-family:"Frank Ruhl Libre",serif;font-size:1.35rem;line-height:1.1}.td-l{color:var(--muted);font-size:.68rem;line-height:1.2}
+.plag-list{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+.plag{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 12px;border:1px solid var(--line);border-radius:6px;background:var(--surface,#fff)}
+.plag button{border:0;background:none;color:var(--muted,#777);font-size:1rem;cursor:pointer;padding:2px 6px}
 </style>
 </head>
 <body>
@@ -524,6 +527,8 @@ function onField(e){if(e.target.dataset&&e.target.dataset.orgv){const [i,k]=e.ta
   if(form==='set'){if(e.target.type==='checkbox'){if(e.type==='change')render()}else S.pending=true}
   if((form==='wa'&&key==='tpl')||(form==='wac'&&key==='provider')){if(e.type==='change')render()}
   if(form==='sr'&&(key==='shift'||((key==='r420'||key==='cash')&&e.type==='change'))){if(key==='shift')e.target.blur();if(e.type==='change')render()}}
+document.addEventListener('change',e=>{const t=e.target;if(t.matches&&t.matches('[data-plmsel]')&&S.sheet)ACT['pl-m']({v:t.value})});
+document.addEventListener('change',e=>{const t=e.target;if(!t.matches||!t.matches('[data-plagadd]')||!t.value||!S.sheet)return;ACT['pl-ag']({id:t.value})});
 document.addEventListener('change',e=>{const t=e.target;if(!t.matches||!t.matches('[data-agpl]')||!t.value)return;const aid=t.dataset.agpl,pid=t.value,l=(S.pls||{})[pid];if(!l)return;const a=[...new Set([...plAgents(l),aid])];
   S.pls={...S.pls,[pid]:{...l,agentIds:a,agentId:''}};render();fdb.doc('priceLists/'+pid).set({agentIds:a,agentId:''},{merge:true}).then(()=>toast('המחירון חובר לסוכן'),err=>toast('לא הצלחתי: '+errMsg(mapErr(err))))});
 document.addEventListener('input',e=>{const t=e.target;if(!t.matches)return;
@@ -1135,10 +1140,12 @@ function sheetPl(){const id=S.sheet.id,x=(S.pls||{})[id]||{},isNew=!(S.pls||{})[
   <label class="f">שם המחירון<input type="text" data-f="pl.name" value="${esc(g('name',''))}" placeholder="למשל קבוצות חורף 2027"></label>
   <div class="row"><label class="f">מלון<select data-f="pl.hotel"><option value="">כל המלונות</option>${hs.map(h=>`<option value="${h}" ${g('hotel','')===h?'selected':''}>${esc(hotelName(h))}</option>`).join('')}</select></label><label class="f">מטבע<select data-f="pl.cur">${Object.entries(GRP_CUR).map(([k,c])=>`<option value="${k}" ${g('cur','ils')===k?'selected':''}>${c}</option>`).join('')}</select></label></div>
   ${(()=>{const sel=dv('pl','agentIds',plAgents(x))||[],ags=Object.entries(S.agents||{}).filter(([aid,a])=>a.active!==false||sel.includes(aid)).sort(([,a],[,b])=>String(a.name||'').localeCompare(String(b.name||''),'he'));
-    return `<div class="f"><span>סוכנים במחירון</span><div class="chips" style="gap:6px;flex-wrap:wrap">${ags.map(([aid,a])=>`<button class="dchip ${sel.includes(aid)?'':'off'}" data-act="pl-ag" data-id="${aid}" aria-pressed="${sel.includes(aid)}">${esc(a.name||'')}</button>`).join('')||'<span class="muted">עוד אין סוכנים</span>'}</div><small class="muted">${sel.length?'המחירון יופיע רק בקבוצות של הסוכנים שנבחרו. לכל סוכן אפשר כמה מחירונים (למשל חורף וקיץ).':'בלי סוכן = מחירון כללי לכל הסוכנים.'}</small></div>`})()}
+    const rest=ags.filter(([aid])=>!sel.includes(aid)),nm=aid=>((S.agents||{})[aid]||{}).name||'סוכן';
+    return `<div class="f"><span>סוכנים במחירון</span>${ags.length?`<select data-plagadd aria-label="בחירת סוכן"><option value="">${sel.length?'+ הוספת סוכן נוסף…':'בחירת סוכן… (בלי סוכן = כללי)'}</option>${rest.map(([aid,a])=>`<option value="${aid}">${esc(a.name||'')}</option>`).join('')}</select>`:'<span class="muted">עוד אין סוכנים</span>'}
+      ${sel.length?`<div class="plag-list">${sel.map(aid=>`<span class="plag"><b>${esc(nm(aid))}</b><button type="button" data-act="pl-ag" data-id="${aid}" aria-label="הסרת הסוכן">✕</button></span>`).join('')}</div>`:''}<small class="muted">${sel.length?'המחירון יופיע רק בקבוצות של הסוכנים שנבחרו. לכל סוכן אפשר כמה מחירונים (למשל חורף וקיץ).':'בלי סוכן = מחירון כללי לכל הסוכנים.'}</small></div>`})()}
   <div class="row"><label class="f">תקופה: מ-<input type="date" data-f="pl.from" value="${esc(g('from',''))}"></label><label class="f">עד<input type="date" data-f="pl.to" value="${esc(g('to',''))}"></label></div>
   ${(()=>{const ms=plMonths({from:g('from',''),to:g('to','')});if(!ms.length)return '<p class="muted" style="font-size:.8rem;margin:0">בוחרים תקופה (מ- ועד) כדי לתת מחיר שונה לכל חודש.</p>';const cm=S.plM&&ms.includes(S.plM)?S.plM:'';const mg=dv('pl','mgrid',x.mgrid||{})||{},has=m=>mg[m]&&Object.values(mg[m]).some(o=>o&&Object.values(o).some(v=>v!==''&&v!=null));
-    return `<div class="f"><span>מחיר לפי חודש</span><div class="chips" style="gap:6px;flex-wrap:wrap"><button class="dchip ${cm?'off':''}" data-act="pl-m" data-v="">כל התקופה (בסיס)</button>${ms.map(m=>`<button class="dchip ${cm===m?'':'off'}" data-act="pl-m" data-v="${m}">${HE_MON[+m.slice(5)-1]} ${m.slice(2,4)}${has(m)?' ●':''}</button>`).join('')}</div>${cm?`<p class="muted" style="font-size:.8rem;margin:4px 0 0">מחירים ל${HE_MON[+cm.slice(5)-1]} ${cm.slice(0,4)}. משבצת ריקה = מחיר הבסיס (מופיע באפור). <button class="linkbtn" data-act="pl-mcopy">העתקה מהחודש הקודם</button> · <button class="linkbtn" data-act="pl-mclear">ניקוי החודש</button></p>`:'<p class="muted" style="font-size:.8rem;margin:4px 0 0">מחירי הבסיס חלים על כל חודש שלא קיבל מחיר משלו (● = לחודש יש מחירים משלו).</p>'}</div>`})()}
+    return `<div class="f"><span>מחיר לפי חודש</span><select data-plmsel aria-label="מחיר לפי חודש"><option value="" ${cm?'':'selected'}>כל התקופה (בסיס)</option>${ms.map(m=>`<option value="${m}" ${cm===m?'selected':''}>${HE_MON[+m.slice(5)-1]} ${m.slice(0,4)}${has(m)?' ●':''}</option>`).join('')}</select>${cm?`<p class="muted" style="font-size:.8rem;margin:4px 0 0">מחירים ל${HE_MON[+cm.slice(5)-1]} ${cm.slice(0,4)}. משבצת ריקה = מחיר הבסיס (מופיע באפור). <button class="linkbtn" data-act="pl-mcopy">העתקה מהחודש הקודם</button> · <button class="linkbtn" data-act="pl-mclear">ניקוי החודש</button></p>`:'<p class="muted" style="font-size:.8rem;margin:4px 0 0">מחירי הבסיס חלים על כל חודש שלא קיבל מחיר משלו (● = לחודש יש מחירים משלו).</p>'}</div>`})()}
   <div class="f"><span>מחיר לאדם ללילה · לפי כמות אנשים בחדר ובסיס אירוח</span><p class="muted" style="font-size:.8rem;margin:2px 0 6px">משאירים ריק מה שלא מוכרים. למשל זוגי ב-BB = המחיר לכל אחד מהשניים ללילה.</p>
     <div class="scroll-x"><table class="plain plg"><thead><tr><th></th>${GRP_BOARD.map(([b,n])=>`<th>${b.toUpperCase()}<div class="muted" style="font-weight:400;font-size:.72rem">${esc(n.replace(/\s*\(.*\)/,''))}</div></th>`).join('')}</tr></thead><tbody>${PL_PPR.map(([n,lab])=>`<tr><th>${lab}</th>${GRP_BOARD.map(([b])=>`<td><input type="number" min="0" step="any" inputmode="decimal" data-plg="${n}|${b}" value="${esc(((cg[n]||{})[b])??'')}" placeholder="${S.plM&&cg!==grid?esc(((grid[n]||{})[b])??''):''}" aria-label="${lab} ${b.toUpperCase()}"></td>`).join('')}</tr>`).join('')}</tbody></table></div>
     ${(x.rows||[]).length&&!plHasGrid(x)?`<p class="muted" style="font-size:.8rem">במחירון הזה יש עדיין מחירים לפי סוג חדר (${(x.rows||[]).map(r=>esc(r.type||'')+' '+grpMoney(r.rate,x.cur)).join(' · ')}). ברגע שממלאים את הטבלה, הטבלה קובעת.</p>`:''}</div>

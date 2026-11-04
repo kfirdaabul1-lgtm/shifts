@@ -306,6 +306,15 @@ exports.crmMorning = functions.region(REGION).pubsub.schedule('30 8 * * *').time
   }));
 });
 
+// ---------- bar end-of-shift report (Nov 4) → hotel manager, shifts managers and bar dept managers (+owner) ----------
+exports.onBarReport = trig('barReports/{id}').onCreate(async (snap) => {
+  const r = snap.data() || {}, ils = (n) => '₪' + Math.round(+n || 0).toLocaleString('he-IL');
+  const sh = { morning: 'בוקר', evening: 'ערב', night: 'לילה' }[r.shift] || '';
+  const to = (await roleHolders(r.hotel, ['gm', 'shifts'], 'bar')).filter((u) => u !== r.by);
+  const body = `${r.name || ''}${sh ? ' · ' + sh : ''} · מזומן ${ils(r.cash)} · אשראי ${ils(r.credit)} · טיפים ${ils(r.tips)}${r.missing === 'yes' ? ' · ⚠️ חסר: ' + (r.missingNote || '') : ''}`;
+  return sendTo(to, { title: (r.missing === 'yes' ? '⚠️ ' : '') + 'דוח בר · ' + (await hotelName(r.hotel)), body, hash: '#bar', tag: 'bar-' + snap.id });
+});
+
 // ---------- site tours (Nov 4): tours/{id} scheduled from a lead → on the day: the person who scheduled it, the reception (desks + front) and the hotel manager ----------
 async function tourHotel(venue) {
   if (!venue) return '';

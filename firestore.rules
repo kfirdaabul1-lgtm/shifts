@@ -518,6 +518,24 @@ service cloud.firestore {
 
     // דוחות משמרת בלי סכומים (עותק שהשרת כותב): הקבלה רואה את הדוחות של המלון שלה לצורך חפיפה
     // shift report photo of the reception / bar (srImgs/{reportId}); new doc only, no money in it
+    // bar (Nov 4): bartenders (bar department of the hotel) file end-of-shift reports; bosses = managers / gm / bar dept managers
+    function barMember(h) {
+      let p = /databases/$(database)/documents/employees/$(request.auth.uid);
+      return signedIn() && exists(p) && get(p).data.get('hotel', '') == h && 'bar' in get(p).data.get('depts', []);
+    }
+    function barBoss(h) { return manages(h) || gmIn(h) || (deptMgr(h) && 'bar' in roleDepts()); }
+    match /barReports/{id} {
+      allow read: if signedIn() && (resource.data.by == request.auth.uid || barBoss(resource.data.hotel) || canCeo() || finIn(resource.data.hotel));
+      allow create: if signedIn() && request.resource.data.by == request.auth.uid && (barMember(request.resource.data.hotel) || barBoss(request.resource.data.hotel));
+      allow update, delete: if barBoss(resource.data.hotel);
+    }
+    match /barImgs/{id} {
+      allow read: if signedIn() && (resource.data.by == request.auth.uid || barBoss(resource.data.hotel) || canCeo() || finIn(resource.data.hotel));
+      allow create: if !exists(/databases/$(database)/documents/barImgs/$(id)) && signedIn() && request.resource.data.by == request.auth.uid
+        && request.resource.data.data is string && request.resource.data.data.matches('^data:image/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$')
+        && (barMember(request.resource.data.hotel) || barBoss(request.resource.data.hotel));
+      allow delete: if barBoss(resource.data.hotel);
+    }
     match /srImgs/{id} {
       allow read: if frontIn(resource.data.hotel) || manages(resource.data.hotel) || gmIn(resource.data.hotel) || canCeo() || finIn(resource.data.hotel) || cmpIn(resource.data.hotel) || briefIn(resource.data.hotel);
       allow create: if !exists(/databases/$(database)/documents/srImgs/$(id)) && request.resource.data.by == request.auth.uid

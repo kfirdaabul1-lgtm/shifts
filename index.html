@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202611041300"></script>
+<script src="i18n.js?v=202611041405"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -356,6 +356,12 @@ details.sub-fold>summary h4{margin:0}
 .plag-list{display:flex;flex-direction:column;gap:6px;margin-top:8px}
 .plag{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 12px;border:1px solid var(--line);border-radius:6px;background:var(--surface,#fff)}
 .plag button{border:0;background:none;color:var(--muted,#777);font-size:1rem;cursor:pointer;padding:2px 6px}
+.msel{border:1px solid var(--line);border-radius:6px;background:var(--surface,#fff)}
+.msel>summary{padding:10px 12px;cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.msel>summary::-webkit-details-marker{display:none}
+.msel>summary::after{content:'▾';color:var(--muted,#777)}
+.msel-list{border-top:1px solid var(--line);padding:6px 12px 10px;max-height:300px;overflow:auto}
+.msel-row{display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer}
 </style>
 </head>
 <body>
@@ -527,7 +533,11 @@ function onField(e){if(e.target.dataset&&e.target.dataset.orgv){const [i,k]=e.ta
   if(form==='set'){if(e.target.type==='checkbox'){if(e.type==='change')render()}else S.pending=true}
   if((form==='wa'&&key==='tpl')||(form==='wac'&&key==='provider')){if(e.type==='change')render()}
   if(form==='sr'&&(key==='shift'||((key==='r420'||key==='cash')&&e.type==='change'))){if(key==='shift')e.target.blur();if(e.type==='change')render()}}
-document.addEventListener('change',e=>{const t=e.target;if(t.matches&&t.matches('[data-plmsel]')&&S.sheet)ACT['pl-m']({v:t.value})});
+document.addEventListener('change',e=>{const t=e.target;if(!t.matches||!S.sheet||S.sheet.type!=='pl')return;
+  const x=(S.pls||{})[S.sheet.id]||{},ms=plMonths({from:dv('pl','from',x.from||''),to:dv('pl','to',x.to||'')});
+  if(t.matches('[data-plmchk]')){const m=t.dataset.plmchk,a=new Set(plSelMs(ms));if(t.checked)a.add(m);else a.delete(m);S.plMs=[...a];S.plMOpen=true;renderSheet()}
+  else if(t.matches('[data-plmall]')){S.plMs=t.checked?ms.slice():[];S.plMOpen=true;renderSheet()}});
+document.addEventListener('toggle',e=>{const t=e.target;if(t&&t.matches&&t.matches('details[data-msel]'))S.plMOpen=t.open},true);
 document.addEventListener('change',e=>{const t=e.target;if(!t.matches||!t.matches('[data-plagadd]')||!t.value||!S.sheet)return;ACT['pl-ag']({id:t.value})});
 document.addEventListener('change',e=>{const t=e.target;if(!t.matches||!t.matches('[data-agpl]')||!t.value)return;const aid=t.dataset.agpl,pid=t.value,l=(S.pls||{})[pid];if(!l)return;const a=[...new Set([...plAgents(l),aid])];
   S.pls={...S.pls,[pid]:{...l,agentIds:a,agentId:''}};render();fdb.doc('priceLists/'+pid).set({agentIds:a,agentId:''},{merge:true}).then(()=>toast('המחירון חובר לסוכן'),err=>toast('לא הצלחתי: '+errMsg(mapErr(err))))});
@@ -539,7 +549,8 @@ document.addEventListener('input',e=>{const t=e.target;if(!t.matches)return;
     if(k==='ppr'){const pl=plOf((d.plId??x.plId)||'');if(pl&&grpMode({...x,...d})!=='free'){const r=plRate(pl,l,(d.board??x.board)||'',d.ci??x.ci,d.co??x.co,d.dayBoards??x.dayBoards);l.price=r==null?0:r;const sp=document.getElementById('glp'+i);if(sp){sp.textContent=r==null?'⚠️ אין מחיר במחירון':grpMoney(r,pl.cur)+' לאדם';sp.style.color=r==null?'var(--bad,#C0392B)':'';sp.style.fontWeight=r==null?'700':''}}}
     const cur={...x,...d},el=document.getElementById('grpTot');if(el)el.innerHTML=grpTotHTML(cur)}
   else if(t.matches('[data-plg]')&&S.sheet&&S.sheet.type==='pl'){const [n,b]=t.dataset.plg.split('|'),x=(S.pls||{})[S.sheet.id]||{},d=S.drafts.pl||(S.drafts.pl={});
-    if(S.plM){if(!d.mgrid)d.mgrid=JSON.parse(JSON.stringify(x.mgrid||{}));const mm=d.mgrid[S.plM]||(d.mgrid[S.plM]={});(mm[n]||(mm[n]={}))[b]=t.value}
+    const sel=plSelMs(plMonths({from:dv('pl','from',x.from||''),to:dv('pl','to',x.to||'')}));
+    if(sel.length){if(!d.mgrid)d.mgrid=JSON.parse(JSON.stringify(x.mgrid||{}));for(const m of sel){const mm=d.mgrid[m]||(d.mgrid[m]={});(mm[n]||(mm[n]={}))[b]=t.value}}
     else{if(!d.grid)d.grid=JSON.parse(JSON.stringify(x.grid||{}));(d.grid[n]||(d.grid[n]={}))[b]=t.value}}
   else if(t.matches('[data-plrow]')&&S.sheet&&S.sheet.type==='pl'){const [i,k]=t.dataset.plrow.split('|'),x=(S.pls||{})[S.sheet.id]||{},d=S.drafts.pl||(S.drafts.pl={});if(!d.rows)d.rows=JSON.parse(JSON.stringify(x.rows||[{type:'',rate:''}]));(d.rows[+i]||(d.rows[+i]={}))[k]=t.value}
   else if(t.matches('[data-srrow]')){const [l,i,k]=t.dataset.srrow.split('|'),d=S.drafts.sr||(S.drafts.sr={}),a=d[l]||(d[l]=[]);(a[+i]||(a[+i]={}))[k]=t.value}
@@ -1134,7 +1145,9 @@ function grpPayHTML(){const t=todayISO(),hs=grpHs(),F=S.payF||(S.payF={ag:'all'}
       <span style="text-align:left"><b>${grpMoney(x.c.balance,g.cur)}</b><br><span class="pill ${lt?'bad':'warn'}">${x.due?(lt?'באיחור מ-':'עד ')+dm(x.due):'בלי תאריך'}</span></span>
       <div class="actions" style="width:100%;justify-content:flex-end"><button class="btn sm ghost" data-act="grp-open" data-id="${x.id}">פתיחה</button><button class="btn sm" data-act="grp-paid" data-id="${x.id}">${S.confirm==='gp:'+x.id?'לחיצה נוספת תסמן ששולם הכול':'✓ שולם במלואו'}</button></div></div>`}).join('');
   return kpi+chips+(S.grpsReady?(rows?`<div class="plist">${rows}</div>`:emptyBox('אין תשלומים פתוחים','קבוצות מאושרות או באופציה עם יתרה לתשלום יופיעו כאן לפי תאריך התשלום.')):'<p class="muted">טוען…</p>')+`<p class="muted" style="font-size:.85rem;margin-top:10px">תאריך התשלום מחושב מתנאי התשלום של הסוכן (או מהתאריך שנרשם בקבוצה). מופיעות קבוצות מאושרות ובאופציה.</p>`}
-function sheetPl(){const id=S.sheet.id,x=(S.pls||{})[id]||{},isNew=!(S.pls||{})[id],g=(k,d)=>dv('pl',k,x[k]??d),hs=grpHs(),grid=(S.drafts.pl&&S.drafts.pl.grid)||x.grid||{},pm=S.plM&&plMonths({from:g('from',''),to:g('to','')}).includes(S.plM)?S.plM:'',cg=pm?((((S.drafts.pl&&S.drafts.pl.mgrid)||x.mgrid||{})[pm])||{}):grid;
+// months selected in the price-list sheet (several at once; owner, Nov 4)
+const plSelMs=ms=>(S.plMs||[]).filter(m=>ms.includes(m)).sort();
+function sheetPl(){const id=S.sheet.id,x=(S.pls||{})[id]||{},isNew=!(S.pls||{})[id],g=(k,d)=>dv('pl',k,x[k]??d),hs=grpHs(),grid=(S.drafts.pl&&S.drafts.pl.grid)||x.grid||{},pm=plSelMs(plMonths({from:g('from',''),to:g('to','')}))[0]||'',cg=pm?((((S.drafts.pl&&S.drafts.pl.mgrid)||x.mgrid||{})[pm])||{}):grid;
   const mine=Object.entries(S.grps||{}).filter(([,gr])=>gr.plId===id).sort(([,a],[,b])=>String(a.ci||'').localeCompare(String(b.ci||'')));
   return sheetHead(isNew?'מחירון חדש':esc(x.name||'מחירון'),'')+`
   <label class="f">שם המחירון<input type="text" data-f="pl.name" value="${esc(g('name',''))}" placeholder="למשל קבוצות חורף 2027"></label>
@@ -1144,10 +1157,15 @@ function sheetPl(){const id=S.sheet.id,x=(S.pls||{})[id]||{},isNew=!(S.pls||{})[
     return `<div class="f"><span>סוכנים במחירון</span>${ags.length?`<select data-plagadd aria-label="בחירת סוכן"><option value="">${sel.length?'+ הוספת סוכן נוסף…':'בחירת סוכן… (בלי סוכן = כללי)'}</option>${rest.map(([aid,a])=>`<option value="${aid}">${esc(a.name||'')}</option>`).join('')}</select>`:'<span class="muted">עוד אין סוכנים</span>'}
       ${sel.length?`<div class="plag-list">${sel.map(aid=>`<span class="plag"><b>${esc(nm(aid))}</b><button type="button" data-act="pl-ag" data-id="${aid}" aria-label="הסרת הסוכן">✕</button></span>`).join('')}</div>`:''}<small class="muted">${sel.length?'המחירון יופיע רק בקבוצות של הסוכנים שנבחרו. לכל סוכן אפשר כמה מחירונים (למשל חורף וקיץ).':'בלי סוכן = מחירון כללי לכל הסוכנים.'}</small></div>`})()}
   <div class="row"><label class="f">תקופה: מ-<input type="date" data-f="pl.from" value="${esc(g('from',''))}"></label><label class="f">עד<input type="date" data-f="pl.to" value="${esc(g('to',''))}"></label></div>
-  ${(()=>{const ms=plMonths({from:g('from',''),to:g('to','')});if(!ms.length)return '<p class="muted" style="font-size:.8rem;margin:0">בוחרים תקופה (מ- ועד) כדי לתת מחיר שונה לכל חודש.</p>';const cm=S.plM&&ms.includes(S.plM)?S.plM:'';const mg=dv('pl','mgrid',x.mgrid||{})||{},has=m=>mg[m]&&Object.values(mg[m]).some(o=>o&&Object.values(o).some(v=>v!==''&&v!=null));
-    return `<div class="f"><span>מחיר לפי חודש</span><select data-plmsel aria-label="מחיר לפי חודש"><option value="" ${cm?'':'selected'}>כל התקופה (בסיס)</option>${ms.map(m=>`<option value="${m}" ${cm===m?'selected':''}>${HE_MON[+m.slice(5)-1]} ${m.slice(0,4)}${has(m)?' ●':''}</option>`).join('')}</select>${cm?`<p class="muted" style="font-size:.8rem;margin:4px 0 0">מחירים ל${HE_MON[+cm.slice(5)-1]} ${cm.slice(0,4)}. משבצת ריקה = מחיר הבסיס (מופיע באפור). <button class="linkbtn" data-act="pl-mcopy">העתקה מהחודש הקודם</button> · <button class="linkbtn" data-act="pl-mclear">ניקוי החודש</button></p>`:'<p class="muted" style="font-size:.8rem;margin:4px 0 0">מחירי הבסיס חלים על כל חודש שלא קיבל מחיר משלו (● = לחודש יש מחירים משלו).</p>'}</div>`})()}
+  ${(()=>{const ms=plMonths({from:g('from',''),to:g('to','')});if(!ms.length)return '<p class="muted" style="font-size:.8rem;margin:0">בוחרים תקופה (מ- ועד) כדי לתת מחיר שונה לכל חודש.</p>';const sel=plSelMs(ms);const mg=dv('pl','mgrid',x.mgrid||{})||{},has=m=>mg[m]&&Object.values(mg[m]).some(o=>o&&Object.values(o).some(v=>v!==''&&v!=null));
+    const ml=m=>`${HE_MON[+m.slice(5)-1]} ${m.slice(0,4)}`,J=m=>JSON.stringify(mg[m]||{}),diff=sel.length>1&&sel.some(m=>J(m)!==J(sel[0]));
+    return `<div class="f"><span>מחיר לפי חודש</span><details class="msel" data-msel ${S.plMOpen?'open':''}><summary>${sel.length?sel.map(ml).join(', '):'כל התקופה (בסיס)'}</summary><div class="msel-list">
+      <label class="msel-row"><input type="checkbox" data-plmall ${sel.length===ms.length?'checked':''}> <b>כל החודשים</b></label>
+      ${ms.map(m=>`<label class="msel-row"><input type="checkbox" data-plmchk="${m}" ${sel.includes(m)?'checked':''}> ${ml(m)}${has(m)?' ●':''}</label>`).join('')}
+      <div class="actions" style="margin:6px 0 0"><button class="btn sm ghost" data-act="pl-mnone">חזרה למחיר הבסיס</button></div></div></details>
+    ${sel.length?`<p class="muted" style="font-size:.8rem;margin:4px 0 0">${sel.length>1?`המחירים שתקלידו יחולו על ${sel.length} החודשים שנבחרו.`:`מחירים ל${ml(sel[0])}.`} משבצת ריקה = מחיר הבסיס (מופיע באפור).${diff?' <b>שימו לב: לחודשים שנבחרו יש כרגע מחירים שונים, מוצגים המחירים של '+ml(sel[0])+'.</b>':''} <button class="linkbtn" data-act="pl-mcopy">העתקה מהחודש הקודם</button> · <button class="linkbtn" data-act="pl-mclear">${sel.length>1?'ניקוי החודשים':'ניקוי החודש'}</button></p>`:'<p class="muted" style="font-size:.8rem;margin:4px 0 0">מחירי הבסיס חלים על כל חודש שלא קיבל מחיר משלו (● = לחודש יש מחירים משלו). אפשר לבחור כמה חודשים יחד ולתת להם אותו מחיר.</p>'}</div>`})()}
   <div class="f"><span>מחיר לאדם ללילה · לפי כמות אנשים בחדר ובסיס אירוח</span><p class="muted" style="font-size:.8rem;margin:2px 0 6px">משאירים ריק מה שלא מוכרים. למשל זוגי ב-BB = המחיר לכל אחד מהשניים ללילה.</p>
-    <div class="scroll-x"><table class="plain plg"><thead><tr><th></th>${GRP_BOARD.map(([b,n])=>`<th>${b.toUpperCase()}<div class="muted" style="font-weight:400;font-size:.72rem">${esc(n.replace(/\s*\(.*\)/,''))}</div></th>`).join('')}</tr></thead><tbody>${PL_PPR.map(([n,lab])=>`<tr><th>${lab}</th>${GRP_BOARD.map(([b])=>`<td><input type="number" min="0" step="any" inputmode="decimal" data-plg="${n}|${b}" value="${esc(((cg[n]||{})[b])??'')}" placeholder="${S.plM&&cg!==grid?esc(((grid[n]||{})[b])??''):''}" aria-label="${lab} ${b.toUpperCase()}"></td>`).join('')}</tr>`).join('')}</tbody></table></div>
+    <div class="scroll-x"><table class="plain plg"><thead><tr><th></th>${GRP_BOARD.map(([b,n])=>`<th>${b.toUpperCase()}<div class="muted" style="font-weight:400;font-size:.72rem">${esc(n.replace(/\s*\(.*\)/,''))}</div></th>`).join('')}</tr></thead><tbody>${PL_PPR.map(([n,lab])=>`<tr><th>${lab}</th>${GRP_BOARD.map(([b])=>`<td><input type="number" min="0" step="any" inputmode="decimal" data-plg="${n}|${b}" value="${esc(((cg[n]||{})[b])??'')}" placeholder="${pm?esc(((grid[n]||{})[b])??''):''}" aria-label="${lab} ${b.toUpperCase()}"></td>`).join('')}</tr>`).join('')}</tbody></table></div>
     ${(x.rows||[]).length&&!plHasGrid(x)?`<p class="muted" style="font-size:.8rem">במחירון הזה יש עדיין מחירים לפי סוג חדר (${(x.rows||[]).map(r=>esc(r.type||'')+' '+grpMoney(r.rate,x.cur)).join(' · ')}). ברגע שממלאים את הטבלה, הטבלה קובעת.</p>`:''}</div>
   <div class="f"><span>הנחות לסוכן</span><div class="row"><label class="f">אורח חינם על כל … אורחים משלמים<input type="number" min="0" inputmode="numeric" data-f="pl.freeEvery" value="${esc(g('freeEvery',''))}" placeholder="למשל 20 = 20+1"></label><label class="f">הנחה על צוות ישראלי (%)<input type="number" min="0" max="100" step="any" inputmode="decimal" data-f="pl.ilDisc" value="${esc(g('ilDisc',''))}"></label></div></div>
   <div class="row"><label class="f" style="max-width:160px">מע״מ (%)<input type="number" min="0" step="any" inputmode="decimal" data-f="pl.vat" value="${esc(g('vat',18))}"></label><p class="muted" style="font-size:.82rem;flex:2;margin:auto 0">המחירים במחירון לפני מע״מ. מע״מ נוסף רק לאורחים ישראלים ולצוות ישראלי. תיירים מחו״ל וצוות זר פטורים.</p></div>
@@ -4180,14 +4198,14 @@ const ACT={
   'grp-paid':D=>{const x=(S.grps||{})[D.id];if(!x)return;if(S.confirm!=='gp:'+D.id){S.confirm='gp:'+D.id;render();return}S.confirm=null;const tot=Math.round(grpCalc(x).total*100)/100,now=Date.now();
     S.grps={...S.grps,[D.id]:{...x,deposit:tot,paidAt:now}};render();fdb.doc('groups/'+D.id).set({deposit:tot,paidAt:now,updatedAt:now,updatedBy:S.uid},{merge:true}).then(()=>toast('סומן ששולם במלואו'),e=>toast('לא הצלחתי: '+errMsg(mapErr(e))))},
   'pl-ag':D=>{const x=(S.pls||{})[S.sheet.id]||{},d=S.drafts.pl||(S.drafts.pl={}),a=[...(d.agentIds||plAgents(x))];const i=a.indexOf(D.id);if(i>=0)a.splice(i,1);else a.push(D.id);d.agentIds=a;render()},
-  'ag-plnew':D=>{S.plM='';S.confirm=null;S.drafts.pl={agentIds:[D.id]};S.sheet={type:'pl',id:'pl'+Date.now().toString(36)+Math.random().toString(36).slice(2,6)};render()},
+  'ag-plnew':D=>{S.plMs=[];S.plMOpen=false;S.confirm=null;S.drafts.pl={agentIds:[D.id]};S.sheet={type:'pl',id:'pl'+Date.now().toString(36)+Math.random().toString(36).slice(2,6)};render()},
   'ag-plun':D=>{const l=(S.pls||{})[D.p];if(!l)return;const a=plAgents(l).filter(x=>x!==D.id);S.pls={...S.pls,[D.p]:{...l,agentIds:a,agentId:''}};render();fdb.doc('priceLists/'+D.p).set({agentIds:a,agentId:''},{merge:true}).then(()=>toast('המחירון נותק מהסוכן'),e=>toast('לא הצלחתי: '+errMsg(mapErr(e))))},
-  'pl-m':D=>{S.plM=D.v||'';render()},
-  'pl-mcopy':()=>{const x=(S.pls||{})[S.sheet.id]||{},d=S.drafts.pl||(S.drafts.pl={}),g=k=>dv('pl',k,x[k]??''),ms=plMonths({from:g('from'),to:g('to')}),i=ms.indexOf(S.plM);if(i<0)return;
-    if(!d.mgrid)d.mgrid=JSON.parse(JSON.stringify(x.mgrid||{}));const src=i>0?d.mgrid[ms[i-1]]:null,base=(d.grid||x.grid||{});d.mgrid[S.plM]=JSON.parse(JSON.stringify(src&&Object.keys(src).length?src:base));render()},
-  'pl-mclear':()=>{const x=(S.pls||{})[S.sheet.id]||{},d=S.drafts.pl||(S.drafts.pl={});if(!d.mgrid)d.mgrid=JSON.parse(JSON.stringify(x.mgrid||{}));delete d.mgrid[S.plM];render()},
-  'pl-new':()=>{S.plM='';S.drafts.pl=null;S.confirm=null;S.sheet={type:'pl',id:'pl'+Date.now().toString(36)+Math.random().toString(36).slice(2,6)};render()},
-  'pl-open':D=>{S.plM='';S.drafts.pl=null;S.confirm=null;S.sheet={type:'pl',id:D.id};render()},
+  'pl-mnone':()=>{S.plMs=[];S.plMOpen=false;render()},
+  'pl-mcopy':()=>{const x=(S.pls||{})[S.sheet.id]||{},d=S.drafts.pl||(S.drafts.pl={}),g=k=>dv('pl',k,x[k]??''),ms=plMonths({from:g('from'),to:g('to')}),sel=plSelMs(ms);if(!sel.length)return;const i=ms.indexOf(sel[0]);
+    if(!d.mgrid)d.mgrid=JSON.parse(JSON.stringify(x.mgrid||{}));const src=i>0?d.mgrid[ms[i-1]]:null,base=(d.grid||x.grid||{}),from=src&&Object.keys(src).length?src:base;for(const m of sel)d.mgrid[m]=JSON.parse(JSON.stringify(from));render()},
+  'pl-mclear':()=>{const x=(S.pls||{})[S.sheet.id]||{},d=S.drafts.pl||(S.drafts.pl={}),g=k=>dv('pl',k,x[k]??''),sel=plSelMs(plMonths({from:g('from'),to:g('to')}));if(!d.mgrid)d.mgrid=JSON.parse(JSON.stringify(x.mgrid||{}));for(const m of sel)delete d.mgrid[m];render()},
+  'pl-new':()=>{S.plMs=[];S.plMOpen=false;S.drafts.pl=null;S.confirm=null;S.sheet={type:'pl',id:'pl'+Date.now().toString(36)+Math.random().toString(36).slice(2,6)};render()},
+  'pl-open':D=>{S.plMs=[];S.plMOpen=false;S.drafts.pl=null;S.confirm=null;S.sheet={type:'pl',id:D.id};render()},
   'pl-row-add':()=>{const x=(S.pls||{})[S.sheet.id]||{},d=S.drafts.pl||(S.drafts.pl={});d.rows=[...(d.rows||x.rows||[{type:'',rate:''}]),{type:'',rate:''}];render()},
   'pl-row-del':D=>{const x=(S.pls||{})[S.sheet.id]||{},d=S.drafts.pl||(S.drafts.pl={});d.rows=(d.rows||x.rows||[]).filter((_,i)=>i!==+D.i);render()},
   'pl-save':()=>{const id=S.sheet.id,x=(S.pls||{})[id]||{},isNew=!(S.pls||{})[id],g=k=>dv('pl',k,x[k]??''),n=k=>{const v=+g(k);return isFinite(v)&&v>0?v:''},now=Date.now();

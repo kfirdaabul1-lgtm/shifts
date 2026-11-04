@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202611040745"></script>
+<script src="i18n.js?v=202611040800"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -3636,6 +3636,10 @@ function hotelsCardHTML(){if(!S.admin)return '';const hs=visibleHotels();
   <p class="muted" style="font-size:.85rem">שמות המלונות. קודי ההצטרפות נמצאים בעמוד עובדים.</p>
   <div class="hlist">${hs.concat(allHotelsP()?[CHAIN]:[]).map(h=>`<div class="hrow"><label class="f">${h===CHAIN?'עובדי רשת (לא שייכים למלון אחד)':'שם המלון'}<input type="text" id="hn_${h}" data-f="hn.${h}" value="${esc(dv('hn',h,hotelName(h)))}"></label></div>`).join('')}</div>
   <div><button class="btn" data-act="hotels-save">שמירת שמות</button></div></div>`}
+// Kfir app (owner, Nov 4): one tap reloads the app for every user of the active chain (orgcfg/main.refreshAt, see the refresh script at the end)
+function appRefreshHTML(){const ra=+((S.org||{}).refreshAt||0);
+  return `<div class="card"><h3>🔄 רענון האפליקציה לכל המשתמשים</h3><p class="muted" style="font-size:.85rem">אחרי עדכון, כל מי שהאפליקציה פתוחה אצלו יקבל את הגרסה החדשה תוך כמה שניות (מי שבאמצע הקלדה או בחלון פתוח – כשיסיים). מי שהאפליקציה סגורה אצלו יקבל אותה בפתיחה הבאה.</p>${ra?`<p class="muted" style="font-size:.8rem;margin:0 0 6px"><span>רענון אחרון:</span> <bdi>${new Date(ra).toLocaleString('he-IL',{dateStyle:'short',timeStyle:'short'})}</bdi></p>`:''}
+  <div class="actions"><button class="btn ${S.confirm==='appref'?'danger':'pri'}" data-act="app-refresh">${S.confirm==='appref'?'לחיצה נוספת תרענן לכולם':'רענון לכל המשתמשים'}</button></div></div>`}
 // add a hotel to the active chain (Kfir app, system owner)
 function hotelAddHTML(){return `<div class="card"><h3>הוספת מלון לרשת הפעילה</h3>
   <div class="actions" style="align-items:flex-end"><label class="f" style="flex:1;min-width:180px">שם המלון החדש<input type="text" id="new_hotel" data-f="nh.name" value="${esc(dv('nh','name',''))}" placeholder="למשל: מלון הגליל"></label><button class="btn" data-act="hotel-add">הוספת מלון</button></div>
@@ -3717,6 +3721,7 @@ function chainRow(c){const i=chainInfo(c.id)||{},cur=c.id===CFG.chainId,nm=cur?a
   return `<div class="prow" style="flex-wrap:wrap"><span class="who"><b>${esc(nm)}</b><small>${cur?'פעיל עכשיו':i.signed?'מחובר':'לא מחובר עדיין'}${!hotel&&i.hotels!=null?' · '+i.hotels+' מלונות':''}${i.err?' · '+esc(i.err):''}</small></span><span class="actions" style="gap:6px">${cur?'<button class="btn sm pri" data-act="pexit">כניסה</button>':`${i.signed?'':`<button class="btn sm" data-act="pc-login" data-id="${esc(c.id)}">התחברות</button>`}<button class="btn sm pri" data-act="chain-go" data-id="${esc(c.id)}">כניסה</button>`}</span></div>`}
 function vPChains(){regLoad();const L=allChains();L.forEach(c=>chainInfo(c.id));const ch=L.filter(c=>chainKind(c)==='chain'),ho=L.filter(c=>chainKind(c)==='hotel');
   return wrap(`<section class="head"><div class="head-t"><h1>רשתות ומלונות</h1></div><p class="lede">כל הלקוחות במערכת. לכל רשת ולכל מלון עצמאי מאגר נפרד; מלון עצמאי עובד בדיוק כמו רשת עם מלון אחד.</p></section>
+  ${appRefreshHTML()}
   <div class="card"><h3>רשתות</h3><div class="plist">${ch.map(chainRow).join('')||'<p class="muted">אין רשתות.</p>'}</div><div class="actions" style="margin-top:8px"><button class="btn" data-act="ch-add" data-k="chain">+ רשת חדשה</button></div></div>
   <div class="card"><h3>מלונות עצמאיים</h3><div class="plist">${ho.map(chainRow).join('')||'<p class="muted">עוד אין מלונות שלא שייכים לרשת.</p>'}</div><div class="actions" style="margin-top:8px"><button class="btn" data-act="ch-add" data-k="hotel">+ מלון עצמאי</button></div></div>
   ${hotelAddHTML()}
@@ -4232,6 +4237,8 @@ const ACT={
   'wa-newt':()=>{S.waNewOpen=!S.waNewOpen;render()},
   'wa-f':D=>{S.waF=D.v;render()},
   'photel':D=>{S.permH=D.h;render()},
+  'app-refresh':()=>{if(!S.isOwner)return;if(S.confirm!=='appref'){S.confirm='appref';render();return}S.confirm=null;
+    fdb.doc('orgcfg/main').set({refreshAt:Date.now(),refreshBy:S.uid},{merge:true}).then(()=>{toast('נשלח רענון לכל המשתמשים');render()},e=>toast('לא נשלח: '+errMsg(mapErr(e))))},
   'bc-scope':D=>{S.bcScope=D.v;render()},
   'bc-send-chain':async()=>{if(!S.can.ceo&&!S.isOwner)return;const text=String(dv('bcc','text','')).trim();if(!text){toast('צריך לכתוב הודעה');return}const crew=bcChainCrew(S.bcScope||'now');if(!crew.length){toast('אין כרגע עובדים במשמרת');return}
     const to=crew.map(c=>c.u).slice(0,500),toNames=Object.fromEntries(to.map(u=>[u,empName(u)]));
@@ -4858,8 +4865,15 @@ async function start(u){
   const day0=new Date().toDateString();
   function busy(){const a=document.activeElement;
     return !!((a&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName))||document.querySelector('.sheet:not([hidden]),dialog[open]')||window.__sigDrawing)}
-  function tick(){if(new Date().toDateString()!==day0&&!busy())location.reload()}
-  setInterval(tick,60000);
+  // Kfir app "refresh everyone" button (Nov 4): orgcfg/main.refreshAt newer than the last one this device saw → reload once
+  let force=false,att=false;const SEEN='appRefreshSeen';
+  function seen(){try{return +localStorage.getItem(SEEN)||0}catch(e){return 0}}
+  function onRa(ra){ra=+ra||0;if(!ra)return;const s0=seen();if(!s0){try{localStorage.setItem(SEEN,String(ra))}catch(e){}return}
+    if(ra>s0){try{localStorage.setItem(SEEN,String(ra))}catch(e){}force=true;tick()}}
+  function attach(){if(att)return;try{if(window.firebase&&firebase.apps&&firebase.apps.length&&firebase.auth().currentUser&&firebase.firestore){att=true;
+    firebase.firestore().doc('orgcfg/main').onSnapshot(d=>onRa(d.exists&&d.data().refreshAt),()=>{att=false})}}catch(e){}}
+  function tick(){attach();if((force||new Date().toDateString()!==day0)&&!busy())location.reload()}
+  setInterval(tick,20000);setInterval(()=>{if(force)tick()},5000);
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)setTimeout(tick,300)});
   window.addEventListener('focus',()=>setTimeout(tick,300));
 })();

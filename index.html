@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202611040730"></script>
+<script src="i18n.js?v=202611040745"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -566,7 +566,8 @@ document.addEventListener('change',e=>{const t=e.target;if(t.id==='e_job'){(S.dr
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target&&e.target.id==='vch_code'){e.preventDefault();ACT['vch-find']()}});
 document.addEventListener('change',e=>{const t=e.target;if(t.matches&&t.matches('[data-chkadd]')&&t.value){const u=t.value,emp=(S.emps||{})[u];t.value='';if(emp)setExtraApp(u,emp,'hkchk',true)}});
 document.addEventListener('input',onField);document.addEventListener('change',onField);
-document.addEventListener('input',e=>{const t=e.target;if(t.matches&&t.matches('[data-waq]')){S.waQ=t.value;clearTimeout(S.waQT);S.waQT=setTimeout(()=>{const pos=t.selectionStart;S.pending=false;renderTop();$('#main').innerHTML=bcBannerHTML()+callsBannerHTML()+viewHTML();const n=$('[data-waq]');if(n){n.focus();try{n.setSelectionRange(pos,pos)}catch(_){}}},250)}});
+document.addEventListener('input',e=>{const t=e.target;if(t.matches&&t.matches('[data-permq]')){S.permQ=t.value;clearTimeout(S.permQT);S.permQT=setTimeout(()=>{const pos=t.selectionStart;S.pending=false;renderTop();$('#main').innerHTML=bcBannerHTML()+callsBannerHTML()+viewHTML();chipSelects($('#main'));const n=$('[data-permq]');if(n){n.focus();try{n.setSelectionRange(pos,pos)}catch(_){}}},250);return}
+  if(t.matches&&t.matches('[data-waq]')){S.waQ=t.value;clearTimeout(S.waQT);S.waQT=setTimeout(()=>{const pos=t.selectionStart;S.pending=false;renderTop();$('#main').innerHTML=bcBannerHTML()+callsBannerHTML()+viewHTML();const n=$('[data-waq]');if(n){n.focus();try{n.setSelectionRange(pos,pos)}catch(_){}}},250)}});
 document.addEventListener('scroll',e=>{const t=e.target;if(t&&t.classList&&t.classList.contains('wa-msgs')){S.waKeep=t.scrollTop;S.waAtBottom=t.scrollHeight-t.scrollTop-t.clientHeight<40}},true);
 const isTyping=()=>{if(S.sigDraw)return true;const a=document.activeElement;return a&&['INPUT','TEXTAREA','SELECT'].includes(a.tagName)&&!['checkbox','radio'].includes(a.type)};
 document.addEventListener('focusout',()=>setTimeout(()=>{if(S.pending&&!isTyping())render()},0));
@@ -3640,7 +3641,7 @@ function hotelAddHTML(){return `<div class="card"><h3>הוספת מלון לרש
 const pwgUrl=()=>'https://europe-west1-'+((CFG.firebase||{}).projectId||'')+'.cloudfunctions.net/pwGuard';
 async function pwGuard(body,auth){const h={'Content-Type':'application/json'};if(auth){if(!fauth.currentUser)throw {code:'auth'};h.Authorization='Bearer '+await fauth.currentUser.getIdToken()}
   const r=await fetch(pwgUrl(),{method:'POST',headers:h,body:JSON.stringify(body)});const j=await r.json().catch(()=>({}));if(!r.ok)throw {code:j.error||String(r.status)};return j}
-function locksSub(){if(S.locksOn)return;S.locksOn=true;S.locks={};try{fdb.collection('authLockPub').onSnapshot(q=>{const m={};q.forEach(d=>m[d.id]=d.data());S.locks=m;render()},()=>{})}catch(_){ }}
+function locksSub(){if(S.locksOn)return;S.locksOn=true;S.locks={};try{fdb.collection('authLockPub').onSnapshot(q=>{const m={};q.docs.forEach(d=>m[d.id]=d.data());S.locks=m;render()},()=>{})}catch(_){ }}
 const isLocked=u=>{locksSub();return !!(S.locks&&S.locks[u])};
 async function pwSetFor(u,pw){if(String(pw||'').length<6){toast('הסיסמה צריכה להיות באורך 6 תווים לפחות');return false}
   try{await pwGuard({op:'set',uid:u,password:pw},true);toast('הסיסמה החדשה נשמרה. אפשר להיכנס איתה.');return true}
@@ -3650,7 +3651,7 @@ function pwCardHTML(u){const lk=isLocked(u);
   <p class="muted" style="font-size:.85rem;margin:0 0 6px">אם העובד שכח את הסיסמה או שהחשבון ננעל: קובעים כאן סיסמה חדשה ומוסרים לו אותה.</p>
   <div class="row" style="align-items:flex-end"><label class="f">סיסמה חדשה<input type="text" id="e_pw" data-f="epw.v" dir="ltr" autocomplete="off" placeholder="6 תווים לפחות" value="${esc(dv('epw','v',''))}"></label><button class="btn" data-act="emp-pwset" data-u="${u}">קביעת סיסמה חדשה</button></div>`}
 function stationsCardHTML(){if(!myApps().front)return '';const hs=grantableHotels();if(!hs.length)return '';
-  const list=Object.entries(S.roles).filter(([,r])=>r&&r.station&&hs.includes((r.hotels||[])[0])).sort(([,a],[,b])=>String(a.login||'').localeCompare(String(b.login||'')));
+  const list=Object.entries(S.roles).filter(([,r])=>r&&r.station&&hs.includes((r.hotels||[])[0])&&(!S.permH||S.permH==='all'||S.permH===CHAIN||(r.hotels||[])[0]===S.permH)).sort(([,a],[,b])=>String(a.login||'').localeCompare(String(b.login||'')));
   const nh=dv('st','hotel',hs[0]),pwFor=S.drafts.st&&S.drafts.st.pwFor;
   return `<div class="card"><h3>משתמשי עמדת קבלה</h3>
   <p class="muted" style="font-size:.85rem">משתמש אחד לכל עמדת קבלה, לא של אדם מסוים: כל מי שבמשמרת נכנס איתו. נכנסים במסך הכניסה ב"כניסת עמדת קבלה" עם שם המשתמש והסיסמה, והמחשב בעמדה נשאר מחובר. המשתמש רואה רק את עמוד הקבלה של המלון: סידור העבודה, האירועים והזנת 10days.</p>
@@ -3788,16 +3789,25 @@ async function empSetJob(u,emp,job){const r=(S.roles||{})[u]||null,extra=r?(r.jo
       await fdb.doc('roles/'+u).set(doc);S.roles={...(S.roles||{}),[u]:doc}}
     render();toast(job?`${emp.name||'העובד'} קיבל את התפקיד ${(jobsSub()[job]||{}).name||''}`:'התפקיד הוסר')}
   catch(e){toast('לא הצלחתי לעדכן את התפקיד (צריך שיהיו לך כל ההרשאות של התפקיד): '+errMsg(mapErr(e)))}}
+// owner, Nov 4: a long card turned into a closed fold (same look as the Employees page folds)
+function foldCard(html,key){if(!html)return '';const m=html.match(/^<div class="card">(<h3>[\s\S]*?<\/h3>)/);if(!m||!html.endsWith('</div>'))return html;
+  return `<details class="card fold" data-fold="${key}" ${foldOpen(key)?'open':''}><summary>${m[1]}</summary>`+html.slice(m[0].length,-6)+'</details>'}
 function vPerms(){
   const hs=peopleHotels(),ord=h=>h===CHAIN?-1:hotelIds().indexOf(h);
-  const people=Object.entries(S.emps).filter(([u,e])=>!e.manual&&hs.includes(e.hotel||'main'))
+  // owner, Nov 4: the page is filtered by hotel (+ name search) instead of one long list
+  if(S.permH==null||(S.permH!=='all'&&!hs.includes(S.permH)))S.permH=hs.length>1?(hs.includes(S.myHotel)?S.myHotel:hs.find(h=>h!==CHAIN)||hs[0]):'all';
+  const pq=String(S.permQ||'').trim().toLowerCase(),allP=Object.entries(S.emps).filter(([u,e])=>!e.manual&&hs.includes(e.hotel||'main'));
+  const cnt={};for(const [,e] of allP)cnt[e.hotel||'main']=(cnt[e.hotel||'main']||0)+1;
+  const filt=hs.length>1?`<div class="chips" style="gap:6px;margin:4px 0 8px"><button class="dchip ${S.permH==='all'?'':'off'}" data-act="photel" data-h="all">כל המלונות (${allP.length})</button>${hs.map(h=>`<button class="dchip ${S.permH===h?'':'off'}" data-act="photel" data-h="${h}">${esc(h===CHAIN?'הרשת':hotelName(h))} (${cnt[h]||0})</button>`).join('')}</div>
+    <input type="text" data-permq placeholder="חיפוש לפי שם…" value="${esc(S.permQ||'')}" style="width:100%;max-width:340px;margin-bottom:8px">`:'';
+  const people=allP.filter(([u,e])=>(S.permH==='all'||(e.hotel||'main')===S.permH)&&(!pq||String(e.name||'').toLowerCase().includes(pq)))
     .sort(([,a],[,b])=>ord(a.hotel||'main')-ord(b.hotel||'main')||String(a.name||'').localeCompare(String(b.name||''),'he'));
   const head=`<section class="head"><div class="head-t"><h1>הגדרות רשת</h1><div class="meta"><span class="pill">${people.length} אנשים</span></div></div>
     <p class="lede">לכל אחד מסמנים מה הוא רואה: ניהול סידור עבודה (באילו מלונות), הצעות מחיר וניהול הרשאות. מי שבלי סימון הוא עובד רגיל: רואה רק את הזמינות והמשמרות שלו. כדי שמישהו יופיע כאן, הוא צריך להירשם פעם אחת עם קוד ההצטרפות של המלון.</p>
     ${S.isOwner?'':'<p class="muted" style="font-size:.85rem">אפשר לתת רק הרשאות ומלונות שיש לך בעצמך.</p>'}</section>`;
   // general settings live on this page (not in the shift Settings tab)
-  const hc=(S.isOwner?orgCfgHTML():'')+stationsCardHTML();
-  if(!people.length)return wrap(head+hc+emptyBox('עוד אין אנשים רשומים','שולחים לעובדים את הקישור וקוד ההצטרפות של המלון שלהם (בעמוד עובדים). אחרי שהם נרשמים, הם מופיעים כאן.'));
+  const hc=(S.isOwner?foldCard(orgCfgHTML(),'orgc'):'')+foldCard(stationsCardHTML(),'stc');
+  if(!people.length&&!allP.length)return wrap(head+hc+emptyBox('עוד אין אנשים רשומים','שולחים לעובדים את הקישור וקוד ההצטרפות של המלון שלהם (בעמוד עובדים). אחרי שהם נרשמים, הם מופיעים כאן.'));
   let last=null;const rows=people.map(([u,e])=>{const h=e.hotel||'main',r=S.roles[u],a=roleApps(r);
     const sep=h!==last?`<div class="lh">${esc(hotelName(h))}</div>`:'';last=h;
     const chips=(r&&r.job&&(jobsSub()[r.job]||r.jobName)?`<span class="pill brass">${esc((jobsSub()[r.job]||{}).name||r.jobName)}</span>`:'')+APPS.filter(([k])=>a[k]&&!(r&&r.job&&((jobsSub()[r.job]||{}).apps||{})[k])).map(([k,n])=>`<span class="pill ${k==='perms'?'brass':'ok'}">${n}</span>`).join('');
@@ -3805,7 +3815,7 @@ function vPerms(){
     return sep+`<button class="li prow2" data-act="perm-open" data-u="${u}" ${u===S.uid?'disabled':''}>
       <div class="c1"><div class="n">${esc(e.name||'ללא שם')}${u===S.uid?' <span class="pill">זה אתה</span>':''}</div><div class="sub">${esc(e.title||'')}</div></div>
       <div class="c2 meta">${chips||'<span class="pill">עובד</span>'}</div><div class="c3">${hsTxt}</div><div></div></button>`}).join('');
-  return wrap(head+hc+'<h2>אנשים</h2>'+`<div class="list">${rows}</div>`);
+  return wrap(head+hc+'<h2>אנשים</h2>'+filt+(people.length?`<div class="list">${rows}</div>`:'<p class="muted">אין אנשים שמתאימים לסינון.</p>'));
 }
 function sheetPerm(){
   const u=S.sheet.id,e=S.emps[u];if(!e)return '';const r=S.roles[u],mine=myApps(),hs=grantableHotels(),moveHs=peopleHotels();
@@ -4217,6 +4227,7 @@ const ACT={
   'wa-cfgt':()=>{S.waCfgOpen=!S.waCfgOpen;render()},
   'wa-newt':()=>{S.waNewOpen=!S.waNewOpen;render()},
   'wa-f':D=>{S.waF=D.v;render()},
+  'photel':D=>{S.permH=D.h;render()},
   'bc-scope':D=>{S.bcScope=D.v;render()},
   'bc-send-chain':async()=>{if(!S.can.ceo&&!S.isOwner)return;const text=String(dv('bcc','text','')).trim();if(!text){toast('צריך לכתוב הודעה');return}const crew=bcChainCrew(S.bcScope||'now');if(!crew.length){toast('אין כרגע עובדים במשמרת');return}
     const to=crew.map(c=>c.u).slice(0,500),toNames=Object.fromEntries(to.map(u=>[u,empName(u)]));

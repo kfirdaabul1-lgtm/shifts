@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202611041410"></script>
+<script src="i18n.js?v=202611041412"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1181,7 +1181,7 @@ function sheetPl(){const id=S.sheet.id,x=(S.pls||{})[id]||{},isNew=!(S.pls||{})[
   <label class="f">הערות<textarea rows="2" data-f="pl.notes">${esc(g('notes',''))}</textarea></label>
   <label class="check"><input type="checkbox" data-f="pl.active" ${g('active',true)!==false?'checked':''}> מחירון פעיל</label>
   ${mine.length?`<h3 style="margin:12px 0 4px">הקבוצות במחירון · ${mine.length}</h3><div class="plist">${mine.map(([gid,gr])=>{const st=GRP_STN[gr.status||'offer']||GRP_ST[0];return `<button class="prow" style="width:100%;text-align:inherit;cursor:pointer;font:inherit;color:inherit" data-act="grp-open" data-id="${gid}"><span class="who"><b>${esc(gr.name||'')}</b><small>${gr.ci?dm(gr.ci):''}–${gr.co?dm(gr.co):''} · ${esc(gr.agentName||'')} · ${grpMoney(grpCalc(gr).total,gr.cur)}</small></span><span class="pill ${st[2]}">${st[1]}</span></button>`}).join('')}</div>`:''}
-  <div class="actions" style="margin-top:10px"><button class="btn pri" data-act="pl-save">שמירה</button>${isNew?'':`<button class="btn ghost" data-act="pl-del">${S.confirm==='pl-del'?'לחיצה נוספת תמחק':'מחיקה'}</button>`}</div>`}
+  <div class="actions" style="margin-top:10px"><button class="btn pri" data-act="pl-save">שמירה</button>${isNew?'':`<button class="btn ghost" data-act="pl-dup">⧉ העתקת המחירון</button><button class="btn ghost" data-act="pl-del">${S.confirm==='pl-del'?'לחיצה נוספת תמחק':'מחיקה'}</button>`}</div>`}
 // price list chosen in a group fills the rate / currency / meal price (still editable)
 // pricing mode: 'pl' = prices come from the chosen price list (no price column); 'free' = a special offer typed per line
 const grpMode=c=>c.plId?'pl':c.noPl?'free':(Object.keys(S.pls||{}).length?'pl':'free');
@@ -4216,6 +4216,10 @@ const ACT={
   'pl-mcopy':()=>{const x=(S.pls||{})[S.sheet.id]||{},d=S.drafts.pl||(S.drafts.pl={}),g=k=>dv('pl',k,x[k]??''),ms=plMonths({from:g('from'),to:g('to')}),sel=plSelMs(ms);if(!sel.length)return;const i=ms.indexOf(sel[0]);
     if(!d.mgrid)d.mgrid=JSON.parse(JSON.stringify(x.mgrid||{}));const src=i>0?d.mgrid[ms[i-1]]:null,base=(d.grid||x.grid||{}),from=src&&Object.keys(src).length?src:base;for(const m of sel)d.mgrid[m]=JSON.parse(JSON.stringify(from));render()},
   'pl-mclear':()=>{const x=(S.pls||{})[S.sheet.id]||{},d=S.drafts.pl||(S.drafts.pl={}),g=k=>dv('pl',k,x[k]??''),sel=plSelMs(plMonths({from:g('from'),to:g('to')}));if(!d.mgrid)d.mgrid=JSON.parse(JSON.stringify(x.mgrid||{}));for(const m of sel)delete d.mgrid[m];render()},
+  // copy a price list (owner, Nov 4): a new unsaved list with everything of the source incl. agents, prices, monthly prices and weekday supplements
+  'pl-dup':()=>{const x=(S.pls||{})[S.sheet.id];if(!x)return;const c=JSON.parse(JSON.stringify(x));['createdAt','createdBy','createdByName','updatedAt','id'].forEach(k=>delete c[k]);
+    c.name='העתק של '+(x.name||'מחירון');c.agentIds=plAgents(x);c.agentId='';S.plMs=[];S.plMOpen=false;S.plSupOpen=false;S.confirm=null;
+    S.sheet={type:'pl',id:'pl'+Date.now().toString(36)+Math.random().toString(36).slice(2,6)};S.drafts.pl=c;render();toast('נפתח העתק של המחירון עם אותם סוכנים ומחירים – משנים מה שצריך ושומרים')},
   'pl-new':()=>{S.plMs=[];S.plMOpen=false;S.plSupOpen=false;S.drafts.pl=null;S.confirm=null;S.sheet={type:'pl',id:'pl'+Date.now().toString(36)+Math.random().toString(36).slice(2,6)};render()},
   'pl-open':D=>{S.plMs=[];S.plMOpen=false;S.plSupOpen=false;S.drafts.pl=null;S.confirm=null;S.sheet={type:'pl',id:D.id};render()},
   'pl-row-add':()=>{const x=(S.pls||{})[S.sheet.id]||{},d=S.drafts.pl||(S.drafts.pl={});d.rows=[...(d.rows||x.rows||[{type:'',rate:''}]),{type:'',rate:''}];render()},

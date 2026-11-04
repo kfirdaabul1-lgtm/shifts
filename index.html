@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202611041200"></script>
+<script src="i18n.js?v=202611041210"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1244,7 +1244,7 @@ function sheetGrp(){const id=S.sheet.id,x=(S.grps||{})[id]||{},isNew=!(S.grps||{
   <div class="card" style="margin:8px 0;padding:10px 12px"><div class="totals" id="grpTot">${grpTotHTML(cur)}</div></div>
   <label class="f">הערות<textarea rows="3" data-f="grp.notes">${esc(g('notes',''))}</textarea></label>
   ${grpHallsHTML(id,x,isNew)}
-  <div class="actions" style="margin-top:12px"><button class="btn pri" data-act="grp-save">שמירה</button>${isNew?'':`<a class="btn" href="https://wa.me/${ph}?text=${encodeURIComponent(grpOfferText(cur))}" target="_blank" rel="noopener">שליחת ההצעה בוואטסאפ</a><button class="btn ghost" data-act="grp-copy">העתקת ההצעה</button><button class="btn ghost" data-act="grp-del">${S.confirm==='grp-del'?'לחיצה נוספת תמחק':'מחיקה'}</button>`}</div>`}
+  <div class="actions" style="margin-top:12px"><button class="btn pri" data-act="grp-save">שמירה</button>${isNew?'':`<a class="btn" href="https://wa.me/${ph}?text=${encodeURIComponent(grpOfferText(cur))}" target="_blank" rel="noopener">שליחת ההצעה בוואטסאפ</a><button class="btn ghost" data-act="grp-copy">העתקת ההצעה</button><button class="btn ghost" data-act="grp-dup">⧉ שכפול הקבוצה</button><button class="btn ghost" data-act="grp-del">${S.confirm==='grp-del'?'לחיצה נוספת תמחק':'מחיקה'}</button>`}</div>`}
 // group halls → a "hotel group" on the events board: quotes/grp_<groupId>_<n> {kind:'group', status:'approved', group:{note, groupId}}
 function grpSpaces(h){let sp=[];try{sp=hotelSpaces(h)||[]}catch(_){sp=[]}if(!sp.length)sp=Object.entries(EV_SPACES).flatMap(([v,as])=>as.map(a=>v+'|'+a));return sp}
 const hallLabel=sp=>{const [v,a]=String(sp).split('|');return (EV_VENUE[v]||v)+(a&&a!==(EV_VENUE[v]||'')?' · '+a:'')};
@@ -4177,6 +4177,9 @@ const ACT={
   'grp-new':()=>{S.drafts.grp=null;S.confirm=null;S.sheet={type:'grp',id:'g'+Date.now().toString(36)+Math.random().toString(36).slice(2,6)};
     const h0=grpHs()[0]||'',t=todayISO(),act=Object.entries(S.pls||{}).filter(([,l])=>l.active!==false&&(!l.hotel||l.hotel===h0)),cur=act.find(([,l])=>(!l.from||l.from<=t)&&(!l.to||l.to>=t))||act[0];
     if(cur){S.drafts.grp={plId:plPick({hotel:h0})||cur[0]};grpApplyPl('plId')}render()},
+  // duplicate: a new group with the same name, agent and price list (hotel kept so the list still matches); dates/rooms are filled again
+  'grp-dup':()=>{const x=(S.grps||{})[S.sheet.id];if(!x)return;S.confirm=null;S.sheet={type:'grp',id:'g'+Date.now().toString(36)+Math.random().toString(36).slice(2,6)};
+    S.drafts.grp={name:x.name||'',hotel:x.hotel||'',agentId:x.agentId||'',plId:x.plId||'',noPl:!x.plId&&!!x.noPl};if(x.plId)grpApplyPl('plId');render();toast('נפתחה קבוצה חדשה עם אותו שם, סוכן ומחירון – משלימים תאריכים וחדרים ושומרים')},
   'grp-open':D=>{S.drafts.grp=null;S.confirm=null;S.sheet={type:'grp',id:D.id};const x=(S.grps||{})[D.id]||{};if(!x.plId&&!x.noPl&&grpMode(x)==='pl'){const p=plPick(x);if(p){S.drafts.grp={plId:p};grpApplyPl('plId')}}render()},
   'grp-save':()=>{const id=S.sheet.id,x=(S.grps||{})[id]||{},isNew=!(S.grps||{})[id],g=k=>dv('grp',k,x[k]??''),num=k=>{const v=+g(k);return isFinite(v)&&v>0?v:0},now=Date.now();
     const name=String(g('name')).trim(),ci=String(g('ci')),co=String(g('co')),hotel=String(g('hotel')||grpHs()[0]||''),agentId=String(g('agentId')||'');

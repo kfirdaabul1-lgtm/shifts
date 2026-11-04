@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202611041800"></script>
+<script src="i18n.js?v=202611042010"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -2408,13 +2408,22 @@ function laborDay(d){const c=cfg(),oh=1+(+c.overhead||0)/100,sp=1+(+c.shabbatPct
 // message from the hotel manager to everyone on shift (owner, Nov 1): broadcasts/{id} {hotel, day, text, scope now|today, to:[uid], toNames, by, byName, at, reads:{uid:time}}
 // function onBroadcast pushes it; recipients also see a banner (bcBannerHTML) until they tap "קראתי"
 const hhmmMin=t=>{const m=String(t||'').match(/(\d{1,2}):(\d{2})/);return m?(+m[1])*60+(+m[2]):null};
-function bcCrew(h,scope){const all=DEPTS.map(d=>d.k),today=todayISO(),now=new Date(),nm=now.getHours()*60+now.getMinutes(),out={};
+function bcCrew(h,scope,depts){const all=depts||DEPTS.map(d=>d.k),today=todayISO(),now=new Date(),nm=now.getHours()*60+now.getMinutes(),out={};
   // owner, Nov 4: 'all' = every active employee of the hotel, also those not on shift (manual employees have no app login)
   if(scope==='all'){briefLoad(h,today);return Object.entries(S.emps||{}).filter(([u,e])=>e&&(e.hotel||'main')===h&&u!==S.uid&&!String(u).startsWith('m_')&&isActive(u)).map(([u])=>({u,t:''}))}
   const span=t=>{const m=String(t||'').match(/(\d{1,2}:\d{2})\D+(\d{1,2}:\d{2})/);return m?[hhmmMin(m[1]),hhmmMin(m[2])]:null};
   for(const c of crewOf(h,today,all).on){if(c.u===S.uid)continue;const s=span(c.t);if(scope==='today'||!s||(s[1]>s[0]?nm>=s[0]-15&&nm<s[1]:nm>=s[0]-15))out[c.u]=c.t}
   if(scope==='now')for(const c of crewOf(h,addDays(today,-1),all).on){if(c.u===S.uid)continue;const s=span(c.t);if(s&&s[1]<=s[0]&&nm<s[1])out[c.u]=c.t}
   return Object.entries(out).map(([u,t])=>({u,t}))}
+/* reception → every housekeeping worker on shift now: "please update the room statuses" (owner, Nov 4). A broadcasts doc with kind 'hkupd'
+   (rules: frontIn may create/read only this kind); the banner offers to open the housekeeping page. */
+const HKUPD_TXT='הקבלה מבקשת: נא לעדכן עכשיו במערכת את מצב החדרים שלך (נקי / מלוכלך / תפוס / סיימתי) 🙏';
+function hkUpdSub(h){const k='hkupd|'+h+'|'+todayISO();S.hkUpd=S.hkUpd||{};if(!S.live[k]){S.live[k]=true;S.db.collection('broadcasts').where('hotel','==',h).where('kind','==','hkupd').where('day','==',todayISO()).onSnapshot(q=>{S.hkUpd[h]=docsMap(q);render()},()=>{S.hkUpd[h]={}})}return S.hkUpd[h]||{}}
+function hkUpdCrew(h){return bcCrew(h,'now',['housekeeping']).filter(c=>!String(c.u).startsWith('m_'))}
+function hkUpdHTML(h){const crew=hkUpdCrew(h),sent=Object.entries(hkUpdSub(h)).sort(([,a],[,b])=>(b.at||0)-(a.at||0)),last=sent[0]&&sent[0][1],tm=t=>new Date(t||0).toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'});
+  const rd=last?Object.keys(last.reads||{}).length:0,n=last?(last.to||[]).length:0;
+  return `<div class="card hkupd"><div class="row" style="align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap"><div><b>🧹 עדכון מצב חדרים מהמשק</b><div class="muted" style="font-size:.85rem">${crew.length?`במשמרת עכשיו: ${crew.map(c=>esc(empName(c.u))).join(', ')}`:'אין עכשיו עובדי משק במשמרת לפי הסידור'}</div>${last?`<div class="muted" style="font-size:.8rem">נשלח לאחרונה ב-${tm(last.at)} ל-${n} עובדים · קראו ${rd}${last.byName?' · '+esc(last.byName):''}</div>`:''}</div>
+  <button class="btn pri" data-act="hkupd-send" data-h="${h}" ${crew.length?'':'disabled'}>📣 בקשה מכל עובדי המשק לעדכן</button></div></div>`}
 function bcSub(h){const k='bc|'+h+'|'+todayISO();if(S.live[k])return;S.live[k]=true;S.db.collection('broadcasts').where('hotel','==',h).where('day','==',todayISO()).onSnapshot(q=>{(S.bcSent||(S.bcSent={}))[h]=docsMap(q);render()},()=>{})}
 function bcCardHTML(h){bcSub(h);const sc=S.bcScope||'now',crew=bcCrew(h,sc),sent=Object.entries((S.bcSent||{})[h]||{}).sort(([,a],[,b])=>(b.at||0)-(a.at||0));
   return `<div class="card"><h3>📣 הודעה לעובדים</h3>
@@ -2439,7 +2448,7 @@ function myBcSub(){if(S.live.myBc||!S.uid||S.station)return;S.live.myBc=true;
   S.db.collection('broadcasts').where('to','array-contains',S.uid).onSnapshot(q=>{const prev=S.myBc;S.myBc=docsMap(q);const fresh=prev?Object.entries(S.myBc).filter(([id])=>!prev[id]):[];if(fresh.length)toast('📣 הודעה מ'+(fresh[0][1].byName||'המנהל'));render()},()=>{})}
 function bcBannerHTML(){myBcSub();const mine=Object.entries(S.myBc||{}).filter(([,b])=>!(b.reads||{})[S.uid]&&Date.now()-(b.at||0)<864e5).sort(([,a],[,b])=>(b.at||0)-(a.at||0));
   if(!mine.length)return '';
-  return `<div class="wrap stack" style="padding-bottom:0">${mine.map(([id,b])=>`<div class="card bc-card"><h3>📣 הודעה מ${esc(b.byName||'המנהל')}</h3><p style="white-space:pre-wrap;font-size:1.05rem;margin:4px 0 8px">${esc(b.text||'')}</p><div class="actions"><small class="muted">${new Date(b.at||0).toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'})}</small><button class="btn pri" data-act="bc-read" data-id="${id}">קראתי ✓</button></div></div>`).join('')}</div>`}
+  return `<div class="wrap stack" style="padding-bottom:0">${mine.map(([id,b])=>b.kind==='hkupd'?`<div class="card bc-card"><h3>🧹 בקשה מהקבלה</h3><p style="font-size:1.05rem;margin:4px 0 8px">${esc(b.text||HKUPD_TXT)}</p><div class="actions"><small class="muted">${new Date(b.at||0).toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'})}${b.byName?' · '+esc(b.byName):''}</small><button class="btn pri" data-act="bc-hk" data-id="${id}">פתיחת עמוד המשק</button><button class="btn ghost" data-act="bc-read" data-id="${id}">קראתי ✓</button></div></div>`:`<div class="card bc-card"><h3>📣 הודעה מ${esc(b.byName||'המנהל')}</h3><p style="white-space:pre-wrap;font-size:1.05rem;margin:4px 0 8px">${esc(b.text||'')}</p><div class="actions"><small class="muted">${new Date(b.at||0).toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'})}</small><button class="btn pri" data-act="bc-read" data-id="${id}">קראתי ✓</button></div></div>`).join('')}</div>`}
 function vGm(){const hs=modHs('gm',scopeHs());if(!hs.length)return wrap(emptyBox('אין מלונות בהרשאה','בעל המערכת יכול להוסיף לך מלון בעמוד ההרשאות.'));
   if(!hs.includes(S.hotel))S.hotel=hs[0];const h=S.hotel;gmLoad(h);const G=S.gmData[h]||{};
   const w=S.week,today=todayISO(),sched=S.scheds[h]||{},daily=(sched.daily||{})[today]||{};
@@ -2803,7 +2812,7 @@ function vFront(){const hs=modHs('front',scopeHs());if(!hs.length)return wrap(em
   const fCalls=Object.values(callsSub(h)||{}),nHk=fCalls.filter(c=>c.kind!=='pub'&&c.status==='open').length,nPub=fCalls.filter(c=>c.kind==='pub'&&c.status==='open').length;
   const nFlt=faultsOf(h).filter(([,f])=>f.status!=='done').length,nCmp=Object.keys(frontCmpSub(h)||{}).length;
   const fc=(html,key,n,lbl)=>foldCard(n?html.replace(/^(<div class="card"><h3>[^<]*)/,'$1 <span class="pill warn">'+n+'&nbsp;<span>'+lbl+'</span></span>'):html,key);
-  return wrap(head+fc(callsCardHTML(h),'fr-hk',nHk,'פתוחות')+fc(pubCardHTML(h),'fr-pub',nPub,'פתוחות')+fc(frontCmpHTML(h),'fr-cmp',nCmp,'היום')+fc(frontFaultsHTML(h),'fr-flt',nFlt,'פתוחות')+toursDayCardHTML(h,todayISO(),true)+daily+srFormHTML(h)+(srBoss(h)?srListHTML(h,false):srListHTML(h,false,true))+evCard+sched);
+  return wrap(head+hkUpdHTML(h)+fc(callsCardHTML(h),'fr-hk',nHk,'פתוחות')+fc(pubCardHTML(h),'fr-pub',nPub,'פתוחות')+fc(frontCmpHTML(h),'fr-cmp',nCmp,'היום')+fc(frontFaultsHTML(h),'fr-flt',nFlt,'פתוחות')+toursDayCardHTML(h,todayISO(),true)+daily+srFormHTML(h)+(srBoss(h)?srListHTML(h,false):srListHTML(h,false,true))+evCard+sched);
 }
 /* ---------- reception → housekeeping calls: hkCalls/{id} {hotel, date, room, tasks:[HK_CALL keys], note, to, toName, status open|done,
    openedAt, openedBy, openedByName, doneAt, mins}. The worker gets a push (function onHkCall) and a card on every page until "טופל". ---------- */
@@ -4414,6 +4423,11 @@ const ACT={
   'bc-send':async()=>{const h=S.hotel,text=String(dv('bc','text','')).trim();if(!text){toast('צריך לכתוב הודעה');return}const crew=bcCrew(h,S.bcScope||'now');if(!crew.length){toast('אין כרגע עובדים במשמרת');return}
     const to=crew.map(c=>c.u),toNames=Object.fromEntries(to.map(u=>[u,empName(u)])),now=Date.now();
     try{await fdb.collection('broadcasts').add({hotel:h,day:todayISO(),text,scope:S.bcScope||'now',to,toNames,by:S.uid,byName:S.meName||empName(S.uid)||'',at:now,reads:{}});S.drafts.bc=null;render();toast('ההודעה נשלחה ל-'+to.length+' עובדים')}catch(e){toast('לא נשלח: '+errMsg(mapErr(e)))}},
+  'hkupd-send':async D=>{const h=D.h,crew=hkUpdCrew(h);if(!crew.length){toast('אין עכשיו עובדי משק במשמרת');return}
+    const last=Object.values(hkUpdSub(h)).sort((a,b)=>(b.at||0)-(a.at||0))[0],k='hkupd'+h;if(last&&Date.now()-(last.at||0)<10*60e3&&S.confirm!==k){S.confirm=k;toast('נשלחה בקשה לפני פחות מ-10 דקות · לחיצה נוספת תשלח שוב');return}S.confirm=null;
+    const to=crew.map(c=>c.u),toNames=Object.fromEntries(to.map(u=>[u,empName(u)])),now=Date.now();
+    try{await fdb.collection('broadcasts').add({hotel:h,day:todayISO(),kind:'hkupd',text:HKUPD_TXT,scope:'now',to,toNames,by:S.uid,byName:S.meName||empName(S.uid)||'',at:now,reads:{}});toast('הבקשה נשלחה ל-'+to.length+' עובדי משק')}catch(e){toast('לא נשלח: '+errMsg(mapErr(e)))}},
+  'bc-hk':D=>{ACT['bc-read'](D);setTab('hk')},
   'bc-read':D=>{const b=(S.myBc||{})[D.id];if(b){S.myBc[D.id]={...b,reads:{...(b.reads||{}),[S.uid]:Date.now()}};render()}fdb.doc('broadcasts/'+D.id).update({['reads.'+S.uid]:Date.now()}).catch(e=>toast('לא הצלחתי: '+errMsg(mapErr(e))))},
   'waa-save':async()=>{const D=S.waaD;if(!D)return;document.querySelectorAll('[data-waa^="text|"]').forEach(el=>{const [,v,i]=el.dataset.waa.split('|');const r=D.rules[v];if(r&&r.params&&r.params[+i])r.params[+i].text=el.value});
     for(const [v,r] of Object.entries(D.rules)){const [c0,v0]=v.includes(':')?v.split(':'):['events',v];r.venueName=v0==='*'?'':(EV_VENUE[v0]||'');if((r.params||[]).some(p=>p.src==='text'&&!String(p.text||'').trim())){toast('צריך למלא את הטקסט הקבוע בתבנית של '+LCAT[c0]+' · '+(v0==='*'?'כל ליד אחר':EV_VENUE[v0]||v0));return}}

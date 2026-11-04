@@ -415,9 +415,12 @@ service cloud.firestore {
     }
     match /broadcasts/{id} {
       // a hotel manager sends to their own hotel's staff (the server drops anyone else); the CEO may send to the whole chain (hotel 'chain')
-      allow read: if request.auth != null && (request.auth.uid in resource.data.to || gmIn(resource.data.hotel) || manages(resource.data.hotel) || canCeo());
+      allow read: if request.auth != null && (request.auth.uid in resource.data.to || gmIn(resource.data.hotel) || manages(resource.data.hotel) || canCeo()
+        || (resource.data.get('kind', '') == 'hkupd' && frontIn(resource.data.hotel)));
+      // reception: only the fixed "update the room statuses" request to housekeeping (kind hkupd)
       allow create: if request.resource.data.by == request.auth.uid && request.resource.data.to.size() <= 500
-        && (request.resource.data.hotel == 'chain' ? canCeo() : (gmIn(request.resource.data.hotel) || manages(request.resource.data.hotel) || canCeo()));
+        && (request.resource.data.hotel == 'chain' ? canCeo() : (gmIn(request.resource.data.hotel) || manages(request.resource.data.hotel) || canCeo()
+          || (request.resource.data.get('kind', '') == 'hkupd' && frontIn(request.resource.data.hotel))));
       allow update: if request.auth != null && request.auth.uid in resource.data.to && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reads']);
     }
     match /leadcats/{id} {

@@ -1021,6 +1021,7 @@ exports.onBroadcast = trig('broadcasts/{id}').onCreate(async (snap) => {
     }
     if (!to.length) return;
   }
+  if (b.kind === 'hkupd') return sendTo(to, { title: '🧹 בקשה מהקבלה' + (b.byName ? ' · ' + b.byName : ''), body: 'נא לעדכן עכשיו במערכת את מצב החדרים שלך', hash: '#hk', tag: 'hkupd-' + b.hotel });
   return sendTo(to, { title: '📣 הודעה מ' + (b.byName || 'המנהל'), body: String(b.text || '').slice(0, 180), hash: '#', tag: 'bc-' + snap.id });
 });
 

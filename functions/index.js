@@ -280,7 +280,10 @@ exports.onHkUpdate = trig('hk/{id}').onWrite(async (ch) => {
   const b = ch.before.exists ? ch.before.data() : {}, a = ch.after.data() || {};
   const st = (await stationsOf(a.hotel)).filter((u) => u !== a.lastBy); if (!st.length) return;
   const lines = [], bc = b.clean || {}, ac = a.clean || {}, bs = b.start || {}, as = a.start || {}, who = a.cleanBy || {};
-  for (const [r, v] of Object.entries(ac)) if (bc[r] !== v && (who[r] || '') !== 'אוטומטי') lines.push(`חדר ${r}: ${HK_TXT[v] || v}${who[r] ? ' · ' + who[r] : ''}`);
+  // refresh finished (worker "✓ סיימתי Full refresh/Refresh") → one line instead of the OC status change of the same write
+  const btd = b.trtDone || {}, atd = a.trtDone || {}, trtN = { full: 'Full refresh', ref: 'Refresh' }, refd = new Set();
+  for (const [r, v] of Object.entries(atd)) if (v && btd[r] !== v) { refd.add(r); lines.push(`חדר ${r}: ✓ סיים ${trtN[(a.trt || {})[r]] || 'רפרש'}${(a.trtByName || {})[r] ? ' · ' + a.trtByName[r] : ''}`); }
+  for (const [r, v] of Object.entries(ac)) if (bc[r] !== v && !refd.has(r) && (who[r] || '') !== 'אוטומטי') lines.push(`חדר ${r}: ${HK_TXT[v] || v}${who[r] ? ' · ' + who[r] : ''}`);
   for (const [r, v] of Object.entries(as)) if (bs[r] !== v && !(ac[r] && bc[r] !== ac[r])) lines.push(`חדר ${r}: התחיל ניקיון${(a.asgName || {})[r] ? ' · ' + a.asgName[r] : ''}`);
   const bd = b.dnd || {}, ad = a.dnd || {};
   for (const [r, v] of Object.entries(ad)) if (v && bd[r] !== v) lines.push(`חדר ${r}: 🚫 שלט DND על הדלת${(a.dndBy || {})[r] ? ' · ' + a.dndBy[r] : ''}`);

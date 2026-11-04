@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202611040715"></script>
+<script src="i18n.js?v=202611040730"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -2323,25 +2323,29 @@ function laborDay(d){const c=cfg(),oh=1+(+c.overhead||0)/100,sp=1+(+c.shabbatPct
 // function onBroadcast pushes it; recipients also see a banner (bcBannerHTML) until they tap "קראתי"
 const hhmmMin=t=>{const m=String(t||'').match(/(\d{1,2}):(\d{2})/);return m?(+m[1])*60+(+m[2]):null};
 function bcCrew(h,scope){const all=DEPTS.map(d=>d.k),today=todayISO(),now=new Date(),nm=now.getHours()*60+now.getMinutes(),out={};
+  // owner, Nov 4: 'all' = every active employee of the hotel, also those not on shift (manual employees have no app login)
+  if(scope==='all'){briefLoad(h,today);return Object.entries(S.emps||{}).filter(([u,e])=>e&&(e.hotel||'main')===h&&u!==S.uid&&!String(u).startsWith('m_')&&isActive(u)).map(([u])=>({u,t:''}))}
   const span=t=>{const m=String(t||'').match(/(\d{1,2}:\d{2})\D+(\d{1,2}:\d{2})/);return m?[hhmmMin(m[1]),hhmmMin(m[2])]:null};
   for(const c of crewOf(h,today,all).on){if(c.u===S.uid)continue;const s=span(c.t);if(scope==='today'||!s||(s[1]>s[0]?nm>=s[0]-15&&nm<s[1]:nm>=s[0]-15))out[c.u]=c.t}
   if(scope==='now')for(const c of crewOf(h,addDays(today,-1),all).on){if(c.u===S.uid)continue;const s=span(c.t);if(s&&s[1]<=s[0]&&nm<s[1])out[c.u]=c.t}
   return Object.entries(out).map(([u,t])=>({u,t}))}
 function bcSub(h){const k='bc|'+h+'|'+todayISO();if(S.live[k])return;S.live[k]=true;S.db.collection('broadcasts').where('hotel','==',h).where('day','==',todayISO()).onSnapshot(q=>{(S.bcSent||(S.bcSent={}))[h]=docsMap(q);render()},()=>{})}
 function bcCardHTML(h){bcSub(h);const sc=S.bcScope||'now',crew=bcCrew(h,sc),sent=Object.entries((S.bcSent||{})[h]||{}).sort(([,a],[,b])=>(b.at||0)-(a.at||0));
-  return `<div class="card"><h3>📣 הודעה לעובדים במשמרת</h3>
-    <div class="chips" style="gap:6px"><button class="dchip ${sc==='now'?'':'off'}" data-act="bc-scope" data-v="now">במשמרת עכשיו</button><button class="dchip ${sc==='today'?'':'off'}" data-act="bc-scope" data-v="today">כל מי שעובד היום</button></div>
-    <p class="muted" style="font-size:.85rem;margin:6px 0">${crew.length?`יגיע ל-${crew.length}: `+crew.map(c=>esc(empName(c.u))).join(', '):'אין כרגע עובדים במשמרת לפי סידור העבודה שפורסם.'}</p>
+  return `<div class="card"><h3>📣 הודעה לעובדים</h3>
+    <div class="chips" style="gap:6px" data-nosel><button class="dchip ${sc==='now'?'':'off'}" data-act="bc-scope" data-v="now">במשמרת עכשיו</button><button class="dchip ${sc==='today'?'':'off'}" data-act="bc-scope" data-v="today">כל מי שעובד היום</button><button class="dchip ${sc==='all'?'':'off'}" data-act="bc-scope" data-v="all">כל עובדי המלון</button></div>
+    <p class="muted" style="font-size:.85rem;margin:6px 0">${crew.length?`יגיע ל-${crew.length}`+(crew.length<=30?': '+crew.map(c=>esc(empName(c.u))).join(', '):''):sc==='all'?'אין עובדים פעילים במלון.':'אין כרגע עובדים במשמרת לפי סידור העבודה שפורסם.'}</p>
     <label class="f">ההודעה<textarea rows="3" data-f="bc.text" placeholder="למשל: קבוצה גדולה מגיעה ב-15:00, כולם ללובי">${esc(dv('bc','text',''))}</textarea></label>
     <div class="actions"><button class="btn pri" data-act="bc-send" ${crew.length?'':'disabled'}>שליחה לכולם</button><small class="muted">כל אחד מקבל התראה לטלפון והודעה בראש המסך</small></div>
     ${sent.length?`<div class="plist" style="margin-top:8px">${sent.slice(0,5).map(([,b])=>{const n=(b.to||[]).length,r=Object.keys(b.reads||{}).length;return `<div class="prow"><span class="who"><b>${esc(String(b.text||'').slice(0,90))}</b><small>${new Date(b.at||0).toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'})} · נשלח ל-${n} · קראו ${r}/${n}${r<n?' · עוד לא: '+esc((b.to||[]).filter(u=>!(b.reads||{})[u]).map(u=>(b.toNames||{})[u]||empName(u)).join(', ')):''}</small></span></div>`}).join('')}</div>`:''}</div>`}
 // CEO (owner, Nov 4): one message to the staff of every hotel in the chain (hotel 'chain' on the broadcast doc)
-function bcChainCrew(sc){const seen={};for(const h of hotelIds())for(const c of bcCrew(h,sc))if(!seen[c.u])seen[c.u]={...c,h};return Object.values(seen)}
+function bcChainCrew(sc){const seen={},hs=[...hotelIds()];
+  if(sc==='all'){hs.push(CHAIN);if(!S.live['bemps:'+CHAIN]){S.live['bemps:'+CHAIN]=true;S.db.collection('employees').where('hotel','==',CHAIN).onSnapshot(q=>{S.emps={...S.emps,...docsMap(q)};render()},()=>{})}}
+  for(const h of hs)for(const c of bcCrew(h,sc))if(!seen[c.u])seen[c.u]={...c,h};return Object.values(seen)}
 function bcChainCardHTML(){if(!S.can.ceo&&!S.isOwner)return '';bcSub('chain');const sc=S.bcScope||'now',crew=bcChainCrew(sc),sent=Object.entries((S.bcSent||{}).chain||{}).sort(([,a],[,b])=>(b.at||0)-(a.at||0));
   const by={};for(const c of crew)by[c.h]=(by[c.h]||0)+1;
   return `<div class="card"><h3>📣 הודעה לעובדים בכל הרשת</h3>
-    <div class="chips" style="gap:6px" data-nosel><button class="dchip ${sc==='now'?'':'off'}" data-act="bc-scope" data-v="now">במשמרת עכשיו</button><button class="dchip ${sc==='today'?'':'off'}" data-act="bc-scope" data-v="today">כל מי שעובד היום</button></div>
-    <p class="muted" style="font-size:.85rem;margin:6px 0">${crew.length?`יגיע ל-${crew.length}: `+Object.entries(by).map(([h,n])=>esc(hotelName(h))+' '+n).join(' · '):'אין כרגע עובדים במשמרת לפי סידורי העבודה שפורסמו.'}</p>
+    <div class="chips" style="gap:6px" data-nosel><button class="dchip ${sc==='now'?'':'off'}" data-act="bc-scope" data-v="now">במשמרת עכשיו</button><button class="dchip ${sc==='today'?'':'off'}" data-act="bc-scope" data-v="today">כל מי שעובד היום</button><button class="dchip ${sc==='all'?'':'off'}" data-act="bc-scope" data-v="all">כל העובדים ברשת</button></div>
+    <p class="muted" style="font-size:.85rem;margin:6px 0">${crew.length?`יגיע ל-${crew.length}: `+Object.entries(by).map(([h,n])=>esc(h===CHAIN?'הרשת':hotelName(h))+' '+n).join(' · '):sc==='all'?'אין עובדים פעילים.':'אין כרגע עובדים במשמרת לפי סידורי העבודה שפורסמו.'}</p>
     <label class="f">ההודעה<textarea rows="3" data-f="bcc.text" placeholder="למשל: תזכורת לכל הצוותים">${esc(dv('bcc','text',''))}</textarea></label>
     <div class="actions"><button class="btn pri" data-act="bc-send-chain" ${crew.length?'':'disabled'}>שליחה לכל הרשת</button><small class="muted">כל אחד מקבל התראה לטלפון והודעה בראש המסך</small></div>
     ${sent.length?`<div class="plist" style="margin-top:8px">${sent.slice(0,5).map(([,b])=>{const n=(b.to||[]).length,r=Object.keys(b.reads||{}).length;return `<div class="prow"><span class="who"><b>${esc(String(b.text||'').slice(0,90))}</b><small>${new Date(b.at||0).toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'})} · נשלח ל-${n} · קראו ${r}/${n}</small></span></div>`}).join('')}</div>`:''}</div>`}

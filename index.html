@@ -466,7 +466,7 @@ const isHome=u=>hotelOf(u)===S.hotel;
 function breakDept(hotel,dept){const b=(S.settingsAll[hotel]?.deptBreaks||{})[dept];return b===undefined?dept!=='reception':!!b}
 const paidHrs=s=>{const h=hrs(s);return breakDept(hotelOfShift(s),s.dept)?netH(h):h};
 function hotelIds(){return [...new Set(['main',...Object.keys(S.hotels)])].filter(h=>h!==CHAIN).sort((a,b)=>(a==='main'?0:(S.hotels[a]?.createdAt||1))-(b==='main'?0:(S.hotels[b]?.createdAt||1)))}
-function visibleHotels(){const all=hotelIds();if(S.isOwner||!S.role||!Array.isArray(S.role.hotels)||!S.role.hotels.length)return all;const v=all.filter(h=>S.role.hotels.includes(h));return v.length?v:all}
+function visibleHotels(){const all=hotelIds();if(S.isOwner||!S.role||!Array.isArray(S.role.hotels)||!S.role.hotels.length)return all;return all.filter(h=>S.role.hotels.includes(h))}
 function hotelName(h){if(h===CHAIN)return S.hotels[CHAIN]?.name||'הרשת';return S.hotels[h]?.name||S.settingsAll[h]?.hotelName||(h==='main'?'מלון ראשי':'מלון')}
 const allWeekShifts=()=>{const w=S.week,e=addDays(w,6);return Object.entries(S.shifts).filter(([,s])=>s.date>=w&&s.date<=e&&+s.need>0)};
 // after publishing, changes go through requests/{id}; an approved request is applied on top of the published schedule

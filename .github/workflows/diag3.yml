@@ -1,0 +1,18 @@
+name: diag3
+on:
+  workflow_dispatch:
+jobs:
+  t:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: cd functions && npm install --omit=dev
+      - env:
+          KEY: ${{ secrets.FIREBASE_DEPLOY_KEY }}
+        run: |
+          echo "$KEY" > "$RUNNER_TEMP/key.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/key.json"
+          NODE_PATH=functions/node_modules node .github/diag/grp.js
+          rm -f "$RUNNER_TEMP/key.json"

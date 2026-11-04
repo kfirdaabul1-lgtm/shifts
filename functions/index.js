@@ -950,7 +950,23 @@ exports.onLeadAuto = trig('leads/{id}').onCreate(async (snap) => {
 
 // hotel manager's message to everyone on shift (broadcasts, gm page card) → push to each recipient
 exports.onBroadcast = trig('broadcasts/{id}').onCreate(async (snap) => {
-  const b = snap.data() || {}, to = (b.to || []).filter(Boolean); if (!to.length) return;
+  const b = snap.data() || {}; let to = (b.to || []).filter((u) => typeof u === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(u)); if (!to.length) return;
+  // owner, Nov 4: a hotel manager's message reaches only that hotel's staff; only the CEO (or the owner) sends to the whole chain
+  let ceo = false;
+  try { const r = await db.doc('roles/' + b.by).get(); ceo = !!(r.exists && (r.data().apps || {}).ceo); } catch (e) {}
+  if (!ceo) { try { const u = await admin.auth().getUser(b.by); ceo = await pwIsOwnerMail(u.email); } catch (e) {} }
+  if (!ceo) {
+    if (b.hotel === 'chain' || !b.hotel) to = [];
+    else {
+      const docs = await db.getAll(...to.map((u) => db.doc('employees/' + u)));
+      to = docs.filter((d) => d.exists && (d.data().hotel || 'main') === b.hotel).map((d) => d.id);
+    }
+    if (to.length !== (b.to || []).length) {
+      const names = {}; for (const u of to) if (b.toNames && b.toNames[u]) names[u] = b.toNames[u];
+      await snap.ref.update({ to, toNames: names, trimmed: true }).catch(() => {});
+    }
+    if (!to.length) return;
+  }
   return sendTo(to, { title: '📣 הודעה מ' + (b.byName || 'המנהל'), body: String(b.text || '').slice(0, 180), hash: '#', tag: 'bc-' + snap.id });
 });
 

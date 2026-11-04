@@ -238,8 +238,8 @@ service cloud.firestore {
     match /employees/{uid} {
       // עובד רואה רק את הצוות של המלון שלו; מי שיש לו הרשאה רואה רק את המלונות שבהרשאה
       allow get: if signedIn() && (request.auth.uid == uid || seesHotel(hotelOf(resource.data))
-        || (isEmployee() && hotelOf(resource.data) == myHotel()));
-      allow list: if seesHotel(resource.data.hotel) || (isEmployee() && resource.data.hotel == myHotel());
+        || (isEmployee() && hotelOf(resource.data) == myHotel()) || canCeo());
+      allow list: if seesHotel(resource.data.hotel) || (isEmployee() && resource.data.hotel == myHotel()) || canCeo();
       // הרשמה עצמית רק עם קוד הצטרפות תקף, למלון של הקוד
       // עובד נרשם בעצמו בלי מחלקה; את המחלקה קובע מי שיש לו הרשאת עובדים
       allow create: if (hrIn(hotelOf(request.resource.data)) && (hotelOf(request.resource.data) != 'chain' || allHotels())) || (
@@ -335,7 +335,8 @@ service cloud.firestore {
         || ((canShifts() || (hasRole() && roleApp('dept'))) && resource.data.hotel in roleHotels())
         || (gmRole() && (roleHotels().size() == 0 || resource.data.hotel in roleHotels()))
         || (frontIn(resource.data.hotel) && resource.data.status == 'approved')
-        || (isEmployee() && resource.data.hotel == myHotel() && resource.data.status == 'approved'));
+        || (isEmployee() && resource.data.hotel == myHotel() && resource.data.status == 'approved')
+        || (canCeo() && resource.data.status == 'approved'));
       // עובד מבקש להתחלף עם עובד אחר באותו מלון: העובד השני מסכים, ואז המנהל מאשר
       allow create: if isOwner() || (hotelStaff(request.resource.data.hotel) && request.resource.data.status == 'pending')
         || (isEmployee() && request.resource.data.type == 'swap' && request.resource.data.uid == request.auth.uid
@@ -405,8 +406,10 @@ service cloud.firestore {
       allow read, write: if isOwner();
     }
     match /broadcasts/{id} {
-      allow read: if request.auth != null && (request.auth.uid in resource.data.to || gmIn(resource.data.hotel) || manages(resource.data.hotel));
-      allow create: if (gmIn(request.resource.data.hotel) || manages(request.resource.data.hotel)) && request.resource.data.by == request.auth.uid && request.resource.data.to.size() <= 300;
+      // a hotel manager sends to their own hotel's staff (the server drops anyone else); the CEO may send to the whole chain (hotel 'chain')
+      allow read: if request.auth != null && (request.auth.uid in resource.data.to || gmIn(resource.data.hotel) || manages(resource.data.hotel) || canCeo());
+      allow create: if request.resource.data.by == request.auth.uid && request.resource.data.to.size() <= 500
+        && (request.resource.data.hotel == 'chain' ? canCeo() : (gmIn(request.resource.data.hotel) || manages(request.resource.data.hotel) || canCeo()));
       allow update: if request.auth != null && request.auth.uid in resource.data.to && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reads']);
     }
     match /leadcats/{id} {

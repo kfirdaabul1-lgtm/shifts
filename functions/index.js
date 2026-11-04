@@ -306,6 +306,43 @@ exports.crmMorning = functions.region(REGION).pubsub.schedule('30 8 * * *').time
   }));
 });
 
+// ---------- site tours (Nov 4): tours/{id} scheduled from a lead → on the day: the person who scheduled it, the reception (desks + front) and the hotel manager ----------
+async function tourHotel(venue) {
+  if (!venue) return '';
+  const qs = await db.collection('settings').where('venues', 'array-contains', venue).get();
+  return qs.empty ? '' : qs.docs[0].id;
+}
+async function tourPeople(t) {
+  const out = new Set([t.by]);
+  if (t.hotel) {
+    (await stationsOf(t.hotel)).forEach((u) => out.add(u));
+    (await roleHolders(t.hotel, ['front', 'gm'])).forEach((u) => out.add(u));
+  }
+  return [...out].filter(Boolean);
+}
+function tourMsg(t, title) {
+  const ty = String(t.type || '').replace(/_+/g, ' ').trim();
+  return { title, body: [t.time, t.leadName, ty, t.guests ? t.guests + ' אורחים' : '', t.note].filter(Boolean).join(' · '), hash: '#brief', tag: 'tour-' + (t.id || '') };
+}
+exports.onTourWrite = trig('tours/{id}').onWrite(async (ch, ctx) => {
+  if (!ch.after.exists) return null;
+  const t = { ...ch.after.data(), id: ctx.params.id }, b = ch.before.exists ? ch.before.data() : null;
+  if (!t.hotel && t.venue) { const h = await tourHotel(t.venue); if (h) { await ch.after.ref.update({ hotel: h }); return null; } }
+  // a tour for today scheduled (or moved to today) after the morning reminder → remind now
+  const today = ilDate(new Date());
+  if (t.status !== 'scheduled' || t.date !== today) return null;
+  if (b && b.date === t.date && b.status === 'scheduled' && (b.hotel || '') === (t.hotel || '')) return null;
+  return sendTo(await tourPeople(t), tourMsg(t, '🗓 יש היום סיור · ' + (t.hotel ? await hotelName(t.hotel) : '')));
+});
+exports.tourMorning = functions.region(REGION).pubsub.schedule('0 8 * * *').timeZone('Asia/Jerusalem').onRun(async () => {
+  const today = ilDate(new Date()), qs = await db.collection('tours').where('date', '==', today).get();
+  for (const d of qs.docs) {
+    const t = { ...d.data(), id: d.id }; if (t.status !== 'scheduled') continue;
+    await sendTo(await tourPeople(t), tourMsg(t, '🗓 תזכורת: סיור היום · ' + (t.hotel ? await hotelName(t.hotel) : '')));
+  }
+  return null;
+});
+
 // ---------- Meta (Facebook / Instagram): ad numbers → campaigns, lead-form leads → leads ----------
 // metacfg/main {token (system-user token, owner only), adAccount, syncReq, leadsAt (unix secs), insAt, status:{...}}
 // every 15 min: new leads from the pages' lead forms; every 3 h (and on "סנכרון עכשיו"): last 35 days of campaign numbers by week

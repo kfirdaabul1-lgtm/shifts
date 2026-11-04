@@ -389,6 +389,14 @@ service cloud.firestore {
       allow delete: if canEvents() && leadVenueOk(resource.data.get('venue', ''));
     }
     // משימות ותזכורות של צוות המכירות, והערות לכל לקוח
+    // site tours (Nov 4): events users schedule them from a lead; the hotel's brief / manager / reception read them by hotel
+    match /tours/{id} {
+      allow read: if (canEvents() && leadVenueOk(resource.data.venue)) || briefIn(resource.data.hotel) || frontIn(resource.data.hotel) || gmIn(resource.data.hotel) || manages(resource.data.hotel);
+      allow create: if canEvents() && request.resource.data.by == request.auth.uid && request.resource.data.venue is string && request.resource.data.venue != '' && leadVenueOk(request.resource.data.venue)
+        && request.resource.data.status == 'scheduled' && request.resource.data.date is string && request.resource.data.date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
+      allow update: if canEvents() && leadVenueOk(resource.data.venue) && request.resource.data.venue == resource.data.venue && request.resource.data.hotel == resource.data.hotel;
+      allow delete: if canEvents() && leadVenueOk(resource.data.venue);
+    }
     match /tasks/{id} {
       allow read, write: if canEvents();
     }

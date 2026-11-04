@@ -49,47 +49,24 @@ async function roleHolders(hotel, apps, dept) {
 const managersOf = (hotel, dept) => roleHolders(hotel, ['shifts'], dept);
 
 // ---------- sending ----------
-// ---------- push translation (Nov 4, owner): every person gets the notification in the language they chose in the app (pushTokens.lang) ----------
-const TR_LANG = { en: 'English', ru: 'Russian', ar: 'Arabic', fr: 'French', es: 'Spanish', hi: 'Hindi', si: 'Sinhala' };
-const trMem = new Map();
-async function trPush(lang, title, body) {
-  if (!TR_LANG[lang] || !/[\u0590-\u05FF]/.test(title + body)) return null;
-  const key = require('crypto').createHash('sha1').update(lang + '|' + title + '|' + body).digest('hex');
-  if (trMem.has(key)) return trMem.get(key);
-  const ref = db.doc('trCache/' + key);
-  try { const c = await ref.get(); if (c.exists) { const v = c.data(); trMem.set(key, v); return v; } } catch (e) {}
-  const prompt = `Translate this hotel staff app push notification from Hebrew to ${TR_LANG[lang]}. Keep people's names, hotel names, room numbers, amounts, times, dates, codes and emojis exactly as they are (names may be transliterated only if written in Hebrew letters). Short, natural, no explanations.\nTITLE: ${title}\nBODY: ${body}`;
-  try {
-    const { j } = await aiGenerate({ contents: [{ role: 'user', parts: [{ text: prompt }] }], generationConfig: { temperature: 0, responseMimeType: 'application/json', responseSchema: { type: 'OBJECT', properties: { title: { type: 'STRING' }, body: { type: 'STRING' } }, required: ['title', 'body'] } } });
-    const txt = (((j.candidates || [])[0] || {}).content || {}).parts?.map((x) => x.text || '').join('') || '';
-    const r = JSON.parse(txt); if (!r || !r.title) return null;
-    const v = { title: String(r.title).slice(0, 200), body: String(r.body || '').slice(0, 900), lang, at: Date.now() };
-    trMem.set(key, v); ref.set(v).catch(() => {});
-    return v;
-  } catch (e) { console.warn('trPush', lang, e.message); return null; }
-}
 async function sendTo(uids, msg) {
   uids = [...new Set(uids.filter(Boolean))]; if (!uids.length) return;
   const docs = await Promise.all(uids.map((u) => db.doc('pushTokens/' + u).get()));
-  const groups = {}, owner = {};
-  docs.forEach((d) => { if (!d.exists) return; const l = TR_LANG[d.data().lang] ? d.data().lang : 'he'; Object.keys(d.data().tokens || {}).forEach((t) => { (groups[l] = groups[l] || []).push(t); owner[t] = d.id; }); });
-  if (!Object.keys(groups).length) return;
+  const tokens = [], owner = {};
+  docs.forEach((d) => { if (!d.exists) return; Object.keys(d.data().tokens || {}).forEach((t) => { tokens.push(t); owner[t] = d.id; }); });
+  if (!tokens.length) return;
   const O = await org();
-  const base = { title: msg.title || O.name, body: msg.body || '', url: O.url + (msg.hash || ''), tag: msg.tag || '' };
-  for (const [lang, tokens] of Object.entries(groups)) {
-    const tr = lang === 'he' ? null : await trPush(lang, base.title, base.body);
-    const data = tr ? { ...base, title: tr.title, body: tr.body } : base, L = tr ? lang : 'he';
-    for (let i = 0; i < tokens.length; i += 500) {
-      const part = tokens.slice(i, i + 500);
-      // a "notification" block makes the phone show it itself (iPhone ignored data-only messages when the app was closed)
-      const res = await admin.messaging().sendEachForMulticast({ tokens: part, data, webpush: { headers: { Urgency: 'high', TTL: '86400' },
-        notification: { title: data.title, body: data.body, icon: O.url.replace(/[^/]*$/, '') + 'icon-192.png', badge: O.url.replace(/[^/]*$/, '') + 'icon-192.png', dir: L === 'he' || L === 'ar' ? 'rtl' : 'ltr', lang: L, ...(data.tag ? { tag: data.tag, renotify: true } : {}) },
-        fcmOptions: { link: data.url } } });
-      // forget devices that unsubscribed or reinstalled
-      const dead = [];
-      res.responses.forEach((r, j) => { const c = r.error && r.error.code; if (c === 'messaging/registration-token-not-registered' || c === 'messaging/invalid-registration-token' || c === 'messaging/invalid-argument') dead.push(part[j]); });
-      await Promise.all(dead.map((t) => db.doc('pushTokens/' + owner[t]).update({ ['tokens.' + t]: admin.firestore.FieldValue.delete() }).catch(() => {})));
-    }
+  const data = { title: msg.title || O.name, body: msg.body || '', url: O.url + (msg.hash || ''), tag: msg.tag || '' };
+  for (let i = 0; i < tokens.length; i += 500) {
+    const part = tokens.slice(i, i + 500);
+    // a "notification" block makes the phone show it itself (iPhone ignored data-only messages when the app was closed)
+    const res = await admin.messaging().sendEachForMulticast({ tokens: part, data, webpush: { headers: { Urgency: 'high', TTL: '86400' },
+      notification: { title: data.title, body: data.body, icon: O.url.replace(/[^/]*$/, '') + 'icon-192.png', badge: O.url.replace(/[^/]*$/, '') + 'icon-192.png', dir: 'rtl', lang: 'he', ...(data.tag ? { tag: data.tag, renotify: true } : {}) },
+      fcmOptions: { link: data.url } } });
+    // forget devices that unsubscribed or reinstalled
+    const dead = [];
+    res.responses.forEach((r, j) => { const c = r.error && r.error.code; if (c === 'messaging/registration-token-not-registered' || c === 'messaging/invalid-registration-token' || c === 'messaging/invalid-argument') dead.push(part[j]); });
+    await Promise.all(dead.map((t) => db.doc('pushTokens/' + owner[t]).update({ ['tokens.' + t]: admin.firestore.FieldValue.delete() }).catch(() => {})));
   }
 }
 

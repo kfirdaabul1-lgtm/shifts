@@ -605,7 +605,7 @@ function pushOffered(){if(!S.uid)return false;if(isIOS()&&!isStandalone())return
 async function pushToken(){const reg=await navigator.serviceWorker.register('firebase-messaging-sw.js');await navigator.serviceWorker.ready;
   const opt={serviceWorkerRegistration:reg};if(CFG.vapidKey)opt.vapidKey=CFG.vapidKey;
   const tok=await firebase.messaging().getToken(opt);if(!tok)throw new Error('no token');
-  await fdb.doc('pushTokens/'+S.uid).set({uid:S.uid,owner:!!S.isOwner,name:S.meName||'',hotel:S.myHotel||S.hotel||'',station:!!S.station,owner:!!S.isOwner,lang:window.APP_LANG||'he',updatedAt:Date.now(),tokens:{[tok]:{ua:navigator.userAgent.slice(0,120),at:Date.now(),ios:isIOS()}}},{merge:true});
+  await fdb.doc('pushTokens/'+S.uid).set({uid:S.uid,owner:!!S.isOwner,name:S.meName||'',hotel:S.myHotel||S.hotel||'',station:!!S.station,owner:!!S.isOwner,updatedAt:Date.now(),tokens:{[tok]:{ua:navigator.userAgent.slice(0,120),at:Date.now(),ios:isIOS()}}},{merge:true});
   try{localStorage.setItem('pushOk:'+S.uid,'1')}catch(_){ }return {tok,reg}}
 async function pushEnable(){
   if(isIOS()&&!isStandalone()){S.sheet={type:'iospush'};render();return}
@@ -616,9 +616,7 @@ async function pushEnable(){
     toast('ההתראות הופעלו במכשיר הזה ✓');render()}
   catch(e){console.warn('push',e);toast('לא הצלחתי להפעיל התראות במכשיר הזה. נסו שוב או בדפדפן אחר.')}}
 // on every sign-in with permission already granted: refresh the token quietly, and show messages that arrive while the site is open
-// the language the person chose (i18n.js) is saved with their devices, so the server translates their notifications (owner, Nov 4)
-function pushLangSave(){try{const l=window.APP_LANG||'he',k='pushLang:'+S.uid;if(!S.uid||localStorage.getItem(k)===l)return;fdb.doc('pushTokens/'+S.uid).set({lang:l,langAt:Date.now()},{merge:true}).then(()=>{try{localStorage.setItem(k,l)}catch(_){}}).catch(()=>{})}catch(_){}}
-function pushInit(){pushLangSave();if(!pushSupported()||Notification.permission!=='granted'||(isIOS()&&!isStandalone()))return;
+function pushInit(){if(!pushSupported()||Notification.permission!=='granted'||(isIOS()&&!isStandalone()))return;
   pushToken().then(()=>{try{firebase.messaging().onMessage(m=>{const d=m.data||{},n=m.notification||{};toast((n.title||d.title||'')+(n.body||d.body?': '+(n.body||d.body):''))})}catch(_){ }render()}).catch(e=>console.warn('push init',e))}
 // ask once on open, like an installed app: our own sheet first (browsers need a tap before the system prompt); "not now" snoozes 3 days
 function pushAskSnoozed(){try{return +(localStorage.getItem('pushAsk:'+S.uid)||0)>Date.now()}catch(_){return false}}

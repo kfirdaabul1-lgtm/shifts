@@ -311,7 +311,7 @@ exports.onBarReport = trig('barReports/{id}').onCreate(async (snap) => {
   const r = snap.data() || {}, ils = (n) => '₪' + Math.round(+n || 0).toLocaleString('he-IL');
   const sh = { morning: 'בוקר', evening: 'ערב', night: 'לילה' }[r.shift] || '';
   const to = (await roleHolders(r.hotel, ['gm', 'shifts'], 'bar')).filter((u) => u !== r.by);
-  const body = `${r.name || ''}${sh ? ' · ' + sh : ''} · מזומן ${ils(r.cash)} · אשראי ${ils(r.credit)} · טיפים ${ils(r.tips)}${r.missing === 'yes' ? ' · ⚠️ חסר: ' + (r.missingNote || '') : ''}`;
+  const body = `${r.name || ''}${sh ? ' · ' + sh : ''} · מזומן ${ils(r.cash)} · אשראי ${ils(r.credit)} · טיפים מזומן ${ils(r.tipsCash)} · טיפים אשראי ${ils(r.tipsCredit)}${r.missing === 'yes' ? ' · ⚠️ חסר: ' + (r.missingNote || '') : ''}`;
   return sendTo(to, { title: (r.missing === 'yes' ? '⚠️ ' : '') + 'דוח בר · ' + (await hotelName(r.hotel)), body, hash: '#bar', tag: 'bar-' + snap.id });
 });
 

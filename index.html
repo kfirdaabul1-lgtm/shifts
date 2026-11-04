@@ -2672,7 +2672,11 @@ function vFront(){const hs=modHs('front',scopeHs());if(!hs.length)return wrap(em
   const sched=`<h2 style="margin-top:8px">סידור העבודה</h2>${S.sched.published?'':'<p class="muted" style="font-size:.85rem">הסידור לשבוע הזה עוד לא פורסם, מוצג השיבוץ הנוכחי.</p>'}`+
     (depts.length?depts.map(d=>`<section class="dept" style="--h:${d.h}"><div class="dept-h"><span class="sw"></span><h2>${d.n}</h2></div>${deptTable(d.k,'view')}</section>`).join(''):emptyBox('אין משמרות לשבוע הזה',''));
   // the reception fills the report but never sees past reports (cash amounts are for managers only)
-  return wrap(head+callsCardHTML(h)+pubCardHTML(h)+frontCmpHTML(h)+frontFaultsHTML(h)+daily+srFormHTML(h)+(srBoss(h)?srListHTML(h,false):srListHTML(h,false,true))+evCard+sched);
+  // owner, Nov 4: the four call cards are closed folds on the reception page; the title shows what is open now
+  const fCalls=Object.values(callsSub(h)||{}),nHk=fCalls.filter(c=>c.kind!=='pub'&&c.status==='open').length,nPub=fCalls.filter(c=>c.kind==='pub'&&c.status==='open').length;
+  const nFlt=faultsOf(h).filter(([,f])=>f.status!=='done').length,nCmp=Object.keys(frontCmpSub(h)||{}).length;
+  const fc=(html,key,n,lbl)=>foldCard(n?html.replace(/^(<div class="card"><h3>[^<]*)/,'$1 <span class="pill warn">'+n+'&nbsp;<span>'+lbl+'</span></span>'):html,key);
+  return wrap(head+fc(callsCardHTML(h),'fr-hk',nHk,'פתוחות')+fc(pubCardHTML(h),'fr-pub',nPub,'פתוחות')+fc(frontCmpHTML(h),'fr-cmp',nCmp,'היום')+fc(frontFaultsHTML(h),'fr-flt',nFlt,'פתוחות')+daily+srFormHTML(h)+(srBoss(h)?srListHTML(h,false):srListHTML(h,false,true))+evCard+sched);
 }
 /* ---------- reception → housekeeping calls: hkCalls/{id} {hotel, date, room, tasks:[HK_CALL keys], note, to, toName, status open|done,
    openedAt, openedBy, openedByName, doneAt, mins}. The worker gets a push (function onHkCall) and a card on every page until "טופל". ---------- */

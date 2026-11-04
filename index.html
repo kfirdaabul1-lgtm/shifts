@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202611040800"></script>
+<script src="i18n.js?v=202611040830"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1072,7 +1072,7 @@ const GRP_CAT=[['guest','חדרי הקבוצה'],['il','צוות ישראלי'],
 function grpLines(g){if(Array.isArray(g.lines))return g.lines;if(+g.rooms){const ppr=Math.max(1,Math.round((+g.pax||0)/(+g.rooms)||2));return [{cat:'guest',type:g.roomType||'',ppr,rooms:+g.rooms,price:Math.round((+g.rate||0)/ppr*100)/100}]}return []}
 // Nov 3 (owner): guests' origin (origin 'il' = Israelis pay VAT, 'abroad' = tourists, no VAT; Israeli staff always pay VAT, foreign staff never;
 // no origin = old group, no VAT) and agent discounts from the price list: one free guest for every `freeEvery` paying guests, `ilDisc` % off Israeli staff
-function grpCalc(g){const n=grpNights(g),L=grpLines(g),by={guest:{rooms:0,ppl:0,lod:0},il:{rooms:0,ppl:0,lod:0},fo:{rooms:0,ppl:0,lod:0}};let lodging=0;
+function grpCalc(g){const n=grpNights(g),pl0=grpMode(g)==='pl'&&g.plId?plOf(g.plId):null,L=pl0?grpLines(g).map(l=>{const r=plRate(pl0,l,g.board,g.ci,g.co,g.dayBoards);return r==null?l:{...l,price:r}}):grpLines(g),by={guest:{rooms:0,ppl:0,lod:0},il:{rooms:0,ppl:0,lod:0},fo:{rooms:0,ppl:0,lod:0}};let lodging=0;
   for(const l of L){const r=+l.rooms||0,pp=(+l.ppr||0)*r,b=by[l.cat]||by.guest,v=pp*n*(+l.price||0);b.rooms+=r;b.ppl+=pp;b.lod+=v;lodging+=v}
   const bp=+g.boardPrice||0,adjPP=grpMode(g)==='free'?(Array.isArray(g.dayBoards)?g.dayBoards:[]).filter(x=>x&&x.b&&x.d>=(g.ci||'')&&x.d<(g.co||'')).reduce((a,x)=>a+(+x.adj||0),0):0,part=k=>by[k].lod+by[k].ppl*(n*bp+adjPP);
   const rooms=by.guest.rooms+by.il.rooms+by.fo.rooms,pax=by.guest.ppl+by.il.ppl+by.fo.ppl,board=pax*(n*bp+adjPP),extras=+g.extras||0,sub=lodging+board+extras;
@@ -1169,7 +1169,7 @@ const grpNightList=g=>{const out=[];if(g.ci&&g.co&&g.co>g.ci)for(let d=g.ci;d<g.
 const plBoardAvg=(pl,board,ci,co,days)=>{const D=grpDayMap(days,ci,co),val=b=>{const v=pl&&b?pl[b]:null;return v===''||v==null||isNaN(+v)?0:+v};
   if(!Object.keys(D).length||!ci||!co||co<=ci)return board&&pl&&pl[board]!==''&&pl[board]!=null?+pl[board]:null;let s=0,k=0;for(let d=ci;d<co&&k<400;d=addDays(d,1)){s+=val(D[d]||board);k++}return k?Math.round(s/k*100)/100:null};
 const plRate=(pl,l,board,ci,co,days)=>{const n=+(l&&l.ppr)||0;if(plHasGrid0(pl)){const b=board||plBoardFirst(pl),D=grpDayMap(days,ci,co),mon=plHasMonthly(pl);
-    if((mon||Object.keys(D).length)&&ci&&co&&co>ci){let sum=0,k=0;for(let d=ci;d<co&&k<400;d=addDays(d,1)){const bb=D[d]||b,v=mon?plMV(pl,d.slice(0,7),n,bb):plGridV(pl,n,bb);if(v==null)return null;sum+=v;k++}return k?Math.round(sum/k*100)/100:null}
+    if((mon||Object.keys(D).length)&&ci&&co&&co>ci){let sum=0,k=0;for(let d=ci;d<co&&k<400;d=addDays(d,1)){const bb=D[d]||b,gv=x=>mon?plMV(pl,d.slice(0,7),n,x):plGridV(pl,n,x);let v=gv(bb);if(v==null&&bb!==b)v=gv(b);if(v==null)return null;sum+=v;k++}return k?Math.round(sum/k*100)/100:null}
     return plMonths(pl).length&&plHasMonthly(pl)?(plGridV(pl,n,b)??plMV(pl,plMonths(pl)[0],n,b)):plGridV(pl,n,b)}
   const r=plRow(pl,l);return r?+r.rate||0:null};
 // pick the best price list for a group: the agent's own list first, then a general one; active, matching hotel, valid on the arrival date
@@ -1256,6 +1256,8 @@ function grpHallsHTML(id,x,isNew){const halls=x.halls||[],g=(k,d)=>dv('gh',k,d),
   <div class="row"><label class="f">משעה<input type="time" data-f="gh.start" value="${esc(g('start','09:00'))}"></label><label class="f">עד שעה<input type="time" data-f="gh.end" value="${esc(g('end','13:00'))}"></label><label class="f">אנשים<input type="number" min="0" inputmode="numeric" data-f="gh.guests" value="${esc(g('guests',x.pax||''))}"></label></div>
   <label class="f">הערה<input type="text" data-f="gh.note" value="${esc(g('note',''))}" placeholder="למשל ישיבת בוקר, ארוחת ערב"></label>
   <div class="actions"><button class="btn" data-act="gh-add">+ הוספת אולם ללוח האירועים</button></div>`}
+function plMissNights(pl,cur){if(!pl||!plHasGrid0(pl))return [];const D=grpDayMap(cur.dayBoards,cur.ci,cur.co),mon=plHasMonthly(pl),out=[];
+  for(const [d,b] of Object.entries(D)){const ok=grpLines(cur).some(l=>{const n=+l.ppr||0;return (mon?plMV(pl,d.slice(0,7),n,b):plGridV(pl,n,b))!=null});if(!ok)out.push([d,b])}return out}
 function grpDaysHTML(cur){const N=grpNightList(cur),L=Array.isArray(cur.dayBoards)?cur.dayBoards:[],free=grpMode(cur)==='free',pl=plOf(cur.plId),grid=!free&&plHasGrid0(pl);
   if(!N.length)return '';const wd=d=>['א','ב','ג','ד','ה','ו','ש'][new Date(d+'T12:00:00Z').getUTCDay()];
   return `<div class="f" style="margin-top:6px"><span><b>ימים עם ארוחות שונות</b> <span class="muted" style="font-size:.85rem">(לילה שבו בסיס האירוח לא כמו בשאר הימים)</span></span>
@@ -1265,6 +1267,7 @@ function grpDaysHTML(cur){const N=grpNightList(cur),L=Array.isArray(cur.dayBoard
     ${free?`<label class="f" style="max-width:130px">תוספת/הנחה לאדם (₪, אפשר מינוס)<input type="number" step="any" inputmode="decimal" data-gday="${i}|adj" value="${esc(x.adj??'')}"></label>`:''}
     <button class="btn sm ghost" data-act="grpd-del" data-i="${i}" title="מחיקה">✕</button></div>`}).join('')}
   <div><button class="btn sm ghost" data-act="grpd-add">+ יום עם ארוחות אחרות</button></div>
+  ${(()=>{const m=plMissNights(pl,cur);return m.length&&!free?`<div class="notice" style="margin-top:6px"><span>⚠️ במחירון חסר מחיר ללילות:</span> <b>${m.map(([d,b])=>esc((GRP_BOARD.find(x=>x[0]===b)||[,b])[1])+' ('+dm(d)+')').join(', ')}</b>. <span>הלילות האלה מחושבים לפי בסיס האירוח הרגיל של הקבוצה – כדאי להוסיף את המחיר במחירון.</span></div>`:''})()}
   ${L.length?`<p class="muted" style="font-size:.85rem;margin:2px 0 0">${grid?'המחיר של כל לילה כזה נלקח מהמחירון לפי בסיס האירוח שלו, והמחיר לאדם בשורות הוא ממוצע הלילות.':free?'הסכום שרשמתם נוסף (או יורד) לכל אדם בקבוצה בלילה הזה.':pl?'מחיר הארוחות לאורח ללילה הוא ממוצע הלילות לפי המחירון.':''}</p>`:''}</div>`}
 function grpTotHTML(cur){const c=grpCalc(cur);return `<div><span>סה״כ ${c.rooms} חדרים · ${c.pax} אנשים${c.by.il.ppl||c.by.fo.ppl?` (${c.by.guest.ppl} בקבוצה${c.by.il.ppl?`, ${c.by.il.ppl} צוות ישראלי`:''}${c.by.fo.ppl?`, ${c.by.fo.ppl} צוות זר`:''})`:''} · ${c.n} לילות</span><span></span></div>
     <div><span>לינה (לפי מחיר לאדם ללילה)</span><span>${grpMoney(c.lodging,cur.cur)}</span></div>

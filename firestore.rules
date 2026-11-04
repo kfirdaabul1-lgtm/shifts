@@ -569,6 +569,13 @@ service cloud.firestore {
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'doneAt', 'mins'])));
       allow delete: if signedIn() && hkFullIn(resource.data.hotel);
     }
+    // חדרים חסומים בלי תקלה (OOS): id = hotel__room
+    match /hkBlocks/{id} {
+      allow read: if signedIn() && (hkFullIn(resource.data.hotel) || hkWorkIn(resource.data.hotel) || maintIn(resource.data.hotel) || briefIn(resource.data.hotel));
+      allow create, update: if signedIn() && id == request.resource.data.hotel + '__' + request.resource.data.room
+        && request.resource.data.by == request.auth.uid && hkFullIn(request.resource.data.hotel);
+      allow delete: if signedIn() && hkFullIn(resource.data.hotel);
+    }
     match /hkday/{h} {
       allow read: if hkFullIn(h) || hkWorkIn(h) || maintIn(h);
       allow write: if hkFullIn(h);

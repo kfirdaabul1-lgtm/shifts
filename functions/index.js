@@ -237,6 +237,11 @@ exports.hkNightly = functions.region(REGION).pubsub.schedule('0 5 * * *').timeZo
   for (const d of hs.docs) {
     try {
       const ref = db.doc('hkday/' + d.id), cur = await ref.get(), from = (cur.exists && cur.data().date) || ilDate(new Date(Date.now() - 24 * 3600e3));
+      // OOS blocks whose end date has passed are released → VD on today's board (reception gets the onHkBlock push)
+      try {
+        const bl = await db.collection('hkBlocks').where('hotel', '==', d.id).get();
+        for (const b of bl.docs) { const x = b.data() || {}; if (x.until && x.until < today) { await b.ref.delete(); await db.doc('hk/' + d.id + '__' + today).set({ hotel: d.id, date: today, clean: { [x.room]: 'vd' }, cleanBy: { [x.room]: 'שחרור OOS אוטומטי' }, cleanAt: { [x.room]: Date.now() }, updatedAt: Date.now() }, { merge: true }); } }
+      } catch (e) { console.error('hk oos release', d.id, e); }
       if (from >= today) continue;
       const n = await hkCarry(d.id, today, from);
       await ref.set({ hotel: d.id, date: today, from, by: 'auto', byName: 'אוטומטי 05:00', at: Date.now() });
@@ -1260,4 +1265,17 @@ exports.onAuthLock = trig('authLocks/{uid}').onWrite(async (ch, ctx) => {
   const a = ch.after.exists ? ch.after.data() : null, ref = db.doc('authLockPub/' + ctx.params.uid);
   if (a && a.locked) await ref.set({ uid: ctx.params.uid, locked: true, lockedAt: a.lockedAt || Date.now() });
   else await ref.delete().catch(() => {});
+});
+
+// housekeeping OOS (room blocked without a fault): blocked / released → the hotel's reception desk
+exports.onHkBlock = functions.region(REGION).firestore.document('hkBlocks/{id}').onWrite(async (ch) => {
+  const b = ch.before.exists ? ch.before.data() : null, a = ch.after.exists ? ch.after.data() : null, x = a || b;
+  if (!x || !x.hotel) return null;
+  if (a && b) return null;
+  const st = await stationsOf(x.hotel); if (!st.length) return null;
+  const hn = await hotelName(x.hotel);
+  const msg = a ? { title: `🔒 חדר ${x.room} נחסם (OOS)`, body: `${hn}${a.until ? ' · עד ' + a.until.split('-').reverse().slice(0, 2).join('.') : ''}${a.byName ? ' · ' + a.byName : ''}` }
+    : { title: `🔓 חדר ${x.room} שוחרר וחזר למכירה`, body: `${hn} · החדר עבר ל-VD לניקוי` };
+  await sendTo(st.filter(u => !a || u !== a.by), { ...msg, hash: '#hk', tag: 'oos-' + x.hotel + '-' + x.room });
+  return null;
 });

@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202611040830"></script>
+<script src="i18n.js?v=202611041200"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -531,7 +531,7 @@ document.addEventListener('input',e=>{const t=e.target;if(!t.matches)return;
   else if(t.matches('[data-gday]')&&S.sheet&&S.sheet.type==='grp'){const [i,k]=t.dataset.gday.split('|'),x=(S.grps||{})[S.sheet.id]||{},d=S.drafts.grp||(S.drafts.grp={});if(!d.dayBoards)d.dayBoards=JSON.parse(JSON.stringify(x.dayBoards||[]));const r=d.dayBoards[+i];if(r){r[k]=t.value;
     if(k!=='adj'){grpApplyPl('board');renderSheet()}else{const el=document.getElementById('grpTot');if(el)el.innerHTML=grpTotHTML({...x,...d})}}}
   else if(t.matches('[data-gline]')&&S.sheet&&S.sheet.type==='grp'){const [i,k]=t.dataset.gline.split('|'),x=(S.grps||{})[S.sheet.id]||{},d=S.drafts.grp||(S.drafts.grp={});if(!d.lines)d.lines=JSON.parse(JSON.stringify(grpLines({...x,...d})));const l=d.lines[+i]||(d.lines[+i]={cat:'guest'});l[k]=t.value;
-    if(k==='ppr'){const pl=plOf((d.plId??x.plId)||'');if(pl&&grpMode({...x,...d})!=='free'){const r=plRate(pl,l,(d.board??x.board)||'',d.ci??x.ci,d.co??x.co,d.dayBoards??x.dayBoards);l.price=r==null?0:r;const sp=document.getElementById('glp'+i);if(sp)sp.textContent=r==null?'אין במחירון · ₪0':grpMoney(r,pl.cur)+' לאדם'}}
+    if(k==='ppr'){const pl=plOf((d.plId??x.plId)||'');if(pl&&grpMode({...x,...d})!=='free'){const r=plRate(pl,l,(d.board??x.board)||'',d.ci??x.ci,d.co??x.co,d.dayBoards??x.dayBoards);l.price=r==null?0:r;const sp=document.getElementById('glp'+i);if(sp){sp.textContent=r==null?'⚠️ אין מחיר במחירון':grpMoney(r,pl.cur)+' לאדם';sp.style.color=r==null?'var(--bad,#C0392B)':'';sp.style.fontWeight=r==null?'700':''}}}
     const cur={...x,...d},el=document.getElementById('grpTot');if(el)el.innerHTML=grpTotHTML(cur)}
   else if(t.matches('[data-plg]')&&S.sheet&&S.sheet.type==='pl'){const [n,b]=t.dataset.plg.split('|'),x=(S.pls||{})[S.sheet.id]||{},d=S.drafts.pl||(S.drafts.pl={});
     if(S.plM){if(!d.mgrid)d.mgrid=JSON.parse(JSON.stringify(x.mgrid||{}));const mm=d.mgrid[S.plM]||(d.mgrid[S.plM]={});(mm[n]||(mm[n]={}))[b]=t.value}
@@ -1088,7 +1088,7 @@ function grpLinesHTML(cur){const L=grpLines(cur),pl=plOf(cur.plId),types=(pl&&pl
     ${rows.map(([l,i])=>`<div class="row" style="align-items:flex-end;gap:6px">
       <label class="f" style="max-width:90px">אנשים בחדר<input type="number" min="1" inputmode="numeric" data-gline="${i}|ppr" value="${esc(l.ppr??'')}"></label>
       <label class="f" style="max-width:90px">כמות חדרים<input type="number" min="0" inputmode="numeric" data-gline="${i}|rooms" value="${esc(l.rooms??'')}"></label>
-      ${grpMode(cur)==='free'?`<label class="f" style="max-width:120px">מחיר לאדם ללילה<input type="number" min="0" step="any" inputmode="decimal" data-gline="${i}|price" value="${esc(l.price??'')}"></label>`:`<span class="muted" id="glp${i}" style="font-size:.85rem;padding-bottom:10px;min-width:90px">${pl?(plRate(pl,l,cur.board,cur.ci,cur.co,cur.dayBoards)==null?'אין במחירון · ₪0':grpMoney(plRate(pl,l,cur.board,cur.ci,cur.co,cur.dayBoards),pl.cur)+' לאדם'+(plHasMonthly(pl)?' (ממוצע לפי חודשים)':'')):'בוחרים מחירון'}</span>`}
+      ${grpMode(cur)==='free'?`<label class="f" style="max-width:120px">מחיר לאדם ללילה<input type="number" min="0" step="any" inputmode="decimal" data-gline="${i}|price" value="${esc(l.price??'')}"></label>`:`<span class="muted" id="glp${i}" style="font-size:.85rem;padding-bottom:10px;min-width:90px${pl&&plRate(pl,l,cur.board,cur.ci,cur.co,cur.dayBoards)==null?';color:var(--bad,#C0392B);font-weight:700':''}">${pl?(plRate(pl,l,cur.board,cur.ci,cur.co,cur.dayBoards)==null?'⚠️ אין מחיר במחירון':grpMoney(plRate(pl,l,cur.board,cur.ci,cur.co,cur.dayBoards),pl.cur)+' לאדם'+(plHasMonthly(pl)?' (ממוצע לפי חודשים)':'')):'בוחרים מחירון'}</span>`}
       <button class="btn sm ghost" data-act="gl-del" data-i="${i}" aria-label="הסרת שורה">✕</button></div>`).join('')}
     <div><button class="btn sm" data-act="gl-add" data-cat="${cat}">+ ${cat==='guest'?'שורת חדרים':'חדר ל'+title}</button></div></div>`}).join('')}
 const grpMoney=(v,c)=>(GRP_CUR[c]||'₪')+Math.round(+v||0).toLocaleString('he-IL');
@@ -1169,7 +1169,7 @@ const grpNightList=g=>{const out=[];if(g.ci&&g.co&&g.co>g.ci)for(let d=g.ci;d<g.
 const plBoardAvg=(pl,board,ci,co,days)=>{const D=grpDayMap(days,ci,co),val=b=>{const v=pl&&b?pl[b]:null;return v===''||v==null||isNaN(+v)?0:+v};
   if(!Object.keys(D).length||!ci||!co||co<=ci)return board&&pl&&pl[board]!==''&&pl[board]!=null?+pl[board]:null;let s=0,k=0;for(let d=ci;d<co&&k<400;d=addDays(d,1)){s+=val(D[d]||board);k++}return k?Math.round(s/k*100)/100:null};
 const plRate=(pl,l,board,ci,co,days)=>{const n=+(l&&l.ppr)||0;if(plHasGrid0(pl)){const b=board||plBoardFirst(pl),D=grpDayMap(days,ci,co),mon=plHasMonthly(pl);
-    if((mon||Object.keys(D).length)&&ci&&co&&co>ci){let sum=0,k=0;for(let d=ci;d<co&&k<400;d=addDays(d,1)){const bb=D[d]||b,gv=x=>mon?plMV(pl,d.slice(0,7),n,x):plGridV(pl,n,x);let v=gv(bb);if(v==null&&bb!==b)v=gv(b);if(v==null)return null;sum+=v;k++}return k?Math.round(sum/k*100)/100:null}
+    if((mon||Object.keys(D).length)&&ci&&co&&co>ci){let sum=0,k=0;for(let d=ci;d<co&&k<400;d=addDays(d,1)){const bb=D[d]||b,v=mon?plMV(pl,d.slice(0,7),n,bb):plGridV(pl,n,bb);if(v==null)return null;sum+=v;k++}return k?Math.round(sum/k*100)/100:null}
     return plMonths(pl).length&&plHasMonthly(pl)?(plGridV(pl,n,b)??plMV(pl,plMonths(pl)[0],n,b)):plGridV(pl,n,b)}
   const r=plRow(pl,l);return r?+r.rate||0:null};
 // pick the best price list for a group: the agent's own list first, then a general one; active, matching hotel, valid on the arrival date
@@ -1256,6 +1256,10 @@ function grpHallsHTML(id,x,isNew){const halls=x.halls||[],g=(k,d)=>dv('gh',k,d),
   <div class="row"><label class="f">משעה<input type="time" data-f="gh.start" value="${esc(g('start','09:00'))}"></label><label class="f">עד שעה<input type="time" data-f="gh.end" value="${esc(g('end','13:00'))}"></label><label class="f">אנשים<input type="number" min="0" inputmode="numeric" data-f="gh.guests" value="${esc(g('guests',x.pax||''))}"></label></div>
   <label class="f">הערה<input type="text" data-f="gh.note" value="${esc(g('note',''))}" placeholder="למשל ישיבת בוקר, ארוחת ערב"></label>
   <div class="actions"><button class="btn" data-act="gh-add">+ הוספת אולם ללוח האירועים</button></div>`}
+// what is missing in the price list for this group (price-list mode): lines without a price + nights whose board has no price
+function grpPlMissing(pl,cur){if(!pl)return [];const out=[],bn=b=>(GRP_BOARD.find(x=>x[0]===b)||[,b||''])[1];
+  grpLines(cur).filter(l=>(+l.rooms||0)>0).forEach(l=>{if(plRate(pl,l,cur.board,cur.ci,cur.co,cur.dayBoards)==null&&(plRate(pl,l,cur.board,cur.ci,cur.co,[])==null||!plMissNights(pl,cur).length)){const t=(+l.ppr||0)+' בחדר'+(cur.board?' · '+bn(cur.board):'');if(!out.includes(t))out.push(t)}});
+  plMissNights(pl,cur).forEach(([d,b])=>out.push(bn(b)+' ('+dm(d)+')'));return out}
 function plMissNights(pl,cur){if(!pl||!plHasGrid0(pl))return [];const D=grpDayMap(cur.dayBoards,cur.ci,cur.co),mon=plHasMonthly(pl),out=[];
   for(const [d,b] of Object.entries(D)){const ok=grpLines(cur).some(l=>{const n=+l.ppr||0;return (mon?plMV(pl,d.slice(0,7),n,b):plGridV(pl,n,b))!=null});if(!ok)out.push([d,b])}return out}
 function grpDaysHTML(cur){const N=grpNightList(cur),L=Array.isArray(cur.dayBoards)?cur.dayBoards:[],free=grpMode(cur)==='free',pl=plOf(cur.plId),grid=!free&&plHasGrid0(pl);
@@ -1267,7 +1271,7 @@ function grpDaysHTML(cur){const N=grpNightList(cur),L=Array.isArray(cur.dayBoard
     ${free?`<label class="f" style="max-width:130px">תוספת/הנחה לאדם (₪, אפשר מינוס)<input type="number" step="any" inputmode="decimal" data-gday="${i}|adj" value="${esc(x.adj??'')}"></label>`:''}
     <button class="btn sm ghost" data-act="grpd-del" data-i="${i}" title="מחיקה">✕</button></div>`}).join('')}
   <div><button class="btn sm ghost" data-act="grpd-add">+ יום עם ארוחות אחרות</button></div>
-  ${(()=>{const m=plMissNights(pl,cur);return m.length&&!free?`<div class="notice" style="margin-top:6px"><span>⚠️ במחירון חסר מחיר ללילות:</span> <b>${m.map(([d,b])=>esc((GRP_BOARD.find(x=>x[0]===b)||[,b])[1])+' ('+dm(d)+')').join(', ')}</b>. <span>הלילות האלה מחושבים לפי בסיס האירוח הרגיל של הקבוצה – כדאי להוסיף את המחיר במחירון.</span></div>`:''})()}
+  ${(()=>{const m=plMissNights(pl,cur);return m.length&&!free?`<div class="notice" style="margin-top:6px"><span>⚠️ במחירון חסר מחיר ללילות:</span> <b>${m.map(([d,b])=>esc((GRP_BOARD.find(x=>x[0]===b)||[,b])[1])+' ('+dm(d)+')').join(', ')}</b>. <span>אי אפשר לשמור את הקבוצה עד שמוסיפים את המחיר במחירון.</span></div>`:''})()}
   ${L.length?`<p class="muted" style="font-size:.85rem;margin:2px 0 0">${grid?'המחיר של כל לילה כזה נלקח מהמחירון לפי בסיס האירוח שלו, והמחיר לאדם בשורות הוא ממוצע הלילות.':free?'הסכום שרשמתם נוסף (או יורד) לכל אדם בקבוצה בלילה הזה.':pl?'מחיר הארוחות לאורח ללילה הוא ממוצע הלילות לפי המחירון.':''}</p>`:''}</div>`}
 function grpTotHTML(cur){const c=grpCalc(cur);return `<div><span>סה״כ ${c.rooms} חדרים · ${c.pax} אנשים${c.by.il.ppl||c.by.fo.ppl?` (${c.by.guest.ppl} בקבוצה${c.by.il.ppl?`, ${c.by.il.ppl} צוות ישראלי`:''}${c.by.fo.ppl?`, ${c.by.fo.ppl} צוות זר`:''})`:''} · ${c.n} לילות</span><span></span></div>
     <div><span>לינה (לפי מחיר לאדם ללילה)</span><span>${grpMoney(c.lodging,cur.cur)}</span></div>
@@ -4179,8 +4183,10 @@ const ACT={
     if(!name){toast('צריך לרשום שם לקבוצה');return}if(!String(g('origin')||'')){toast('צריך לבחור מאיפה האורחים (ישראלים או תיירים), בשביל המע״מ');return}if(!ci||!co){toast('צריך תאריך הגעה ותאריך עזיבה');return}if(co<=ci){toast('העזיבה צריכה להיות אחרי ההגעה');return}
     const ag=(S.agents||{})[agentId]||null,plId=String(g('plId')||''),pl=plOf(plId);
     const doc={...x,name,hotel,agentId,agentName:ag?ag.name||'':'',contact:String(g('contact')).trim(),ci,co,lines:grpLines({...x,...(S.drafts.grp||{})}).map(l=>({cat:l.cat||'guest',ppr:Math.max(0,+l.ppr||0),rooms:Math.max(0,+l.rooms||0),price:Math.max(0,+l.price||0)})).filter(l=>l.rooms>0),cur:String(g('cur')||'ils'),board:String(g('board')||''),boardPrice:num('boardPrice'),extras:num('extras'),extrasNote:String(g('extrasNote')).trim(),comm:0,plId,plName:pl?pl.name||'':'',noPl:!plId&&!!dv('grp','noPl',x.noPl||false),dayBoards:(dv('grp','dayBoards',x.dayBoards||[])||[]).filter(z=>z&&z.d&&z.b&&z.d>=ci&&z.d<co).filter((z,i,a)=>a.findIndex(w=>w.d===z.d)===i).sort((a,b)=>a.d<b.d?-1:1).map(z=>({d:z.d,b:z.b,adj:!plId&&isFinite(+z.adj)&&+z.adj?+z.adj:0})),dueDate:String(g('dueDate')||''),deposit:num('deposit'),origin:String(g('origin')||''),freeEvery:num('freeEvery'),ilDisc:Math.min(100,num('ilDisc')),vat:(()=>{const v=dv('grp','vat',x.vat??18);return v===''||v==null?18:Math.max(0,+v||0)})(),status:String(g('status')||'offer'),optUntil:String(g('optUntil')||''),notes:String(g('notes')).trim(),updatedAt:now,updatedBy:S.uid};
-    if(pl){doc.lines=doc.lines.map(l=>{const r=plRate(pl,l,doc.board,doc.ci,doc.co,doc.dayBoards);return {...l,price:r==null?0:r}});if(plHasGrid0(pl))doc.boardPrice=0;else if(doc.board){const bp=plBoardAvg(pl,doc.board,doc.ci,doc.co,doc.dayBoards);if(bp!=null)doc.boardPrice=bp}}
-    {const cc=grpCalc(doc);doc.rooms=cc.rooms;doc.pax=cc.pax;delete doc.rate;delete doc.roomType}
+    if(plId&&!pl){toast('המחירון שנבחר לא נמצא – צריך לבחור מחירון אחר');return}
+    if(pl){const miss=grpPlMissing(pl,doc);if(miss.length){toast('אי אפשר לשמור: אין מחיר במחירון "'+(pl.name||'')+'" עבור '+miss.join(', ')+'. צריך להוסיף את המחיר במחירון או לעבור להצעה מיוחדת.',7000);return}
+      doc.lines=doc.lines.map(l=>({...l,price:plRate(pl,l,doc.board,doc.ci,doc.co,doc.dayBoards)}));if(plHasGrid0(pl))doc.boardPrice=0;else if(doc.board){const bp=plBoardAvg(pl,doc.board,doc.ci,doc.co,doc.dayBoards);if(bp!=null)doc.boardPrice=bp}}
+    {const cc=grpCalc(doc);if(pl&&cc.rooms>0&&!(cc.total>0)){toast('אי אפשר לשמור: הסכום של הקבוצה יוצא 0 לפי המחירון. צריך לבדוק את המחירים במחירון.',7000);return}doc.rooms=cc.rooms;doc.pax=cc.pax;delete doc.rate;delete doc.roomType}
     if(isNew){doc.createdAt=now;doc.createdBy=S.uid;doc.createdByName=S.meName||''}
     S.grps={...S.grps,[id]:doc};S.sheet=null;S.drafts.grp=null;render();
     fdb.doc('groups/'+id).set(doc).then(()=>toast('הקבוצה נשמרה'),e=>toast('השמירה נכשלה: '+errMsg(mapErr(e))))},

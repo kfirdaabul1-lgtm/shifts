@@ -1361,8 +1361,8 @@ exports.grpGuide = functions.region(REGION).https.onRequest(async (req, res) => 
     });
     const o = await org();
     let vn = {}; try { const oc = await db.doc('orgcfg/main').get(); ((oc.exists && oc.data().venues) || []).forEach((v) => { if (v && v.id) vn[v.id] = v.name || v.id; }); } catch (e) { }
-    const halls = (g.halls || []).filter((x) => x && x.date && x.date >= today).sort((a, b) => String(a.date + (a.start || '')).localeCompare(String(b.date + (b.start || '')))).slice(0, 60)
-      .map((x) => { const [v, a] = String(x.space || '').split('|'); return { place: a || vn[v] || v || '', date: x.date, start: x.start || '', end: x.end || '', guests: +x.guests || 0, note: String(x.note || '').slice(0, 200) }; });
+    const halls = (g.halls || []).filter((x) => x && x.date).sort((a, b) => String(a.date + (a.start || '')).localeCompare(String(b.date + (b.start || '')))).slice(0, 60)
+      .map((x) => { const [v, a] = String(x.space || '').split('|'); return { place: a || vn[v] || v || '', past: x.date < today, date: x.date, start: x.start || '', end: x.end || '', guests: +x.guests || 0, note: String(x.note || '').slice(0, 200) }; });
     const msgs = (g.guideMsgs || []).filter((x) => x && x.text).sort((a, b) => (b.at || 0) - (a.at || 0)).slice(0, 50).map((x) => ({ at: x.at || 0, text: String(x.text).slice(0, 2000), by: String(x.byName || '').slice(0, 60) }));
     const meals = ['bf', 'ln', 'dn'].map((k) => { const x = (g.meals || {})[k] || {}; return x.f || x.t ? { k, f: String(x.f || '').slice(0, 5), t: String(x.t || '').slice(0, 5), place: String(x.place || '').slice(0, 60) } : null; }).filter(Boolean);
     res.json({ name: g.name || '', hotel: await hotelName(h), chain: o.name, ci: g.ci || '', co: g.co || '', day, rooms, halls, msgs, meals, now: Date.now() });

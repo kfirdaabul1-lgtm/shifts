@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202611051015"></script>
+<script src="i18n.js?v=202611051400"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -3278,10 +3278,11 @@ function sheetHk(){const {h,r}=S.sheet,plan=hkPlanOn(h),D=hkView(h)||{},c=(D.cle
 function hkStart(h,room){const d=hkToday(h),D=(S.hkDays||{})[h+'|'+d]||{},now=Date.now();
   S.hkDays[h+'|'+d]={...D,start:{...(D.start||{}),[room]:now}};render();
   fdb.doc('hk/'+hkDocId(h,d)).set({hotel:h,date:d,updatedAt:now,lastBy:S.uid,start:{[room]:now}},{merge:true}).then(()=>toast(`חדר ${room}: התחלת ניקיון`),e=>{toast('השמירה נכשלה: '+errMsg(mapErr(e)));S.hkDays[h+'|'+d]=D;render()})}
-function hkDone(h,room){const d=hkToday(h),D=(S.hkDays||{})[h+'|'+d]||{},now=Date.now(),who=S.meName||S.email||'',st=(D.start||{})[room],cs=hkTrtRoom(D,room)?'oc':'vi';
-  S.hkDays[h+'|'+d]={...D,clean:{...(D.clean||{}),[room]:cs},done:{...(D.done||{}),[room]:now},doneBy:{...(D.doneBy||{}),[room]:S.uid}};render();
-  fdb.doc('hk/'+hkDocId(h,d)).set({hotel:h,date:d,updatedAt:now,lastBy:S.uid,clean:{[room]:cs},cleanBy:{[room]:who},cleanAt:{[room]:now},done:{[room]:now},doneBy:{[room]:S.uid},chk:{[room]:firebase.firestore.FieldValue.delete()}},{merge:true})
-    .then(()=>toast(`חדר ${room} נקי ✓`),e=>{toast('השמירה נכשלה: '+errMsg(mapErr(e)));S.hkDays[h+'|'+d]=D;render()});
+// a cleaner who is also a room inspector (hkchk) approves their own room: VC (OC for refresh rooms) right away (owner, Nov 5)
+function hkDone(h,room){const d=hkToday(h),D=(S.hkDays||{})[h+'|'+d]||{},now=Date.now(),who=S.meName||S.email||'',st=(D.start||{})[room],self=!!S.can.hkchk&&hkChkOk(h),cs=hkTrtRoom(D,room)?'oc':(self?'vc':'vi');
+  S.hkDays[h+'|'+d]={...D,clean:{...(D.clean||{}),[room]:cs},done:{...(D.done||{}),[room]:now},doneBy:{...(D.doneBy||{}),[room]:S.uid},chk:{...(D.chk||{}),[room]:self?S.uid:undefined}};render();
+  fdb.doc('hk/'+hkDocId(h,d)).set({hotel:h,date:d,updatedAt:now,lastBy:S.uid,clean:{[room]:cs},cleanBy:{[room]:who},cleanAt:{[room]:now},done:{[room]:now},doneBy:{[room]:S.uid},...(self?{chk:{[room]:S.uid},chkBy:{[room]:who},chkAt:{[room]:now}}:{chk:{[room]:firebase.firestore.FieldValue.delete()}})},{merge:true})
+    .then(()=>toast(`חדר ${room} נקי ✓${self?' · '+cs.toUpperCase():''}`),e=>{toast('השמירה נכשלה: '+errMsg(mapErr(e)));S.hkDays[h+'|'+d]=D;render()});
   if(st&&now>st)fdb.doc('hkLog/'+hkDocId(h,d)+'__'+room).set({hotel:h,month:d.slice(0,7),date:d,room,uid:S.uid,name:who,start:st,end:now,mins:Math.round((now-st)/60000)}).catch(()=>{})}
 /* worker order (owner, Oct 26): 1 = handle first, 2 = check-in today (RES), then the rest */
 const hkRank=(D,r)=>(D.dnd||{})[r]?3:(D.pri||{})[r]?0:occL((D.occ||{})[r]).includes('res')?1:2;
@@ -3834,9 +3835,22 @@ function locksSub(){if(S.locksOn)return;S.locksOn=true;S.locks={};try{fdb.collec
 const isLocked=u=>{locksSub();return !!(S.locks&&S.locks[u])};
 async function pwSetFor(u,pw){if(String(pw||'').length<6){toast('הסיסמה צריכה להיות באורך 6 תווים לפחות');return false}
   try{await pwGuard({op:'set',uid:u,password:pw},true);toast('הסיסמה החדשה נשמרה. אפשר להיכנס איתה.');return true}
-  catch(e){toast(e.code==='forbidden'?'אין לך הרשאה לאפס את הסיסמה של המשתמש הזה':e.code==='nouser'?'לעובד הזה אין משתמש כניסה (הוא נוסף ידנית)':'איפוס הסיסמה נכשל ('+(e.code||'')+')');return false}}
+  catch(e){toast(e.code==='forbidden'?'אין לך הרשאה לאפס את הסיסמה של המשתמש הזה':e.code==='nouser'?'לעובד הזה אין סיסמה: הוא נכנס עם גוגל, או שנוסף ידנית':'איפוס הסיסמה נכשל ('+(e.code||'')+')');return false}}
+// how the employee signs in (owner/hr): e-mail, username, methods — from the server (pwGuard op info); passwords are never visible
+const PW_PROV={'google.com':'גוגל','password':'שם משתמש / מייל וסיסמה','phone':'טלפון (SMS)'};
+function pwInfoLoad(u){S.pwInfo=S.pwInfo||{};if(S.pwInfo[u])return S.pwInfo[u];S.pwInfo[u]={loading:true};
+  pwGuard({op:'info',uid:u},true).then(j=>{S.pwInfo[u]=j;render()}).catch(e=>{S.pwInfo[u]={err:e.code||'x'};render()});return S.pwInfo[u]}
+function pwInfoHTML(u){const i=pwInfoLoad(u),d=t=>{try{return new Date(t).toLocaleString('he-IL',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'})}catch(_){return ''}};
+  if(i.loading)return '<p class="muted">טוען פרטי כניסה…</p>';
+  if(i.err)return `<p class="muted">${i.err==='forbidden'?'אין לך הרשאה לראות את פרטי הכניסה של העובד הזה.':'לא הצלחתי לטעון את פרטי הכניסה.'}</p>`;
+  if(i.none)return '<p class="muted">לעובד הזה אין משתמש כניסה (הוא נוסף ידנית).</p>';
+  const rows=[['איך נכנס',(i.providers||[]).map(p=>PW_PROV[p]||p).join(' · ')||'—'],['שם משתמש',i.username?`<b dir="ltr">${esc(i.username)}</b>`:''],['מייל',i.email?`<b dir="ltr">${esc(i.email)}</b>`:''],['טלפון כניסה',i.phone?`<span dir="ltr">${esc(i.phone)}</span>`:''],['כניסה אחרונה',i.last?d(i.last):''],['נרשם',i.created?d(i.created):'']].filter(([,v])=>v);
+  const google=(i.providers||[]).includes('google.com');
+  return `<div class="plist">${rows.map(([k,v])=>`<div class="prow"><span class="who"><small>${k}</small></span><span>${v}</span></div>`).join('')}</div>
+  ${google?'<p class="muted" style="font-size:.85rem;margin:6px 0 0">נכנס עם חשבון גוגל: בכתובת החדשה לוחצים "כניסה עם Google" ובוחרים את אותו חשבון. אין סיסמה במערכת.</p>':''}
+  ${i.email&&(i.providers||[]).includes('password')?`<div class="actions" style="margin-top:6px"><button class="btn sm ghost" data-act="emp-pwmail" data-u="${u}">✉️ שליחת קישור לאיפוס סיסמה למייל של העובד</button></div>`:''}`}
 function pwCardHTML(u){const lk=isLocked(u);
-  return `<div class="sep"></div><h3>סיסמה לכניסה</h3>${lk?'<p class="pill bad" style="display:inline-block;margin:0 0 6px">🔒 החשבון ננעל אחרי 3 ניסיונות כניסה שגויים</p>':''}
+  return `<div class="sep"></div><h3>פרטי כניסה</h3>${pwInfoHTML(u)}<p class="muted" style="font-size:.8rem;margin:6px 0 0">את הסיסמה עצמה אי אפשר לראות (גם לא למנהל). אם העובד שכח אותה, קובעים לו סיסמה חדשה כאן למטה.</p><div class="sep"></div><h3>סיסמה לכניסה</h3>${lk?'<p class="pill bad" style="display:inline-block;margin:0 0 6px">🔒 החשבון ננעל אחרי 3 ניסיונות כניסה שגויים</p>':''}
   <p class="muted" style="font-size:.85rem;margin:0 0 6px">אם העובד שכח את הסיסמה או שהחשבון ננעל: קובעים כאן סיסמה חדשה ומוסרים לו אותה.</p>
   <div class="row" style="align-items:flex-end"><label class="f">סיסמה חדשה<input type="text" id="e_pw" data-f="epw.v" dir="ltr" autocomplete="off" placeholder="6 תווים לפחות" value="${esc(dv('epw','v',''))}"></label><button class="btn" data-act="emp-pwset" data-u="${u}">קביעת סיסמה חדשה</button></div>`}
 function stationsCardHTML(){if(!myApps().front)return '';const hs=grantableHotels();if(!hs.length)return '';
@@ -4448,6 +4462,7 @@ const ACT={
     const last=Object.values(hkUpdSub(h)).sort((a,b)=>(b.at||0)-(a.at||0))[0],k='hkupd'+h;if(last&&Date.now()-(last.at||0)<10*60e3&&S.confirm!==k){S.confirm=k;toast('נשלחה בקשה לפני פחות מ-10 דקות · לחיצה נוספת תשלח שוב');return}S.confirm=null;
     const to=crew.map(c=>c.u),toNames=Object.fromEntries(to.map(u=>[u,empName(u)])),now=Date.now();
     try{await fdb.collection('broadcasts').add({hotel:h,day:todayISO(),kind:'hkupd',text:HKUPD_TXT,scope:'now',to,toNames,by:S.uid,byName:S.meName||empName(S.uid)||'',at:now,reads:{}});toast('הבקשה נשלחה ל-'+to.length+' עובדי משק')}catch(e){toast('לא נשלח: '+errMsg(mapErr(e)))}},
+  'emp-pwmail':async D=>{try{const j=await pwGuard({op:'sendreset',uid:D.u},true);toast(j.ok?'נשלח לעובד מייל עם קישור לבחירת סיסמה חדשה':'השליחה נכשלה')}catch(e){toast('השליחה נכשלה ('+(e.code||'')+')')}},
   'bc-hk':D=>{ACT['bc-read'](D);setTab('hk')},
   'bc-read':D=>{const b=(S.myBc||{})[D.id];if(b){S.myBc[D.id]={...b,reads:{...(b.reads||{}),[S.uid]:Date.now()}};render()}fdb.doc('broadcasts/'+D.id).update({['reads.'+S.uid]:Date.now()}).catch(e=>toast('לא הצלחתי: '+errMsg(mapErr(e))))},
   'waa-save':async()=>{const D=S.waaD;if(!D)return;document.querySelectorAll('[data-waa^="text|"]').forEach(el=>{const [,v,i]=el.dataset.waa.split('|');const r=D.rules[v];if(r&&r.params&&r.params[+i])r.params[+i].text=el.value});

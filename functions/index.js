@@ -677,7 +677,8 @@ exports.onHkVacant = trig('hk/{id}').onWrite(async (ch) => {
 exports.onHkCheck = trig('hk/{id}').onWrite(async (ch) => {
   if (!ch.after.exists || hkFuture(ch.after.data())) return;
   const b = ch.before.exists ? ch.before.data() : {}, a = ch.after.data() || {}, bd = b.done || {}, ad = a.done || {}, bb = b.back || {}, ab = a.back || {};
-  const fin = Object.keys(ad).filter((r) => ad[r] && ad[r] !== bd[r]);
+  // rooms the cleaner approved themselves (cleaner is an inspector → chk set in the same write) are not waiting for inspection
+  const fin = Object.keys(ad).filter((r) => ad[r] && ad[r] !== bd[r] && !(a.chk || {})[r]);
   const back = Object.keys(ab).filter((r) => ab[r] && ab[r] !== bb[r]);
   const hn = await hotelName(a.hotel), jobs = [];
   if (fin.length) {
@@ -1237,6 +1238,33 @@ exports.pwGuard = functions.region(REGION).https.onRequest(async (req, res) => {
     }
     const tok = await pwCaller(req);
     if (!tok) { res.status(401).json({ error: 'auth' }); return; }
+    // a manager sees how an employee signs in (owner, Nov 5: after the move to the new address everyone had to sign in again):
+    // e-mail, username, sign-in methods, last sign-in. Never a password (Firebase keeps only a hash). 'sendreset' mails a reset link to a real e-mail.
+    if (op === 'info' || op === 'sendreset') {
+      const uid = String(b.uid || '');
+      if (!/^[A-Za-z0-9_-]{6,128}$/.test(uid)) { res.status(400).json({ error: 'bad' }); return; }
+      const owner = tok.email_verified !== false && (await pwIsOwnerMail(tok.email));
+      let ok = owner;
+      if (!ok && uid !== tok.uid) {
+        const [cr, te] = await Promise.all([db.doc('roles/' + tok.uid).get(), db.doc('employees/' + uid).get()]);
+        const c = cr.exists ? cr.data() : {}, hs = Array.isArray(c.hotels) ? c.hotels : [];
+        ok = !!(c.apps || {}).hr && !c.station && te.exists && (hs.length === 0 || hs.includes(te.data().hotel || '') || te.data().hotel === 'chain');
+      }
+      if (!ok) { res.status(403).json({ error: 'forbidden' }); return; }
+      let u = null; try { u = await admin.auth().getUser(uid); } catch (e) {}
+      if (!u) { res.json({ none: true }); return; }
+      const em = String(u.email || ''), real = realMail(em);
+      if (op === 'sendreset') {
+        if (!real) { res.status(400).json({ error: 'nomail' }); return; }
+        if (!owner && (await pwIsOwnerMail(em))) { res.status(403).json({ error: 'forbidden' }); return; }
+        res.json({ ok: await pwResetMail(em) }); return;
+      }
+      let username = '';
+      try { const q = await db.collection('usernames').where('uid', '==', uid).limit(1).get(); if (!q.empty) username = q.docs[0].id; } catch (e) {}
+      if (!username && /@(users|front)\.seven-collection\.app$/.test(em)) username = em.split('@')[0];
+      res.json({ email: real ? em : '', username, providers: (u.providerData || []).map((p) => p.providerId), phone: u.phoneNumber || '', last: u.metadata && u.metadata.lastSignInTime || '', created: u.metadata && u.metadata.creationTime || '', locked: false });
+      return;
+    }
     if (op === 'set') {
       // a manager sets a new password for a reception desk or a username account (no real e-mail to reset with)
       const uid = String(b.uid || ''), pw = String(b.password || '');

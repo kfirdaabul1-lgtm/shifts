@@ -59,8 +59,15 @@ window.SC_BASE = "https://kfirdaabul1-lgtm.github.io/shifts/";
   // Not for an explicit ?chain=, and not on the system owner's devices (scPlat), who keeps Kfir app on the general address.
   try {
     var explicit = new URLSearchParams(location.search).get("chain");
-    if (!own && c.domain && typeof document !== "undefined" && /github\.io$/.test(location.hostname) && !explicit && localStorage.getItem("scPlat") !== "1") {
-      location.replace("https://" + c.domain + location.pathname.replace(/^\/shifts\//, "/") + location.search + location.hash);
+    // a network that blocks the new address (e.g. a hotel firewall: "Newly Observed Domain", Nov 5): ?chain=<id> keeps this device on the general address (scStay),
+    // and before moving we load a small image from the new address — if it doesn't load within 4 s the device stays here.
+    if (explicit && c.domain && /github\.io$/.test(location.hostname)) localStorage.setItem("scStay", "1");
+    if (!own && c.domain && typeof document !== "undefined" && /github\.io$/.test(location.hostname) && !explicit && localStorage.getItem("scPlat") !== "1" && localStorage.getItem("scStay") !== "1") {
+      var go = "https://" + c.domain + location.pathname.replace(/^\/shifts\//, "/") + location.search + location.hash, done = false, img = new Image();
+      img.onload = function () { if (!done) { done = true; location.replace(go); } };
+      img.onerror = function () { done = true; };
+      setTimeout(function () { done = true; }, 4000);
+      img.src = "https://" + c.domain + "/icon-192.png?probe=" + Date.now();
     }
   } catch (e) {}
   try { if (id && c.id === id) localStorage.setItem("scChain", c.id); } catch (e) {}

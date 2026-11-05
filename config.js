@@ -28,6 +28,8 @@ window.SC_CHAINS = [
     ownerEmail: "kfirdaabul1@gmail.com",
     // הכתובת של האפליקציה, לשימוש בהודעות הוואטסאפ לעובדים
     appUrl: "https://kfirdaabul1-lgtm.github.io/shifts/",
+    // כתובת משלה לרשת (Nov 5): במאגר Seven-app יש עותק של האתר בכתובת הזו, והיא פותחת תמיד רק את הרשת הזו
+    domain: "app.sevencollection.co.il",
     // true רק אצל Seven Collection: אולמות האירועים, רשימות החדרים והספא המובנים לפי שמות המלונות של Seven.
     // ברשת חדשה שמים false, ואת האולמות, החדרים והספא מגדירים בעמוד "הגדרות רשת".
     legacyPresets: true
@@ -37,10 +39,15 @@ window.SC_CHAINS = [
 ];
 
 // הרשת הפעילה: ?chain=<id> בכתובת, אחרת מה שנבחר בפעם האחרונה במכשיר, אחרת הראשונה
+// הכתובת הכללית (Kfir app ושאר הרשתות)
+window.SC_BASE = "https://kfirdaabul1-lgtm.github.io/shifts/";
 (function () {
   var id = null;
   try { id = new URLSearchParams(location.search).get("chain") || localStorage.getItem("scChain"); } catch (e) {}
   window.SC_HOME = window.SC_CHAINS[0].id;
+  // a chain with its own address (domain): that address always opens only that chain
+  var own = window.SC_CHAINS.filter(function (x) { return x.domain && x.domain === location.hostname; })[0];
+  if (own) { window.SC_LOCKED = own.id; id = own.id; }
   var c = window.SC_CHAINS.filter(function (x) { return x.id === id; })[0];
   // chains added from Kfir app live in the home database (collection "chains"); their web config is cached on the device
   if (!c && id) {

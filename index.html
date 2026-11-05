@@ -4173,7 +4173,9 @@ const ACT={
   'clic-t':D=>{const d=S.drafts.clic||(S.drafts.clic={lic:{...((chainInfo(S.sheet.id)||{}).org||{}).lic}});if(d.lic[D.m]===false)delete d.lic[D.m];else d.lic[D.m]=false;render()},
   'clic-save':()=>{const id=S.sheet.id,c=chainInfo(id),d=S.drafts.clic;if(!d)return toast('אין שינויים');if(!c||!c.db)return toast('צריך להתחבר לרשת קודם');
     c.db.doc('orgcfg/main').set({lic:d.lic,licAt:Date.now(),licBy:S.email},{merge:true}).then(()=>{if(c.org)c.org.lic=d.lic;if(id===CFG.chainId){S.org={...S.org,lic:d.lic};applyMods()}S.drafts.clic=null;S.sheet=null;toast('ההרשאות של הרשת נשמרו');render()},e=>toast('השמירה נכשלה: '+errMsg(mapErr(e))))},
-  'chain-go':D=>{try{localStorage.setItem('scChain',D.id)}catch(_){ }location.href=location.pathname+'?chain='+encodeURIComponent(D.id)},
+  'chain-go':D=>{const c=(window.SC_CHAINS||[]).find(x=>x.id===D.id);if(c&&c.domain&&c.domain!==location.hostname){location.href='https://'+c.domain+'/';return}
+    if(window.SC_LOCKED&&window.SC_BASE){location.href=window.SC_BASE+'?chain='+encodeURIComponent(D.id);return}
+    try{localStorage.setItem('scChain',D.id)}catch(_){ }location.href=location.pathname+'?chain='+encodeURIComponent(D.id)},
   'plat-hotel':D=>{S.pmode=false;setHotel(D.h);setTab(D.t||'sched')},
   'mod-t':D=>{const d=S.drafts.mods||(S.drafts.mods=JSON.parse(JSON.stringify({mods:(S.org||{}).mods||{},hmods:(S.org||{}).hmods||{}})));if(D.h){const x=d.hmods[D.h]||(d.hmods[D.h]={});if(x[D.m]===false)delete x[D.m];else x[D.m]=false}else{if(d.mods[D.m]===false)delete d.mods[D.m];else d.mods[D.m]=false}render()},
   'mod-save':()=>{if(!S.isOwner)return;const d=S.drafts.mods;if(!d)return toast('אין שינויים');fdb.doc('orgcfg/main').set({mods:d.mods,hmods:d.hmods,updatedAt:Date.now(),updatedBy:S.uid},{merge:true}).then(()=>{S.drafts.mods=null;toast('העמודים נשמרו')},e=>toast('השמירה נכשלה: '+errMsg(mapErr(e))))},
@@ -4999,6 +5001,8 @@ async function start(u){
   S.db=makeDB();const db=S.db;
   S.uid=u.uid;S.meName=u.displayName||'';S.email=String(u.email||'').toLowerCase();S.phone=u.phoneNumber||'';
   S.plat=!!(S.email&&u.emailVerified&&S.email===String(window.SC_PLATFORM_OWNER||'').trim().toLowerCase());
+  // the system owner's devices stay on the general address (not redirected to a chain's own domain)
+  try{if(S.plat)localStorage.setItem('scPlat','1')}catch(_){}
   S.isOwner=S.plat||!!(S.email&&u.emailVerified&&S.email===String(CFG.ownerEmail||'').trim().toLowerCase());
   try{const d=await db.doc('orgcfg/main').get();S.org=d.exists?d.data():{};applyOrg()}catch(_){S.org={}}
   if(!S.isOwner&&u.emailVerified&&S.email&&S.email===String(S.org.ownerEmail||'').toLowerCase())S.isOwner=true;

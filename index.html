@@ -655,7 +655,7 @@ function sheetIosPush(){return sheetHead('התראות באייפון','')+`<p>�
   <ol style="padding-inline-start:20px;line-height:1.9"><li>פותחים את האתר ב-<b>Safari</b>.</li><li>לוחצים על כפתור השיתוף <b>⎙</b> (ריבוע עם חץ למעלה) בתחתית המסך.</li><li>בוחרים <b>"הוסף למסך הבית"</b> ולוחצים "הוסף".</li><li>פותחים את <b>${esc(appName())}</b> מהאייקון החדש במסך הבית.</li><li>בתפריט לוחצים <b>"הפעלת התראות"</b> ומאשרים.</li></ol>
   <p class="muted" style="font-size:.85rem">צריך iOS 16.4 ומעלה. אחרי ההתקנה האתר נפתח כמו אפליקציה, בלי שורת הכתובת.</p>
   <div class="actions"><button class="btn pri" data-act="close">הבנתי</button></div>`}
-function render(){if(isTyping()){S.pending=true;return}S.pending=false;renderTop();renderDrawer();$('#main').innerHTML=bcBannerHTML()+callsBannerHTML()+viewHTML();try{chipSelects($('#main'))}catch(e){}renderSheet()}
+function render(){if(S.deep)deepOpen();if(isTyping()){S.pending=true;return}S.pending=false;renderTop();renderDrawer();$('#main').innerHTML=bcBannerHTML()+callsBannerHTML()+viewHTML();try{chipSelects($('#main'))}catch(e){}renderSheet()}
 // filter chip rows → one compact "filter topic" button with a drop-down (owner, Nov 3). Only single-choice rows on the page (not in sheets):
 // every child a button.dchip, exactly one active, at least 3 options, and not a view switch or a multi-select row.
 const FSEL_SKIP=/-view$|^exp-tab$|^call-t$|^pcall-t$|^kc-dept$|^job-dept$|^perm-|^emp-dept$|^pf-dept$|^vchn-vh$|^pl-ag$|^pl-m$|^lead-catset$|^spa-mins$|^lead-stage$/;
@@ -5020,6 +5020,39 @@ Object.assign(ACT,{
       if(inBatch)await batch.commit();toast(`יובאו ${n} רשומות. טוען מחדש…`);setTimeout(()=>location.reload(),1500)}
     catch(e){toast(errMsg(mapErr(e)))}},
 });
+/* notification links (owner, Nov 5: tapping an "approval" notification opened the general screen): the hash picks the page and
+   may carry the item to open (#exp?inv=<id>, #fin?sr=<id>, #sched?swap=1). Runs at boot and on every hash change (the app may already be open). */
+function applyHash(){const H=location.hash||'',hb=H.split('?')[0],qp=new URLSearchParams(H.split('?')[1]||'');
+  if(hb==='#perms'&&S.can.perms)S.tab='perms';
+  if(hb==='#cfg'&&(S.isOwner||S.can.shifts))S.tab='cfg';
+  if((hb==='#org'||hb==='#perms')&&(S.isOwner||S.can.perms))S.tab='org';
+  if(hb==='#hr'&&S.can.hr)S.tab='hr';
+  if(hb==='#spa'&&S.can.spa)S.tab='spa';
+  if(hb==='#grp'&&S.can.grp)S.tab='grp';
+  if(hb==='#pub'&&S.can.pub)S.tab='pub';
+  if(hb==='#bar'&&S.can.bar)S.tab='bar';
+  if(hb==='#cmp'&&S.can.cmp)S.tab='cmp';
+  if(H.startsWith('#vch')&&(S.can.vch||S.can.vchr)){S.tab='vch';const m=H.match(/[?&]c=([A-Za-z0-9-]+)/);if(m)S.vchQ=m[1]}
+  if(hb==='#ceo'&&S.can.ceo)S.tab='ceo';
+  if(hb==='#mkt'&&S.can.mkt)S.tab='mkt';
+  if(hb==='#exp'&&S.can.exp)S.tab='exp';
+  if(hb==='#gm'&&S.can.gm)S.tab='gm';
+  if(hb==='#brief'&&S.can.brief)S.tab='brief';
+  if(hb==='#front'&&S.can.front)S.tab='front';
+  if(hb==='#maint'&&S.can.maint)S.tab='maint';
+  if(hb==='#hk'&&S.can.hk)S.tab='hk';
+  if(H.startsWith('#leads')&&S.can.events){S.tab='leads';const m=H.match(/[?&]wa=(\d+)/);if(m){S.leadF={view:'wa',own:'all',src:'all',q:''};S.waPend=m[1]}}
+  if(hb==='#fin'&&S.can.fin)S.tab='fin';
+  if(hb==='#stock'&&S.can.stock)S.tab='stock';
+  if(hb==='#mine'&&!S.admin&&!S.station)S.tab='mine';
+  if(hb==='#sched'&&S.admin)S.tab='sched';
+  if(qp.get('inv'))S.deep={t:'inv',id:qp.get('inv'),at:Date.now()};
+  if(qp.get('sr'))S.deep={t:'sr',id:qp.get('sr'),at:Date.now()};
+  if(S.tab==='front')S.week=weekOf(todayISO());}
+function deepOpen(){const D=S.deep;if(!D||S.sheet)return;if(Date.now()-D.at>30000){S.deep=null;return}
+  if(D.t==='inv'&&(S.invs||{})[D.id]){S.deep=null;setTimeout(()=>ACT['inv-open']({id:D.id}),0)}
+  else if(D.t==='sr'&&typeof srFind==='function'&&srFind(D.id)){S.deep=null;setTimeout(()=>{S.sheet={type:'srview',id:D.id};render()},0)}}
+window.addEventListener('hashchange',()=>{if(!S.ready)return;applyHash();render()});
 async function start(u){
   S.db=makeDB();const db=S.db;
   S.uid=u.uid;S.meName=u.displayName||'';S.email=String(u.email||'').toLowerCase();S.phone=u.phoneNumber||'';
@@ -5074,27 +5107,7 @@ async function start(u){
   S.week=openWeek();
   let t=null;try{t=localStorage.getItem('hs_tab')}catch(_){ }
   const allowed=S.station?['front','hk']:((S.admin?(S.deptOnly?['sched','shifts']:['sched','shifts','costs','settings']):S.myHotel===CHAIN||S.myMgmt?['profile']:['avail','mine','profile']).concat(S.can.hr?['hr']:[]).concat(S.can.spa?['spa']:[]).concat(S.can.grp?['grp']:[]).concat(S.can.pub?['pub']:[]).concat(S.can.bar?['bar']:[]).concat(S.can.cmp?['cmp']:[]).concat(S.can.vch||S.can.vchr?['vch']:[]).concat(S.can.perms?['perms']:[]).concat(S.isOwner||S.can.shifts?['cfg']:[]).concat(S.isOwner||S.can.perms?['org']:[]).concat(S.can.ceo?['ceo']:[]).concat(S.can.mkt?['mkt']:[]).concat(S.can.exp?['exp']:[]).concat(S.can.gm?['gm']:[]).concat(S.can.stock?['stock']:[]).concat(S.can.brief?['brief']:[]).concat(S.can.front?['front']:[]).concat(S.can.maint?['maint']:[]).concat(S.can.fin?['fin']:[]).concat(S.can.hk&&!S.station?['hk']:[]).concat(S.can.events?['leads']:[]));S.tab=allowed.includes(t)?t:allowed[0];
-  if(location.hash==='#perms'&&S.can.perms)S.tab='perms';
-  if(location.hash==='#cfg'&&(S.isOwner||S.can.shifts))S.tab='cfg';
-  if((location.hash==='#org'||location.hash==='#perms')&&(S.isOwner||S.can.perms))S.tab='org';
-  if(location.hash==='#hr'&&S.can.hr)S.tab='hr';
-  if(location.hash==='#spa'&&S.can.spa)S.tab='spa';
-  if(location.hash==='#grp'&&S.can.grp)S.tab='grp';
-  if(location.hash==='#pub'&&S.can.pub)S.tab='pub';
-  if(location.hash==='#bar'&&S.can.bar)S.tab='bar';
-  if(location.hash==='#cmp'&&S.can.cmp)S.tab='cmp';
-  if(location.hash.startsWith('#vch')&&(S.can.vch||S.can.vchr)){S.tab='vch';const m=location.hash.match(/[?&]c=([A-Za-z0-9-]+)/);if(m)S.vchQ=m[1]}
-  if(location.hash==='#ceo'&&S.can.ceo)S.tab='ceo';
-  if(location.hash==='#mkt'&&S.can.mkt)S.tab='mkt';
-  if(location.hash==='#exp'&&S.can.exp)S.tab='exp';
-  if(location.hash==='#gm'&&S.can.gm)S.tab='gm';
-  if(location.hash==='#brief'&&S.can.brief)S.tab='brief';
-  if(location.hash==='#front'&&S.can.front)S.tab='front';
-  if(location.hash==='#maint'&&S.can.maint)S.tab='maint';
-  if(location.hash==='#hk'&&S.can.hk)S.tab='hk';
-  if(location.hash.startsWith('#leads')&&S.can.events){S.tab='leads';const m=location.hash.match(/[?&]wa=(\d+)/);if(m){S.leadF={view:'wa',own:'all',src:'all',q:''};S.waPend=m[1]}}
-  if(location.hash==='#fin'&&S.can.fin)S.tab='fin';
-  if(location.hash==='#stock'&&S.can.stock)S.tab='stock';
+  applyHash();
   // the reception page always opens on the current week (today's 10days)
   if(S.tab==='front')S.week=weekOf(todayISO());
   db.collection('hotels').onSnapshot(q=>{S.hotels=docsMap(q);if(S.ready&&hotelIds().join(',')!==S.subKey)subWeek();render()},onErr);

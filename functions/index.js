@@ -80,14 +80,14 @@ exports.onRequest = trig('requests/{id}').onWrite(async (ch) => {
   if (was === now) return;
   if (a.type === 'swap') {
     if (now === 'peer') return sendTo([a.peer], { title: 'בקשת החלפה', body: `${await ename(a.uid)} מבקש/ת להתחלף איתך: ${a.fromDesc || ''}`, hash: '#mine', tag: 'sw-' + ch.after.id });
-    if (now === 'mgr') return sendTo(await managersOf(a.hotel), { title: 'החלפה מחכה לאישורך', body: `${await ename(a.uid)} ↔ ${await ename(a.peer)} · ${a.fromDesc || ''}`, hash: '', tag: 'sw-' + ch.after.id });
+    if (now === 'mgr') return sendTo(await managersOf(a.hotel), { title: 'החלפה מחכה לאישורך', body: `${await ename(a.uid)} ↔ ${await ename(a.peer)} · ${a.fromDesc || ''}`, hash: '#sched?swap=1', tag: 'sw-' + ch.after.id });
     if (now === 'approved') return sendTo([a.uid, a.peer], { title: 'ההחלפה אושרה ✓', body: a.fromDesc || '', hash: '#mine', tag: 'sw-' + ch.after.id });
     if (now === 'declined') return sendTo([was === 'peer' ? a.uid : a.uid, a.peer].filter((u, i) => was === 'peer' ? i === 0 : true), { title: 'בקשת ההחלפה נדחתה', body: a.fromDesc || '', hash: '#mine', tag: 'sw-' + ch.after.id });
     return;
   }
   if (now === 'pending' && !b) return sendTo([a.uid], { title: 'בקשה מהמנהל', body: 'יש לך בקשה לשינוי משמרת. נא לאשר או לדחות.', hash: '#mine', tag: 'rq-' + ch.after.id });
   if (was === 'pending' && (now === 'approved' || now === 'declined'))
-    return sendTo(await managersOf(a.hotel), { title: now === 'approved' ? 'העובד אישר את השינוי' : 'העובד דחה את השינוי', body: `${await ename(a.uid)} · ${a.fromDesc || a.toDesc || ''}`, tag: 'rq-' + ch.after.id });
+    return sendTo(await managersOf(a.hotel), { title: now === 'approved' ? 'העובד אישר את השינוי' : 'העובד דחה את השינוי', body: `${await ename(a.uid)} · ${a.fromDesc || a.toDesc || ''}`, hash: '#sched', tag: 'rq-' + ch.after.id });
 });
 
 // ---------- schedule published → every employee of the hotel ----------
@@ -105,7 +105,7 @@ exports.onShiftReport = trig('shiftReports/{id}').onCreate(async (snap) => {
   const r = snap.data() || {};
   const to = await roleHolders(r.hotel, ['fin', 'gm']);
   const gap = r.gap ? ` · פער ${r.gap}₪` : '';
-  return sendTo(to, { title: 'דוח סוף משמרת חדש', body: `${await hotelName(r.hotel)} · ${r.name || ''}${r.unusual ? ' · ⚠ אירוע חריג' : ''}${gap}`, hash: '#fin', tag: 'sr-' + snap.id });
+  return sendTo(to, { title: 'דוח סוף משמרת חדש', body: `${await hotelName(r.hotel)} · ${r.name || ''}${r.unusual ? ' · ⚠ אירוע חריג' : ''}${gap}`, hash: '#fin?sr=' + snap.id, tag: 'sr-' + snap.id });
 });
 
 // ---------- purchase request → hotel managers ----------
@@ -581,7 +581,7 @@ exports.onSrInvoice = trig('invoices/{id}').onCreate(async (snap) => {
   rs.forEach((d) => { const r = d.data() || {}; if (r.station || !(r.apps && r.apps.exp)) return; const hs = r.expHotels || r.hotels || []; if (!hs.length || hs.includes(v.hotel)) out.add(d.id); });
   const own = await ownTok(); own.forEach((d) => out.add(d.id));
   const hn = await hotelName(v.hotel);
-  return sendTo([...out], { title: 'חשבונית מהקופה ממתינה לאישור', body: `${hn ? hn + ' · ' : ''}₪${v.total || 0}${v.supplierName ? ' · ' + v.supplierName : ''} · ${v.notes || ''}`.slice(0, 180), hash: '#exp', tag: 'srinv-' + snap.id });
+  return sendTo([...out], { title: 'חשבונית מהקופה ממתינה לאישור', body: `${hn ? hn + ' · ' : ''}₪${v.total || 0}${v.supplierName ? ' · ' + v.supplierName : ''} · ${v.notes || ''}`.slice(0, 180), hash: '#exp?inv=' + snap.id, tag: 'srinv-' + snap.id });
 });
 
 // ---------- a new employee registered (no department yet) → push to whoever holds the employees (hr) app for that hotel ----------

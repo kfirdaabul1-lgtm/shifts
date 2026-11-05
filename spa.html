@@ -65,6 +65,8 @@ footer{text-align:center;font-size:12px;color:var(--muted);margin-top:24px}
   const nice=iso=>new Date(iso+'T12:00:00').toLocaleDateString('he-IL',{weekday:'long',day:'numeric',month:'long'});
   let B=null,st={item:'',date:'',time:'',ppl:1,ther:['any'],slots:null,loading:false,err:'',sending:false,done:null};
   const f={name:'',phone:'',email:'',notes:'',privacy:false,marketing:false};
+  // prefilled from a WhatsApp link (?n=name&p=phone)
+  try{const q=new URLSearchParams(location.search);f.name=String(q.get('n')||'').slice(0,80);f.phone=String(q.get('p')||'').replace(/[^\d+ -]/g,'').slice(0,20)}catch(e){}
   async function load(){try{const r=await fetch(API);B=await r.json()}catch(e){B={err:1}}
     if(B.err||!B.on){app.innerHTML=`<div class="card"><p>${B&&B.on===false?'ההזמנה אונליין לא זמינה כרגע. אפשר להתקשר אלינו להזמנה.':'לא הצלחנו לטעון את העמוד. נסו שוב מאוחר יותר.'}</p></div>`;return}
     if(B.biz&&B.biz.name){$('#bizName').textContent=B.biz.name;document.title='הזמנת טיפול · '+B.biz.name}

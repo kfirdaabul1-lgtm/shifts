@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202611042010"></script>
+<script src="i18n.js?v=202611051015"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1056,6 +1056,12 @@ function sheetSpaBlk(){const id=S.sheet.id,b=(S.spaBk||{})[id]||{},isNew=!(S.spa
 const SPA_DAYS=['ראשון','שני','שלישי','רביעי','חמישי','שישי','שבת'];
 const spaOnline=()=>({on:false,step:30,rooms:1,lead:3,days:30,maxPpl:2,intro:'',policy:'',hours:{},...(spaCfg().online||{})});
 const spaBookUrl=()=>appLink().replace(/[^/]*$/,'')+'spa.html'+(CFG.chainId&&CFG.chainId!==window.SC_HOME?'?chain='+encodeURIComponent(CFG.chainId):'');
+/* spa bookings from WhatsApp (owner, Nov 5): in a spa chat "📅 קישור להזמנה" puts the online booking link (name + phone prefilled via ?n=&p=) into the message,
+   "קביעת תור" opens the spa booking sheet prefilled from the chat; saving it sends the client a confirmation + health-form links through the system WhatsApp. */
+function spaBookLink(name,phone){const u=spaBookUrl(),q=[name&&'n='+encodeURIComponent(String(name).trim()),phone&&'p='+encodeURIComponent(String(phone).trim())].filter(Boolean).join('&');return q?u+(u.includes('?')?'&':'?')+q:u}
+const spaBookMsg=(name,phone)=>`שלום${name?' '+String(name).trim().split(/\s+/)[0]:''} 😊\nאפשר לבחור טיפול ושעה פנויה ולהזמין כאן:\n${spaBookLink(name,phone)}\nאחרי ההזמנה תקבלו אישור וטופס הצהרת בריאות.`;
+function spaConfirmText(b,hl){const first=b.name?' '+String(b.name).trim().split(/\s+/)[0]:'',n=+b.people||1,links=Object.keys(hl||{}).filter(i=>!(hl[i]||{}).ok).map(i=>(n>1?'אדם '+(+i+1)+': ':'')+spaHlUrl(hl[i].k));
+  return `שלום${first}, התור שלך בספא נקבע ✓\n${b.treatment||'טיפול'}${n>1?' · '+n+' אנשים':''}\n📅 ${dm(b.date)} בשעה ${b.time}${b.mins?' · '+b.mins+' דק׳':''}${spaTotal(b)?'\n💰 '+ils(spaTotal(b))+' (תשלום במקום)':''}${links.length?'\n\nלפני הטיפול צריך למלא ולחתום על הצהרת בריאות:\n'+links.join('\n'):''}\nמחכים לך!`}
 function spaOnlineHTML(){const o=spaOnline(),g=(k,d)=>dv('spo',k,d),H=k=>(o.hours||{})[k]||{o:'10:00',c:'20:00',off:k===6},menu=spaMenu(),onl=menu.filter(m=>m.online!==false&&+m.mins>0);
   return `<div class="card"><h3>🌐 הזמנה אונליין ${o.on?'<span class="pill ok">פעיל</span>':'<span class="pill">כבוי</span>'}</h3>
   <p class="muted" style="font-size:.85rem">עמוד ציבורי שבו אורחים בוחרים טיפול, תאריך ושעה פנויה ומזמינים לבד. ההזמנה נכנסת ליומן עם 🌐 וכל מי שיש לו הרשאת ספא מקבל התראה. התשלום במקום.</p>
@@ -2036,7 +2042,7 @@ const waHook=()=>`https://europe-west1-${(CFG.firebase&&CFG.firebase.projectId)|
 // automatic WhatsApp message to every new lead, by the place the lead asked about (owner, Nov 1): waauto/main
 // {on, metaOnly, rules:{venue|'*':{tpl, lang, venueName, params:[{src:first|name|venue|text, text}]}}}; sent by function onLeadAuto
 function waAutoSub(){if(S.live.waauto)return;S.live.waauto=true;S.db.doc('waauto/main').onSnapshot(d=>{S.waAuto=d.exists?d.data():{};render()},()=>{S.waAuto={}})}
-const WAA_SRC=[['first','שם פרטי של הליד'],['name','שם מלא של הליד'],['venue','שם המקום'],['text','טקסט קבוע']];
+const WAA_SRC=[['first','שם פרטי של הליד'],['name','שם מלא של הליד'],['venue','שם המקום'],['spalink','קישור להזמנת טיפול בספא'],['text','טקסט קבוע']];
 function waAutoHTML(){waAutoSub();const A=S.waAuto;if(A===undefined)return '';const D=S.waaD||(S.waaD=JSON.parse(JSON.stringify({on:!!A.on,metaOnly:!!A.metaOnly,rules:A.rules||{}})));
   // one rule set per lead kind (owner, Nov 2): events keep the old keys (venue / '*'), rooms and spa use 'rooms:<venue>' / 'spa:*' …
   const cat=(S.leadF&&S.leadF.cat)||'events',pre=cat==='events'?'':cat+':';
@@ -2129,7 +2135,8 @@ function waChatBody(id,inPane){const c=(S.waChats||{})[id]||{},L=waLeadOf(id,c),
   const info=l?`<div class="wa-inf"><button class="wa-inf-sum" data-act="wa-info">${sum?esc(sum):'פרטי הפנייה'} <span class="muted">${inf?'▲':'▼'}</span></button>${inf?`<div class="wa-inf-body">${row('סוג אירוע',esc(l.type||''))}${row('משתתפים',gst?'\u2066'+esc(gst)+'\u2069':'')}${row('תאריך',l.date?esc(dm(l.date)):'')}${row('מקום',esc(EV_VENUE[l.venue]||''))}${row('מקור',esc(LSRC[l.source]||l.source||''))}${row('קמפיין',esc(l.campaign||''))}${row('חברה',esc(l.company||''))}${row('אימייל',esc(l.email||''))}${row('נכנס',l.createdAt?esc(new Date(l.createdAt).toLocaleString('he-IL',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})):'')}${l.notes?`<div class="wa-inf-r" style="display:block"><span class="muted">עוד פרטים מהטופס</span><div style="white-space:pre-wrap;margin-top:2px">${esc(l.notes)}</div></div>`:''}</div>`:''}</div>`:'';
   // WhatsApp-like chat screen (owner, Nov 2): green header (back on phones), small action chips, wallpaper, bubbles, composer at the bottom
   const wc=waCatOf(id,c),catChips=`<div class="wac-cat"><small class="${wc?'muted':'bad-t'}">${wc?'תיבה:':'❔ לאיזו תיבה?'}</small>${LEAD_CAT.map(([k,n,i])=>`<button class="btn sm ${wc===k?'pri':'ghost'}" data-act="wa-cat" data-id="${esc(id)}" data-v="${k}" title="${n}">${i} ${n}</button>`).join('')}</div>`;
-  const acts=catChips+`<div class="wac-acts">${doneBtn}${L?`<button class="btn sm" data-act="lead-open" data-id="${L[0]}">כרטיס הליד · ${esc(LSTG[l.stage]||'')}</button><button class="btn sm ${l.stage==='junk'?'':'ghost'}" data-act="lead-junk" data-id="${L[0]}" data-chat="${esc(id)}">${l.stage==='junk'?'↺ החזרה ללידים':'🚫 לא רלוונטי'}</button>`:`<button class="btn sm" data-act="wa-mklead">+ יצירת ליד</button>`}</div>`;
+  const spaActs=wc==='spa'?`<button class="btn sm ok" data-act="wa-spalink" data-id="${esc(id)}">📅 קישור להזמנה אונליין</button>${S.can.spa?`<button class="btn sm" data-act="wa-spabk" data-id="${esc(id)}">🗓 קביעת תור ביומן</button>`:''}`:'';
+  const acts=catChips+`<div class="wac-acts">${doneBtn}${spaActs}${L?`<button class="btn sm" data-act="lead-open" data-id="${L[0]}">כרטיס הליד · ${esc(LSTG[l.stage]||'')}</button><button class="btn sm ${l.stage==='junk'?'':'ghost'}" data-act="lead-junk" data-id="${L[0]}" data-chat="${esc(id)}">${l.stage==='junk'?'↺ החזרה ללידים':'🚫 לא רלוונטי'}</button>`:`<button class="btn sm" data-act="wa-mklead">+ יצירת ליד</button>`}</div>`;
   return `<div class="wac${inPane?' pane':''}"><div class="wac-h">${inPane?'':'<button class="wac-back" data-act="close" aria-label="חזרה לרשימה">→</button>'}<span class="wa-av" style="background:${waColor(id)}" data-act="wa-info">${esc(waInit(name))}</span><div class="wac-t" data-act="wa-info"><b>${esc(name)}</b><small>${sub}</small></div><a class="wac-ic lt" href="tel:${esc(waLocalOf(id))}" aria-label="חיוג">📞</a></div>
   ${acts}${info}<div class="wa-msgs">${bubbles}</div><div class="wac-comp">${comp}</div></div>`}
 
@@ -4271,15 +4278,19 @@ const ACT={
   'spa-mins':D=>{(S.drafts.spa||(S.drafts.spa={})).mins=+D.v;render()},
   'spa-ppl':D=>{const b=(S.spaBk||{})[S.sheet.id]||{},d=S.drafts.spa||(S.drafts.spa={});d.people=Math.max(1,Math.min(12,(+dv('spa','people',b.people||1)||1)+(+D.d)));render()},
   'spa-th':D=>{const b=(S.spaBk||{})[S.sheet.id]||{},d=S.drafts.spa||(S.drafts.spa={}),t=[...dv('spa','ther',b.ther||[])];t[+D.i]=D.v;d.ther=t;const ti=[...dv('spa','tid',b.tid||[])],cur=spaThers().find(x=>x.id===ti[+D.i]);if(cur&&D.v!=='any'&&cur.g!==D.v){ti[+D.i]='';d.tid=ti}render()},
-  'spa-save':()=>{const id=S.sheet.id,b=(S.spaBk||{})[id]||{},isNew=!(S.spaBk||{})[id],g=(k,d)=>dv('spa',k,b[k]??d);
+  'spa-save':()=>{const id=S.sheet.id,b=(S.spaBk||{})[id]||{},isNew=!(S.spaBk||{})[id],g=(k,d)=>dv('spa',k,b[k]??d),waChat=S.sheet.waChat||'',leadId=S.sheet.leadId||'';
     const date=String(g('date',S.sheet.d||todayISO())),time=String(g('time','10:00')),treatment=String(g('treatment','')).trim(),mins=Math.round(+g('mins',60)||0),people=Math.max(1,+g('people',1)||1);
     if(!/^\d{4}-\d{2}-\d{2}$/.test(date)){toast('צריך לבחור תאריך');return}if(!/^\d{1,2}:\d{2}$/.test(time)){toast('צריך לבחור שעה');return}
     if(!treatment){toast('צריך לרשום איזה טיפול');return}if(!(mins>0)){toast('צריך לרשום כמה דקות');return}
     const tidA=Array.from({length:people},(_,i)=>(g('tid',[])||[])[i]||''),ther=Array.from({length:people},(_,i)=>{const t=spaThers().find(x=>x.id===tidA[i]);return t?t.g:((g('ther',[])||[])[i]||'any')}),now=Date.now();
     const doc={...b,hotel:b.hotel||spaHotel(),date,time,treatment,mins,people,ther,tid:tidA,tname:tidA.map(spaTName),tok:Array.from({length:people},(_,i)=>!!(g('tok',[])||[])[i]),amount:+g('amount',0)||0,adds:(g('adds',b.adds||[])||[]).filter(x=>+x.q>0).map(x=>({id:x.id,n:x.n,p:+x.p||0,q:+x.q})),name:String(g('name','')).trim(),phone:String(g('phone','')).trim(),notes:String(g('notes','')).trim(),status:b.status||'booked',updatedAt:now,updatedBy:S.uid};
-    if(isNew){doc.createdAt=now;doc.createdBy=S.uid;doc.createdByName=S.meName||''}
+    if(isNew){doc.createdAt=now;doc.createdBy=S.uid;doc.createdByName=S.meName||'';if(waChat){doc.source='whatsapp';doc.waChat=waChat}if(leadId)doc.leadId=leadId}
     S.spaBk={...S.spaBk,[id]:doc};S.spaW=weekOf(date);S.sheet=null;S.drafts.spa=null;render();
-    fdb.doc('spa/'+id).set(doc).then(async()=>{toast(isNew?'הטיפול נשמר ונשלח לצוות הספא':'נשמר');try{const hl=await spaHlEnsure(id,doc);S.spaBk[id]={...S.spaBk[id],hl};render()}catch(e){toast('טופס הצהרת הבריאות לא נוצר: '+errMsg(mapErr(e)))}},e=>toast('השמירה נכשלה: '+errMsg(mapErr(e))))},
+    fdb.doc('spa/'+id).set(doc).then(async()=>{toast(isNew?'הטיפול נשמר ונשלח לצוות הספא':'נשמר');let hl=null;try{hl=await spaHlEnsure(id,doc);S.spaBk[id]={...S.spaBk[id],hl};render()}catch(e){toast('טופס הצהרת הבריאות לא נוצר: '+errMsg(mapErr(e)))}
+      if(isNew&&leadId)fdb.doc('leads/'+leadId).set({stage:'won',wonAt:now,wonValue:Math.round(spaTotal(doc)),updatedAt:now,acts:firebase.firestore.FieldValue.arrayUnion({at:now,by:S.uid,byName:S.meName||'',kind:'note',text:'נקבע תור בספא: '+doc.treatment+' · '+dm(date)+' '+time})},{merge:true}).catch(()=>{});
+      if(isNew&&waChat){const c=(S.waChatsRaw||S.waChats||{})[waChat];const txt=spaConfirmText(doc,hl);
+        if(c&&waOpenWin(c)){try{await fdb.collection('waChats/'+waChat+'/msgs').add({dir:'out',type:'text',text:txt,status:'queued',by:S.uid,byName:S.meName||'',at:Date.now(),src:'system',spaId:id});toast('נשלח ללקוח אישור בוואטסאפ עם הצהרת הבריאות ✓',4000)}catch(e){toast('האישור לא נשלח: '+errMsg(mapErr(e)))}}
+        else{navigator.clipboard&&navigator.clipboard.writeText(txt).catch(()=>{});toast('התור נשמר. הלקוח לא כתב ב-24 השעות האחרונות, אז האישור לא נשלח מהמערכת · הוא הועתק, אפשר לשלוח ב"שליחה בוואטסאפ" מתוך התור.',6000)}}},e=>toast('השמירה נכשלה: '+errMsg(mapErr(e))))},
   'spa-done':()=>{const id=S.sheet.id,b=(S.spaBk||{})[id];if(!b)return;if(b.status!=='done'&&spaHlMiss(b)){toast('אי אפשר לסמן שבוצע: חסרה הצהרת בריאות חתומה ('+spaHlMiss(b)+'). שולחים ללקוח את הטופס בוואטסאפ.');return}const st=b.status==='done'?'booked':'done';S.spaBk={...S.spaBk,[id]:{...b,status:st}};S.sheet=null;render();fdb.doc('spa/'+id).set({status:st,updatedAt:Date.now(),updatedBy:S.uid},{merge:true}).catch(e=>toast('לא הצלחתי: '+errMsg(mapErr(e))))},
   'spa-del':()=>{if(S.confirm!=='spa-del'){S.confirm='spa-del';render();return}S.confirm=null;const id=S.sheet.id,c={...S.spaBk};delete c[id];S.spaBk=c;S.sheet=null;render();fdb.doc('spa/'+id).delete().then(()=>toast('הטיפול נמחק'),e=>toast('לא הצלחתי: '+errMsg(mapErr(e))))},
   'app-spa':()=>{S.menu=false;setTab('spa')},
@@ -4447,6 +4458,13 @@ const ACT={
   'wa-lead':D=>{const l=(S.leads||{})[D.id]||{},id=waIdOf(l.phone);if(!id){toast('אין לליד מספר טלפון תקין');return}waOpen(id,{leadId:D.id})},
   'wa-copy':async D=>{try{await navigator.clipboard.writeText(D.v);toast('הועתק')}catch(_){toast(D.v)}},
   'wa-sign':D=>{const d=S.drafts.wa||(S.drafts.wa={});d.text=(String(d.text||'').trim()+'\nלצפייה בהצעה ולחתימה: '+D.v).trim();render()},
+  'wa-spalink':D=>{const c=(S.waChats||{})[D.id]||{},L=waLeadOf(D.id,c),l=L&&L[1],name=c.name||(l&&l.name)||'',phone=(l&&l.phone)||waLocalOf(D.id),on=((spaCfg().online)||{}).on;
+    if(!on)toast('שימו לב: ההזמנה אונליין כבויה בהגדרות הספא, הקישור יראה "לא זמין"');
+    if(!waOpenWin(c)){navigator.clipboard&&navigator.clipboard.writeText(spaBookMsg(name,phone)).catch(()=>{});toast('הלקוח לא כתב ב-24 השעות האחרונות, אז אפשר לשלוח רק תבנית. ההודעה עם הקישור הועתקה.');return}
+    const d=S.drafts.wa||(S.drafts.wa={});d.text=(String(d.text||'').trim()?String(d.text).trim()+'\n':'')+spaBookMsg(name,phone);render();toast('הקישור נוסף להודעה · לוחצים ➤ לשליחה')},
+  'wa-spabk':D=>{if(!S.can.spa){toast('אין לך הרשאה ליומן הספא');return}const c=(S.waChats||{})[D.id]||{},L=waLeadOf(D.id,c),l=L&&L[1];
+    S.drafts.spa={name:c.name||(l&&l.name)||'',phone:(l&&l.phone)||waLocalOf(D.id),notes:l&&l.notes?String(l.notes).slice(0,300):''};S.drafts.spax=null;S.confirm=null;
+    S.sheet={type:'spa',id:'sp'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),d:todayISO(),waChat:D.id,leadId:L?L[0]:''};render()},
   'wa-send':async()=>{const id=waCur(),c=(S.waChats||{})[id],text=String(dv('wa','text','')).trim();if(!text){toast('צריך לכתוב הודעה');return}
     if(!waOpenWin(c)){toast('עברו 24 שעות. צריך לשלוח תבנית');return}
     const now=Date.now(),L=waLeadOf(id,c);S.drafts.wa=null;S.waAtBottom=true;render();

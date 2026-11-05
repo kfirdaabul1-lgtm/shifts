@@ -993,7 +993,8 @@ exports.onLeadAuto = trig('leads/{id}').onCreate(async (snap) => {
   if (!t) return note('הודעת וואטסאפ אוטומטית לא נשלחה: התבנית ' + r.tpl + ' לא נמצאה ברשימת התבניות המאושרות');
   if (!to) return note('הודעת וואטסאפ אוטומטית לא נשלחה: אין מספר טלפון תקין');
   const first = String(l.name || '').trim().split(/\s+/)[0] || '';
-  const params = Array.from({ length: t.n || 0 }, (_, i) => { const p = (r.params || [])[i] || {}; const v = p.src === 'first' ? first : p.src === 'name' ? l.name : p.src === 'venue' ? (r.venueName || '') : p.text; return String(v || '').trim() || '-'; });
+  const O = await org(), spaLink = String(O.url || APP).replace(/[^/]*$/, '') + 'spa.html' + '?' + [l.name && 'n=' + encodeURIComponent(String(l.name).trim().slice(0, 80)), l.phone && 'p=' + encodeURIComponent(String(l.phone).trim().slice(0, 20))].filter(Boolean).join('&');
+  const params = Array.from({ length: t.n || 0 }, (_, i) => { const p = (r.params || [])[i] || {}; const v = p.src === 'first' ? first : p.src === 'name' ? l.name : p.src === 'venue' ? (r.venueName || '') : p.src === 'spalink' ? spaLink.replace(/\?$/, '') : p.text; return String(v || '').trim() || '-'; });
   const text = String(t.body || '').replace(/\{\{(\d+)\}\}/g, (m, n) => params[+n - 1] || m);
   const cref = db.doc('waChats/' + to), cs = await cref.get();
   if (!cs.exists) await cref.set({ waId: to, phone: waLocal(to), name: l.name || '', leadId: id, createdAt: now, createdBy: 'auto', unread: 0, status: 'open', cat });

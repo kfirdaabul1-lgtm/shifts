@@ -805,6 +805,7 @@ async function waIncoming(m, name, push) {
   const up = { lastAt: at, lastText: text.slice(0, 200), lastDir: 'in', lastInAt: at, unread: admin.firestore.FieldValue.increment(1), status: 'open' };
   if (name && !c.name) up.name = name;
   if (!(await waSave(chat, m.id, { dir: 'in', type: m.type, text, at, src: 'customer', media: (m[m.type] && m[m.type].id) || '', mime: (m[m.type] && m[m.type].mime_type) || '', replyTo: (m.context && m.context.id) || '' }, up))) return;
+  if (c.guide && c.groupId) { await guideReply(c, text, at); return; }
   let leadId = c.leadId, owner = '', venue = '';
   if (!leadId) { try { const L = await waLead(chat, name || c.name); leadId = L.id; owner = L.owner; venue = L.venue || ''; await cref.set({ leadId }, { merge: true }); } catch (e) { console.warn('wa lead', e.message); } }
   else { try { const l = await db.doc('leads/' + leadId).get(); owner = (l.exists && l.data().owner) || ''; venue = (l.exists && l.data().venue) || ''; } catch (e) { } }
@@ -1364,4 +1365,53 @@ exports.grpGuide = functions.region(REGION).https.onRequest(async (req, res) => 
     const msgs = (g.guideMsgs || []).filter((x) => x && x.text).sort((a, b) => (b.at || 0) - (a.at || 0)).slice(0, 50).map((x) => ({ at: x.at || 0, text: String(x.text).slice(0, 2000), by: String(x.byName || '').slice(0, 60) }));
     res.json({ name: g.name || '', hotel: await hotelName(h), chain: o.name, ci: g.ci || '', co: g.co || '', day, rooms, halls, msgs, now: Date.now() });
   } catch (e) { res.status(500).json({ error: 'server' }); }
+});
+
+
+/* ---------- group guide over the system WhatsApp (owner, Nov 5): the reception / group screen sets groups/{id}.guideWaReq {at, kind invite|msg, msgId, by, byName}.
+   Inside the 24h window (the guide wrote to us) a free text is sent; otherwise the approved template chosen in waauto/main.guide {inv:{tpl,lang}, msg:{tpl,lang}}
+   with {{1}} guide name, {{2}} group name, {{3}} hotel, {{4}} link (invite) / message text (msg). The chat is waChats/{waId} {guide:true, groupId, hotel, cat:'events'};
+   the guide's replies don't open a lead: they go to the group's guideReplies and push the hotel's reception desks + front holders. Result → guideWaLast. ---------- */
+async function guideReply(c, text, at) {
+  const ref = db.doc('groups/' + c.groupId);
+  try { await db.runTransaction(async (tx) => { const g = await tx.get(ref); if (!g.exists) return; const L = (g.data().guideReplies || []).concat([{ at, text: String(text).slice(0, 1000) }]).slice(-40); tx.update(ref, { guideReplies: L }); }); } catch (e) { console.warn('guide reply', e.message); }
+  const h = c.hotel || '';
+  const to = [...new Set([...(await stationsOf(h)), ...(await roleHolders(h, ['front']))])];
+  if (to.length) await sendTo(to, { title: '🧭 ' + (c.name || 'מדריך קבוצה') + (c.groupName ? ' · ' + c.groupName : ''), body: String(text).slice(0, 140), hash: '#front', tag: 'gd-' + c.groupId });
+}
+exports.onGuideWa = trig('groups/{id}').onUpdate(async (ch, ctx) => {
+  const a = ch.after.data() || {}, b = ch.before.data() || {}, q = a.guideWaReq || {};
+  if (!q.at || (b.guideWaReq && b.guideWaReq.at === q.at)) return;
+  const id = ctx.params.id, ref = ch.after.ref, now = Date.now();
+  const done = (ok, msg, how) => ref.update({ guideWaLast: { at: now, req: q.at, kind: q.kind || '', ok, msg: String(msg || '').slice(0, 300), how: how || '' } });
+  try {
+    if (q.by) { const r = await db.doc('roles/' + q.by).get(); const rd = r.exists ? r.data() : {}; const hs = rd.hotels || [], ap = rd.apps || {};
+      let okRole = (ap.front || ap.gm || ap.shifts || ap.grp) && (!hs.length || hs.includes(a.hotel));
+      if (!okRole) { try { const u = await admin.auth().getUser(q.by); okRole = await pwIsOwnerMail(u.email); } catch (e) {} }
+      if (!okRole) return done(false, 'אין הרשאה לשלוח'); }
+    const c = await waCfg(); if (!c.token) return done(false, 'הוואטסאפ של המערכת עוד לא מחובר');
+    const to = waIdFrom(a.guidePhone); if (!to) return done(false, 'אין מספר טלפון תקין למדריך');
+    const O = await org(), hn = await hotelName(a.hotel), base = String(O.url || APP).replace(/[^/]*$/, '');
+    const link = a.guideKey ? base + 'guide.html?k=' + a.guideKey : '';
+    let text = '', kind = q.kind === 'msg' ? 'msg' : 'invite';
+    if (kind === 'invite') { if (!link) return done(false, 'עוד אין קישור למדריך'); text = `שלום${a.guideName ? ' ' + a.guideName : ''},\nזה העמוד של הקבוצה "${a.name || ''}" ב${hn}: החדרים שלכם ומתי נוקו, האולמות והודעות מהקבלה.\nHello! This is your group's page at ${hn}: rooms and cleaning, halls and messages from reception.\n${link}`; }
+    else { const m = (a.guideMsgs || []).find((x) => x.id === q.msgId); if (!m) return done(false, 'ההודעה לא נמצאה'); text = String(m.text || '') + (link ? '\n\n' + link : ''); }
+    const cref = db.doc('waChats/' + to), cs = await cref.get(), cd = cs.exists ? cs.data() : {};
+    const meta = { waId: to, phone: waLocal(to), guide: true, groupId: id, groupName: a.name || '', hotel: a.hotel || '', cat: cd.cat || 'events' };
+    if (!cs.exists) await cref.set({ ...meta, name: a.guideName || '', createdAt: now, createdBy: q.by || 'system', unread: 0, status: 'open' });
+    else await cref.set(meta, { merge: true });
+    const open = cd.lastInAt && now - cd.lastInAt < 23.5 * 3600e3;
+    if (open) {
+      await cref.collection('msgs').add({ dir: 'out', type: 'text', text, status: 'queued', by: q.by || 'system', byName: q.byName || 'קבלה', at: now, src: 'guide' });
+      return done(true, 'נשלח בוואטסאפ של המערכת', 'text');
+    }
+    const cfg = ((await db.doc('waauto/main').get()).data() || {}).guide || {}, pick = cfg[kind === 'msg' ? 'msg' : 'inv'] || {};
+    const pub = (await db.doc('wapub/main').get()).data() || {}, t = (pub.templates || []).find((x) => x.name === pick.tpl && (!pick.lang || x.lang === pick.lang));
+    if (!t) return done(false, 'המדריך עוד לא כתב לנו ב-24 השעות האחרונות, ולכן וואטסאפ מאפשר לשלוח לו רק תבנית מאושרת. ' + (pick.tpl ? 'התבנית שנבחרה לא נמצאה ברשימת המאושרות.' : 'בעל המערכת צריך לבחור תבנית למדריכים.'));
+    const val = [a.guideName || 'מדריך', a.name || 'הקבוצה', hn || '', kind === 'invite' ? link : String(((a.guideMsgs || []).find((x) => x.id === q.msgId) || {}).text || '').replace(/\s*\n+\s*/g, ' · ').slice(0, 900)];
+    const params = Array.from({ length: t.n || 0 }, (_, i) => String(val[i] || '-').trim() || '-');
+    const body = String(t.body || '').replace(/\{\{(\d+)\}\}/g, (m0, n) => params[+n - 1] || m0);
+    await cref.collection('msgs').add({ dir: 'out', type: 'template', tpl: { name: t.name, lang: t.lang, params }, text: body, status: 'queued', by: q.by || 'system', byName: q.byName || 'קבלה', at: now, src: 'guide' });
+    return done(true, 'נשלח בוואטסאפ של המערכת (תבנית ' + t.name + ')', 'template');
+  } catch (e) { return done(false, e.message); }
 });

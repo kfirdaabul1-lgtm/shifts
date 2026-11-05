@@ -1373,7 +1373,8 @@ exports.grpGuide = functions.region(REGION).https.onRequest(async (req, res) => 
       else if (m('done', r) || m('chk', r) || m('trtDone', r) || c === 'oc' || c === 'vc') st = 'clean';
       else if (m('start', r)) st = 'busy';
       else if (c === 'vi') st = 'ready';
-      const at = st === 'dnd' ? (m('dnd', r) || 0) : (m('done', r) || m('chkAt', r) || m('start', r) || 0);
+      const at = st === 'dnd' ? (m('dnd', r) || 0) : (g.ci && day <= g.ci) ? 0 : (m('done', r) || m('chkAt', r) || m('start', r) || 0); // check-in day: no cleaning time (owner, Nov 5)
+      if (g.ci && day <= g.ci) st = 'list'; // check-in day: only the list of rooms, no cleaning status (owner, Nov 5)
       const nm = ((g.guideNames || {})[r] || []).map((x) => String(x || '').slice(0, 60));
       return { r, st, at: typeof at === 'number' ? at : 0, pax: +((g.roomPax || {})[r]) || 0, names: nm };
     });

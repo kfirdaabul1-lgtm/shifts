@@ -18,6 +18,7 @@ jobs:
         with: { node-version: 22 }
       - name: DNS check (waits up to 20 min)
         run: |
-          for i in $(seq 1 40); do C=$(dig +short @8.8.8.8 $DOMAIN CNAME); [ -n "$C" ] && break; sleep 30; done
-          echo "::notice title=DNS CNAME::cname=[$C] A=[$(dig +short @8.8.8.8 $DOMAIN A | tr '\n' ' ')] ns=[$(dig +short NS sevencollection.co.il | tr '\n' ' ')] auth=[$(dig +short $DOMAIN CNAME @$(dig +short NS sevencollection.co.il | head -1) )]"
+          for i in $(seq 1 20); do C=$(dig +short @8.8.8.8 $DOMAIN CNAME); [ -n "$C" ] && break; sleep 30; done
+          echo "::notice title=DNS CNAME::cname=[$C] A=[$(dig +short @8.8.8.8 $DOMAIN A | tr '\n' ' ')] ns=[$(dig +short NS sevencollection.co.il | tr '\n' ' ')] auth=[$(dig +short $DOMAIN CNAME @park1.livedns.co.il)]"
           echo "::notice title=Pages health::$(curl -sI http://$DOMAIN/shifts/ | head -3 | tr '\r\n' '  ')"
+# run 1793874306

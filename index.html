@@ -1362,7 +1362,10 @@ function gdNeed(g){const m={};grpLines(g).forEach(l=>{const p=+l.ppr||0,n=+l.roo
 const gdKP=k=>{const [c,p]=String(k||'guest:0').split(':');return {c:c||'guest',p:+p||0}};
 const gdKL=k=>{const {c,p}=gdKP(k);return (c==='il'?'צוות ישראלי · ':c==='fo'?'צוות זר · ':'')+(p?p+' '+(p===1?'אדם':'אנשים')+' בחדר':'בלי גודל')};
 function sheetGdRooms(){const {id}=S.sheet,g=gdDoc(id);if(!g)return '';const h=g.hotel||'';hkSub(h,hkToday(h));const R=hkRooms(h),list=R.rooms.concat(R.dorms);
-  if(!S.gdSel){S.gdSel=new Map();const rp=g.roomPax||{},rc=g.roomCat||{};hkParse(g.guideRooms||'').forEach(r=>S.gdSel.set(r,(rc[r]||'guest')+':'+(+rp[r]||0)))}
+  if(!S.gdSel){S.gdSel=new Map();const rp=g.roomPax||{},rc=g.roomCat||{},nd=gdNeed(g);
+    // rooms saved before staff categories existed: a size that only the staff lines have goes to that staff category
+    const gu=p=>{if(nd['guest:'+p])return 'guest';const c=['il','fo'].filter(c=>nd[c+':'+p]);return c.length===1?c[0]:'guest'};
+    hkParse(g.guideRooms||'').forEach(r=>{const p=+rp[r]||0;S.gdSel.set(r,(rc[r]||(g.roomCat?'guest':gu(p)))+':'+p)})}
   const sel=S.gdSel,tk=gdTaken(id,g),fl={},need=gdNeed(g),CO={guest:0,il:1,fo:2},sizes=Object.keys(need).sort((a,b)=>{const x=gdKP(a),y=gdKP(b);return CO[x.c]-CO[y.c]||x.p-y.p});
   if(S.gdPpr==null||typeof S.gdPpr!=='string'||(sizes.length&&!sizes.includes(S.gdPpr)&&S.gdPpr!=='guest:0'))S.gdPpr=sizes[0]||'guest:0';
   const cnt=p=>[...sel.values()].filter(v=>v===p).length,total=Object.values(need).reduce((a,b)=>a+b,0);

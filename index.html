@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202611051650"></script>
+<script src="i18n.js?v=202611051710"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1323,6 +1323,14 @@ function gdTplHTML(){if(!S.live.wa&&!S.live.wapubG){S.live.wapubG=true;S.db.doc(
   <label class="f">הזמנה עם הקישור${sel('inv')}</label><label class="f">עדכון / הודעה לקבוצה${sel('msg')}</label></details>`}
 document.addEventListener('change',e=>{const t=e.target;if(!t.matches||!t.matches('[data-gdtpl]'))return;const k=t.dataset.gdtpl,x=((S.wapub||{}).templates||[])[+t.value];
   fdb.doc('waauto/main').set({guide:{[k]:t.value===''||!x?{}:{tpl:x.name,lang:x.lang}}},{merge:true}).then(()=>toast('התבנית נשמרה'),er=>toast('לא נשמר: '+errMsg(mapErr(er))))});
+// meal times for the guide page (owner, Nov 5): which meals the group has comes from its board (+ days with other boards); groups.meals {bf|ln|dn:{f,t,place}}
+const GD_MEALS=[['bf','ארוחת בוקר'],['ln','ארוחת צהריים'],['dn','ארוחת ערב']];
+function gdMealKeys(g){const bs=new Set([g.board||''].concat((g.dayBoards||[]).map(x=>x.b))),k=new Set();bs.forEach(b=>{if(b==='bb'||b==='hb'||b==='fb')k.add('bf');if(b==='hb'||b==='fb')k.add('dn');if(b==='fb')k.add('ln')});
+  Object.keys(g.meals||{}).forEach(m=>{const x=g.meals[m]||{};if(x.f||x.t)k.add(m)});return GD_MEALS.filter(([m])=>k.has(m))}
+function gdMealsHTML(id,g){const L=gdMealKeys(g);if(!L.length)return '';const F='gd_'+id,M=g.meals||{},v=(m,k)=>dv(F,'m_'+m+'_'+k,(M[m]||{})[k]||'');
+  return `<h4 style="margin:12px 0 4px">שעות ארוחות</h4><p class="muted" style="font-size:.8rem;margin:0 0 4px">לפי בסיס האירוח של הקבוצה. המדריך רואה אותן בעמוד שלו.</p>
+  ${L.map(([m,n])=>`<div class="row" style="align-items:flex-end;gap:6px"><b style="min-width:92px;padding-bottom:10px">${n}</b><label class="f" style="margin:0">משעה<input type="time" data-f="${F}.m_${m}_f" value="${esc(v(m,'f'))}"></label><label class="f" style="margin:0">עד<input type="time" data-f="${F}.m_${m}_t" value="${esc(v(m,'t'))}"></label><label class="f" style="margin:0">איפה<input type="text" data-f="${F}.m_${m}_place" value="${esc(v(m,'place'))}" placeholder="חדר האוכל"></label></div>`).join('')}
+  <div class="actions"><button class="btn sm" data-act="gd-meals" data-id="${esc(id)}">שמירת שעות הארוחות</button></div>`}
 function guideBoxHTML(id,g){const F='gd_'+id,v=(k,fb)=>dv(F,k,fb),h=g.hotel||'',D=hkSub(h,hkToday(h))||{},cl=D.clean||{},rooms=hkParse(g.guideRooms||'');
   const url=g.guideKey?gdUrl(g.guideKey):'',ph=gdPhone(g),msgs=(g.guideMsgs||[]).slice().sort((a,b)=>(b.at||0)-(a.at||0));
   const done=rooms.filter(r=>(D.done||{})[r]||(D.chk||{})[r]||(D.trtDone||{})[r]||['vc','oc'].includes(cl[r])).length;
@@ -1331,6 +1339,7 @@ function guideBoxHTML(id,g){const F='gd_'+id,v=(k,fb)=>dv(F,k,fb),h=g.hotel||'',
   <div class="row"><label class="f">שם המדריך<input type="text" data-f="${F}.name" value="${esc(v('name',g.guideName||''))}"></label><label class="f">טלפון המדריך<input type="tel" dir="ltr" data-f="${F}.phone" value="${esc(v('phone',g.guidePhone||''))}"></label></div>
   <div class="actions"><button class="btn sm" data-act="gd-save" data-id="${esc(id)}">שמירת פרטי המדריך</button></div>
   ${rooms.length?`<p class="muted" style="font-size:.85rem;margin:8px 0 4px">היום: ${done} מתוך ${rooms.length} חדרים נוקו</p><div class="gd-rooms">${rooms.map(r=>`<span class="hk-st hk-${cl[r]||'none'}">${esc(r)}${cl[r]?' · '+HK_CN[cl[r]][1]:''}</span>`).join('')}</div>`:''}
+  ${gdMealsHTML(id,g)}
   <h4 style="margin:12px 0 4px">קישור למדריך</h4>
   ${url?`<div class="actions"><button class="btn sm pri" data-act="gd-wa" data-id="${esc(id)}" data-k="invite">📲 שליחת הקישור מהוואטסאפ של המערכת</button><a class="btn sm ghost" href="https://wa.me/${ph}?text=${encodeURIComponent(gdInvite(g,url))}" target="_blank" rel="noopener">מהוואטסאפ שלי</a><button class="btn sm ghost" data-act="gd-copy" data-id="${esc(id)}">העתקת הקישור</button><a class="btn sm ghost" href="${esc(url)}" target="_blank" rel="noopener">תצוגה</a><button class="btn sm ghost" data-act="gd-rekey" data-id="${esc(id)}">${S.confirm==='gdk:'+id?'לחיצה נוספת: הקישור הישן יפסיק לעבוד':'קישור חדש'}</button></div><p class="muted" style="font-size:.8rem;margin:4px 0 0">הקישור עובד מיום לפני ההגעה ועד יום אחרי העזיבה, בלי הרשמה.</p>`
     :`<div class="actions"><button class="btn sm pri" data-act="gd-key" data-id="${esc(id)}">יצירת קישור למדריך</button></div>`}
@@ -4481,6 +4490,9 @@ const ACT={
   'gd-wa':async D=>{const id=D.id,g=gdDoc(id);if(!g)return;if(!String(g.guidePhone||'').replace(/\D/g,'')){toast('קודם רושמים ושומרים את הטלפון של המדריך');return}
     const q={at:Date.now(),kind:D.k==='msg'?'msg':'invite',msgId:D.m||'',by:S.uid,byName:S.meName||''};
     try{await fdb.doc('groups/'+id).update({guideWaReq:q});gdPut(id,{guideWaReq:q});render();toast('נשלח לוואטסאפ של המערכת…');setTimeout(render,62000)}catch(e){toast('לא הצלחתי: '+errMsg(mapErr(e)))}},
+  'gd-meals':async D=>{const id=D.id,g=gdDoc(id);if(!g)return;const F='gd_'+id,meals={};
+    for(const [m] of GD_MEALS){const o={};for(const k of ['f','t','place']){const x=String(dv(F,'m_'+m+'_'+k,((g.meals||{})[m]||{})[k]||'')).trim().slice(0,60);if(x)o[k]=x}if(Object.keys(o).length)meals[m]=o}
+    try{await fdb.doc('groups/'+id).update({meals,guideAt:Date.now(),guideBy:S.uid});gdPut(id,{meals});render();toast('שעות הארוחות נשמרו ומופיעות בעמוד המדריך')}catch(e){toast('השמירה נכשלה: '+errMsg(mapErr(e)))}},
   'gd-key':async D=>{const id=D.id,g=gdDoc(id);if(!g)return;const o={guideKey:gdKey(),guideAt:Date.now(),guideBy:S.uid};
     try{await fdb.doc('groups/'+id).update(o);gdPut(id,o);render();toast('הקישור מוכן. אפשר לשלוח אותו למדריך')}catch(e){toast('לא הצלחתי: '+errMsg(mapErr(e)))}},
   'gd-rekey':async D=>{const id=D.id;if(S.confirm!=='gdk:'+id){S.confirm='gdk:'+id;render();return}S.confirm=null;const o={guideKey:gdKey(),guideAt:Date.now(),guideBy:S.uid};

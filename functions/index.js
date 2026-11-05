@@ -1355,7 +1355,7 @@ exports.grpGuide = functions.region(REGION).https.onRequest(async (req, res) => 
       else if (m('done', r) || m('chk', r) || m('trtDone', r) || c === 'oc' || c === 'vc') st = 'clean';
       else if (m('start', r)) st = 'busy';
       else if (c === 'vi') st = 'ready';
-      const at = m('done', r) || m('chkAt', r) || m('start', r) || 0;
+      const at = st === 'dnd' ? (m('dnd', r) || 0) : (m('done', r) || m('chkAt', r) || m('start', r) || 0);
       return { r, st, at: typeof at === 'number' ? at : 0 };
     });
     const o = await org();
@@ -1363,7 +1363,8 @@ exports.grpGuide = functions.region(REGION).https.onRequest(async (req, res) => 
     const halls = (g.halls || []).filter((x) => x && x.date && x.date >= today).sort((a, b) => String(a.date + (a.start || '')).localeCompare(String(b.date + (b.start || '')))).slice(0, 60)
       .map((x) => { const [v, a] = String(x.space || '').split('|'); return { place: a || vn[v] || v || '', date: x.date, start: x.start || '', end: x.end || '', guests: +x.guests || 0, note: String(x.note || '').slice(0, 200) }; });
     const msgs = (g.guideMsgs || []).filter((x) => x && x.text).sort((a, b) => (b.at || 0) - (a.at || 0)).slice(0, 50).map((x) => ({ at: x.at || 0, text: String(x.text).slice(0, 2000), by: String(x.byName || '').slice(0, 60) }));
-    res.json({ name: g.name || '', hotel: await hotelName(h), chain: o.name, ci: g.ci || '', co: g.co || '', day, rooms, halls, msgs, now: Date.now() });
+    const meals = ['bf', 'ln', 'dn'].map((k) => { const x = (g.meals || {})[k] || {}; return x.f || x.t ? { k, f: String(x.f || '').slice(0, 5), t: String(x.t || '').slice(0, 5), place: String(x.place || '').slice(0, 60) } : null; }).filter(Boolean);
+    res.json({ name: g.name || '', hotel: await hotelName(h), chain: o.name, ci: g.ci || '', co: g.co || '', day, rooms, halls, msgs, meals, now: Date.now() });
   } catch (e) { res.status(500).json({ error: 'server' }); }
 });
 

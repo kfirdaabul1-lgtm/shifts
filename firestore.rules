@@ -680,7 +680,7 @@ service cloud.firestore {
       allow write: if canGrp();
       // group guide page (owner, Nov 5): reception / hotel managers set the group's rooms, guide details, link key and messages
       allow update: if (frontIn(resource.data.hotel) || gmIn(resource.data.hotel) || manages(resource.data.hotel))
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['guideRooms', 'guideName', 'guidePhone', 'guideKey', 'guideMsgs', 'guideAt', 'guideBy', 'guideWaReq'])
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['guideRooms', 'guideName', 'guidePhone', 'guideKey', 'guideMsgs', 'guideAt', 'guideBy', 'guideWaReq', 'meals'])
         && (!('guideKey' in request.resource.data) || request.resource.data.guideKey.matches('^g[0-9a-f]{32}$'));
     }
     match /agents/{id} {

@@ -22,7 +22,8 @@ async function ownTok() {
   if (Date.now() - ownAt > 600e3) { ownU = {}; ownAt = Date.now(); }
   const docs = [];
   for (const d of q.docs) {
-    if (ownU[d.id] === undefined) { try { const u = await admin.auth().getUser(d.id); ownU[d.id] = await pwIsOwnerMail(u.email); } catch (e) { ownU[d.id] = false; } }
+    // the system owner (platform e-mail) gets notifications only from his home chain (Seven, project hotel-shifts) (owner, Nov 5)
+    if (ownU[d.id] === undefined) { try { const u = await admin.auth().getUser(d.id), em = String(u.email || '').toLowerCase(); ownU[d.id] = (em === 'kfirdaabul1@gmail.com' && (process.env.GCLOUD_PROJECT || process.env.GCP_PROJECT || 'hotel-shifts') !== 'hotel-shifts') ? false : await pwIsOwnerMail(em); } catch (e) { ownU[d.id] = false; } }
     if (ownU[d.id]) docs.push(d);
   }
   return { docs, empty: !docs.length, size: docs.length, forEach: (f) => docs.forEach(f) };

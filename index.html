@@ -620,12 +620,16 @@ async function pushEnable(){
     toast('ההתראות הופעלו במכשיר הזה ✓');render()}
   catch(e){console.warn('push',e);toast('לא הצלחתי להפעיל התראות במכשיר הזה. נסו שוב או בדפדפן אחר.')}}
 // on every sign-in with permission already granted: refresh the token quietly, and show messages that arrive while the site is open
-function pushInit(){if(!pushSupported()||Notification.permission!=='granted'||(isIOS()&&!isStandalone()))return;
+/* the system owner gets no notifications from chains other than his own home chain (Seven) (owner, Nov 5):
+   no push token, no push request, no in-app alert listeners there; an old token in that chain is removed */
+function platAway(){return !!(S.plat&&CFG.chainId&&window.SC_HOME&&CFG.chainId!==window.SC_HOME)}
+function platAwayClean(){if(!platAway()||S.platClean)return;S.platClean=true;try{fdb.doc('pushTokens/'+S.uid).delete().catch(()=>{})}catch(_){}}
+function pushInit(){if(platAway()){platAwayClean();return}if(!pushSupported()||Notification.permission!=='granted'||(isIOS()&&!isStandalone()))return;
   pushToken().then(()=>{try{firebase.messaging().onMessage(m=>{const d=m.data||{},n=m.notification||{};toast((n.title||d.title||'')+(n.body||d.body?': '+(n.body||d.body):''))})}catch(_){ }render()}).catch(e=>console.warn('push init',e))}
 // ask once on open, like an installed app: our own sheet first (browsers need a tap before the system prompt); "not now" snoozes 3 days
 function pushAskSnoozed(){try{return +(localStorage.getItem('pushAsk:'+S.uid)||0)>Date.now()}catch(_){return false}}
 // a manager can ask again (employees/{uid}.pushReq = time): the next app open shows the request even if it was snoozed
-function pushAsk(){if(!S.uid||S.sheet)return;
+function pushAsk(){if(!S.uid||S.sheet||platAway())return;
   const ios=isIOS()&&!isStandalone(),req=+(((S.emps||{})[S.uid]||{}).pushReq||0);let seen=0;try{seen=+(localStorage.getItem('pushReqSeen:'+S.uid)||0)}catch(_){}
   if(req>seen){try{localStorage.setItem('pushReqSeen:'+S.uid,String(req));localStorage.removeItem('pushAsk:'+S.uid)}catch(_){}
     if(!ios&&pushSupported()&&Notification.permission==='granted'){pushEnable();return}
@@ -2520,7 +2524,7 @@ function recAckSub(){if(S.live.recack||!S.can.maint)return;S.live.recack=true;co
 function recurCardHTML(list){recAckSub();const rr=recurRooms(list);if(!rr.length)return '';
   return `<div class="card" style="border-color:var(--bad)"><h3 style="color:var(--bad)">⚠ תקלות חוזרות · ${rr.length}</h3><p class="muted" style="font-size:.85rem">חדר שהיו בו 2 תקלות בשבוע או 3 תקלות בחודש. כדאי לבדוק את הסיבה ולא רק לתקן שוב.</p>
   <div class="plist">${rr.map(x=>`<div class="prow" style="flex-wrap:wrap;border-color:var(--bad)"><span class="who"><b>חדר ${esc(x.room)}${scopeHs().length>1?' · '+esc(hotelName(x.hotel)):''}</b><small>${x.w} תקלות בשבוע האחרון · ${x.m} בחודש האחרון</small><small>${x.fs.map(f=>`${new Date(f.openedAt).toLocaleDateString('he-IL')}: ${esc(f.desc||'')}${f.status==='done'?' (תוקנה)':''}`).join(' · ')}</small></span><span class="actions"><span class="pill bad">תקלה חוזרת</span><button class="btn sm ghost" data-act="recur-ack" data-h="${esc(x.hotel)}" data-r="${esc(x.room)}">התעלמות (עד שתחזור שוב)</button></span></div>`).join('')}</div></div>`}
-function alertsSub(){if(S.live.alerts)return;S.live.alerts=true;recAckSub();
+function alertsSub(){if(S.live.alerts||platAway())return;S.live.alerts=true;recAckSub();
   if(S.can.gm||S.can.shifts||S.isOwner){const hs=scopeHs().slice(0,10);if(hs.length){S.db.collection('purchaseReqs').where('hotel','in',hs).where('status','==','pending').onSnapshot(q=>{S.alertPreqs=docsMap(q);alertTick()},()=>{});
     S.db.collection('inventory').where('hotel','in',hs).onSnapshot(q=>{S.alertInv=docsMap(q);alertTick()},()=>{});
   }}

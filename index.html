@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202611051800"></script>
+<script src="i18n.js?v=202611051900"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1340,7 +1340,7 @@ function guideBoxHTML(id,g){const F='gd_'+id,v=(k,fb)=>dv(F,k,fb),h=g.hotel||'',
   <div class="f"><span>החדרים של הקבוצה</span><div class="actions" style="margin:0"><button class="btn sm pri" data-act="gd-rooms" data-id="${esc(id)}">🛏️ בחירת חדרים${rooms.length?' ('+rooms.length+')':''}</button></div></div>
   <div class="row"><label class="f">שם המדריך<input type="text" data-f="${F}.name" value="${esc(v('name',g.guideName||''))}"></label><label class="f">טלפון המדריך<input type="tel" dir="ltr" data-f="${F}.phone" value="${esc(v('phone',g.guidePhone||''))}"></label></div>
   <div class="actions"><button class="btn sm" data-act="gd-save" data-id="${esc(id)}">שמירת פרטי המדריך</button></div>
-  ${rooms.length?`<p class="muted" style="font-size:.85rem;margin:8px 0 4px">היום: ${done} מתוך ${rooms.length} חדרים נוקו</p><div class="gd-rooms">${rooms.map(r=>`<span class="hk-st hk-${cl[r]||'none'}">${esc(r)}${cl[r]?' · '+HK_CN[cl[r]][1]:''}</span>`).join('')}</div>`:''}
+  ${rooms.length?`<p class="muted" style="font-size:.85rem;margin:8px 0 4px">היום: ${done} מתוך ${rooms.length} חדרים נוקו</p><div class="gd-rooms">${rooms.map(r=>`<span class="hk-st hk-${cl[r]||'none'}">${esc(r)}${(g.roomPax||{})[r]?' · 👤'+(+g.roomPax[r]):''}${cl[r]?' · '+HK_CN[cl[r]][1]:''}</span>`).join('')}</div>${rooms.some(r=>((g.guideNames||{})[r]||[]).length)?`<h4 style="margin:10px 0 4px">שמות האורחים (מהמדריך)</h4><div class="plist">${rooms.filter(r=>((g.guideNames||{})[r]||[]).length).map(r=>`<div class="prow"><span class="who"><b>${esc(r)}</b><small dir="auto">${g.guideNames[r].map(esc).join(' · ')}</small></span></div>`).join('')}</div>`:''}`:''}
   ${gdMealsHTML(id,g)}
   <h4 style="margin:12px 0 4px">קישור למדריך</h4>
   ${url?`<div class="actions"><button class="btn sm pri" data-act="gd-wa" data-id="${esc(id)}" data-k="invite">📲 שליחת הקישור מהוואטסאפ של המערכת</button><a class="btn sm ghost" href="https://wa.me/${ph}?text=${encodeURIComponent(gdInvite(g,url))}" target="_blank" rel="noopener">מהוואטסאפ שלי</a><button class="btn sm ghost" data-act="gd-copy" data-id="${esc(id)}">העתקת הקישור</button><a class="btn sm ghost" href="${esc(url)}" target="_blank" rel="noopener">תצוגה</a><button class="btn sm ghost" data-act="gd-rekey" data-id="${esc(id)}">${S.confirm==='gdk:'+id?'לחיצה נוספת: הקישור הישן יפסיק לעבוד':'קישור חדש'}</button></div><p class="muted" style="font-size:.8rem;margin:4px 0 0">הקישור עובד מיום לפני ההגעה ועד יום אחרי העזיבה, בלי הרשמה.</p>`

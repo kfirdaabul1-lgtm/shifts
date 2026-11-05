@@ -1330,9 +1330,26 @@ function roomsParse(spec) {
 }
 const addDaysIso = (d, n) => { const x = new Date(d + 'T12:00:00Z'); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); };
 exports.grpGuide = functions.region(REGION).https.onRequest(async (req, res) => {
-  res.set('Access-Control-Allow-Origin', '*'); res.set('Access-Control-Allow-Headers', 'Content-Type'); res.set('Access-Control-Allow-Methods', 'GET');
+  res.set('Access-Control-Allow-Origin', '*'); res.set('Access-Control-Allow-Headers', 'Content-Type'); res.set('Access-Control-Allow-Methods', 'GET, POST');
   res.set('Cache-Control', 'no-store');
   if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
+  if (req.method === 'POST') { // the guide types the guests' names of one room (owner, Nov 5) → groups/{id}.guideNames {room:[names]}
+    try {
+      let bd = req.body || {}; if (typeof bd === 'string') { try { bd = JSON.parse(bd); } catch (e) { bd = {}; } }
+      const k = String(bd.k || ''), room = String(bd.room || '').slice(0, 12);
+      if (!/^g[0-9a-f]{32}$/.test(k) || !room) { res.status(400).json({ error: 'bad' }); return; }
+      const names = (Array.isArray(bd.names) ? bd.names : []).slice(0, 12).map((x) => String(x == null ? '' : x).replace(/[\u0000-\u001f<>]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 60));
+      const q = await db.collection('groups').where('guideKey', '==', k).limit(1).get();
+      if (q.empty) { res.status(404).json({ error: 'notfound' }); return; }
+      const g = q.docs[0].data(), today = ilDate(new Date());
+      if (g.status === 'cancelled' || (g.ci && today < addDaysIso(g.ci, -1)) || (g.co && today > addDaysIso(g.co, 1))) { res.status(410).json({ error: 'expired' }); return; }
+      if (!roomsParse(g.guideRooms).includes(room)) { res.status(400).json({ error: 'room' }); return; }
+      while (names.length && !names[names.length - 1]) names.pop();
+      await q.docs[0].ref.update(new admin.firestore.FieldPath('guideNames', room), names.length ? names : admin.firestore.FieldValue.delete(), 'guideNamesAt', Date.now());
+      res.json({ ok: true, names });
+    } catch (e) { res.status(500).json({ error: 'server' }); }
+    return;
+  }
   if (req.method !== 'GET') { res.status(405).send('method'); return; }
   const k = String(req.query.k || '');
   if (!/^g[0-9a-f]{32}$/.test(k)) { res.status(404).json({ error: 'notfound' }); return; }
@@ -1357,7 +1374,8 @@ exports.grpGuide = functions.region(REGION).https.onRequest(async (req, res) => 
       else if (m('start', r)) st = 'busy';
       else if (c === 'vi') st = 'ready';
       const at = st === 'dnd' ? (m('dnd', r) || 0) : (m('done', r) || m('chkAt', r) || m('start', r) || 0);
-      return { r, st, at: typeof at === 'number' ? at : 0 };
+      const nm = ((g.guideNames || {})[r] || []).map((x) => String(x || '').slice(0, 60));
+      return { r, st, at: typeof at === 'number' ? at : 0, pax: +((g.roomPax || {})[r]) || 0, names: nm };
     });
     const o = await org();
     let vn = {}; try { const oc = await db.doc('orgcfg/main').get(); ((oc.exists && oc.data().venues) || []).forEach((v) => { if (v && v.id) vn[v.id] = v.name || v.id; }); } catch (e) { }

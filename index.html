@@ -4520,7 +4520,8 @@ const ACT={
     const q={at:Date.now(),kind:D.k==='msg'?'msg':'invite',msgId:D.m||'',by:S.uid,byName:S.meName||''};
     try{await fdb.doc('groups/'+id).update({guideWaReq:q});gdPut(id,{guideWaReq:q});render();toast('נשלח לוואטסאפ של המערכת…');setTimeout(render,62000)}catch(e){toast('לא הצלחתי: '+errMsg(mapErr(e)))}},
   'gd-meals':async D=>{const id=D.id,g=gdDoc(id);if(!g)return;const F='gd_'+id,meals={};
-    for(const [m] of GD_MEALS){const o={};for(const k of ['f','t','place']){const x=String(dv(F,'m_'+m+'_'+k,((g.meals||{})[m]||{})[k]||'')).trim().slice(0,60);if(x)o[k]=x}if(Object.keys(o).length)meals[m]=o}
+    for(const [m] of GD_MEALS){const o={};for(const k of ['f','t','place']){const el=document.querySelector(`[data-f="${F}.m_${m}_${k}"]`),x=String(el?el.value:dv(F,'m_'+m+'_'+k,((g.meals||{})[m]||{})[k]||'')).trim().slice(0,60);if(x)o[k]=x}if(Object.keys(o).length)meals[m]=o}
+    if(!Object.keys(meals).length&&!Object.keys(g.meals||{}).length){toast('לא נבחרה אף שעה. בוחרים שעה ולוחצים שוב על השמירה');return}
     try{await fdb.doc('groups/'+id).update({meals,guideAt:Date.now(),guideBy:S.uid});gdPut(id,{meals});render();toast('שעות הארוחות נשמרו ומופיעות בעמוד המדריך')}catch(e){toast('השמירה נכשלה: '+errMsg(mapErr(e)))}},
   'grpf-w':D=>{S.grpFW=addDays(S.grpFW||weekOf(todayISO()),+D.d);render()},
   'grpf-save':async D=>{const id=D.id,g=gdDoc(id);if(!g)return;const F='gf_'+id;

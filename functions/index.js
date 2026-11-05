@@ -1376,7 +1376,7 @@ exports.grpGuide = functions.region(REGION).https.onRequest(async (req, res) => 
       const at = st === 'dnd' ? (m('dnd', r) || 0) : (g.ci && day <= g.ci) ? 0 : (m('done', r) || m('chkAt', r) || m('start', r) || 0); // check-in day: no cleaning time (owner, Nov 5)
       if (g.ci && day <= g.ci) st = 'list'; // check-in day: only the list of rooms, no cleaning status (owner, Nov 5)
       const nm = ((g.guideNames || {})[r] || []).map((x) => String(x || '').slice(0, 60));
-      return { r, st, at: typeof at === 'number' ? at : 0, pax: +((g.roomPax || {})[r]) || 0, names: nm };
+      return { r, st, at: typeof at === 'number' ? at : 0, pax: +((g.roomPax || {})[r]) || 0, cat: ['il', 'fo'].includes((g.roomCat || {})[r]) ? g.roomCat[r] : '', names: nm };
     });
     const o = await org();
     let vn = {}; try { const oc = await db.doc('orgcfg/main').get(); ((oc.exists && oc.data().venues) || []).forEach((v) => { if (v && v.id) vn[v.id] = v.name || v.id; }); } catch (e) { }

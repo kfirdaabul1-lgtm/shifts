@@ -1569,14 +1569,14 @@ let confirmId=null;
 function renderList(){
   $('#fVenue').innerHTML=`<option value="">כל הלוקיישנים</option>`+VENUES.map(v=>`<option value="${v.id}">${v.name}</option>`).join('');
   $('#fVenue').value=fv;
-  const s=$('#fSearch').value.trim(),st=$('#fStatus').value,fu=$('#fUser').value;
   const all=quotes.filter(q=>!isGroup(q)).sort((a,b)=>(b.num||0)-(a.num||0));
-  renderUserFilter(all);ensureNames(all.flatMap(q=>[q.createdBy,q.updatedBy]),renderList);
+  renderUserFilter(all);
+  const s=$('#fSearch').value.trim(),st=$('#fStatus').value,fu0=$('#fUser').value,fu=fu0==='__me'?(myId||''):fu0;ensureNames(all.flatMap(q=>[q.createdBy,q.updatedBy]),renderList);
   const rows=all.filter(q=>(!fu||q.createdBy===fu)&&(!fv||q.event.venue===fv)&&(!st||q.status===st)&&(!s||String(q.num).includes(s)||(q.client.name||'').includes(s)||(q.client.company||'').includes(s)));
-  const sum=k=>all.filter(q=>q.status===k);
+  const allU=all.filter(q=>!fu||q.createdBy===fu),sum=k=>allU.filter(q=>q.status===k);
   const appr=sum('approved').reduce((a,q)=>a+calc(q).total,0);
   const open=sum('sent').reduce((a,q)=>a+calc(q).total,0);
-  $('#stats').innerHTML=`<div class="stat"><b>${all.length}</b><span>הצעות בסך הכל</span></div>
+  $('#stats').innerHTML=`<div class="stat"><b>${allU.length}</b><span>הצעות בסך הכל</span></div>
     <div class="stat"><b>${sum('sent').length}</b><span>ממתינות לתשובה · ${money(open)}</span></div>
     <div class="stat"><b>${sum('approved').length}</b><span>אושרו · ${money(appr)}</span></div>
     <div class="stat"><b>${all.length?Math.round(sum('approved').length/Math.max(1,sum('approved').length+sum('declined').length+sum('sent').length)*100):0}%</b><span>אחוז סגירה</span></div>`;
@@ -2273,10 +2273,13 @@ function ensureNames(ids,after){
   userCap.profiles(need).then(ps=>{for(const id of need){const n=ps[id]?.name||'';nameCache[id]=n||(id===myId?'אני':'משתמש לא מזוהה')}after&&after()}).catch(()=>{});
 }
 function fmtStamp(iso){if(!iso)return '';const d=new Date(iso);return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`}
+// each user opens on their own quotes ("ההצעות שלי"); "כל ההצעות" / a colleague is one choice away; the owner opens on all (owner, Nov 5)
+let fuInit=false,meOwner=false;
 function renderUserFilter(all){
-  const ids=[...new Set(all.map(q=>q.createdBy).filter(Boolean))];const el=$('#fUser');el.hidden=!ids.length;
-  const h=`<option value="">כל העובדים</option>`+ids.map(id=>`<option value="${esc(id)}">${esc(who(id))}</option>`).join('');
+  const ids=[...new Set(all.map(q=>q.createdBy).filter(Boolean))].filter(id=>id!==myId);const el=$('#fUser');el.hidden=!myId&&!ids.length;
+  const h=(myId?`<option value="__me">📄 ההצעות שלי</option>`:'')+`<option value="">כל ההצעות</option>`+ids.map(id=>`<option value="${esc(id)}">${esc(who(id))}</option>`).join('');
   if(el.dataset.h!==h){const v=el.value;el.innerHTML=h;el.dataset.h=h;el.value=v}
+  if(!fuInit&&myId){fuInit=true;el.value=meOwner?'':'__me'}
 }
 function renderAuthor(){
   const el=$('#authorLine');
@@ -2335,7 +2338,7 @@ $('#syncState').textContent='';
   try{db=await window.claude.use('db')}catch(e){db=null}
   if(!db)return;
   store='db';$('#syncState').textContent='מסונכרן בענן';
-  try{userCap=await window.claude.use('user');if(userCap){const me=await userCap.me();myId=me.id;$('#tabCeo').hidden=true;if(myId){nameCache[myId]=me.name||'אני';const mine=lsGet('quoteDraft:'+myId,null),old=lsGet('quoteDraft',null);
+  try{userCap=await window.claude.use('user');if(userCap){const me=await userCap.me();myId=me.id;meOwner=!!me.isOwner;$('#tabCeo').hidden=true;if(myId){nameCache[myId]=me.name||'אני';const mine=lsGet('quoteDraft:'+myId,null),old=lsGet('quoteDraft',null);
       if(mine)cur=mine;else if(old&&old.createdBy&&old.createdBy!==myId)cur=blankQuote();
       try{if(old&&!mine)lsSet('quoteDraft:'+myId,cur);localStorage.removeItem('quoteDraft')}catch(_){}try{fillForm()}catch(_){cur=blankQuote();fillForm()}}$('#meLine').textContent=myId?(me.name?`מחובר/ת: ${me.name}`:''):'לא מזוהה: הצעות יישמרו ללא שם עובד';renderAuthor()}}catch(e){userCap=null}
   settings=structuredClone(DEF_SETTINGS);quotes=[];menus=[];contracts=[];

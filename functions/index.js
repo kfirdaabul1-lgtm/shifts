@@ -1313,3 +1313,55 @@ exports.onHkBlock = functions.region(REGION).firestore.document('hkBlocks/{id}')
   await sendTo(st.filter(u => !a || u !== a.by), { ...msg, hash: '#hk', tag: 'oos-' + x.hotel + '-' + x.room });
   return null;
 });
+
+/* ---------- group guide page (owner, Nov 5): guide.html?k=<guideKey> calls this public endpoint.
+   groups/{id} {guideKey 'g'+32hex, guideRooms spec "101-105 210", guideName, guidePhone, guideMsgs [{id, at, text, byName}], halls, ci, co, hotel}.
+   Works from the day before arrival until the day after departure; returns only what the guide needs (no prices, no agent, no notes). ---------- */
+function roomsParse(spec) {
+  const add = [], del = new Set();
+  String(spec || '').split(/[\s,;]+/).filter(Boolean).forEach((t) => {
+    const neg = t.startsWith('-'), x = neg ? t.slice(1) : t, m = x.match(/^(\d+)-(\d+)$/);
+    if (m) { let a = +m[1], b = +m[2]; if (b < a) [a, b] = [b, a]; for (let i = a; i <= b && i - a < 500; i++) (neg ? del.add(String(i)) : add.push(String(i))); }
+    else if (/^\d+[A-Za-z]?$/.test(x)) (neg ? del.add(x) : add.push(x));
+  });
+  return [...new Set(add)].filter((r) => !del.has(r)).slice(0, 400);
+}
+const addDaysIso = (d, n) => { const x = new Date(d + 'T12:00:00Z'); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); };
+exports.grpGuide = functions.region(REGION).https.onRequest(async (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*'); res.set('Access-Control-Allow-Headers', 'Content-Type'); res.set('Access-Control-Allow-Methods', 'GET');
+  res.set('Cache-Control', 'no-store');
+  if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
+  if (req.method !== 'GET') { res.status(405).send('method'); return; }
+  const k = String(req.query.k || '');
+  if (!/^g[0-9a-f]{32}$/.test(k)) { res.status(404).json({ error: 'notfound' }); return; }
+  try {
+    const q = await db.collection('groups').where('guideKey', '==', k).limit(1).get();
+    if (q.empty) { res.status(404).json({ error: 'notfound' }); return; }
+    const g = q.docs[0].data(), today = ilDate(new Date());
+    if (g.status === 'cancelled') { res.status(404).json({ error: 'notfound' }); return; }
+    if ((g.ci && today < addDaysIso(g.ci, -1)) || (g.co && today > addDaysIso(g.co, 1))) { res.status(410).json({ error: 'expired', ci: g.ci || '', co: g.co || '' }); return; }
+    const h = g.hotel || '';
+    let day = today; try { const hd = await db.doc('hkday/' + h).get(); if (hd.exists && hd.data().date) day = hd.data().date; } catch (e) { }
+    let D = {}; try { const d = await db.doc('hk/' + h + '__' + day).get(); if (d.exists) D = d.data() || {}; } catch (e) { }
+    let blk = {}; try { const b = await db.collection('hkBlocks').where('hotel', '==', h).get(); b.docs.forEach((x) => { const v = x.data(); if (v && v.room != null && (!v.from || v.from <= day) && (!v.until || v.until >= day)) blk[String(v.room)] = 1; }); } catch (e) { }
+    const m = (f, r) => (D[f] || {})[r];
+    const rooms = roomsParse(g.guideRooms).map((r) => {
+      const c = m('clean', r) || '';
+      let st = 'wait';
+      if (blk[r]) st = 'oos';
+      else if (m('dnd', r)) st = 'dnd';
+      else if (c === 'ooo') st = 'fault';
+      else if (m('done', r) || m('chk', r) || m('trtDone', r) || c === 'oc' || c === 'vc') st = 'clean';
+      else if (m('start', r)) st = 'busy';
+      else if (c === 'vi') st = 'ready';
+      const at = m('done', r) || m('chkAt', r) || m('start', r) || 0;
+      return { r, st, at: typeof at === 'number' ? at : 0 };
+    });
+    const o = await org();
+    let vn = {}; try { const oc = await db.doc('orgcfg/main').get(); ((oc.exists && oc.data().venues) || []).forEach((v) => { if (v && v.id) vn[v.id] = v.name || v.id; }); } catch (e) { }
+    const halls = (g.halls || []).filter((x) => x && x.date && x.date >= today).sort((a, b) => String(a.date + (a.start || '')).localeCompare(String(b.date + (b.start || '')))).slice(0, 60)
+      .map((x) => { const [v, a] = String(x.space || '').split('|'); return { place: a || vn[v] || v || '', date: x.date, start: x.start || '', end: x.end || '', guests: +x.guests || 0, note: String(x.note || '').slice(0, 200) }; });
+    const msgs = (g.guideMsgs || []).filter((x) => x && x.text).sort((a, b) => (b.at || 0) - (a.at || 0)).slice(0, 50).map((x) => ({ at: x.at || 0, text: String(x.text).slice(0, 2000), by: String(x.byName || '').slice(0, 60) }));
+    res.json({ name: g.name || '', hotel: await hotelName(h), chain: o.name, ci: g.ci || '', co: g.co || '', day, rooms, halls, msgs, now: Date.now() });
+  } catch (e) { res.status(500).json({ error: 'server' }); }
+});

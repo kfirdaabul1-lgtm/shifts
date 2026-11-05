@@ -37,5 +37,10 @@ async function grant(fn = 'driveBackup') {
   const pgProbe = () => fetch(PG).then(async (x) => ({ s: x.status, b: (await x.text()).slice(0, 40) })).catch((e) => ({ s: 0, b: e.message }));
   let pg = await pgProbe(); note('Login guard probe', 'status ' + pg.s);
   if (pg.s !== 405 || pg.b.trim() !== 'method') { note('Login guard invoker', await grant('pwGuard').catch((e) => 'grant failed: ' + e.message)); await new Promise((x) => setTimeout(x, 20000)); pg = await pgProbe(); note('Login guard probe 2', 'status ' + pg.s + ' · ' + pg.b.replace(/<[^>]+>/g, ' ').trim()); }
+  // group guide page endpoint must be public (guide.html calls it); without a key our own code answers 404 {"error":"notfound"}
+  const GG = 'https://europe-west1-hotel-shifts.cloudfunctions.net/grpGuide';
+  const ggProbe = () => fetch(GG).then(async (x) => ({ s: x.status, b: (await x.text()).slice(0, 40) })).catch((e) => ({ s: 0, b: e.message }));
+  let gg = await ggProbe(); note('Group guide probe', 'status ' + gg.s);
+  if (gg.s !== 404 || gg.b.indexOf('notfound') < 0) { note('Group guide invoker', await grant('grpGuide').catch((e) => 'grant failed: ' + e.message)); await new Promise((x) => setTimeout(x, 20000)); gg = await ggProbe(); note('Group guide probe 2', 'status ' + gg.s + ' · ' + gg.b); }
   // no real call here: a real call would update lastAt and hide a broken Apps Script schedule
 })().catch((e) => { note('Backup check error', e.message); });

@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202611051530"></script>
+<script src="i18n.js?v=202611051610"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -200,6 +200,7 @@ table.plain.plg{width:100%;table-layout:fixed;min-width:0}.plg th,table.plain.pl
 .lead-col.lead-won{background:var(--ok-bg)}.lead-col.lead-lost{background:var(--bad-bg)}.lead-col.lead-junk{opacity:.75}.wa-inf{margin:0 0 8px}.wa-inf-sum{all:unset;cursor:pointer;display:block;width:100%;box-sizing:border-box;padding:7px 10px;border-radius:10px;background:var(--brass-bg,#F6F1E6);font-weight:600;font-size:.9rem}.wa-inf-body{margin-top:6px;padding:8px 10px;border:1px solid var(--line);border-radius:10px;display:grid;gap:4px}.wa-inf-r{display:flex;gap:8px;justify-content:space-between;font-size:.9rem}
 .lead-card{display:flex;flex-direction:column;align-items:flex-start;gap:3px;text-align:start;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:inherit;cursor:pointer;width:100%}
 .lead-card.late{border-color:var(--warn);box-shadow:0 0 0 2px var(--warn-bg)}.lead-card small{font-size:.8rem}.lead-tags{display:flex;flex-wrap:wrap;gap:4px}.lead-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px}.bad-t{color:var(--bad)}
+.gd-g{border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin:8px 0;background:var(--surface)}.gd-g>summary{cursor:pointer;list-style:revert}.gd-box{padding-top:6px}.gd-rooms{display:flex;flex-wrap:wrap;gap:4px}.gd-rooms .hk-st{font-size:.78rem;padding:2px 8px;border-radius:999px}
 .hk-ks{display:flex;flex-wrap:wrap;gap:6px}.hk-sep{width:1px;background:var(--line);margin:0 4px}
 .hk-k{display:flex;flex-direction:column;align-items:flex-start;gap:2px;min-width:96px;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font:inherit;cursor:pointer}.hk-k span{font-size:.78rem;color:var(--muted)}.hk-k b{font-size:1.25rem}.hk-k.on{outline:3px solid var(--ink);outline-offset:1px}.hk-k.hk-vc span,.hk-k.hk-vd span,.hk-k.hk-od span,.hk-k.hk-ooo span{color:#fff;opacity:.9}.hk-k.hk-vi span{color:#3b2f00}.hk-k.hk-oc span{color:#064E2B}
 .hk-p{padding:8px 12px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:inherit;font-weight:600;cursor:pointer;min-height:40px}.hk-p.on{outline:3px solid var(--ink);outline-offset:1px}
@@ -1298,7 +1299,41 @@ function sheetGrp(){const id=S.sheet.id,x=(S.grps||{})[id]||{},isNew=!(S.grps||{
   <div class="card" style="margin:8px 0;padding:10px 12px"><div class="totals" id="grpTot">${grpTotHTML(cur)}</div></div>
   <label class="f">הערות<textarea rows="3" data-f="grp.notes">${esc(g('notes',''))}</textarea></label>
   ${grpHallsHTML(id,x,isNew)}
+  ${isNew?'':`<details class="gd-g" ${(S.fold||{})['gd:'+id]?'open':''} data-fold="gd:${esc(id)}"><summary><b>🧭 עמוד למדריך הקבוצה</b> <span class="muted">${x.guideKey?'קישור פעיל':'עוד אין קישור'}${x.guideRooms?' · '+hkParse(x.guideRooms).length+' חדרים':''}</span></summary>${guideBoxHTML(id,x)}</details>`}
   <div class="actions" style="margin-top:12px"><button class="btn pri" data-act="grp-save">שמירה</button>${isNew?'':`<a class="btn" href="https://wa.me/${ph}?text=${encodeURIComponent(grpOfferText(cur))}" target="_blank" rel="noopener">שליחת ההצעה בוואטסאפ</a><button class="btn ghost" data-act="grp-copy">העתקת ההצעה</button><button class="btn ghost" data-act="grp-dup">⧉ שכפול הקבוצה</button><button class="btn ghost" data-act="grp-del">${S.confirm==='grp-del'?'לחיצה נוספת תמחק':'מחיקה'}</button>`}</div>`}
+/* ---------- group guide page (owner, Nov 5): the group's guide gets a personal link (guide.html?k=<guideKey>, no sign-up) to a mini page with
+   the group's rooms and whether they were cleaned today, the group's halls and messages from reception. groups/{id} guideRooms (spec "101-110 205"),
+   guideName, guidePhone, guideKey ('g'+32 hex), guideMsgs [{id, at, text, by, byName}], guideAt, guideBy. Data for the page comes from the
+   public function grpGuide (only while the group stays). Edited in the group sheet and in the reception card "קבוצות במלון". ---------- */
+const gdKey=()=>'g'+Array.from(crypto.getRandomValues(new Uint8Array(16)),x=>x.toString(16).padStart(2,'0')).join('');
+const gdUrl=k=>appLink().replace(/index\.html$/,'').replace(/\/?$/,'/')+'guide.html?k='+k+(CFG.chainId&&CFG.chainId!==window.SC_HOME?'&chain='+encodeURIComponent(CFG.chainId):'');
+function grpFrSub(h){const k='grpFr:'+h;S.grpFr=S.grpFr||{};if(!S.live[k]){S.live[k]=true;
+  S.db.collection('groups').where('hotel','==',h).onSnapshot(q=>{S.grpFr[h]=docsMap(q);render()},()=>{S.grpFr[h]=null;render()})}return S.grpFr[h]}
+function gdDoc(id){if((S.grps||{})[id])return S.grps[id];for(const m of Object.values(S.grpFr||{}))if(m&&m[id])return m[id];return null}
+function gdPut(id,o){if((S.grps||{})[id])S.grps={...S.grps,[id]:{...S.grps[id],...o}};for(const h of Object.keys(S.grpFr||{}))if(S.grpFr[h]&&S.grpFr[h][id])S.grpFr[h]={...S.grpFr[h],[id]:{...S.grpFr[h][id],...o}}}
+const gdPhone=g=>String(g.guidePhone||'').replace(/\D/g,'').replace(/^0/,'972');
+const gdInvite=(g,url)=>`שלום${g.guideName?' '+g.guideName:''},\nזה העמוד של הקבוצה "${g.name||''}" ב${hotelName(g.hotel)}: החדרים שלכם ומתי נוקו, האולמות והודעות מהקבלה.\nHello! This is your group's page at ${hotelName(g.hotel)}: rooms and cleaning, halls and messages from reception.\n${url}`;
+function guideBoxHTML(id,g){const F='gd_'+id,v=(k,fb)=>dv(F,k,fb),h=g.hotel||'',D=hkSub(h,hkToday(h))||{},cl=D.clean||{},rooms=hkParse(g.guideRooms||'');
+  const url=g.guideKey?gdUrl(g.guideKey):'',ph=gdPhone(g),msgs=(g.guideMsgs||[]).slice().sort((a,b)=>(b.at||0)-(a.at||0));
+  const done=rooms.filter(r=>(D.done||{})[r]||(D.chk||{})[r]||(D.trtDone||{})[r]||['vc','oc'].includes(cl[r])).length;
+  return `<div class="gd-box">
+  <label class="f">מספרי החדרים של הקבוצה<input type="text" dir="ltr" data-f="${F}.rooms" value="${esc(v('rooms',g.guideRooms||''))}" placeholder="למשל 101-110 205 207"><small class="muted">טווח עם מקף, חדרים בודדים עם רווח</small></label>
+  <div class="row"><label class="f">שם המדריך<input type="text" data-f="${F}.name" value="${esc(v('name',g.guideName||''))}"></label><label class="f">טלפון המדריך<input type="tel" dir="ltr" data-f="${F}.phone" value="${esc(v('phone',g.guidePhone||''))}"></label></div>
+  <div class="actions"><button class="btn sm" data-act="gd-save" data-id="${esc(id)}">שמירת חדרים ופרטי המדריך</button></div>
+  ${rooms.length?`<p class="muted" style="font-size:.85rem;margin:8px 0 4px">היום: ${done} מתוך ${rooms.length} חדרים נוקו</p><div class="gd-rooms">${rooms.map(r=>`<span class="hk-st hk-${cl[r]||'none'}">${esc(r)}${cl[r]?' · '+HK_CN[cl[r]][1]:''}</span>`).join('')}</div>`:''}
+  <h4 style="margin:12px 0 4px">קישור למדריך</h4>
+  ${url?`<div class="actions"><a class="btn sm pri" href="https://wa.me/${ph}?text=${encodeURIComponent(gdInvite(g,url))}" target="_blank" rel="noopener">שליחת הקישור בוואטסאפ</a><button class="btn sm ghost" data-act="gd-copy" data-id="${esc(id)}">העתקת הקישור</button><a class="btn sm ghost" href="${esc(url)}" target="_blank" rel="noopener">תצוגה</a><button class="btn sm ghost" data-act="gd-rekey" data-id="${esc(id)}">${S.confirm==='gdk:'+id?'לחיצה נוספת: הקישור הישן יפסיק לעבוד':'קישור חדש'}</button></div><p class="muted" style="font-size:.8rem;margin:4px 0 0">הקישור עובד מיום לפני ההגעה ועד יום אחרי העזיבה, בלי הרשמה.</p>`
+    :`<div class="actions"><button class="btn sm pri" data-act="gd-key" data-id="${esc(id)}">יצירת קישור למדריך</button></div>`}
+  <h4 style="margin:12px 0 4px">הודעות לקבוצה · ${msgs.length}</h4>
+  <label class="f"><textarea rows="2" data-f="${F}.msg" placeholder="למשל: ארוחת בוקר מחר 07:00–09:30 בחדר האוכל">${esc(v('msg',''))}</textarea></label>
+  <div class="actions"><button class="btn sm pri" data-act="gd-msg" data-id="${esc(id)}">פרסום בעמוד המדריך</button></div>
+  ${msgs.length?`<div class="plist">${msgs.map(m=>`<div class="prow"><span class="who"><b style="font-weight:500;white-space:pre-wrap">${esc(m.text)}</b><small>${new Date(m.at).toLocaleString('he-IL',{day:'numeric',month:'numeric',hour:'2-digit',minute:'2-digit'})}${m.byName?' · '+esc(m.byName):''}</small></span><span class="actions" style="margin:0"><a class="btn sm ghost" href="https://wa.me/${ph}?text=${encodeURIComponent(m.text)}" target="_blank" rel="noopener">וואטסאפ</a><button class="btn sm ghost" data-act="gd-mdel" data-id="${esc(id)}" data-m="${esc(m.id)}">${S.confirm==='gdm:'+m.id?'למחוק?':'מחיקה'}</button></span></div>`).join('')}</div>`:''}
+  </div>`}
+function frontGrpHTML(h){const M=grpFrSub(h);if(!M)return '';const t=todayISO(),tm=addDays(t,1);
+  const L=Object.entries(M).filter(([,g])=>['confirmed','option'].includes(g.status||'offer')&&g.ci&&g.ci<=tm&&(g.co||g.ci)>=t).sort(([,a],[,b])=>String(a.ci).localeCompare(String(b.ci)));
+  if(!L.length)return '';
+  return `<div class="card"><h3>קבוצות במלון · ${L.length}</h3><p class="muted" style="font-size:.85rem;margin:0 0 6px">לכל קבוצה: מספרי החדרים, קישור למדריך והודעות (שעות ארוחות וכדומה). המדריך רואה אותם בעמוד שלו.</p>
+  ${L.map(([id,g])=>`<details class="gd-g" ${(S.fold||{})['gd:'+id]?'open':''} data-fold="gd:${esc(id)}"><summary><b>${esc(g.name||'קבוצה')}</b> <span class="muted">${dm(g.ci)}${g.co?'–'+dm(g.co):''}${g.ci>t?' · מגיעה מחר':''}${g.guideRooms?' · '+hkParse(g.guideRooms).length+' חדרים':' · עוד אין חדרים'}</span></summary>${guideBoxHTML(id,g)}</details>`).join('')}</div>`}
 // group halls → a "hotel group" on the events board: quotes/grp_<groupId>_<n> {kind:'group', status:'approved', group:{note, groupId}}
 function grpSpaces(h){let sp=[];try{sp=hotelSpaces(h)||[]}catch(_){sp=[]}if(!sp.length)sp=Object.entries(EV_SPACES).flatMap(([v,as])=>as.map(a=>v+'|'+a));return sp}
 const hallLabel=sp=>{const [v,a]=String(sp).split('|');return (EV_VENUE[v]||v)+(a&&a!==(EV_VENUE[v]||'')?' · '+a:'')};
@@ -2845,7 +2880,7 @@ function vFront(){const hs=modHs('front',scopeHs());if(!hs.length)return wrap(em
   const fCalls=Object.values(callsSub(h)||{}),nHk=fCalls.filter(c=>c.kind!=='pub'&&c.status==='open').length,nPub=fCalls.filter(c=>c.kind==='pub'&&c.status==='open').length;
   const nFlt=faultsOf(h).filter(([,f])=>f.status!=='done').length,nCmp=Object.keys(frontCmpSub(h)||{}).length;
   const fc=(html,key,n,lbl)=>foldCard(n?html.replace(/^(<div class="card"><h3>[^<]*)/,'$1 <span class="pill warn">'+n+'&nbsp;<span>'+lbl+'</span></span>'):html,key);
-  return wrap(head+hkUpdHTML(h)+fc(callsCardHTML(h),'fr-hk',nHk,'פתוחות')+fc(pubCardHTML(h),'fr-pub',nPub,'פתוחות')+fc(frontCmpHTML(h),'fr-cmp',nCmp,'היום')+fc(frontFaultsHTML(h),'fr-flt',nFlt,'פתוחות')+toursDayCardHTML(h,todayISO(),true)+daily+srFormHTML(h)+(srBoss(h)?srListHTML(h,false):srListHTML(h,false,true))+evCard+sched);
+  return wrap(head+hkUpdHTML(h)+fc(callsCardHTML(h),'fr-hk',nHk,'פתוחות')+fc(pubCardHTML(h),'fr-pub',nPub,'פתוחות')+fc(frontCmpHTML(h),'fr-cmp',nCmp,'היום')+fc(frontFaultsHTML(h),'fr-flt',nFlt,'פתוחות')+toursDayCardHTML(h,todayISO(),true)+fc(frontGrpHTML(h),'fr-grp',0,'')+daily+srFormHTML(h)+(srBoss(h)?srListHTML(h,false):srListHTML(h,false,true))+evCard+sched);
 }
 /* ---------- reception → housekeeping calls: hkCalls/{id} {hotel, date, room, tasks:[HK_CALL keys], note, to, toName, status open|done,
    openedAt, openedBy, openedByName, doneAt, mins}. The worker gets a push (function onHkCall) and a card on every page until "טופל". ---------- */
@@ -4407,6 +4442,21 @@ const ACT={
     const hall={space,date,start,end,guests,note,qid},halls=[...(x.halls||[]),hall];
     S.grps={...S.grps,[id]:{...x,halls,hallSeq:n}};S.drafts.gh=null;render();
     fdb.doc('quotes/'+qid).set(q).then(()=>fdb.doc('groups/'+id).set({halls,hallSeq:n,updatedAt:now},{merge:true})).then(()=>toast('האולם נכנס ללוח האירועים'),e=>{toast('לא הצלחתי: '+errMsg(mapErr(e)));S.grps={...S.grps,[id]:x};render()})},
+  'gd-save':async D=>{const id=D.id,g=gdDoc(id);if(!g)return;const F='gd_'+id,v=(k,fb)=>String(dv(F,k,fb)).trim();
+    const o={guideRooms:v('rooms',g.guideRooms||''),guideName:v('name',g.guideName||''),guidePhone:v('phone',g.guidePhone||''),guideAt:Date.now(),guideBy:S.uid};
+    const n=hkParse(o.guideRooms).length;if(o.guideRooms&&!n){toast('לא הבנתי את מספרי החדרים. כותבים למשל 101-110 205');return}
+    try{await fdb.doc('groups/'+id).update(o);gdPut(id,o);const d=S.drafts[F]||{};delete d.rooms;delete d.name;delete d.phone;render();toast(`נשמר · ${n} חדרים`)}catch(e){toast('השמירה נכשלה: '+errMsg(mapErr(e)))}},
+  'gd-key':async D=>{const id=D.id,g=gdDoc(id);if(!g)return;const o={guideKey:gdKey(),guideAt:Date.now(),guideBy:S.uid};
+    try{await fdb.doc('groups/'+id).update(o);gdPut(id,o);render();toast('הקישור מוכן. אפשר לשלוח אותו למדריך')}catch(e){toast('לא הצלחתי: '+errMsg(mapErr(e)))}},
+  'gd-rekey':async D=>{const id=D.id;if(S.confirm!=='gdk:'+id){S.confirm='gdk:'+id;render();return}S.confirm=null;const o={guideKey:gdKey(),guideAt:Date.now(),guideBy:S.uid};
+    try{await fdb.doc('groups/'+id).update(o);gdPut(id,o);render();toast('נוצר קישור חדש. הקישור הקודם כבר לא עובד')}catch(e){toast('לא הצלחתי: '+errMsg(mapErr(e)))}},
+  'gd-copy':async D=>{const g=gdDoc(D.id);if(!g||!g.guideKey)return;const u=gdUrl(g.guideKey);try{await navigator.clipboard.writeText(u);toast('הקישור הועתק')}catch(_){prompt('העתקת הקישור',u)}},
+  'gd-msg':async D=>{const id=D.id,g=gdDoc(id);if(!g)return;const F='gd_'+id,text=String(dv(F,'msg','')).trim();if(!text){toast('כותבים קודם את ההודעה');return}
+    const m={id:'m'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),at:Date.now(),text:text.slice(0,2000),by:S.uid,byName:S.meName||''};
+    const L=[...(g.guideMsgs||[]),m].slice(-60);
+    try{await fdb.doc('groups/'+id).update({guideMsgs:L,guideAt:Date.now(),guideBy:S.uid});gdPut(id,{guideMsgs:L});(S.drafts[F]||{}).msg='';render();toast(g.guideKey?'ההודעה מופיעה בעמוד המדריך':'ההודעה נשמרה. צרו קישור ושלחו אותו למדריך כדי שיראה אותה')}catch(e){toast('לא הצלחתי: '+errMsg(mapErr(e)))}},
+  'gd-mdel':async D=>{const id=D.id,g=gdDoc(id);if(!g)return;if(S.confirm!=='gdm:'+D.m){S.confirm='gdm:'+D.m;render();return}S.confirm=null;
+    const L=(g.guideMsgs||[]).filter(m=>m.id!==D.m);try{await fdb.doc('groups/'+id).update({guideMsgs:L,guideAt:Date.now(),guideBy:S.uid});gdPut(id,{guideMsgs:L});render();toast('ההודעה נמחקה')}catch(e){toast('לא הצלחתי: '+errMsg(mapErr(e)))}},
   'gh-del':D=>{const id=S.sheet.id,x=(S.grps||{})[id];if(!x)return;const i=+D.i;if(S.confirm!=='gh:'+i){S.confirm='gh:'+i;render();return}S.confirm=null;
     const hl=(x.halls||[])[i];if(!hl)return;const halls=(x.halls||[]).filter((_,j)=>j!==i);S.grps={...S.grps,[id]:{...x,halls}};render();
     (hl.qid?fdb.doc('quotes/'+hl.qid).delete():Promise.resolve()).then(()=>fdb.doc('groups/'+id).set({halls,updatedAt:Date.now()},{merge:true})).then(()=>toast('האולם הוסר מלוח האירועים'),e=>toast('לא הצלחתי: '+errMsg(mapErr(e))))},

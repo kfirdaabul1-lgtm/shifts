@@ -4,9 +4,6 @@ on:
   push:
     branches: [main]
     paths: ['.github/workflows/custom-domain.yml']
-permissions:
-  contents: read
-  pages: write
 jobs:
   run:
     runs-on: ubuntu-latest
@@ -16,9 +13,13 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: 22 }
-      - name: DNS check (waits up to 20 min)
+      - name: Firebase authorised domain + appUrl
+        env:
+          KEY: ${{ secrets.FIREBASE_DEPLOY_KEY }}
         run: |
-          for i in $(seq 1 20); do C=$(dig +short @8.8.8.8 $DOMAIN CNAME); [ -n "$C" ] && break; sleep 30; done
-          echo "::notice title=DNS CNAME::cname=[$C] A=[$(dig +short @8.8.8.8 $DOMAIN A | tr '\n' ' ')] ns=[$(dig +short NS sevencollection.co.il | tr '\n' ' ')] auth=[$(dig +short $DOMAIN CNAME @park1.livedns.co.il)]"
-          echo "::notice title=Pages health::$(curl -sI http://$DOMAIN/shifts/ | head -3 | tr '\r\n' '  ')"
-# run 1793874306
+          cd functions && npm install --omit=dev --silent
+          echo "$KEY" > "$RUNNER_TEMP/key.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/key.json"
+          node auth-domain.js "$DOMAIN"
+          node set-appurl.js "https://$DOMAIN/"
+          rm -f "$RUNNER_TEMP/key.json"

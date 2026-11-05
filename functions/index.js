@@ -6,7 +6,7 @@ const admin = require('firebase-admin');
 admin.initializeApp();
 const db = admin.firestore();
 const REGION = 'europe-west1';
-const APP = 'https://kfirdaabul1-lgtm.github.io/shifts/';
+const APP = 'https://app.sevencollection.co.il/';
 // chain name + site address from orgcfg/main (set on the hotel settings page); cached for 10 minutes
 let orgC = null, orgAt = 0;
 async function org() {

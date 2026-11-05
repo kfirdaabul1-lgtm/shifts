@@ -27,7 +27,7 @@ window.SC_CHAINS = [
     // חייב להיות זהה למייל שמופיע בקובץ firestore.rules של אותו מאגר.
     ownerEmail: "kfirdaabul1@gmail.com",
     // הכתובת של האפליקציה, לשימוש בהודעות הוואטסאפ לעובדים
-    appUrl: "https://kfirdaabul1-lgtm.github.io/shifts/",
+    appUrl: "https://app.sevencollection.co.il/",
     // כתובת משלה לרשת (Nov 5): במאגר Seven-app יש עותק של האתר בכתובת הזו, והיא פותחת תמיד רק את הרשת הזו
     domain: "app.sevencollection.co.il",
     // true רק אצל Seven Collection: אולמות האירועים, רשימות החדרים והספא המובנים לפי שמות המלונות של Seven.
@@ -55,6 +55,14 @@ window.SC_BASE = "https://kfirdaabul1-lgtm.github.io/shifts/";
     if (!c) window.SC_NEED_CHAIN = id;
   }
   c = c || window.SC_CHAINS[0];
+  // a chain with its own address: opening it on the general address moves there (old links keep working).
+  // Not for an explicit ?chain=, and not on the system owner's devices (scPlat), who keeps Kfir app on the general address.
+  try {
+    var explicit = new URLSearchParams(location.search).get("chain");
+    if (!own && c.domain && typeof document !== "undefined" && /github\.io$/.test(location.hostname) && !explicit && localStorage.getItem("scPlat") !== "1") {
+      location.replace("https://" + c.domain + location.pathname.replace(/^\/shifts\//, "/") + location.search + location.hash);
+    }
+  } catch (e) {}
   try { if (id && c.id === id) localStorage.setItem("scChain", c.id); } catch (e) {}
   window.APP_CONFIG = Object.assign({ enablePhone: false }, c, { chainId: c.id });
 })();

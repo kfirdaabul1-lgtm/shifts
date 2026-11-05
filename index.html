@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202611051930"></script>
+<script src="i18n.js?v=202611052100"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -373,6 +373,7 @@ details.sub-fold>summary h4{margin:0}
 .hk-k.hk-oos span,.hk-k.hk-oos b{color:#fff}
 .hk-oosbox{border-color:#5B21B6;background:rgba(91,33,182,.08)}
 @media (min-width:1200px){.wrap{padding-left:32px;padding-right:32px}}
+.pwbox{position:relative;display:block}.pwbox input{width:100%;padding-right:44px!important;box-sizing:border-box}.pw-eye{position:absolute;right:4px;top:50%;transform:translateY(-50%);width:38px;height:36px;border:0;background:none;font-size:18px;cursor:pointer;padding:0;line-height:1;color:var(--ink)}
 </style>
 </head>
 <body>
@@ -691,6 +692,8 @@ function chipSelects(root){if(!root)return;if(root.id==='main')try{liftTop(root)
   w.appendChild(b);w.appendChild(m);box.appendChild(w)});
   root.querySelectorAll('.fsel-box').forEach(box=>{if(box.parentElement.classList.contains('fsel-row'))return;const prev=box.previousElementSibling;
     if(prev&&prev.classList.contains('fsel-row'))prev.appendChild(box);else{const row=document.createElement('div');row.className='fsel-row';box.parentNode.insertBefore(row,box);row.appendChild(box)}})}
+// show / hide password (owner, Nov 5): the eye button next to password fields toggles the type in place (no re-render)
+document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('.pw-eye');if(!b)return;e.preventDefault();const i=b.parentNode.querySelector('input');if(!i)return;const show=i.type==='password';i.type=show?'text':'password';b.setAttribute('aria-pressed',String(show));b.setAttribute('aria-label',show?'הסתרת הסיסמה':'הצגת הסיסמה');b.textContent=show?'🙈':'👁';i.focus()});
 document.addEventListener('click',e=>{if(!e.target.closest||!e.target.closest('.fsel'))document.querySelectorAll('.fsel-m').forEach(x=>{if(!x.hidden){x.hidden=true;x.previousSibling&&x.previousSibling.setAttribute('aria-expanded','false')}})});
 document.addEventListener('keydown',e=>{if(e.key==='Escape')document.querySelectorAll('.fsel-m').forEach(x=>x.hidden=true)});
 document.addEventListener('toggle',e=>{const d=e.target;if(d&&d.dataset&&d.dataset.fold){(S.fold||(S.fold={}))[d.dataset.fold]=d.open}},true);
@@ -3780,8 +3783,8 @@ function vLogin(){const ph=!!CFG.enablePhone,W='max-width:440px;width:100%;margi
     <label class="f">טלפון<input type="tel" data-f="su.phone" value="${esc(dv('su','phone',''))}" autocomplete="tel" dir="ltr"></label></div>
     <label class="f">שם משתמש<input type="text" data-f="su.user" value="${esc(dv('su','user',''))}" dir="ltr" autocapitalize="none" autocomplete="username" placeholder="למשל dana.k"></label>
     <label class="f">מייל<input type="email" data-f="su.email" value="${esc(dv('su','email',''))}" dir="ltr" autocomplete="email" placeholder="name@gmail.com"></label>
-    <div class="row"><label class="f">סיסמה<input type="password" data-f="su.pass" dir="ltr" autocomplete="new-password"></label>
-    <label class="f">הסיסמה שוב<input type="password" data-f="su.pass2" dir="ltr" autocomplete="new-password"></label></div>
+    <div class="row"><label class="f">סיסמה<span class="pwbox"><input type="password" data-f="su.pass" dir="ltr" autocomplete="new-password"><button type="button" class="pw-eye" aria-label="הצגת הסיסמה" aria-pressed="false">👁</button></span></label>
+    <label class="f">הסיסמה שוב<span class="pwbox"><input type="password" data-f="su.pass2" dir="ltr" autocomplete="new-password"><button type="button" class="pw-eye" aria-label="הצגת הסיסמה" aria-pressed="false">👁</button></span></label></div>
     <p class="muted" style="font-size:.8rem;margin:0">שם משתמש: אותיות באנגלית, ספרות, נקודה או מקף. סיסמה: לפחות 6 תווים. המייל משמש לאיפוס סיסמה.</p>
     <button class="btn pri" style="justify-content:center;padding:12px" data-act="pw-signup">הרשמה</button>
     <button type="button" class="linkbtn" data-act="auth-view" data-v="in">כבר יש לי משתמש · כניסה</button>
@@ -3790,7 +3793,7 @@ function vLogin(){const ph=!!CFG.enablePhone,W='max-width:440px;width:100%;margi
   <div class="card" style="${W}">
     ${S.loginMsg?`<div class="notice">${S.loginMsg==='blocked'?'הדפדפן חסם את חלון הכניסה של Google. לחצו שוב על הכפתור, או היכנסו עם קישור למייל.':'הדפדפן לא מאפשר את הכניסה עם Google (למשל בגלישה בסתר). היכנסו עם קישור למייל, או פתחו את האתר בלשונית רגילה.'}</div>`:''}
     <label class="f">שם משתמש או מייל<input type="text" id="lg_user" data-f="login.user" dir="ltr" autocomplete="username" autocapitalize="none" value="${esc(dv('login','user',''))}"></label>
-    <label class="f">סיסמה<input type="password" id="lg_pass" data-f="login.pass" dir="ltr" autocomplete="current-password"></label>
+    <label class="f">סיסמה<span class="pwbox"><input type="password" id="lg_pass" data-f="login.pass" dir="ltr" autocomplete="current-password"><button type="button" class="pw-eye" aria-label="הצגת הסיסמה" aria-pressed="false">👁</button></span></label>
     <button class="btn pri" style="justify-content:center;padding:12px" data-act="station-login">כניסה</button>
     <div class="actions" style="justify-content:space-between"><button type="button" class="linkbtn" data-act="pw-reset">שכחתי סיסמה</button><button type="button" class="btn" data-act="auth-view" data-v="up">הרשמה · משתמש חדש</button></div>
     <div class="sep"></div>
@@ -3993,7 +3996,7 @@ function stationsCardHTML(){if(!myApps().front)return '';const hs=grantableHotel
   <p class="muted" style="font-size:.85rem">משתמש אחד לכל עמדת קבלה, לא של אדם מסוים: כל מי שבמשמרת נכנס איתו. נכנסים במסך הכניסה ב"כניסת עמדת קבלה" עם שם המשתמש והסיסמה, והמחשב בעמדה נשאר מחובר. המשתמש רואה רק את עמוד הקבלה של המלון: סידור העבודה, האירועים והזנת 10days.</p>
   ${list.length?`<div class="plist">${list.map(([u,r])=>`<div class="prow" style="flex-wrap:wrap"><span class="who"><b>${esc(hotelName((r.hotels||[])[0]))}</b><small>שם משתמש: <bdi dir="ltr">${esc(r.login||'')}</bdi>${isLocked(u)?' · <b style="color:var(--bad,#B42318)">🔒 ננעל אחרי 3 ניסיונות שגויים</b>':''}</small></span>
     <span class="actions"><button class="btn sm" data-act="st-pwopen" data-u="${u}">שינוי סיסמה</button><button class="btn sm ${S.confirm==='st:'+u?'danger':'ghost'}" data-act="st-del" data-u="${u}">${S.confirm==='st:'+u?'לחיצה נוספת תבטל':'ביטול המשתמש'}</button></span>
-    ${pwFor===u?`<div class="row" style="width:100%;align-items:flex-end"><label class="f">הסיסמה הנוכחית (אפשר להשאיר ריק)<input type="password" id="st_old" data-f="st.old" dir="ltr" autocomplete="off"></label><label class="f">סיסמה חדשה<input type="password" id="st_new" data-f="st.new" dir="ltr" autocomplete="new-password"></label><button class="btn pri" data-act="st-pw" data-u="${u}">שמירה</button></div>`:''}</div>`).join('')}</div>`:'<p class="muted">עוד אין משתמשי קבלה.</p>'}
+    ${pwFor===u?`<div class="row" style="width:100%;align-items:flex-end"><label class="f">הסיסמה הנוכחית (אפשר להשאיר ריק)<span class="pwbox"><input type="password" id="st_old" data-f="st.old" dir="ltr" autocomplete="off"><button type="button" class="pw-eye" aria-label="הצגת הסיסמה" aria-pressed="false">👁</button></span></label><label class="f">סיסמה חדשה<span class="pwbox"><input type="password" id="st_new" data-f="st.new" dir="ltr" autocomplete="new-password"><button type="button" class="pw-eye" aria-label="הצגת הסיסמה" aria-pressed="false">👁</button></span></label><button class="btn pri" data-act="st-pw" data-u="${u}">שמירה</button></div>`:''}</div>`).join('')}</div>`:'<p class="muted">עוד אין משתמשי קבלה.</p>'}
   <div class="sep"></div><h3>משתמש קבלה חדש</h3>
   <div class="row" style="align-items:flex-end">${hs.length>1?`<label class="f">מלון<select id="st_hotel" data-f="st.hotel">${hs.map(h=>`<option value="${h}" ${h===nh?'selected':''}>${esc(hotelName(h))}</option>`).join('')}</select></label>`:''}
   <label class="f">שם משתמש<input type="text" id="st_user" data-f="st.user" dir="ltr" autocapitalize="none" autocomplete="off" placeholder="reception1" value="${esc(dv('st','user',''))}"></label>

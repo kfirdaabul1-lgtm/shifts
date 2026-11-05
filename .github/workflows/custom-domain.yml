@@ -16,27 +16,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: 22 }
-      - name: DNS check
+      - name: DNS check (waits up to 20 min)
         run: |
-          echo "::notice title=DNS CNAME::$(dig +short $DOMAIN CNAME | tr '\n' ' ') A: $(dig +short $DOMAIN A | tr '\n' ' ')"
-      - name: Firebase authorised domain
-        env:
-          KEY: ${{ secrets.FIREBASE_DEPLOY_KEY }}
-        run: |
-          cd functions && npm install --omit=dev --silent
-          echo "$KEY" > "$RUNNER_TEMP/key.json"
-          GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/key.json" node auth-domain.js "$DOMAIN"
-          rm -f "$RUNNER_TEMP/key.json"
-      - name: GitHub Pages custom domain + HTTPS
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          R=${{ github.repository }}
-          echo "::notice title=Pages before::$(gh api repos/$R/pages --jq '{cname,https_enforced,status,url:.html_url}' 2>&1)"
-          gh api -X PUT repos/$R/pages -f cname="$DOMAIN" 2>&1 | head -c 300; echo
-          for i in $(seq 1 40); do
-            S=$(gh api repos/$R/pages/health --jq '.domain | {https:.https_error,enf:.enforces_https,ok:.is_valid,cert:.has_cname_record}' 2>&1)
-            if gh api -X PUT repos/$R/pages -F https_enforced=true >/dev/null 2>&1; then echo "::notice title=HTTPS::enforced after $i tries · $S"; break; fi
-            sleep 30
-          done
-          echo "::notice title=Pages after::$(gh api repos/$R/pages --jq '{cname,https_enforced,status,url:.html_url,cert:.https_certificate.state}' 2>&1)"
+          for i in $(seq 1 40); do C=$(dig +short @8.8.8.8 $DOMAIN CNAME); [ -n "$C" ] && break; sleep 30; done
+          echo "::notice title=DNS CNAME::cname=[$C] A=[$(dig +short @8.8.8.8 $DOMAIN A | tr '\n' ' ')] ns=[$(dig +short NS sevencollection.co.il | tr '\n' ' ')] auth=[$(dig +short $DOMAIN CNAME @$(dig +short NS sevencollection.co.il | head -1) )]"
+          echo "::notice title=Pages health::$(curl -sI http://$DOMAIN/shifts/ | head -3 | tr '\r\n' '  ')"

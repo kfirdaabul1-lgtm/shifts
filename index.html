@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202611051400"></script>
+<script src="i18n.js?v=202611051500"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -2707,6 +2707,25 @@ function briefYHTML(h,d){const y=addDays(d,-1);srPubSub(h,y.slice(0,7));
     `\nתלונות אורחים: ${cl.length}${cl.length?' ('+cl.map(c=>`${c.room||''} ${c.note||''}`.trim()).join(', ')+')':''}`;
   return {html:`<h2 style="margin:18px 0 8px;font-size:1.15rem">סיכום יום קודם · ${DAYS[dow(y)]} ${dm(y)}</h2><div class="setgrid">${repCard}${fCard}${hkCard}${cCard}</div>`,txt}}
 const EV_VENUE={};
+/* brief housekeeping (owner, Nov 5): today's check-ins = rooms marked RES on the board, how many of them are not ready yet, and the board's status counts.
+   Today uses the board's active day (hkToday); other dates read that day's doc. */
+function briefHk(h,d){const day=d===todayISO()?hkToday(h):d,D=hkSub(h,day);if(D===undefined)return {wait:true};if(!D||D.__err)return {err:D&&D.__err||'—'};
+  const all=hkRooms(h).units;if(!all.length)return null;const cl=D.clean||{},oc=r=>occL((D.occ||{})[r]),oos=new Set(hkOosList(h,day).map(b=>String(b.room)));
+  const res=all.filter(r=>oc(r).includes('res')),ready=res.filter(r=>['vc','vi'].includes(cl[r])),dirty=res.filter(r=>!['vc','vi'].includes(cl[r]));
+  const cc=v=>all.filter(r=>v==='none'?!cl[r]:cl[r]===v).length,co=v=>all.filter(r=>v==='none'?!oc(r).length:oc(r).includes(v)).length;
+  return {day,res,ready,dirty,cl,cc,co,oos:oos.size}}
+function briefHkHTML(h,d){const X=briefHk(h,d);if(!X)return '';
+  if(X.wait)return '<div class="card"><h3>משק · צ׳ק אין</h3><p class="muted">טוען…</p></div>';
+  if(X.err)return `<div class="card"><h3>משק · צ׳ק אין</h3><p class="muted">אין גישה ללוח המשק <span>(${esc(X.err)})</span></p></div>`;
+  const box=(lab,n,cls)=>`<div class="hk-k ${cls||''}" style="cursor:default;min-width:84px"><span>${lab}</span><b>${n}</b></div>`;
+  const why=r=>{const c=X.cl[r];return c?HK_CN[c][1]:'ללא סטטוס'};
+  return `<div class="card"><h3>משק · צ׳ק אין היום</h3>${X.day!==d?`<p class="muted" style="font-size:.8rem">לפי לוח המשק של <span>${dm(X.day)}</span></p>`:''}
+  <div class="hk-ks">${box('צ׳ק אין היום (RES)',X.res.length)}${box('מוכנים (VC/VI)',X.ready.length,'hk-vc')}${box('מחכים ומלוכלכים',X.dirty.length,X.dirty.length?'hk-vd':'')}</div>
+  ${X.dirty.length?`<p style="margin:8px 0 0;font-size:.85rem"><b>עדיין לא מוכנים:</b> ${X.dirty.map(r=>`${esc(r)} <span class="muted">(${why(r)})</span>`).join(' · ')}</p>`:X.res.length?'<p class="muted" style="margin:8px 0 0;font-size:.85rem">כל חדרי הצ׳ק אין מוכנים ✓</p>':'<p class="muted" style="margin:8px 0 0;font-size:.85rem">אין חדרים שסומנו RES בלוח המשק.</p>'}
+  <h3 style="margin-top:12px">מצב ניקיון ותחזוקה</h3><div class="hk-ks">${HK_CLEAN.map(([v,c,n])=>box(`${c} · ${n}`,X.cc(v),'hk-'+v)).join('')}${box('ללא סטטוס',X.cc('none'),'hk-none')}${box('🔒 OOS · חסום',X.oos,'hk-oos')}</div>
+  <h3 style="margin-top:12px">מצב איוש</h3><div class="hk-ks">${HK_OCC.map(([v,c,n])=>box(v==='empty'?'ריק':`${c} · ${n}`,X.co(v))).join('')}${box('לא עודכן',X.co('none'))}</div></div>`}
+function briefHkText(h,d){const X=briefHk(h,d);if(!X||X.wait||X.err)return '';
+  return `\n\nמשק: צ׳ק אין היום ${X.res.length} · מוכנים ${X.ready.length} · מחכים ומלוכלכים ${X.dirty.length}${X.dirty.length?' ('+X.dirty.join(', ')+')':''}\n`+HK_CLEAN.map(([v,c])=>`${c} ${X.cc(v)}`).join(' · ')+` · OOS ${X.oos}`}
 function briefText(h,d,daily,evs,crew){const DAILY=dailyRows(h);return `בריף יומי · ${hotelName(h)} · יום ${DAYS[dow(d)]} ${dm(d)}\n`+
   DAILY.filter(([k])=>daily[k]!=null).map(([k,n])=>`${n}: ${daily[k]}`).join('\n')+
   (evs.length?`\n\nאירועים:\n`+evs.map(q=>`• ${q.event.start||''}${q.event.end?'–'+q.event.end:''} ${q.client?.name||''} (${EV_VENUE[q.event.venue]||''}${' · '+spaceLabel(q)}) ${+q.event.guests||0} אורחים${q.kind==='group'?' · קבוצת מלון':q.status==='approved'?'':' · טנטטיב'}`).join('\n'):'\n\nאין אירועים היום.')+
@@ -2734,8 +2753,8 @@ function vBrief(){const hs=modHs('brief',scopeHs());if(!hs.length)return wrap(em
   const spaCard=spaL===undefined?'':`<div class="card"><h3>טיפולי ספא היום${spaL?' · '+spaL.length:''}</h3>${spaL===null?'<p class="muted">אין לך גישה לטיפולי הספא.</p>':!spaL?'<p class="muted">טוען…</p>':spaL.length?`<div class="plist">${spaL.map(b=>`<div class="prow"><span class="who"><b>${esc(b.time||'')} · ${esc(b.treatment||'')}</b><small>${+b.mins||60} דק׳ · ${+b.people||1} ${+b.people===1?'אדם':'אנשים'}${spaTh(b)?' · '+spaTh(b):''}${(b.tname||[]).filter(Boolean).length?' · '+esc((b.tname||[]).filter(Boolean).join(', ')):''}${b.name?' · '+esc(b.name):''}</small></span>${b.status==='done'?'<span class="pill ok">בוצע</span>':''}</div>`).join('')}</div>`:'<p class="muted">אין טיפולים היום.</p>'}</div>`;
   const YS=briefYHTML(h,d);
   const TL=toursOf(h,d,d)||[];
-  const wa=`https://wa.me/?text=${encodeURIComponent(briefText(h,d,daily,evs,crew)+(TL.length?`\n\nסיורים:\n`+TL.map(([,t])=>`• ${t.time} ${t.leadName||''}${t.type?' · '+String(t.type).replace(/_+/g,' '):''}${t.guests?' · '+t.guests+' אורחים':''}`).join('\n'):'')+YS.txt+(spaL&&spaL.length?`\n\nספא:\n`+spaL.map(b=>`• ${b.time} ${b.treatment} · ${+b.mins||60} דק׳ · ${+b.people||1} אנשים${spaTh(b)?' · '+spaTh(b):''}`).join('\n'):''))}`;
-  return wrap(head+`<div class="setgrid">${nums}${evCard}${toursDayCardHTML(h,d,false)}${hkBlocksCardHTML(h,d)}${spaCard}${crewCard}</div>${YS.html}<div class="actions"><a class="btn brass" href="${wa}" target="_blank" rel="noopener">שליחת הבריף בוואטסאפ</a></div>`);
+  const wa=`https://wa.me/?text=${encodeURIComponent(briefText(h,d,daily,evs,crew)+briefHkText(h,d)+(TL.length?`\n\nסיורים:\n`+TL.map(([,t])=>`• ${t.time} ${t.leadName||''}${t.type?' · '+String(t.type).replace(/_+/g,' '):''}${t.guests?' · '+t.guests+' אורחים':''}`).join('\n'):'')+YS.txt+(spaL&&spaL.length?`\n\nספא:\n`+spaL.map(b=>`• ${b.time} ${b.treatment} · ${+b.mins||60} דק׳ · ${+b.people||1} אנשים${spaTh(b)?' · '+spaTh(b):''}`).join('\n'):''))}`;
+  return wrap(head+`<div class="setgrid">${nums}${evCard}${briefHkHTML(h,d)}${toursDayCardHTML(h,d,false)}${hkBlocksCardHTML(h,d)}${spaCard}${crewCard}</div>${YS.html}<div class="actions"><a class="btn brass" href="${wa}" target="_blank" rel="noopener">שליחת הבריף בוואטסאפ</a></div>`);
 }
 /* ---------- bar (owner, Nov 4): page for everyone in the bar department; the bartender files an end-of-shift report.
    barReports/{id} {hotel, month, date, shift, empUid, name, cash, credit, tips, missing yes|no, missingNote, by, byName, createdAt};

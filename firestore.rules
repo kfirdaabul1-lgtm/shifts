@@ -580,7 +580,7 @@ service cloud.firestore {
       allow delete: if signedIn() && hkFullIn(resource.data.hotel);
     }
     match /hkday/{h} {
-      allow read: if hkFullIn(h) || hkWorkIn(h) || maintIn(h);
+      allow read: if hkFullIn(h) || hkWorkIn(h) || maintIn(h) || briefIn(h);
       allow write: if hkFullIn(h);
     }
     // hk role checks are computed once (let) — the old chain (hkFullIn/hkLeadIn/hkWorkIn, each calling isOwner/roles again)
@@ -627,7 +627,7 @@ service cloud.firestore {
     }
     // רשימת החדרים של כל מלון
     match /hkcfg/{h} {
-      allow read: if signedIn() && (hkWorkIn(h) || maintIn(h));
+      allow read: if signedIn() && (hkWorkIn(h) || maintIn(h) || briefIn(h));
       allow write: if isOwner();
     }
 

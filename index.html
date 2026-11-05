@@ -399,7 +399,7 @@ const CFG=window.APP_CONFIG||{};
 // organisation (chain) settings: config.js gives the defaults, orgcfg/main (owner, הגדרות מלון) overrides them.
 // legacyPresets:false (a new chain) = no built-in event venues, room lists or spa hotel taken from Seven's hotel names.
 const LEGACY=CFG.legacyPresets!==false;
-const DEF_VENUES=LEGACY?[{id:'sola',name:'מלון 7EVEN',areas:['סולה','Co-Work','מסעדה','בויילר','וולנס'],hex:'#b7822a'},{id:'boheme',name:'Gutman',areas:['לה בוהם','לה בוהם גארדן'],hex:'#86304a'},{id:'sevenseas',name:'7seas',areas:['גג'],hex:'#13789c'}]:[];
+const DEF_VENUES=LEGACY?[{id:'sola',name:'מלון 7EVEN',areas:['סולה','Co-Work','מסעדה','בויילר','וולנס','קומה 4'],hex:'#b7822a'},{id:'boheme',name:'Gutman',areas:['לה בוהם','לה בוהם גארדן'],hex:'#86304a'},{id:'sevenseas',name:'7seas',areas:['גג'],hex:'#13789c'}]:[];
 const platName=()=>window.SC_PLATFORM_NAME||'Kfir app';
 const appName=()=>((typeof S!=='undefined'&&S.org&&S.org.name)||CFG.appName||'Seven Collection');
 // pages switched on per chain and per hotel (owner, page "הגדרות רשת"): orgcfg/main.mods {key:false}, hmods {hotel:{key:false}}

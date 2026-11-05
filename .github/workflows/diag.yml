@@ -1,0 +1,20 @@
+name: Add space
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/diag.yml', 'functions/add-space.js']
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - env:
+          KEY: ${{ secrets.FIREBASE_DEPLOY_KEY }}
+        run: |
+          cd functions && npm install --omit=dev --silent
+          echo "$KEY" > "$RUNNER_TEMP/key.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/key.json"
+          node add-space.js
+          rm -f "$RUNNER_TEMP/key.json"

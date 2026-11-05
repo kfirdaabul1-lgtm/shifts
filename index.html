@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202611051900"></script>
+<script src="i18n.js?v=202611051930"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1403,7 +1403,7 @@ function grpHallsHTML(id,x,isNew){const halls=x.halls||[],g=(k,d)=>dv('gh',k,d),
   if(isNew)return `<h3 style="margin:12px 0 4px">אולמות</h3><p class="muted" style="font-size:.85rem">אחרי שמירת הקבוצה אפשר להוסיף לה אולמות, והם ייכנסו ללוח האירועים כקבוצת מלון.</p>`;
   return `<h3 style="margin:12px 0 4px">אולמות · ${halls.length}</h3><p class="muted" style="font-size:.85rem;margin:0 0 6px">כל אולם שמוסיפים נכנס ללוח האירועים כ"קבוצת מלון" (בלי חיוב), כדי שאף אחד לא יתפוס את החלל.</p>
   ${halls.length?`<div class="plist">${halls.map((hl,i)=>`<div class="prow"><span class="who"><b>${esc(hallLabel(hl.space))}</b><small>${hl.date?dm(hl.date):''} · ${esc(hl.start||'')}–${esc(hl.end||'')}${+hl.guests?' · '+(+hl.guests)+' אנשים':''}${hl.note?' · '+esc(hl.note):''}</small></span><button class="btn sm ghost" data-act="gh-del" data-i="${i}">${S.confirm==='gh:'+i?'לחיצה נוספת תסיר':'הסרה'}</button></div>`).join('')}</div>`:''}
-  <div class="row" style="margin-top:8px"><label class="f">אולם / חלל<select data-f="gh.space"><option value="">בוחרים…</option>${sps.map(sp=>`<option value="${esc(sp)}" ${g('space','')===sp?'selected':''}>${esc(hallLabel(sp))}</option>`).join('')}</select></label><label class="f">תאריך<input type="date" data-f="gh.date" value="${esc(g('date',x.ci||''))}" min="${esc(x.ci||'')}" max="${esc(x.co||'')}"></label></div>
+  <div class="row" style="margin-top:8px"><label class="f">אולם / חלל<select data-f="gh.space"><option value="">בוחרים…</option>${sps.map(sp=>`<option value="${esc(sp)}" ${g('space','')===sp?'selected':''}>${esc(hallLabel(sp))}</option>`).join('')}</select></label><label class="f">תאריך<input type="date" data-f="gh.date" value="${esc(g('date',(x.ci||'')<todayISO()?todayISO():(x.ci||'')))}" min="${esc((x.ci||'')<todayISO()?todayISO():(x.ci||''))}" max="${esc(x.co||'')}"></label></div>
   <div class="row"><label class="f">משעה<input type="time" data-f="gh.start" value="${esc(g('start','09:00'))}"></label><label class="f">עד שעה<input type="time" data-f="gh.end" value="${esc(g('end','13:00'))}"></label><label class="f">אנשים<input type="number" min="0" inputmode="numeric" data-f="gh.guests" value="${esc(g('guests',x.pax||''))}"></label></div>
   <label class="f">הערה<input type="text" data-f="gh.note" value="${esc(g('note',''))}" placeholder="למשל ישיבת בוקר, ארוחת ערב"></label>
   <div class="actions"><button class="btn" data-act="gh-add">+ הוספת אולם ללוח האירועים</button></div>`}
@@ -4496,8 +4496,12 @@ const ACT={
     S.grps={...S.grps,[id]:doc};S.sheet=null;S.drafts.grp=null;render();
     fdb.doc('groups/'+id).set(doc).then(()=>toast('הקבוצה נשמרה'),e=>toast('השמירה נכשלה: '+errMsg(mapErr(e))))},
   'gh-add':()=>{const id=S.sheet.id,x=(S.grps||{})[id];if(!x){toast('קודם שומרים את הקבוצה');return}
-    const g=(k,d)=>String(dv('gh',k,d)).trim(),space=g('space',''),date=g('date',x.ci||''),start=g('start','09:00'),end=g('end','13:00'),guests=Math.max(0,+g('guests',x.pax||0)||0),note=g('note','');
+    const g=(k,d)=>String(dv('gh',k,d)).trim(),space=g('space',''),date=g('date',(x.ci||'')<todayISO()?todayISO():(x.ci||'')),start=g('start','09:00'),end=g('end','13:00'),guests=Math.max(0,+g('guests',x.pax||0)||0),note=g('note','');
     if(!space){toast('צריך לבחור אולם');return}if(!/^\d{4}-\d{2}-\d{2}$/.test(date)){toast('צריך לבחור תאריך');return}
+    if(date<todayISO()){toast('התאריך הזה כבר עבר: אי אפשר להוסיף אולם ליום שהיה');return}
+    if(end<=start){toast('שעת הסיום צריכה להיות אחרי שעת ההתחלה');return}
+    const dup=(x.halls||[]).find(h=>h&&h.space===space&&h.date===date&&(h.start||'')<end&&start<(h.end||'24:00'));
+    if(dup){toast('האולם הזה כבר רשום לקבוצה ב-'+dm(date)+' ('+(dup.start||'')+'–'+(dup.end||'')+')');return}
     const [venue,area]=space.split('|'),n=(x.hallSeq||0)+1,qid='grp_'+id+'_'+n,now=Date.now();
     const q={id:qid,kind:'group',status:'approved',num:null,client:{name:x.name||'קבוצה',company:x.agentName||'',phone:'',email:''},group:{note:[note,x.agentName?'סוכן: '+x.agentName:''].filter(Boolean).join(' · '),groupId:id},items:[],payments:[],
       event:{type:'קבוצת מלון',venue,areas:area?[area]:[],area:area||'',date,start,end,guests},createdAt:todayISO(),updatedAt:new Date(now).toISOString(),createdBy:S.uid,updatedBy:S.uid};

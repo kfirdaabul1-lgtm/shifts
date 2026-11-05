@@ -1338,6 +1338,11 @@ exports.grpGuide = functions.region(REGION).https.onRequest(async (req, res) => 
       let bd = req.body || {}; if (typeof bd === 'string') { try { bd = JSON.parse(bd); } catch (e) { bd = {}; } }
       const k = String(bd.k || ''), room = String(bd.room || '').slice(0, 12);
       if (!/^g[0-9a-f]{32}$/.test(k) || !room) { res.status(400).json({ error: 'bad' }); return; }
+      { // at most 120 saves per link per hour
+        const rr = db.doc('guideRate/' + k), hour = new Date().toISOString().slice(0, 13);
+        const over = await db.runTransaction(async (tx) => { const s = await tx.get(rr), d = s.exists ? s.data() : {}, n = d.hour === hour ? (+d.n || 0) : 0; if (n >= 120) return true; tx.set(rr, { hour, n: n + 1 }); return false; });
+        if (over) { res.status(429).json({ error: 'rate' }); return; }
+      }
       const names = (Array.isArray(bd.names) ? bd.names : []).slice(0, 12).map((x) => String(x == null ? '' : x).replace(/[\u0000-\u001f<>]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 60));
       const q = await db.collection('groups').where('guideKey', '==', k).limit(1).get();
       if (q.empty) { res.status(404).json({ error: 'notfound' }); return; }
@@ -1502,4 +1507,14 @@ exports.onGroupRooms = trig('groups/{id}').onUpdate(async (ch) => {
   let day = ilDate(new Date()); try { const hd = await db.doc('hkday/' + h).get(); if (hd.exists && hd.data().date) day = hd.data().date; } catch (e) {}
   await grpHkMark(h, day, a, b.hotel === h ? b : null);
   if (b.hotel && b.hotel !== h) { let d2 = day; try { const hd = await db.doc('hkday/' + b.hotel).get(); if (hd.exists && hd.data().date) d2 = hd.data().date; } catch (e) {} await grpHkMark(b.hotel, d2, {}, b); }
+});
+
+
+// groups without prices for reception (security check, Nov 5): reception (front) reads groupsPub instead of groups —
+// no rates, totals, deposits, agent or notes. Kept in step by this trigger; backfill.js copies existing groups.
+const { grpPubDoc } = require('./grppub.js');
+exports.mirrorGroupPub = trig('groups/{id}').onWrite(async (ch, ctx) => {
+  const ref = db.doc('groupsPub/' + ctx.params.id);
+  if (!ch.after.exists) { await ref.delete().catch(() => {}); return; }
+  await ref.set(grpPubDoc(ch.after.data() || {}));
 });

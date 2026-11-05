@@ -676,13 +676,17 @@ service cloud.firestore {
     }
     match /groups/{id} {
       // gm (their hotels) and CEO read groups for the revenue figures
-      allow read: if canGrp() || canCeo() || (gmRole() && (roleHotels().size() == 0 || resource.data.hotel in roleHotels())) || frontIn(resource.data.hotel);
+      allow read: if canGrp() || canCeo() || (gmRole() && (roleHotels().size() == 0 || resource.data.hotel in roleHotels()));
       allow write: if canGrp();
       // group guide page (owner, Nov 5): reception / hotel managers set the group's rooms, guide details, link key and messages
       allow update: if (frontIn(resource.data.hotel) || gmIn(resource.data.hotel) || manages(resource.data.hotel))
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['guideRooms', 'guideName', 'guidePhone', 'guideKey', 'guideMsgs', 'guideAt', 'guideBy', 'guideWaReq', 'meals', 'roomPax', 'roomCat', 'halls', 'hallsAt', 'hallsBy'])
         && (!('halls' in request.resource.data.diff(resource.data).affectedKeys()) || request.resource.data.halls.size() == resource.data.get('halls', []).size())
         && (!('guideKey' in request.resource.data) || request.resource.data.guideKey.matches('^g[0-9a-f]{32}$'));
+    }
+    // groups without prices for reception (written only by the server: mirrorGroupPub)
+    match /groupsPub/{id} {
+      allow read: if canGrp() || canCeo() || (gmRole() && (roleHotels().size() == 0 || resource.data.hotel in roleHotels())) || frontIn(resource.data.hotel);
     }
     match /agents/{id} {
       allow read, write: if canGrp();

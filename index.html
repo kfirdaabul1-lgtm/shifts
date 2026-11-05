@@ -1311,7 +1311,7 @@ function sheetGrp(){const id=S.sheet.id,x=(S.grps||{})[id]||{},isNew=!(S.grps||{
 const gdKey=()=>'g'+Array.from(crypto.getRandomValues(new Uint8Array(16)),x=>x.toString(16).padStart(2,'0')).join('');
 const gdUrl=k=>appLink().replace(/index\.html$/,'').replace(/\/?$/,'/')+'guide.html?k='+k+(CFG.chainId&&CFG.chainId!==window.SC_HOME?'&chain='+encodeURIComponent(CFG.chainId):'');
 function grpFrSub(h){const k='grpFr:'+h;S.grpFr=S.grpFr||{};if(!S.live[k]){S.live[k]=true;
-  S.db.collection('groups').where('hotel','==',h).onSnapshot(q=>{S.grpFr[h]=docsMap(q);render()},()=>{S.grpFr[h]=null;render()})}return S.grpFr[h]}
+  S.db.collection(S.can&&S.can.grp?'groups':'groupsPub').where('hotel','==',h).onSnapshot(q=>{S.grpFr[h]=docsMap(q);render()},()=>{S.grpFr[h]=null;render()})}return S.grpFr[h]}
 function gdDoc(id){if((S.grps||{})[id])return S.grps[id];for(const m of Object.values(S.grpFr||{}))if(m&&m[id])return m[id];return null}
 function gdPut(id,o){if((S.grps||{})[id])S.grps={...S.grps,[id]:{...S.grps[id],...o}};for(const h of Object.keys(S.grpFr||{}))if(S.grpFr[h]&&S.grpFr[h][id])S.grpFr[h]={...S.grpFr[h],[id]:{...S.grpFr[h][id],...o}}}
 const gdPhone=g=>String(g.guidePhone||'').replace(/\D/g,'').replace(/^0/,'972');

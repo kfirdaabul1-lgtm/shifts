@@ -18,4 +18,10 @@ const KEYS = ['hotel', 'month', 'date', 'shift', 'name', 'empUid', 'ooo', 'fault
   if (n % 400) await b.commit();
   console.log('shift reports:', all.size, 'copied now:', n);
   console.log('::notice title=Backfill::shift reports ' + all.size + ', copied ' + n);
+  // groups without prices for reception (groupsPub); rewrites every time (idempotent)
+  const { grpPubDoc } = require('./grppub.js');
+  const gs = await db.collection('groups').get(); let gb = db.batch(), gn = 0;
+  for (const d of gs.docs) { gb.set(db.doc('groupsPub/' + d.id), grpPubDoc(d.data() || {})); if (++gn % 400 === 0) { await gb.commit(); gb = db.batch(); } }
+  if (gn % 400) await gb.commit();
+  console.log('::notice title=Backfill::groupsPub ' + gn);
 })().catch((e) => { console.error(e); console.log('::error title=Backfill failed::' + String(e && e.message || e).slice(0, 300)); process.exit(1); });

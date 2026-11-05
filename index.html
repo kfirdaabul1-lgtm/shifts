@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202611051500"></script>
+<script src="i18n.js?v=202611051530"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -2712,7 +2712,7 @@ const EV_VENUE={};
 function briefHk(h,d){const day=d===todayISO()?hkToday(h):d,D=hkSub(h,day);if(D===undefined)return {wait:true};if(!D||D.__err)return {err:D&&D.__err||'—'};
   const all=hkRooms(h).units;if(!all.length)return null;const cl=D.clean||{},oc=r=>occL((D.occ||{})[r]),oos=new Set(hkOosList(h,day).map(b=>String(b.room)));
   const res=all.filter(r=>oc(r).includes('res')),ready=res.filter(r=>['vc','vi'].includes(cl[r])),dirty=res.filter(r=>!['vc','vi'].includes(cl[r]));
-  const cc=v=>all.filter(r=>v==='none'?!cl[r]:cl[r]===v).length,co=v=>all.filter(r=>v==='none'?!oc(r).length:oc(r).includes(v)).length;
+  const cc=v=>all.filter(r=>v==='none'?!cl[r]:cl[r]===v).length,co=v=>all.filter(r=>v==='free'?(!oc(r).length||oc(r).includes('empty')):oc(r).includes(v)).length;
   return {day,res,ready,dirty,cl,cc,co,oos:oos.size}}
 function briefHkHTML(h,d){const X=briefHk(h,d);if(!X)return '';
   if(X.wait)return '<div class="card"><h3>משק · צ׳ק אין</h3><p class="muted">טוען…</p></div>';
@@ -2723,7 +2723,7 @@ function briefHkHTML(h,d){const X=briefHk(h,d);if(!X)return '';
   <div class="hk-ks">${box('צ׳ק אין היום (RES)',X.res.length)}${box('מוכנים (VC/VI)',X.ready.length,'hk-vc')}${box('מחכים ומלוכלכים',X.dirty.length,X.dirty.length?'hk-vd':'')}</div>
   ${X.dirty.length?`<p style="margin:8px 0 0;font-size:.85rem"><b>עדיין לא מוכנים:</b> ${X.dirty.map(r=>`${esc(r)} <span class="muted">(${why(r)})</span>`).join(' · ')}</p>`:X.res.length?'<p class="muted" style="margin:8px 0 0;font-size:.85rem">כל חדרי הצ׳ק אין מוכנים ✓</p>':'<p class="muted" style="margin:8px 0 0;font-size:.85rem">אין חדרים שסומנו RES בלוח המשק.</p>'}
   <h3 style="margin-top:12px">מצב ניקיון ותחזוקה</h3><div class="hk-ks">${HK_CLEAN.map(([v,c,n])=>box(`${c} · ${n}`,X.cc(v),'hk-'+v)).join('')}${box('ללא סטטוס',X.cc('none'),'hk-none')}${box('🔒 OOS · חסום',X.oos,'hk-oos')}</div>
-  <h3 style="margin-top:12px">מצב איוש</h3><div class="hk-ks">${HK_OCC.map(([v,c,n])=>box(v==='empty'?'ריק':`${c} · ${n}`,X.co(v))).join('')}${box('לא עודכן',X.co('none'))}</div></div>`}
+  <h3 style="margin-top:12px">מצב איוש</h3><div class="hk-ks">${HK_OCC.filter(([v])=>v!=='empty').map(([v,c,n])=>box(`${c} · ${n}`,X.co(v))).join('')}${box('פנויים',X.co('free'))}</div></div>`}
 function briefHkText(h,d){const X=briefHk(h,d);if(!X||X.wait||X.err)return '';
   return `\n\nמשק: צ׳ק אין היום ${X.res.length} · מוכנים ${X.ready.length} · מחכים ומלוכלכים ${X.dirty.length}${X.dirty.length?' ('+X.dirty.join(', ')+')':''}\n`+HK_CLEAN.map(([v,c])=>`${c} ${X.cc(v)}`).join(' · ')+` · OOS ${X.oos}`}
 function briefText(h,d,daily,evs,crew){const DAILY=dailyRows(h);return `בריף יומי · ${hotelName(h)} · יום ${DAYS[dow(d)]} ${dm(d)}\n`+

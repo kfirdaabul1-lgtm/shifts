@@ -2104,7 +2104,7 @@ function crmClients(){const C={};const add=(k,o)=>{if(!k)return;const c=C[k]||(C
     const dates=c.quotes.map(([,q])=>q.event&&q.event.date).filter(Boolean).sort();c.lastEvent=dates.filter(d=>d<=todayISO()).pop()||'';c.nextEvent=dates.find(d=>d>todayISO())||'';
     c.last=Math.max(0,...c.leads.map(([,l])=>l.updatedAt||l.createdAt||0),...c.quotes.map(([,q])=>qTime(q)))}
   return C}
-function clientsHTML(f){liveColl('clientsMeta','clients');const C=Object.values(crmClients()),q=String(f.q||'').trim().toLowerCase(),qt=leadTel(q);
+function clientsHTML(f){scopedLive('clientsMeta','clients');const C=Object.values(crmClients()),q=String(f.q||'').trim().toLowerCase(),qt=leadTel(q);
   let L=C.filter(c=>!q||[c.name,c.company,c.email].some(x=>String(x||'').toLowerCase().includes(q))||(qt.length>=4&&leadTel(c.phone).includes(qt)));
   L.sort((a,b)=>b.rev-a.rev||b.last-a.last);
   const rep=C.filter(c=>c.won>=2).length;
@@ -2124,7 +2124,16 @@ function sheetClient(){const k=S.sheet.k,c=crmClients()[k];if(!c)return sheetHea
   <div class="actions"><button class="btn pri" data-act="client-save" data-k="${esc(k)}">שמירה</button></div>
   <div class="sep"></div><h3>היסטוריה</h3>${tl.length?`<div class="plist">${tl.map(x=>`<div class="prow"${x.act?` data-act="${x.act}" data-id="${x.id}" style="cursor:pointer"`:''}><span class="who">${x.h}<small class="muted">${x.t?new Date(x.t).toLocaleDateString('he-IL'):''}</small></span></div>`).join('')}</div>`:'<p class="muted">אין היסטוריה.</p>'}`}
 // tasks
-function tasksSub(){liveColl('tasks','tasks')}
+// hotel separation (security, Nov 5): WhatsApp chats, tasks and client notes carry `venue`; a scoped role listens per venue (equality, so the rules
+// can prove each query) + for tasks also its own (owner / createdBy); owner and all-hotel roles listen to the whole collection.
+function scopedLive(key,coll,extra,onData){if(S.live[key])return;S.live[key]=true;S[key]=S[key]||{};const done=m=>{S[key]=m;S[key+'Ready']=true;onData?onData(m):render()};
+  (async()=>{if(!S.isOwner)await leadScopeLoad();const vs=leadScope(),col=S.db.collection(coll),err=e=>{S[key+'Err']=errMsg(mapErr(e));render()};
+    if(!vs){col.onSnapshot(q=>done(docsMap(q)),err);return}
+    const qs=vs.map(v=>['v:'+v,col.where('venue','==',v)]).concat((extra||[]).map(([f,val])=>['x:'+f,col.where(f,'==',val)])),parts={};
+    if(!qs.length){done({});return}
+    qs.forEach(([k,q])=>q.onSnapshot(x=>{parts[k]=docsMap(x);if(qs.every(([kk])=>parts[kk]))done(Object.assign({},...qs.map(([kk])=>parts[kk])))},err))})()}
+function tasksSub(){scopedLive('tasks','tasks',[['owner',S.uid],['createdBy',S.uid]])}
+const leadVenueNew=l=>{if(l&&l.venue)return l.venue;const sc=leadScope();if(!sc)return '';const f=S.leadF&&S.leadF.ven;return sc.includes(f)?f:(sc[0]||'')};
 /* ---------- WhatsApp inside "לידים ומכירות" (owner, Oct 26): one chain number; waChats/{waId} + msgs, settings wacfg/main (owner), wapub/main (status + approved templates) ---------- */
 const waIdOf=p=>{let d=String(p||'').replace(/\D/g,'');if(d.startsWith('00'))d=d.slice(2);if(d.startsWith('0'))d='972'+d.slice(1);else if(d.length===9&&d[0]==='5')d='972'+d;return d.length>=11&&d.length<=15?d:''};
 const waLocalOf=id=>{const d=String(id||'');return d.startsWith('972')?'0'+d.slice(3):d};
@@ -2134,7 +2143,9 @@ function waNotifSweep(){const C=S.waChatsRaw||{};notifClose(t=>{if(!t.startsWith
 const waUnread=()=>S.can&&S.can.events?Object.entries(S.waChats||{}).filter(([id,c])=>+c.unread>0&&!(typeof waArch==='function'&&waArch(id,c))).length:0;
 const waOpenWin=c=>!!(c&&c.lastInAt&&Date.now()-c.lastInAt<864e5);
 function waSub(){if(!S.can||!S.can.events||S.live.wa)return;S.live.wa=true;
-  fdb.collection('waChats').orderBy('lastAt','desc').limit(300).onSnapshot(q=>{S.waChatsRaw=docsMap(q);waApply();waNotifSweep();S.waReady=true;if(S.waPend){const id=S.waPend;S.waPend='';waOpen(id)}render()},e=>{S.waErr=errMsg(mapErr(e));render()});
+  const onChats=m=>{S.waChatsRaw=m;waApply();waNotifSweep();S.waReady=true;if(S.waPend){const id=S.waPend;S.waPend='';waOpen(id)}render()};
+  (async()=>{if(!S.isOwner)await leadScopeLoad();if(!leadScope()){fdb.collection('waChats').orderBy('lastAt','desc').limit(300).onSnapshot(q=>onChats(docsMap(q)),e=>{S.waErr=errMsg(mapErr(e));render()});return}
+    scopedLive('waScoped','waChats',null,onChats)})();
   S.db.doc('wapub/main').onSnapshot(d=>{S.wapub=d.exists?d.data():{};render()},()=>{S.wapub={}})}
 function waMsgsSub(id){if(S.waMsgsId===id)return;if(S.waMsgsUn){try{S.waMsgsUn()}catch(_){}}S.waMsgsId=id;S.waMsgs=null;
   S.waMsgsUn=fdb.collection('waChats/'+id+'/msgs').orderBy('at','desc').limit(300).onSnapshot(q=>{S.waMsgs=q.docs.map(d=>({id:d.id,...d.data()})).reverse();render()},e=>{S.waMsgs=[];S.waMsgsErr=errMsg(mapErr(e));render()})}
@@ -4661,7 +4672,7 @@ const ACT={
   'wa-tpl-send':async()=>{const id=waCur(),c=(S.waChats||{})[id],T=(S.wapub||{}).templates||[],t=T[+dv('wa','tpl',0)||0];if(!t){toast('צריך לבחור תבנית');return}
     const L=waLeadOf(id,c),params=Array.from({length:t.n},(_,i)=>String(dv('wa','p'+(i+1),i===0&&L?L[1].name:'')).trim());if(params.some(x=>!x)){toast('צריך למלא את כל הערכים בתבנית');return}
     const text=t.body.replace(/\{\{(\d+)\}\}/g,(m,n)=>params[+n-1]||m),now=Date.now();S.drafts.wa=null;S.waAtBottom=true;render();
-    try{if(!c)await fdb.doc('waChats/'+id).set({waId:id,phone:waLocalOf(id),name:L?String(L[1].name||''):'',leadId:L?L[0]:'',createdAt:now,createdBy:S.uid,unread:0,cat:(L&&L[1].cat)||(S.leadF&&S.leadF.cat)||'events'});else if(L&&!c.leadId)await fdb.doc('waChats/'+id).update({leadId:L[0]});
+    try{if(!c)await fdb.doc('waChats/'+id).set({waId:id,phone:waLocalOf(id),name:L?String(L[1].name||''):'',leadId:L?L[0]:'',createdAt:now,createdBy:S.uid,unread:0,cat:(L&&L[1].cat)||(S.leadF&&S.leadF.cat)||'events',venue:leadVenueNew(L&&L[1])});else if(L&&!c.leadId)await fdb.doc('waChats/'+id).update({leadId:L[0]});
       await fdb.collection('waChats/'+id+'/msgs').add({dir:'out',type:'template',tpl:{name:t.name,lang:t.lang,params},text,status:'queued',by:S.uid,byName:S.meName||'',at:now,src:'system'});toast('התבנית נשלחה')}catch(e){toast('לא נשלח: '+errMsg(mapErr(e)))}},
   'wa-mklead':async()=>{const id=waCur(),c=(S.waChats||{})[id]||{},lid='wa_'+id,now=Date.now();
     const o={cat:c.cat||(S.leadF&&S.leadF.cat)||'events',name:c.name||waLocalOf(id),phone:waLocalOf(id),email:'',company:'',type:'',date:'',guests:0,venue:'',source:'whatsapp',campaign:'',stage:'new',owner:'',ownerName:'',nextAt:todayISO(),value:0,notes:'',acts:[],createdAt:now,createdBy:S.uid,updatedAt:now};
@@ -4676,11 +4687,12 @@ const ACT={
   'sales-per':D=>{S.leadF.per=D.v;render()},
   'mkt-mon':D=>{S.mktM=monAdd(S.mktM||todayISO().slice(0,7),+D.d);render()},
   'client-open':D=>{S.sheet={type:'client',k:D.k};render()},
-  'client-save':D=>{const o={tag:String(($('#cl_tag')||{}).value||'').trim(),notes:String(($('#cl_notes')||{}).value||''),updatedAt:Date.now(),by:S.uid};S.clientsMeta=S.clientsMeta||{};S.clientsMeta[D.k]=o;fdb.doc('clients/'+D.k).set(o,{merge:true}).then(()=>toast('נשמר'),e=>toast('השמירה נכשלה: '+errMsg(mapErr(e))));render()},
+  'client-save':D=>{const cl=crmClients()[D.k]||{},lv=(cl.leads||[]).map(x=>(x&&x.venue)||(x&&x[1]&&x[1].venue)||'').find(Boolean)||(S.clientsMeta||{})[D.k]?.venue||leadVenueNew(null);
+    const o={tag:String(($('#cl_tag')||{}).value||'').trim(),notes:String(($('#cl_notes')||{}).value||''),updatedAt:Date.now(),by:S.uid,venue:lv||''};S.clientsMeta=S.clientsMeta||{};S.clientsMeta[D.k]=o;fdb.doc('clients/'+D.k).set(o,{merge:true}).then(()=>toast('נשמר'),e=>toast('השמירה נכשלה: '+errMsg(mapErr(e))));render()},
   'client-lead':D=>{const c=crmClients()[D.k]||{};S.drafts.lead={stage:'new',owner:'',name:c.name||'',phone:c.phone||'',email:c.email||'',company:c.company||'',source:'returning'};S.confirm=null;S.sheet={type:'lead',id:'l'+Date.now().toString(36)+Math.random().toString(36).slice(2,6)};render()},
   'task-add':D=>{const title=String(($('#tk_title')||{}).value||'').trim();if(!title){toast('צריך לכתוב את המשימה');return}
     const owner=($('#tk_owner')||{}).value||S.uid,own=leadOwners(),l=D.lead?(S.leads||{})[D.lead]:null,id='t'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
-    const t={title,due:($('#tk_due')||{}).value||'',owner,ownerName:own[owner]||'',leadId:D.lead||'',leadName:l?(l.name||''):'',done:false,createdBy:S.uid,createdByName:S.meName||'',createdAt:Date.now()};
+    const t={title,due:($('#tk_due')||{}).value||'',owner,ownerName:own[owner]||'',leadId:D.lead||'',leadName:l?(l.name||''):'',venue:(l&&l.venue)||'',done:false,createdBy:S.uid,createdByName:S.meName||'',createdAt:Date.now()};
     S.tasks=S.tasks||{};S.tasks[id]=t;fdb.doc('tasks/'+id).set(t).then(()=>toast(owner===S.uid?'המשימה נוספה':'המשימה נשלחה ל'+(own[owner]||'')),e=>toast('השמירה נכשלה: '+errMsg(mapErr(e))));render()},
   'task-del':D=>{delete S.tasks[D.id];fdb.doc('tasks/'+D.id).delete().catch(()=>{});render()},
   'lead-del':()=>{if(S.confirm!=='lead-del'){S.confirm='lead-del';render();return}const id=S.sheet.id;S.confirm=null;S.sheet=null;delete S.leads[id];fdb.doc('leads/'+id).delete().then(()=>toast('הליד נמחק'),e=>toast('המחיקה נכשלה: '+errMsg(mapErr(e))));render()},

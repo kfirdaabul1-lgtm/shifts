@@ -1518,3 +1518,30 @@ exports.mirrorGroupPub = trig('groups/{id}').onWrite(async (ch, ctx) => {
   if (!ch.after.exists) { await ref.delete().catch(() => {}); return; }
   await ref.set(grpPubDoc(ch.after.data() || {}));
 });
+
+
+// hotel separation (security, Nov 5): WhatsApp chats and tasks carry the venue of their lead, so a hotel's events users see only theirs.
+async function leadVenue(id) { if (!id) return null; try { const d = await db.doc('leads/' + id).get(); return d.exists ? String(d.data().venue || '') : null; } catch (e) { return null; } }
+exports.waChatVenue = trig('waChats/{id}').onWrite(async (ch) => {
+  if (!ch.after.exists) return;
+  const a = ch.after.data() || {}, b = ch.before.exists ? ch.before.data() || {} : {};
+  if (ch.before.exists && a.leadId === b.leadId && a.venue !== undefined) return;
+  const v = await leadVenue(a.leadId);
+  if (v === null) { if (a.venue === undefined) await ch.after.ref.set({ venue: '' }, { merge: true }); return; }
+  if (v !== (a.venue || '') || a.venue === undefined) await ch.after.ref.set({ venue: v }, { merge: true });
+});
+exports.taskVenue = trig('tasks/{id}').onWrite(async (ch) => {
+  if (!ch.after.exists) return;
+  const a = ch.after.data() || {}, b = ch.before.exists ? ch.before.data() || {} : {};
+  if (ch.before.exists && a.leadId === b.leadId) return;
+  const v = await leadVenue(a.leadId); if (v !== null && v !== (a.venue || '')) await ch.after.ref.set({ venue: v }, { merge: true });
+});
+exports.leadVenueSync = trig('leads/{id}').onUpdate(async (ch, ctx) => {
+  const a = ch.after.data() || {}, b = ch.before.data() || {};
+  if ((a.venue || '') === (b.venue || '')) return;
+  const v = String(a.venue || ''), id = ctx.params.id;
+  for (const col of ['waChats', 'tasks']) {
+    const q = await db.collection(col).where('leadId', '==', id).get();
+    for (const d of q.docs) if ((d.data().venue || '') !== v) await d.ref.set({ venue: v }, { merge: true });
+  }
+});

@@ -397,17 +397,24 @@ service cloud.firestore {
       allow update: if canEvents() && leadVenueOk(resource.data.venue) && request.resource.data.venue == resource.data.venue && request.resource.data.hotel == resource.data.hotel;
       allow delete: if canEvents() && leadVenueOk(resource.data.venue);
     }
+    // hotel separation (Nov 5): a task is seen by its hotel (venue of its lead), its owner and its creator; no-venue tasks only by those two + chain roles
+    function taskOk(d) { return leadVenueOk(d.get('venue', '')) || d.get('owner', '') == request.auth.uid || d.get('createdBy', '') == request.auth.uid; }
     match /tasks/{id} {
-      allow read, write: if canEvents();
+      allow read, delete: if canEvents() && taskOk(resource.data);
+      allow create: if canEvents() && request.resource.data.get('createdBy', '') == request.auth.uid && (request.resource.data.get('venue', '') == '' || leadVenueOk(request.resource.data.venue));
+      allow update: if canEvents() && taskOk(resource.data) && request.resource.data.get('venue', '') == resource.data.get('venue', '');
     }
     // WhatsApp (Oct 26): conversations for events users; the server (admin) writes incoming messages and statuses
     match /waChats/{id} {
-      allow read: if canEvents();
-      allow create: if canEvents() && request.resource.data.keys().hasOnly(['waId', 'phone', 'name', 'leadId', 'createdAt', 'createdBy', 'unread', 'cat']);
-      allow update: if canEvents() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['unread', 'readAt', 'readBy', 'leadId', 'name', 'status', 'doneAt', 'doneBy', 'cat']);
+      // hotel separation (Nov 5): venue = the linked lead's venue (kept by the server, waChatVenue); '' = chain roles only
+      allow read: if canEvents() && leadVenueOk(resource.data.get('venue', ''));
+      allow create: if canEvents() && request.resource.data.keys().hasOnly(['waId', 'phone', 'name', 'leadId', 'createdAt', 'createdBy', 'unread', 'cat', 'venue']) && leadVenueOk(request.resource.data.get('venue', ''));
+      allow update: if canEvents() && leadVenueOk(resource.data.get('venue', '')) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['unread', 'readAt', 'readBy', 'leadId', 'name', 'status', 'doneAt', 'doneBy', 'cat']);
       match /msgs/{m} {
-        allow read: if canEvents();
-        allow create: if canEvents() && request.resource.data.dir == 'out' && request.resource.data.status == 'queued' && request.resource.data.by == request.auth.uid;
+        allow read: if canEvents() && leadVenueOk(get(/databases/$(database)/documents/waChats/$(id)).data.get('venue', ''));
+        // a message to a number with no chat yet is allowed (the server opens the chat)
+        allow create: if canEvents() && request.resource.data.dir == 'out' && request.resource.data.status == 'queued' && request.resource.data.by == request.auth.uid
+          && (!exists(/databases/$(database)/documents/waChats/$(id)) || leadVenueOk(get(/databases/$(database)/documents/waChats/$(id)).data.get('venue', '')));
       }
     }
     match /wacfg/{id} {
@@ -436,7 +443,9 @@ service cloud.firestore {
       allow write: if isOwner();
     }
     match /clients/{id} {
-      allow read, write: if canEvents();
+      allow read, delete: if canEvents() && leadVenueOk(resource.data.get('venue', ''));
+      allow create: if canEvents() && leadVenueOk(request.resource.data.get('venue', ''));
+      allow update: if canEvents() && leadVenueOk(resource.data.get('venue', '')) && leadVenueOk(request.resource.data.get('venue', ''));
     }
 
     // ---------- שיווק ----------

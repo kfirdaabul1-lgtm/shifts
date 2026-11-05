@@ -24,4 +24,15 @@ const KEYS = ['hotel', 'month', 'date', 'shift', 'name', 'empUid', 'ooo', 'fault
   for (const d of gs.docs) { gb.set(db.doc('groupsPub/' + d.id), grpPubDoc(d.data() || {})); if (++gn % 400 === 0) { await gb.commit(); gb = db.batch(); } }
   if (gn % 400) await gb.commit();
   console.log('::notice title=Backfill::groupsPub ' + gn);
+  // hotel separation: venue on waChats / tasks (from their lead) and clients (lead with the same phone)
+  const leads = await db.collection('leads').get(), lv = {}, byTel = {};
+  leads.docs.forEach((d) => { const l = d.data() || {}; lv[d.id] = String(l.venue || ''); const t = String(l.phone || '').replace(/\D/g, ''); if (t && l.venue && !byTel[t]) byTel[t] = l.venue; });
+  let vn = 0;
+  for (const col of ['waChats', 'tasks']) {
+    const q = await db.collection(col).get();
+    for (const d of q.docs) { const x = d.data() || {}; const v = x.leadId && lv[x.leadId] !== undefined ? lv[x.leadId] : (x.venue === undefined ? '' : null); if (v !== null && (x.venue === undefined || x.venue !== v)) { await d.ref.set({ venue: v }, { merge: true }); vn++; } }
+  }
+  const cq = await db.collection('clients').get();
+  for (const d of cq.docs) { const x = d.data() || {}; if (x.venue !== undefined) continue; const k = String(d.id).replace(/\D/g, ''); await d.ref.set({ venue: byTel[k] || '' }, { merge: true }); vn++; }
+  console.log('::notice title=Backfill::venue set on ' + vn + ' docs');
 })().catch((e) => { console.error(e); console.log('::error title=Backfill failed::' + String(e && e.message || e).slice(0, 300)); process.exit(1); });

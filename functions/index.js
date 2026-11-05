@@ -246,6 +246,7 @@ exports.hkNightly = functions.region(REGION).pubsub.schedule('0 5 * * *').timeZo
       if (from >= today) continue;
       const n = await hkCarry(d.id, today, from);
       await ref.set({ hotel: d.id, date: today, from, by: 'auto', byName: 'אוטומטי 05:00', at: Date.now() });
+      try { await grpHkAll(d.id, today); } catch (e) { console.error('grp hk', d.id, e); }
       console.log('hk day', d.id, from, '->', today, n);
     } catch (e) { console.error('hk day', d.id, e); }
   }
@@ -1415,4 +1416,71 @@ exports.onGuideWa = trig('groups/{id}').onUpdate(async (ch, ctx) => {
     await cref.collection('msgs').add({ dir: 'out', type: 'template', tpl: { name: t.name, lang: t.lang, params }, text: body, status: 'queued', by: q.by || 'system', byName: q.byName || 'קבלה', at: now, src: 'guide' });
     return done(true, 'נשלח בוואטסאפ של המערכת (תבנית ' + t.name + ')', 'template');
   } catch (e) { return done(false, e.message); }
+});
+
+
+// reception edits a group's existing halls (hours / number of people) → keep the events-board quotes grp_<id>_<n> in step (owner, Nov 5).
+// Space, date and the quote link are restored from before when the editor is not a groups manager (reception may only change hours/guests).
+exports.onGroupHalls = trig('groups/{id}').onUpdate(async (ch) => {
+  const a = ch.after.data() || {}, b = ch.before.data() || {};
+  if (JSON.stringify(a.halls || []) === JSON.stringify(b.halls || [])) return;
+  let halls = a.halls || [];
+  if (a.hallsBy && a.hallsAt !== b.hallsAt) {
+    let grp = false;
+    try { const r = await db.doc('roles/' + a.hallsBy).get(); grp = !!(r.exists && (r.data().apps || {}).grp); } catch (e) {}
+    if (!grp) { try { const u = await admin.auth().getUser(a.hallsBy); grp = await pwIsOwnerMail(u.email); } catch (e) {} }
+    if (!grp) {
+      const old = b.halls || [];
+      const fixed = halls.map((x, i) => old[i] ? { ...old[i], start: String(x.start || old[i].start || ''), end: String(x.end || old[i].end || ''), guests: Math.max(0, +x.guests || 0) } : null).filter(Boolean);
+      if (JSON.stringify(fixed) !== JSON.stringify(halls)) { await ch.after.ref.update({ halls: fixed }); return; } // the next update syncs
+      halls = fixed;
+    }
+  }
+  const prev = {}; (b.halls || []).forEach((x) => { if (x && x.qid) prev[x.qid] = x; });
+  for (const x of halls) {
+    if (!x || !x.qid || !/^grp_/.test(x.qid)) continue;
+    const p = prev[x.qid]; if (p && p.start === x.start && p.end === x.end && +p.guests === +x.guests) continue;
+    try { await db.doc('quotes/' + x.qid).update({ 'event.start': x.start || '', 'event.end': x.end || '', 'event.guests': +x.guests || 0, updatedAt: new Date().toISOString() }); } catch (e) { console.warn('hall sync', x.qid, e.message); }
+  }
+});
+
+
+// group rooms on the housekeeping board (owner, Nov 5): a group's rooms (guideRooms + roomPax {room:ppr}) are marked on the board's day:
+// grp flag + guests per room while the group stays, RES on the arrival day, C/O on the departure day. Applied when reception saves the rooms
+// (onGroupRooms, for the board's current day) and every morning after the 05:00 day change (grpHkAll).
+const OCC_ORDER = ['co', 'res', 'empty'];
+function occAdd(v, k) { const l = String(v || '').split(',').filter((x) => x && x !== 'empty'); if (!l.includes(k)) l.push(k); return OCC_ORDER.filter((x) => l.includes(x)).join(','); }
+function occDel(v, k) { const l = String(v || '').split(',').filter((x) => x && x !== k); return OCC_ORDER.filter((x) => l.includes(x)).join(','); }
+async function grpHkMark(h, day, g, oldG) {
+  const live = (x) => x && ['confirmed', 'option'].includes(x.status || 'offer') && x.ci && x.ci <= day && (x.co || x.ci) >= day;
+  const nowR = live(g) ? roomsParse(g.guideRooms) : [], oldR = oldG && live(oldG) ? roomsParse(oldG.guideRooms) : [];
+  if (!nowR.length && !oldR.length) return 0;
+  const ref = db.doc('hk/' + h + '__' + day), cur = (await ref.get()).data() || {}, occ = cur.occ || {}, now = Date.now(), del = admin.firestore.FieldValue.delete();
+  const o = { hotel: h, date: day, updatedAt: now, lastBy: 'grp', grp: {}, pax: {}, occ: {}, occBy: {}, occAt: {} }; let n = 0;
+  for (const r of oldR) if (!nowR.includes(r)) {
+    o.grp[r] = del; const op = +((oldG.roomPax || {})[r] || 0); if (op && +((cur.pax || {})[r] || 0) === op) o.pax[r] = del;
+    let v = occ[r] || ''; if (day === oldG.ci) v = occDel(v, 'res'); if (day === oldG.co) v = occDel(v, 'co'); if (v !== (occ[r] || '')) o.occ[r] = v || del; n++;
+  }
+  for (const r of nowR) {
+    o.grp[r] = true; const p = +((g.roomPax || {})[r] || 0); if (p) o.pax[r] = p;
+    let v = occ[r] || ''; if (day === g.ci) v = occAdd(v, 'res'); if (day === g.co && g.co !== g.ci) v = occAdd(v, 'co');
+    if (v !== (occ[r] || '')) { o.occ[r] = v; o.occBy[r] = 'קבוצה · ' + (g.name || ''); o.occAt[r] = now; } n++;
+  }
+  for (const k of ['pax', 'occ', 'occBy', 'occAt']) if (!Object.keys(o[k]).length) delete o[k];
+  await ref.set(o, { merge: true });
+  return n;
+}
+async function grpHkAll(h, day) {
+  const q = await db.collection('groups').where('hotel', '==', h).get(); let n = 0;
+  for (const d of q.docs) { const g = d.data() || {}; if (g.guideRooms) n += await grpHkMark(h, day, g, null); }
+  return n;
+}
+exports.onGroupRooms = trig('groups/{id}').onUpdate(async (ch) => {
+  const a = ch.after.data() || {}, b = ch.before.data() || {};
+  const same = (a.guideRooms || '') === (b.guideRooms || '') && JSON.stringify(a.roomPax || {}) === JSON.stringify(b.roomPax || {}) && a.ci === b.ci && a.co === b.co && a.status === b.status && a.hotel === b.hotel;
+  if (same) return;
+  const h = a.hotel || ''; if (!h) return;
+  let day = ilDate(new Date()); try { const hd = await db.doc('hkday/' + h).get(); if (hd.exists && hd.data().date) day = hd.data().date; } catch (e) {}
+  await grpHkMark(h, day, a, b.hotel === h ? b : null);
+  if (b.hotel && b.hotel !== h) { let d2 = day; try { const hd = await db.doc('hkday/' + b.hotel).get(); if (hd.exists && hd.data().date) d2 = hd.data().date; } catch (e) {} await grpHkMark(b.hotel, d2, {}, b); }
 });

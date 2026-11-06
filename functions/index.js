@@ -1075,7 +1075,9 @@ function spaFree(o, c, date, mins, dayDocs, nowMs, roster, want) {
   }
   return out;
 }
-const spaItems = (c) => (c.menu || []).filter((m) => m.online !== false && +m.mins > 0).map((m) => ({ id: m.id, name: m.name, mins: +m.mins, price: +m.price || 0, desc: m.desc || '' }));
+const spaItems = (c) => (c.menu || []).filter((m) => m.online !== false && +m.mins > 0).map((m) => ({ id: m.id, name: m.name, mins: +m.mins, price: +m.price || 0, desc: m.desc || '', couple: m.ppl == 2, fri: +m.fri || 0, sat: +m.sat || 0 }));
+// price of an online item on a date: single = per person, couple = per pair; Fri/Sat supplement added per unit
+const spaPrice = (it, date, ppl) => { const w = new Date(date + 'T12:00:00Z').getUTCDay(), u = it.price + (w === 5 ? it.fri : w === 6 ? it.sat : 0); return it.couple ? u : u * ppl; };
 exports.spaPublic = functions.region(REGION).https.onRequest(async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*'); res.set('Access-Control-Allow-Headers', 'Content-Type'); res.set('Access-Control-Allow-Methods', 'GET, POST');
   if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
@@ -1096,7 +1098,8 @@ exports.spaPublic = functions.region(REGION).https.onRequest(async (req, res) =>
     }
     if (req.method !== 'POST') { res.status(405).send('method'); return; }
     const b = req.body || {}, name = String(b.name || '').trim().slice(0, 80), phone = String(b.phone || '').replace(/[^\d+]/g, '').slice(0, 20), email = String(b.email || '').trim().slice(0, 120);
-    const item = items.find((x) => x.id === String(b.item || '')), date = String(b.date || ''), time = String(b.time || ''), ppl = Math.min(Math.max(1, +o.maxPpl || 2), Math.max(1, Math.round(+b.people || 1)));
+    const item = items.find((x) => x.id === String(b.item || '')), date = String(b.date || ''), time = String(b.time || ''), ppl0 = Math.min(Math.max(1, +o.maxPpl || 2), Math.max(1, Math.round(+b.people || 1)));
+    const ppl = item && item.couple ? 2 : ppl0;
     const want = Array.from({ length: ppl }, (_, i) => { const k = (Array.isArray(b.ther) ? b.ther : [])[i]; return k === 'm' || k === 'f' ? k : 'any'; });
     if (!item || !/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{2}:\d{2}$/.test(time) || date < today || date > last) { res.status(400).json({ error: 'פרטי ההזמנה לא תקינים' }); return; }
     if (name.length < 2 || phone.replace(/\D/g, '').length < 9) { res.status(400).json({ error: 'צריך שם וטלפון תקינים' }); return; }
@@ -1120,13 +1123,13 @@ exports.spaPublic = functions.region(REGION).https.onRequest(async (req, res) =>
       for (let i = 0; i < ppl; i++) { const k = spaHealthKey(); hl[i] = { k, ok: false }; hkeys.push(k);
         tx.set(db.doc('spaHealth/' + k), { status: 'pending', bookingId: ref.id, idx: i, people: ppl, hotel: o.hotel || '', hotelName: hname, date, time, treatment: item.name, name: i ? '' : name, phone: i ? '' : local, expMs: spaHealthExp(date), createdAt: Date.now(), createdBy: 'online' }); }
       tx.set(ref, { hl, hotel: o.hotel || '', date, time, treatment: item.name, mins: item.mins, people: ppl, ther: want, tid: tp.pick, tname: tp.pick.map(tn), tok: Array(ppl).fill(false),
-        amount: item.price * ppl, adds: [], name, phone: local, email, notes: String(b.notes || '').trim().slice(0, 300), status: 'booked', source: 'online', itemId: item.id,
+        amount: spaPrice(item, date, ppl), adds: [], name, phone: local, email, notes: String(b.notes || '').trim().slice(0, 300), status: 'booked', source: 'online', itemId: item.id,
         consent: { privacy: true, marketing: !!b.marketing, at: Date.now() }, createdAt: Date.now(), createdBy: 'online', createdByName: 'הזמנה אונליין', updatedAt: Date.now() });
     });
     // a spa lead with the same phone is now won (best effort)
     try { const ls = await db.collection('leads').where('phone', '==', local).limit(5).get(); for (const d of ls.docs) { const l = d.data(); if (['won', 'junk'].includes(l.stage)) continue;
-      await d.ref.update({ stage: 'won', wonAt: Date.now(), wonValue: Math.round(item.price * ppl), updatedAt: Date.now(), acts: admin.firestore.FieldValue.arrayUnion({ at: Date.now(), by: 'online', byName: 'הזמנה אונליין', kind: 'note', text: `הזמין/ה טיפול ספא אונליין: ${item.name} · ${date.slice(8, 10)}.${date.slice(5, 7)} ${time}` }) }); } } catch (e) {}
-    res.json({ ok: true, id: ref.id, health: hkeys, date, time, item: item.name, mins: item.mins, people: ppl, total: item.price * ppl });
+      await d.ref.update({ stage: 'won', wonAt: Date.now(), wonValue: Math.round(spaPrice(item, date, ppl)), updatedAt: Date.now(), acts: admin.firestore.FieldValue.arrayUnion({ at: Date.now(), by: 'online', byName: 'הזמנה אונליין', kind: 'note', text: `הזמין/ה טיפול ספא אונליין: ${item.name} · ${date.slice(8, 10)}.${date.slice(5, 7)} ${time}` }) }); } } catch (e) {}
+    res.json({ ok: true, id: ref.id, health: hkeys, date, time, item: item.name, mins: item.mins, people: ppl, total: spaPrice(item, date, ppl) });
   } catch (e) { res.status(e.code === 429 || e.code === 409 ? e.code : 500).json({ error: e.code === 429 || e.code === 409 ? e.message : 'משהו השתבש. נסו שוב או התקשרו אלינו.' }); if (!(e.code === 429 || e.code === 409)) console.error('spaPublic', e); }
 });
 

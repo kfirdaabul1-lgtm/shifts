@@ -79,6 +79,7 @@ const P = {
   faults: (c, h) => inH(c, h) && (c.owner || ['shifts', 'gm', 'maint', 'front', 'brief'].some((a) => app(c, a)) || (app(c, 'dept') && c.depts.includes('maintenance'))),
   stock: (c, h) => inH(c, h) && (c.owner || app(c, 'shifts') || app(c, 'gm') || (app(c, 'dept') && c.hotels.includes(h))),
   stockAll: (c, h) => c.owner || (inH(c, h) && (app(c, 'shifts') || app(c, 'gm'))),
+  avail: (c, h) => c.owner || (inH(c, h) && ['shifts', 'dept', 'hr', 'gm'].some((a) => app(c, a))),
   spa: (c, h) => app(c, 'spa') || (inH(c, h) && (app(c, 'brief') || app(c, 'gm'))),
   tours: (c, h) => inH(c, h) && (c.owner || ['brief', 'front', 'gm', 'shifts'].some((a) => app(c, a))),
   reports: (c, h) => inH(c, h) && (c.owner || ['shifts', 'gm', 'ceo', 'fin', 'front', 'cmp', 'brief'].some((a) => app(c, a))),
@@ -135,6 +136,24 @@ const TOOLS = [
       return { hotel: H.name, date, day: DAYS[new Date(date + 'T12:00:00Z').getUTCDay()], shifts: rows.sort((x, y) => (x.dept + x.start).localeCompare(y.dept + y.start)).map((r) => ({ dept: r.dept, shift: r.shift, hours: r.start + '–' + r.end, people: r.uids.map((u) => nm[u] || '?'), missing: Math.max(0, r.need - r.uids.length) })) };
     } },
 
+  { name: 'shift_submissions', description: 'Which employees of a hotel submitted their availability (shift preferences) for a week and which did not, with how many shifts each marked. Managers / no-shift staff are not counted, like the app.', input_schema: { type: 'object', properties: { hotel: { type: 'string' }, week: { type: 'string', description: 'any date (YYYY-MM-DD) in the wanted week (weeks start on Sunday); default = NEXT week, the one usually being scheduled' } }, required: ['hotel'] },
+    run: async (c, a) => {
+      const H = await hotelArg(c, a.hotel); if (H.err) return H; if (!P.avail(c, H.h)) return deny;
+      const w = weekOf(isoOk(a.week) ? a.week : addDays(ilDate(new Date()), 7));
+      const deptOnly = !c.owner && !['shifts', 'hr', 'gm'].some((x) => app(c, x)); // dept managers: only their departments
+      const [eq, aq, mq] = await Promise.all([db.collection('employees').where('hotel', '==', H.h).get(), db.collection('avail').where('hotel', '==', H.h).get(), db.collection('mgr').where('hotel', '==', H.h).get()]);
+      const off = new Set(mq.docs.filter((d) => d.data().active === false).map((d) => d.id)), av = {}; aq.forEach((d) => { av[d.id] = d.data() || {}; });
+      const MG = ['noshift', 'gm', 'ceo'], sub = [], no = [];
+      eq.forEach((d) => {
+        const e = d.data() || {}; if (off.has(d.id) || MG.includes(e.mgmt)) return;
+        if (deptOnly && !(e.depts || []).some((x) => c.depts.includes(x))) return;
+        const v = av[d.id] || {}, at = (v.sub || {})[w], depts = (e.depts || []).map((x) => DEPT[x] || x).join(', ');
+        if (at) sub.push({ name: e.name || '?', depts, marked: Object.keys(v.slots || {}).filter((id) => id >= w && id < addDays(w, 7)).length, maxShifts: Number.isFinite((v.maxw || {})[w]) ? v.maxw[w] : null, note: at ? String(v.note || '').slice(0, 150) : '' });
+        else no.push({ name: e.name || '?', depts });
+      });
+      const by = (x, y) => String(x.name).localeCompare(String(y.name), 'he');
+      return { hotel: H.name, week: w + ' עד ' + addDays(w, 6), submittedCount: sub.length, total: sub.length + no.length, notSubmitted: no.sort(by), submitted: sub.sort(by) };
+    } },
   { name: 'rooms_status', description: 'Housekeeping board of a hotel for its current day: counts per cleaning status and the room lists (VD, OOO, DND, in progress, priority).', input_schema: { type: 'object', properties: { hotel: { type: 'string' } }, required: ['hotel'] },
     run: async (c, a) => {
       const H = await hotelArg(c, a.hotel); if (H.err) return H; if (!P.hk(c, H.h)) return deny;

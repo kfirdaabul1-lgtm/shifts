@@ -1090,7 +1090,7 @@ exports.spaPublic = functions.region(REGION).https.onRequest(async (req, res) =>
     const items = spaItems(c), biz = { name: (c.qbiz && c.qbiz.name) || '', phone: (c.qbiz && c.qbiz.phone) || '' };
     if (req.method === 'GET') {
       const date = String(req.query.date || ''), item = items.find((x) => x.id === String(req.query.item || '') && !x.pkg);
-      const base = { on: true, biz, items, thers: (c.ther || []).some((t) => t.active !== false), intro: o.intro || '', policy: o.policy || (c.qbiz && c.qbiz.terms) || '', maxPpl: Math.max(1, +o.maxPpl || 2), today, last, hours: o.hours || {}, resPhone: String(o.resPhone || '') };
+      const base = { on: true, biz, items, thers: (c.ther || []).some((t) => t.active !== false), intro: o.intro || '', policy: o.policy || (c.qbiz && c.qbiz.terms) || '', maxPpl: Math.max(1, +o.maxPpl || 2), today, last, hours: o.hours || {}, resPhone: String(o.resPhone || ''), wa: String(o.waPhone || '') || await (async () => { try { const w = await db.doc('wapub/main').get(); return (w.exists && w.data().on && w.data().phone) || ''; } catch (e) { return ''; } })() || String(o.resPhone || '') };
       if (!date || !item) { res.json(base); return; }
       if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || date < today || date > last) { res.json({ ...base, slots: [] }); return; }
       const want = String(req.query.ther || 'any').split(',').slice(0, 6).map((k) => (k === 'm' || k === 'f' ? k : 'any'));

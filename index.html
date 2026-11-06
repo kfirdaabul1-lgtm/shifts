@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202611061231"></script>
+<script src="i18n.js?v=202611061233"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1088,6 +1088,7 @@ function spaOnlineHTML(){const o=spaOnline(),g=(k,d)=>dv('spo',k,d),H=k=>(o.hour
   <div class="row"><label class="f">חדרי טיפולים<input type="number" min="1" data-f="spo.rooms" value="${esc(g('rooms',o.rooms))}"></label><label class="f">כל כמה דקות שעת התחלה<input type="number" min="10" step="5" data-f="spo.step" value="${esc(g('step',o.step))}"></label></div>
   <div class="row"><label class="f">הזמנה לפחות כמה שעות מראש<input type="number" min="0" data-f="spo.lead" value="${esc(g('lead',o.lead))}"></label><label class="f">כמה ימים קדימה אפשר להזמין<input type="number" min="1" max="90" data-f="spo.days" value="${esc(g('days',o.days))}"></label><label class="f">עד כמה אנשים בהזמנה<input type="number" min="1" max="6" data-f="spo.maxPpl" value="${esc(g('maxPpl',o.maxPpl))}"></label></div>
   <label class="f">טלפון מחלקת הזמנות<input type="tel" dir="ltr" data-f="spo.resPhone" value="${esc(g('resPhone',o.resPhone!=null?o.resPhone:(LEGACY?'073-3272272':'')))}" placeholder="073-..."></label><p class="muted" style="font-size:.8rem;margin:-4px 0 8px">מוצג בעמוד ההזמנה: להזמנת חבילות עם לינה, וכשאין שעה פנויה עם מטפל/ת.</p>
+  <label class="f">וואטסאפ לבקשות על תאריך / שעה אחרים (לא חובה)<input type="tel" dir="ltr" data-f="spo.waPhone" value="${esc(g('waPhone',o.waPhone||''))}" placeholder="ריק = הוואטסאפ של המערכת"></label>
   <label class="f">טקסט פתיחה בעמוד<textarea rows="2" data-f="spo.intro" placeholder="למשל: הספא של The Gutman, בלב נווה צדק">${esc(g('intro',o.intro))}</textarea></label>
   <label class="f">מדיניות ביטול ותנאים (מוצג לפני האישור)<textarea rows="3" data-f="spo.policy" placeholder="למשל: ביטול עד 24 שעות לפני ללא חיוב. התשלום במקום.">${esc(g('policy',o.policy))}</textarea></label>
   <div class="f"><span>טיפולים שמוצגים באונליין</span>${menu.length?`<div class="chips" style="gap:6px">${menu.map(m=>`<button class="dchip ${m.online!==false&&(m.pkg||+m.mins>0)?'':'off'}" data-act="spa-monl" data-id="${m.id}" ${(m.pkg||+m.mins>0)?'':'disabled title="צריך משך בדקות"'}>${m.pkg?'🏨 ':''}${esc(m.name)}${+m.mins?' · '+m.mins+' דק׳':''}</button>`).join('')}</div><p class="muted" style="font-size:.8rem;margin:4px 0 0">${onl.length} מוצגים. מוסיפים טיפולים ב"מחירון טיפולים" למטה.</p>`:'<p class="muted">קודם מוסיפים טיפולים ל"מחירון טיפולים" (עם משך ומחיר).</p>'}</div>
@@ -4483,7 +4484,7 @@ const ACT={
   'spa-osave':()=>{const o=spaOnline(),d=S.drafts.spo||{},v=(k,def)=>d[k]!==undefined?d[k]:def,hours={};
     for(let k=0;k<7;k++){const h=(o.hours||{})[k]||{o:'10:00',c:'20:00',off:k===6},oo=String(v('o'+k,h.o||'10:00')),cc=String(v('c'+k,h.c||'20:00')),md=String(v('m'+k,h.off?'off':h.req?'req':'open')),off=md==='off';if(!off&&spaMin(cc)<=spaMin(oo)){toast('ביום '+SPA_DAYS[k]+' שעת הסגירה צריכה להיות אחרי הפתיחה');return}hours[k]={o:oo,c:cc,off,req:md==='req'}}
     const on=!!v('on',o.on);if(on&&!spaMenu().some(m=>m.online!==false&&!m.pkg&&+m.mins>0)){toast('צריך לפחות טיפול אחד במחירון עם משך בדקות');return}
-    const out={on,hotel:spaHotel()||o.hotel||'',hours,rooms:Math.max(1,+v('rooms',o.rooms)||1),step:Math.max(10,+v('step',o.step)||30),lead:Math.max(0,+v('lead',o.lead)||0),days:Math.min(90,Math.max(1,+v('days',o.days)||30)),maxPpl:Math.min(6,Math.max(1,+v('maxPpl',o.maxPpl)||2)),intro:String(v('intro',o.intro)||''),resPhone:String(v('resPhone',o.resPhone!=null?o.resPhone:(LEGACY?'073-3272272':''))||'').replace(/[^\d+\- ]/g,'').slice(0,20),policy:String(v('policy',o.policy)||'')};
+    const out={on,hotel:spaHotel()||o.hotel||'',hours,rooms:Math.max(1,+v('rooms',o.rooms)||1),step:Math.max(10,+v('step',o.step)||30),lead:Math.max(0,+v('lead',o.lead)||0),days:Math.min(90,Math.max(1,+v('days',o.days)||30)),maxPpl:Math.min(6,Math.max(1,+v('maxPpl',o.maxPpl)||2)),intro:String(v('intro',o.intro)||''),waPhone:String(v('waPhone',o.waPhone||'')||'').replace(/[^\d+\- ]/g,'').slice(0,20),resPhone:String(v('resPhone',o.resPhone!=null?o.resPhone:(LEGACY?'073-3272272':''))||'').replace(/[^\d+\- ]/g,'').slice(0,20),policy:String(v('policy',o.policy)||'')};
     fdb.doc('spacfg/main').set({online:out,updatedAt:Date.now(),updatedBy:S.uid},{merge:true}).then(()=>{S.drafts.spo=null;toast(on?'נשמר. ההזמנה אונליין פעילה':'נשמר');render()},e=>toast('לא הצלחתי: '+errMsg(mapErr(e))))},
   'lead-spq':D=>{const l=(S.leads||{})[D.id]||{},ex=Object.entries(S.spaQ||{}).find(([,q])=>q.leadId===D.id);setTab('spa');S.spaView='q';S.drafts.spq=null;S.confirm=null;
     S.sheet=ex?{type:'spq',id:ex[0]}:{type:'spq',id:'q'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),pre:{name:l.name&&!/^ליד מ-/.test(l.name)?l.name:'',phone:l.phone||'',email:l.email||'',date:l.date||'',people:+l.guests||2,leadId:D.id}};render()},

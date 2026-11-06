@@ -73,7 +73,7 @@
     hist.push({ role: 'user', text }); busy = true; save(); draw();
     let err = '';
     try {
-      const r = await fetch(URL_(), { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + (await u.getIdToken()) }, body: JSON.stringify({ messages: hist.slice(-12) }) });
+      const r = await fetch(URL_(), { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + (await u.getIdToken()) }, body: JSON.stringify({ messages: hist.slice(-8) }) });
       const j = await r.json().catch(() => ({}));
       if (!r.ok) err = j.error && j.error.length > 8 ? j.error : 'העוזר לא זמין כרגע (' + r.status + ').';
       else hist.push({ role: 'assistant', text: String(j.text || '') });

@@ -6,64 +6,50 @@
 <title>הזמנת טיפול ספא</title>
 <meta name="robots" content="noindex">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@400;500;700&family=Assistant:wght@300;400;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#F4EEE4;--card:#FFFDF9;--ink:#2A211C;--muted:#7C7064;--line:#E6DACA;--acc:#A8874F;--acc2:#2C221D;--gold:#C9A96A;--ok:#2f7a4f;--bad:#A3281F;--focus:#7A5A1E;--serif:'Frank Ruhl Libre',Georgia,serif}
+:root{--bg:#f6f2ec;--card:#fff;--ink:#2b2622;--muted:#6f6559;--line:#e6ddd1;--acc:#8a6d46;--acc2:#5f4a2f;--ok:#2f7a4f;--bad:#b3261e;--focus:#1d4ed8}
 *{box-sizing:border-box}
-body{margin:0;font-family:Assistant,Arial,sans-serif;font-size:16px;background:var(--bg);color:var(--ink);line-height:1.6;-webkit-font-smoothing:antialiased}
-html,body{overflow-x:hidden}
-.hero{position:relative;background:radial-gradient(120% 90% at 50% 0%,#4A3A2C 0%,#2A201A 55%,#1C1511 100%);color:#F3E9D8;text-align:center;padding:46px 16px 64px;overflow:hidden}
-.hero:before{content:"";position:absolute;inset:0;background:radial-gradient(40% 50% at 50% 10%,rgba(201,169,106,.22),transparent 70%);pointer-events:none}
-.hero .eyebrow{font-family:Assistant,sans-serif;font-weight:600;font-size:12px;letter-spacing:.38em;text-transform:uppercase;color:var(--gold);margin:0 0 14px}
-.hero h1{font-family:var(--serif);font-weight:500;font-size:38px;line-height:1.15;margin:0;letter-spacing:.01em;color:#FBF4E6}
-.hero .orn{display:flex;align-items:center;justify-content:center;gap:12px;margin:18px auto 0;color:var(--gold)}.hero .orn i{display:block;width:56px;height:1px;background:linear-gradient(90deg,transparent,var(--gold),transparent)}.hero .orn b{font-size:11px;font-weight:400}
-.hero p{color:#D8CBB6;margin:16px auto 0;max-width:520px;white-space:pre-wrap;font-weight:300;font-size:17px}
-.wrap{position:relative;max-width:720px;margin:-36px auto 0;padding:0 16px 60px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:24px 22px;margin-top:18px;box-shadow:0 1px 0 rgba(255,255,255,.6) inset,0 12px 30px -18px rgba(44,34,29,.35);animation:rise .45s ease both}
-@keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
-@media (prefers-reduced-motion:reduce){.card{animation:none}}
-h2{font-family:var(--serif);font-weight:500;font-size:22px;margin:0 0 16px;display:flex;align-items:center;gap:12px;color:var(--acc2)}
-h2 .n{display:inline-grid;place-items:center;width:32px;height:32px;border-radius:50%;border:1px solid var(--acc);color:var(--acc);font-family:var(--serif);font-size:16px;font-weight:500;flex:none}
-.items{display:grid;gap:12px}
-.item{display:flex;justify-content:space-between;gap:14px;align-items:center;text-align:start;width:100%;padding:18px 18px;border:1px solid var(--line);border-radius:4px;background:#fff;font:inherit;color:inherit;cursor:pointer;transition:border-color .2s,box-shadow .2s,background .2s}
-.item:hover{border-color:#D5C2A2}
-.item[aria-pressed="true"]{border-color:var(--acc);background:#FBF6EC;box-shadow:0 0 0 1px var(--acc) inset}
-.item b{font-family:var(--serif);font-weight:500;font-size:19px;color:var(--acc2)}.item small{color:var(--muted);display:block;font-size:14px;margin-top:2px}
-.item .pr{font-family:var(--serif);font-weight:500;font-size:21px;white-space:nowrap;color:var(--acc2);text-align:center}.item .pr small{font-family:Assistant,sans-serif;font-size:12px;letter-spacing:.06em}
-.item.pkg{cursor:default;display:block;background:linear-gradient(180deg,#FFFDF9,#F8F1E4)}.pkgb{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px}
-.btn2{display:inline-block;padding:10px 16px;border-radius:2px;border:1px solid var(--acc);color:var(--acc2);font-weight:600;font-size:14px;letter-spacing:.04em;text-decoration:none;background:transparent;font-family:inherit;cursor:pointer;transition:background .2s,color .2s}.btn2:hover{background:var(--acc2);color:#F3E9D8;border-color:var(--acc2)}.btn2.fill{background:var(--acc2);color:#F3E9D8}
-.item .go{font-weight:600;white-space:nowrap;color:var(--acc)}
-.reqn{background:#FBF4E6;border:1px solid #E8D6B0;border-inline-start:3px solid var(--acc);border-radius:2px;padding:10px 12px;margin:10px 0;font-size:15px}
-.chips{display:flex;gap:10px;overflow-x:auto;padding:2px 2px 8px;scrollbar-width:thin}
-.chip{flex:none;padding:10px 16px;border-radius:999px;border:1px solid var(--line);background:#fff;font:inherit;color:inherit;cursor:pointer;text-align:center;min-width:70px;transition:all .2s}
-.chip:hover{border-color:var(--acc)}
+body{margin:0;font-family:Heebo,Arial,sans-serif;background:var(--bg);color:var(--ink);line-height:1.5}
+.wrap{max-width:720px;margin:0 auto;padding:20px 16px 60px}
+header{text-align:center;padding:18px 0 8px}
+header h1{font-size:28px;margin:0;letter-spacing:.3px}
+header p{color:var(--muted);margin:6px 0 0;white-space:pre-wrap}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;margin-top:16px;box-shadow:0 1px 3px rgba(0,0,0,.04)}
+h2{font-size:18px;margin:0 0 12px;display:flex;align-items:center;gap:8px}
+h2 .n{display:inline-grid;place-items:center;width:26px;height:26px;border-radius:50%;background:var(--acc);color:#fff;font-size:14px}
+.items{display:grid;gap:10px}
+.item{display:flex;justify-content:space-between;gap:12px;align-items:center;text-align:start;width:100%;padding:14px;border:2px solid var(--line);border-radius:12px;background:#fff;font:inherit;color:inherit;cursor:pointer}
+.item[aria-pressed="true"]{border-color:var(--acc);background:#fbf7f1}
+.item.pkg{cursor:default;display:block}.pkgb{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}.btn2{display:inline-block;padding:9px 14px;border-radius:10px;border:2px solid var(--acc);color:var(--acc);font-weight:700;text-decoration:none;background:#fff}.btn2.fill{background:var(--acc);color:#fff}.item .go{font-weight:700;white-space:nowrap;color:var(--acc)}.reqn{background:#FFF7ED;border:1px solid #FDBA74;border-radius:10px;padding:8px 10px;margin:8px 0;font-size:14px}
+.item b{font-size:16px}.item small{color:var(--muted);display:block}.item .pr{font-weight:700;white-space:nowrap}
+.chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:6px;scrollbar-width:thin}
+.chip{flex:none;padding:10px 14px;border-radius:12px;border:2px solid var(--line);background:#fff;font:inherit;color:inherit;cursor:pointer;text-align:center;min-width:64px}
 .chip small{display:block;color:var(--muted);font-size:12px}
-.chip[aria-pressed="true"]{border-color:var(--acc2);background:var(--acc2);color:var(--gold)}.chip[aria-pressed="true"] small{color:#D8CBB6}
-.times{display:grid;grid-template-columns:repeat(auto-fill,minmax(82px,1fr));gap:10px}
+.chip[aria-pressed="true"]{border-color:var(--acc);background:var(--acc);color:#fff}.chip[aria-pressed="true"] small{color:#f1e7d8}
+.times{display:grid;grid-template-columns:repeat(auto-fill,minmax(78px,1fr));gap:8px}
 .muted{color:var(--muted)}
-label.f{display:block;margin:12px 0}label.f span{display:block;font-weight:600;font-size:14px;letter-spacing:.02em;margin-bottom:6px;color:var(--acc2)}
-input[type=text],input[type=tel],input[type=email],input[type=date],input[type=time],select,textarea{width:100%;padding:12px 14px;border:1px solid #D9CBB5;border-radius:3px;font:inherit;background:#fff;color:inherit;transition:border-color .2s,box-shadow .2s}
-input:focus,select:focus,textarea:focus{outline:none;border-color:var(--acc);box-shadow:0 0 0 3px rgba(168,135,79,.18)}
-textarea{min-height:76px}
-.row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.check{display:flex;gap:10px;align-items:flex-start;margin:12px 0;font-size:14px}.check input{margin-top:4px;width:18px;height:18px;accent-color:var(--acc2)}
-.btn{display:inline-block;width:100%;padding:16px;border:0;border-radius:3px;background:linear-gradient(180deg,#3A2E27,#241C17);color:#F3E2BF;font:inherit;font-weight:600;font-size:17px;letter-spacing:.06em;cursor:pointer;box-shadow:0 10px 24px -12px rgba(36,28,23,.7);transition:transform .15s,box-shadow .2s}
-.btn:hover{transform:translateY(-1px);box-shadow:0 14px 28px -12px rgba(36,28,23,.75)}
-.btn[disabled]{opacity:.55;cursor:not-allowed;transform:none}
-.sum{background:#FBF6EC;border:1px solid #EADCC2;border-radius:3px;padding:14px 16px;margin:14px 0;font-size:15px}.sum b{font-family:var(--serif);font-weight:500;font-size:17px}
-.policy{white-space:pre-wrap;font-size:14px;color:var(--muted);background:#FAF6EF;border:1px solid var(--line);border-radius:3px;padding:12px 14px;margin:12px 0}
-.err{color:var(--bad);font-weight:600;margin:8px 0}
-.done{text-align:center}.done .big{display:inline-grid;place-items:center;width:64px;height:64px;border-radius:50%;border:1px solid var(--acc);color:var(--acc);font-size:30px;margin-bottom:6px}.done h2{justify-content:center;font-size:26px}
-a{color:var(--acc)}
-:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
-.hp{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap}
-footer{text-align:center;font-size:12px;color:var(--muted);margin-top:30px;letter-spacing:.02em}
-@media(max-width:480px){.row{grid-template-columns:1fr}.hero h1{font-size:30px}.hero{padding:38px 16px 58px}.card{padding:20px 16px}.item{padding:16px 14px}.item b{font-size:17px}}
-.hl{background:#F7F1FB;border:1px solid #E5D8F0;border-radius:3px;padding:14px 16px;margin:14px 0;text-align:start}.hlb{display:block;text-align:center;text-decoration:none;margin-top:8px}</style>
+label.f{display:block;margin:10px 0}label.f span{display:block;font-weight:500;margin-bottom:4px}
+input[type=text],input[type=tel],input[type=email],input[type=date],select,textarea{width:100%;padding:11px 12px;border:1px solid #cbbfae;border-radius:10px;font:inherit;background:#fff;color:inherit}
+textarea{min-height:70px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.check{display:flex;gap:8px;align-items:flex-start;margin:10px 0;font-size:14px}.check input{margin-top:4px;width:18px;height:18px}
+.btn{display:inline-block;width:100%;padding:14px;border:0;border-radius:12px;background:var(--acc2);color:#fff;font:inherit;font-weight:700;font-size:17px;cursor:pointer}
+.btn[disabled]{opacity:.55;cursor:not-allowed}
+.sum{background:#fbf7f1;border-radius:12px;padding:12px 14px;margin:12px 0;font-size:15px}
+.policy{white-space:pre-wrap;font-size:14px;color:var(--muted);background:#faf8f5;border-radius:10px;padding:10px 12px;margin:10px 0}
+.err{color:var(--bad);font-weight:500;margin:8px 0}
+.done{text-align:center}.done .big{font-size:46px}
+a{color:var(--acc2)}
+:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+.hp{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap}html,body{overflow-x:hidden}
+footer{text-align:center;font-size:12px;color:var(--muted);margin-top:24px}
+@media(max-width:480px){.row{grid-template-columns:1fr}header h1{font-size:24px}}
+.hl{background:#f5f0ff;border-radius:12px;padding:12px 14px;margin:12px 0;text-align:start}.hlb{display:block;text-align:center;text-decoration:none;margin-top:6px}</style>
 </head>
 <body>
-<header class="hero"><p class="eyebrow">Spa · Wellness</p><h1 id="bizName">הזמנת טיפול ספא</h1><div class="orn" aria-hidden="true"><i></i><b>✦</b><i></i></div><p id="intro"></p></header>
 <div class="wrap">
+  <header><h1 id="bizName">הזמנת טיפול ספא</h1><p id="intro"></p></header>
   <main id="app" aria-live="polite"><div class="card"><p class="muted">טוען…</p></div></main>
   <footer>ההזמנה נשמרת אצלנו רק לצורך הטיפול. <a href="privacy.html" target="_blank" rel="noopener">מדיניות פרטיות</a></footer>
 </div>
@@ -105,7 +91,7 @@ footer{text-align:center;font-size:12px;color:var(--muted);margin-top:30px;lette
       ${it&&!it.couple&&max>1?`<label class="f"><span>כמה אנשים</span><select id="ppl">${Array.from({length:max},(_,i)=>`<option value="${i+1}" ${st.ppl===i+1?'selected':''}>${i+1}</option>`).join('')}</select></label>`:''}
       ${it&&B.thers?`<div class="f" style="margin-top:10px"><span style="display:block;font-weight:500;margin-bottom:4px">מטפל או מטפלת?</span>${Array.from({length:st.ppl},(_,i)=>`<div style="display:flex;gap:8px;align-items:center;margin:6px 0;flex-wrap:wrap">${st.ppl>1?`<span class="muted" style="min-width:52px">אורח/ת ${i+1}</span>`:''}<div class="chips" role="group" aria-label="${st.ppl>1?'אורח '+(i+1)+': ':''}מטפל או מטפלת" style="padding:0">${TH.map(([k,n])=>`<button type="button" class="chip" data-ther="${i}|${k}" aria-pressed="${(st.ther[i]||'any')===k}">${n}</button>`).join('')}</div></div>`).join('')}<p class="muted" style="font-size:13px;margin:4px 0 0">השעות שמוצגות הן רק כשיש ${st.ppl>1?'מטפלים':'מטפל/ת'} פנוי${st.ppl>1?'ים':'/ה'} במשמרת.</p></div>`:''}</section>`;
     if(it)h+=`<section class="card" aria-labelledby="s2"><h2 id="s2"><span class="n">2</span>תאריך</h2><div class="chips" role="group" aria-label="תאריכים">${waN()?`<button type="button" class="chip" data-other="1" aria-pressed="${!!st.other}">📅 תאריך אחר<small>בוואטסאפ</small></button>`:''}${days.map(d=>`<button type="button" class="chip" data-date="${d}" aria-pressed="${d===st.date}" aria-label="${esc(nice(d))}">${DOW[dowOf(d)]}<small>${d.slice(8,10)}.${d.slice(5,7)}</small></button>`).join('')}</div>
-      ${st.other?`<div class="reqn"><b>בקשה לתאריך ושעה אחרים</b><p style="margin:4px 0 8px">בחרו מתי הייתם רוצים, ונמשיך בוואטסאפ לבדוק זמינות ולסגור את ההזמנה.</p><div class="row"><label class="f"><span>תאריך מבוקש</span><input type="date" id="o_date" min="${esc(B.today||'')}" value="${esc(st.oDate||'')}"></label><label class="f"><span>שעה מבוקשת</span><input type="time" id="o_time" step="900" style="width:100%" value="${esc(st.oTime||'')}"></label></div><button type="button" class="btn" id="owa" style="background:linear-gradient(180deg,#1F8A4C,#16703C);color:#fff">💬 המשך בוואטסאפ</button></div>`:''}</section>`;
+      ${st.other?`<div class="reqn" style="background:#F0FDF4;border-color:#86EFAC"><b>בקשה לתאריך ושעה אחרים</b><p style="margin:4px 0 8px">בחרו מתי הייתם רוצים, ונמשיך בוואטסאפ לבדוק זמינות ולסגור את ההזמנה.</p><div class="row"><label class="f"><span>תאריך מבוקש</span><input type="date" id="o_date" min="${esc(B.today||'')}" value="${esc(st.oDate||'')}"></label><label class="f"><span>שעה מבוקשת</span><input type="time" id="o_time" step="900" style="width:100%" value="${esc(st.oTime||'')}"></label></div><button type="button" class="btn" id="owa" style="background:#16A34A">💬 המשך בוואטסאפ</button></div>`:''}</section>`;
     if(it&&st.date)h+=`<section class="card" aria-labelledby="s3"><h2 id="s3"><span class="n">3</span>שעה · ${esc(nice(st.date))}</h2>${isReq(st.date)?'<div class="reqn">⏳ ביום הזה ההזמנה נשלחת כבקשה, והספא יחזור אליכם לאישור הזמינות.</div>':''}${st.loading?'<p class="muted">בודקים שעות פנויות…</p>':!st.slots||!st.slots.length?`<p class="muted">אין שעה פנויה עם מטפל/ת ביום הזה לטיפול שבחרתם. נסו יום אחר${tel()?', או התקשרו למחלקת ההזמנות ונמצא לכם מועד':''}.</p><span class="pkgb">${waN()?'<button type="button" class="btn2" data-other2="1">💬 בקשה לשעה אחרת בוואטסאפ</button>':''}${telBtn('📞 התקשרו למחלקת הזמנות')}</span>`:`<div class="times" role="group" aria-label="שעות פנויות">${st.slots.map(t=>`<button type="button" class="chip" data-time="${t}" aria-pressed="${t===st.time}">${t}</button>`).join('')}</div>${tel()?`<p class="muted" style="font-size:14px;margin:10px 0 0">רוצים שעה אחרת שלא מופיעה כאן? התקשרו למחלקת ההזמנות: <a href="${esc(telHref())}" dir="ltr">${esc(tel())}</a></p>`:''}${waN()?'<button type="button" class="btn2" data-other2="1" style="margin-top:8px">💬 בקשה לשעה אחרת בוואטסאפ</button>':''}`}</section>`;
     if(it&&st.date&&st.time)h+=`<section class="card" aria-labelledby="s4"><h2 id="s4"><span class="n">4</span>פרטים ואישור</h2>
       <div class="sum"><b>${esc(it.name)}</b> · ${it.mins} דק׳${st.ppl>1?' · '+st.ppl+' אנשים':''}${therTxt()?' · '+therTxt():''}<br>${esc(nice(st.date))} בשעה ${st.time}<br>סה״כ לתשלום במקום: <b>${ils(priceOf(it,st.date,st.ppl))}</b>${supOf(it,st.date)?` <small class="muted">(כולל תוספת שישי ושבת)</small>`:''}</div>

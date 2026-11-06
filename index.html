@@ -4035,6 +4035,13 @@ function vOrg(){return vPerms()}
 // every chain is its own Firebase project (config.js SC_CHAINS); other chains are reached through a second Firebase app + one Google sign-in
 S.pc=S.pc||{};
 // chains from config.js + the registry (home database, collection "chains", added from Kfir app)
+// page permissions of a chain / independent hotel are also kept in the HOME registry chains/{id}.lic (owner, Nov 6: the
+// permissions window asked to sign in to every chain). The platform owner edits them there without signing in to the chain;
+// each chain's app reads its registry doc (public get) and merges it with orgcfg/main.lic (a page is off if either says off).
+async function regLicLoad(){const h=window.SC_HOME;if(!h||CFG.chainId===h)return;const c=(window.SC_CHAINS||[]).find(x=>x.id===h);if(!c||!c.firebase)return;
+  const app=firebase.apps.find(a=>a.name==='home_reg')||firebase.initializeApp(c.firebase,'home_reg');const d=await app.firestore().doc('chains/'+CFG.chainId).get();S.regLic=(d.exists&&d.data().lic)||{}}
+function orgMerge(o){o=o||{};if(!S.regLic)return o;return {...o,lic:{...(o.lic||{}),...S.regLic}}}
+function chainLic(id){if(id===CFG.chainId)return (S.org||{}).lic||{};const r=((S.reg||regCached())[id]||{}).lic||{},i=S.pc[id],o=(i&&i.org&&i.org.lic)||{};return {...o,...r}}
 function regCached(){const o={};try{for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k.startsWith('scChainCfg:')){const c=JSON.parse(localStorage.getItem(k)||'null');if(c&&c.id)o[c.id]=c}}}catch(_){ }return o}
 function allChains(){const L=(window.SC_CHAINS||[]).slice();Object.values(S.reg||regCached()).forEach(c=>{if(c&&c.id&&!L.some(x=>x.id===c.id))L.push(c)});return L}
 function homeDb(){const h=window.SC_HOME;if(!h||CFG.chainId===h)return fdb;const o=chainApp(h);return o&&o.signed?o.db:null}
@@ -4065,8 +4072,8 @@ function vPJobs(){return wrap(`<section class="head"><div class="head-t"><h1>ת�
 function vPPerms(){if(!S.regFresh){S.regFresh=1;regLoad(true)}else regLoad();const L=allChains();L.forEach(c=>chainInfo(c.id));
   // permissions per body (owner, Nov 6): every chain, every hotel inside it and every independent hotel is listed; tap one to choose its pages
   const nm=c=>{const i=chainInfo(c.id)||{};return c.id===CFG.chainId?appName():((i.org&&i.org.name)||c.appName||c.id)};
-  const row=c=>{const i=chainInfo(c.id)||{},org=i.org,hotel=chainKind(c)==='hotel',hl=(!hotel&&org&&i.hlist)||[];
-    return `<button class="prow" data-act="clic-open" data-id="${esc(c.id)}" style="width:100%;text-align:start;background:none;font:inherit;color:inherit;cursor:pointer;flex-wrap:wrap"><span class="who"><b>${hotel?'🏨':'🏢'} ${esc(nm(c))}</b><small>${hotel?'מלון עצמאי':'רשת'} · ${org?MODS.filter(([m])=>licOn(org,m)).length+' מתוך '+MODS.length+' עמודים':'צריך להתחבר כדי לראות'}</small></span><span class="meta">${org?MODS.filter(([m])=>licOn(org,m)).map(([,n])=>`<span class="pill ok">${n}</span>`).join(''):''}</span></button>
+  const row=c=>{const i=chainInfo(c.id)||{},org=i.org,lic={lic:chainLic(c.id)},hotel=chainKind(c)==='hotel',hl=(!hotel&&org&&i.hlist)||[];
+    return `<button class="prow" data-act="clic-open" data-id="${esc(c.id)}" style="width:100%;text-align:start;background:none;font:inherit;color:inherit;cursor:pointer;flex-wrap:wrap"><span class="who"><b>${hotel?'🏨':'🏢'} ${esc(nm(c))}</b><small>${hotel?'מלון עצמאי':'רשת'} · ${MODS.filter(([m])=>licOn(lic,m)).length+' מתוך '+MODS.length+' עמודים'}</small></span><span class="meta">${MODS.filter(([m])=>licOn(lic,m)).map(([,n])=>`<span class="pill ok">${n}</span>`).join('')}</span></button>
     ${hl.map(([h,hn])=>{const off=Object.keys((org.hmods||{})[h]||{}).filter(m=>(org.hmods[h]||{})[m]===false);
       return `<button class="prow" data-act="hlic-open" data-id="${esc(c.id)}" data-h="${esc(h)}" style="width:calc(100% - 24px);margin-inline-start:24px;text-align:start;background:none;font:inherit;color:inherit;cursor:pointer;border-inline-start:3px solid var(--line)"><span class="who"><b>🏨 ${esc(hn)}</b><small>מלון ברשת${off.length?' · '+off.length+' עמודים כבויים':' · כל העמודים של הרשת'}</small></span><span class="meta">${off.map(m=>`<span class="pill">${esc((MODS.find(x=>x[0]===m)||[,m])[1])} כבוי</span>`).join('')}</span></button>`}).join('')}`};
   const ch=L.filter(c=>chainKind(c)==='chain'),ho=L.filter(c=>chainKind(c)==='hotel');
@@ -4082,9 +4089,8 @@ function sheetHLic(){const id=S.sheet.id,h=S.sheet.h,i=chainInfo(id)||{},org=i.o
   <p class="muted" style="font-size:.82rem">רק עמודים שהרשת קיבלה מופיעים כאן.</p>
   <div class="actions"><button class="btn pri" data-act="hlic-save" ${S.drafts.hlic?'':'disabled'}>שמירה</button><button class="btn ghost" data-act="close">ביטול</button></div>`}
 function sheetCLic(){const id=S.sheet.id,i=chainInfo(id)||{},c=allChains().find(x=>x.id===id)||{},nm=id===CFG.chainId?appName():((i.org&&i.org.name)||c.appName||id);
-  if(!i.org)return sheetHead('הרשאות הרשת',esc(nm))+(i.signed?'<p class="muted">טוען…</p>':`<p>כדי לשנות את ההרשאות של הרשת הזו צריך להתחבר אליה פעם אחת עם החשבון שלך.</p><div class="actions"><button class="btn pri" data-act="pc-login" data-id="${esc(id)}">התחברות לרשת</button><button class="btn ghost" data-act="close">ביטול</button></div>`);
-  const d=S.drafts.clic||{lic:{...(i.org.lic||{})}};
-  return sheetHead('הרשאות הרשת',esc(nm))+`<div class="plist">${MODS.map(([m,n])=>`<label class="prow" style="cursor:pointer"><span class="who"><b>${n}</b></span><input type="checkbox" data-act="clic-t" data-m="${m}" ${d.lic[m]!==false?'checked':''}></label>`).join('')}</div>
+  const d=S.drafts.clic||{lic:{...chainLic(id)}};
+  return sheetHead(chainKind(c)==='hotel'?'הרשאות המלון':'הרשאות הרשת',esc(nm))+`<div class="plist">${MODS.map(([m,n])=>`<label class="prow" style="cursor:pointer"><span class="who"><b>${n}</b></span><input type="checkbox" data-act="clic-t" data-m="${m}" ${d.lic[m]!==false?'checked':''}></label>`).join('')}</div>
   <div class="actions"><button class="btn pri" data-act="clic-save" ${S.drafts.clic?'':'disabled'}>שמירה</button><button class="btn ghost" data-act="close">ביטול</button></div>`}
 function sheetChAdd(){const k=S.sheet.kind==='hotel'?'hotel':'chain',d=S.drafts.cha||(S.drafts.cha={}),done=S.sheet.saved,o=done&&S.pc[done];
   if(done){const ok=o&&o.signed;return sheetHead(k==='hotel'?'מלון עצמאי חדש':'רשת חדשה','נשמר ברשימה')+`<p>עכשיו מתחברים פעם אחת למאגר החדש, והמערכת רושמת בו את השם ואת בעל ה${k==='hotel'?'מלון':'רשת'}.</p>
@@ -4349,9 +4355,15 @@ const ACT={
   'hlic-save':()=>{const id=S.sheet.id,h=S.sheet.h,c=chainInfo(id),d=S.drafts.hlic;if(!d)return toast('אין שינויים');if(!c||!c.db)return toast('צריך להתחבר לרשת קודם');
     c.db.doc('orgcfg/main').update(new firebase.firestore.FieldPath('hmods',h),d.off,'updatedAt',Date.now()).then(()=>{if(c.org){c.org.hmods={...(c.org.hmods||{}),[h]:d.off}}if(id===CFG.chainId){S.org={...S.org,hmods:{...((S.org||{}).hmods||{}),[h]:d.off}};applyMods()}S.drafts.hlic=null;S.sheet=null;toast('העמודים של המלון נשמרו');render()},e=>toast('השמירה נכשלה: '+errMsg(mapErr(e))))},
   'clic-open':D=>{S.drafts.clic=null;S.sheet={type:'clic',id:D.id};const c=chainInfo(D.id);if(c&&!c.org&&c.signed)chainLoad(D.id);render()},
-  'clic-t':D=>{const d=S.drafts.clic||(S.drafts.clic={lic:{...((chainInfo(S.sheet.id)||{}).org||{}).lic}});if(d.lic[D.m]===false)delete d.lic[D.m];else d.lic[D.m]=false;render()},
-  'clic-save':()=>{const id=S.sheet.id,c=chainInfo(id),d=S.drafts.clic;if(!d)return toast('אין שינויים');if(!c||!c.db)return toast('צריך להתחבר לרשת קודם');
-    c.db.doc('orgcfg/main').set({lic:d.lic,licAt:Date.now(),licBy:S.email},{merge:true}).then(()=>{if(c.org)c.org.lic=d.lic;if(id===CFG.chainId){S.org={...S.org,lic:d.lic};applyMods()}S.drafts.clic=null;S.sheet=null;toast('ההרשאות של הרשת נשמרו');render()},e=>toast('השמירה נכשלה: '+errMsg(mapErr(e))))},
+  'clic-t':D=>{const d=S.drafts.clic||(S.drafts.clic={lic:{...chainLic(S.sheet.id)}});if(d.lic[D.m]===false)delete d.lic[D.m];else d.lic[D.m]=false;render()},
+  'clic-save':()=>{const id=S.sheet.id,c=chainInfo(id),d=S.drafts.clic;if(!d)return toast('אין שינויים');
+    d.lic=Object.fromEntries(MODS.map(([m])=>[m,d.lic[m]!==false]));
+    const done=()=>{S.drafts.clic=null;S.sheet=null;toast('ההרשאות נשמרו');render()},fail=e=>toast('השמירה נכשלה: '+errMsg(mapErr(e)));
+    if(id===CFG.chainId){fdb.doc('orgcfg/main').set({lic:d.lic,licAt:Date.now(),licBy:S.email},{merge:true}).then(()=>{S.org={...S.org,lic:d.lic};applyMods();done()},fail);return}
+    // other chains / independent hotels: the home registry (no sign-in needed); also their own orgcfg when already signed in there
+    const hdb=homeDb();if(!hdb)return toast('אי אפשר לשמור כרגע');
+    hdb.doc('chains/'+id).set({lic:d.lic,licAt:Date.now(),licBy:S.email},{merge:true}).then(()=>{S.reg={...(S.reg||{}),[id]:{...((S.reg||{})[id]||{}),lic:d.lic}};
+      if(c&&c.signed&&c.db)c.db.doc('orgcfg/main').set({lic:d.lic,licAt:Date.now(),licBy:S.email},{merge:true}).then(()=>{if(c.org)c.org.lic=d.lic},()=>{});done()},fail)},
   'chain-go':D=>{const c=(window.SC_CHAINS||[]).find(x=>x.id===D.id);if(c&&c.domain&&c.domain!==location.hostname){location.href='https://'+c.domain+'/';return}
     if(window.SC_LOCKED&&window.SC_BASE){location.href=window.SC_BASE+'?chain='+encodeURIComponent(D.id);return}
     try{localStorage.setItem('scChain',D.id)}catch(_){ }location.href=location.pathname+'?chain='+encodeURIComponent(D.id)},
@@ -5260,9 +5272,10 @@ async function start(u){
   // the system owner's devices stay on the general address (not redirected to a chain's own domain)
   try{if(S.plat)localStorage.setItem('scPlat','1')}catch(_){}
   S.isOwner=S.plat||!!(S.email&&u.emailVerified&&S.email===String(CFG.ownerEmail||'').trim().toLowerCase());
-  try{const d=await db.doc('orgcfg/main').get();S.org=d.exists?d.data():{};applyOrg()}catch(_){S.org={}}
+  try{await regLicLoad()}catch(_){ }
+  try{const d=await db.doc('orgcfg/main').get();S.org=orgMerge(d.exists?d.data():{});applyOrg()}catch(_){S.org=orgMerge({})}
   if(!S.isOwner&&u.emailVerified&&S.email&&S.email===String(S.org.ownerEmail||'').toLowerCase())S.isOwner=true;
-  db.doc('orgcfg/main').onSnapshot(d=>{S.org=d.exists?d.data():{};applyOrg();applyMods();render()},()=>{});
+  db.doc('orgcfg/main').onSnapshot(d=>{S.org=orgMerge(d.exists?d.data():{});applyOrg();applyMods();render()},()=>{});
   try{const d=await db.doc('shiftKinds/main').get();applyKinds(d.exists?d.data():{})}catch(_){ }
   db.doc('shiftKinds/main').onSnapshot(d=>{applyKinds(d.exists?d.data():{});render()},()=>{});
   try{const r=await db.doc('roles/'+u.uid).get();if(r.exists)S.role=r.data()}catch(_){ }

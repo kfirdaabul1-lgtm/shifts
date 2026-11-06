@@ -1019,7 +1019,9 @@ const D = &lt;?!= dJson ?&gt;, S = &lt;?!= sJson ?&gt;;
       const ceoMode=location.hash==='#ceo',canEv=ctx.isOwner||!!apps.events,canCeo=ctx.isOwner||!!apps.ceo;
       ctx.allowed=ceoMode?canCeo:canEv;
       let depts=[];if(!ctx.isOwner){try{const e=await ctx.fdb.doc('employees/'+u.uid).get();if(e.exists&&!e.data().mgmt)depts=e.data().depts||[]}catch(_){ }}
-      let mods={};try{const oc=await ctx.fdb.doc('orgcfg/main').get();if(oc.exists){const od=oc.data()||{};mods=Object.assign({},od.lic||{},od.mods||{})}}catch(_){ }
+      let mods={},ocMods={};try{const oc=await ctx.fdb.doc('orgcfg/main').get();if(oc.exists){const od=oc.data()||{};ocMods=od.mods||{};mods=Object.assign({},od.lic||{},od.mods||{})}}catch(_){ }
+      // page permissions from the home registry chains/{id}.lic (set in Kfir app, Nov 6) — a registry false/true wins over the chain's own lic
+      try{const H=(window.SC_CHAINS||[])[0],cid=(window.APP_CONFIG||{}).chainId;if(H&&H.firebase&&cid&&cid!==H.id){const ha=firebase.apps.find(a=>a.name==='home_reg')||firebase.initializeApp(H.firebase,'home_reg');const rd=await ha.firestore().doc('chains/'+cid).get();const rl=(rd.exists&&rd.data().lic)||{};for(const k in rl){if(rl[k]===false)mods[k]=false;else if(mods[k]===false&&!((ocMods||{})[k]===false))delete mods[k]}}}catch(_){ }
       if(mods.events===false&&!ceoMode)ctx.allowed=false;
       // quotes are separated per hotel (owner, Nov 1): a role scoped to hotels (no ceo) sees only quotes of its hotels' venues (settings.venues); owner / chain-wide see all
       window.QVENUES=null;

@@ -21,7 +21,17 @@ const FN = 'https://europe-west1-hotel-shifts.cloudfunctions.net/assistant';
       else {
         const bindings = (pol.bindings || []).filter((x) => x.role !== ROLE).concat([{ role: ROLE, members: [...new Set([...(b ? b.members : []), SA])] }]);
         const r = await (await fetch(sm + ':setIamPolicy', { method: 'POST', headers: H, body: JSON.stringify({ policy: { ...pol, bindings } }) })).json();
-        note('Assistant key access', r.error ? 'setIamPolicy: ' + r.error.message : 'granted the runtime account access to the key');
+        if (!r.error) note('Assistant key access', 'granted the runtime account access to the key');
+        else { // no rights on the secret itself: grant the role on the project (the runtime account already has broad project access)
+          const pp = await (await fetch(`https://cloudresourcemanager.googleapis.com/v1/projects/${P}:getIamPolicy`, { method: 'POST', headers: H, body: '{}' })).json();
+          if (pp.error) note('Assistant key access', 'secret: ' + r.error.message + ' · project getIamPolicy: ' + pp.error.message);
+          else if ((pp.bindings || []).some((x) => x.role === ROLE && (x.members || []).includes(SA))) note('Assistant key access', 'runtime account allowed on the project');
+          else {
+            const pb = pp.bindings.find((x) => x.role === ROLE), nb = (pp.bindings || []).filter((x) => x.role !== ROLE).concat([{ role: ROLE, members: [...new Set([...(pb ? pb.members : []), SA])] }]);
+            const r2 = await (await fetch(`https://cloudresourcemanager.googleapis.com/v1/projects/${P}:setIamPolicy`, { method: 'POST', headers: H, body: JSON.stringify({ policy: { ...pp, bindings: nb } }) })).json();
+            note('Assistant key access', r2.error ? 'project setIamPolicy: ' + r2.error.message : 'granted the runtime account Secret Accessor on the project');
+          }
+        }
       }
     }
   }

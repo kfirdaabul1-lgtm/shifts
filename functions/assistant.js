@@ -282,7 +282,13 @@ exports.assistant = functions.region(REGION).runWith({ timeoutSeconds: 120, memo
       msgs.push({ role: 'user', content: results });
     }
     res.json({ text: answer || 'לא הצלחתי לענות על זה. אפשר לנסח אחרת?', tools: [...new Set(used)] });
-  } catch (e) { console.error('assistant', e); res.status(500).json({ error: 'משהו השתבש. נסו שוב בעוד רגע.' }); }
+  } catch (e) {
+    console.error('assistant', e);
+    const m = String(e.message || '');
+    if (/credit balance|billing/i.test(m)) { res.status(503).json({ error: 'אין קרדיט בחשבון Claude API. צריך לטעון קרדיט ב-console.anthropic.com ← Billing.' }); return; }
+    if (/^secret:/.test(m)) { res.status(503).json({ error: 'השרת לא מצליח לקרוא את מפתח ה-API (הרשאה ל-ANTHROPIC_API_KEY).' }); return; }
+    res.status(500).json({ error: 'משהו השתבש. נסו שוב בעוד רגע.' });
+  }
 });
 
 // exported for the tests only

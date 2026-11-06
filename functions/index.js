@@ -621,7 +621,7 @@ exports.onSpaNew = trig('spa/{id}').onCreate(async (snap) => {
   const dd = String(b.date || ''), dm = dd ? dd.slice(8, 10) + '.' + dd.slice(5, 7) : '';
   const adds = (b.adds || []).filter((x) => +x.q > 0), tot = (+b.amount || 0) + adds.reduce((a, x) => a + (+x.p || 0) * (+x.q || 0), 0);
   const at = adds.map((x) => (+x.q > 1 ? x.q + '× ' : '') + x.n).join(', ');
-  return sendTo([...out], { title: b.source === 'online' ? '🌐 הזמנה אונליין לספא' : 'טיפול ספא חדש', body: `${dm} ${b.time || ''} · ${b.name ? b.name + ' · ' : ''}${b.treatment || ''} · ${b.mins || 60} דק׳ · ${b.people || 1} אנשים${th ? ' · ' + th : ''}${at ? ' · + ' + at : ''}${tot ? ' · ₪' + tot : ''}`, hash: '#spa', tag: 'spa-' + snap.id });
+  return sendTo([...out], { title: b.status === 'request' ? '⏳ בקשת הזמנה לספא · צריך לאשר זמינות' : b.source === 'online' ? '🌐 הזמנה אונליין לספא' : 'טיפול ספא חדש', body: `${dm} ${b.time || ''} · ${b.name ? b.name + ' · ' : ''}${b.treatment || ''} · ${b.mins || 60} דק׳ · ${b.people || 1} אנשים${th ? ' · ' + th : ''}${at ? ' · + ' + at : ''}${tot ? ' · ₪' + tot : ''}`, hash: '#spa', tag: 'spa-' + snap.id });
 });
 
 // ---------- every morning: spa treatments (today and later) whose therapist is not set / not confirmed → push the spa managers (spa app + owner) ----------
@@ -1071,11 +1071,13 @@ function spaFree(o, c, date, mins, dayDocs, nowMs, roster, want) {
     if (ilEpoch(date, minHm(t)) < minStart) continue;
     const e = t + mins + brk; let n = 0, blocked = false;
     for (const x of busy) { if (x.a < e && t < x.e) { if (x.all) { blocked = true; break; } n++; } }
-    if (!blocked && n < rooms && (!want || spaTherPick(c, roster || {}, dayDocs, date, t, e, want).ok)) out.push(minHm(t));
+    if (!blocked && n < rooms && (!want || h.req || spaTherPick(c, roster || {}, dayDocs, date, t, e, want).ok)) out.push(minHm(t));
   }
   return out;
 }
-const spaItems = (c) => (c.menu || []).filter((m) => m.online !== false && +m.mins > 0).map((m) => ({ id: m.id, name: m.name, mins: +m.mins, price: +m.price || 0, desc: m.desc || '', couple: m.ppl == 2, wk: +m.fri || +m.sat || 0 }));
+const spaUrlOk = (u) => /^https:\/\/[^\s"'<>]+$/.test(String(u || ''));
+const spaItems = (c) => (c.menu || []).filter((m) => m.online !== false && (m.pkg ? (spaUrlOk(m.url) || ((c.online || {}).resPhone)) : +m.mins > 0)).map((m) => ({ id: m.id, name: m.name, mins: +m.mins || 0, price: +m.price || 0, desc: m.desc || '', couple: m.ppl == 2, wk: +m.fri || +m.sat || 0, ...(m.pkg ? { pkg: true, url: spaUrlOk(m.url) ? m.url : '' } : {}) }));
+const spaReqDay = (o, date) => !!((o.hours || {})[new Date(date + 'T12:00:00Z').getUTCDay()] || {}).req;
 // price of an online item on a date: single = per person, couple = per pair; one weekend supplement (Fri + Sat) added per unit
 const spaPrice = (it, date, ppl) => { const w = new Date(date + 'T12:00:00Z').getUTCDay(), u = it.price + (w === 5 || w === 6 ? it.wk : 0); return it.couple ? u : u * ppl; };
 exports.spaPublic = functions.region(REGION).https.onRequest(async (req, res) => {
@@ -1087,8 +1089,8 @@ exports.spaPublic = functions.region(REGION).https.onRequest(async (req, res) =>
     const today = ilDate(new Date()), days = Math.min(90, Math.max(1, +o.days || 30)), last = ilDate(new Date(Date.now() + days * 864e5));
     const items = spaItems(c), biz = { name: (c.qbiz && c.qbiz.name) || '', phone: (c.qbiz && c.qbiz.phone) || '' };
     if (req.method === 'GET') {
-      const date = String(req.query.date || ''), item = items.find((x) => x.id === String(req.query.item || ''));
-      const base = { on: true, biz, items, thers: (c.ther || []).some((t) => t.active !== false), intro: o.intro || '', policy: o.policy || (c.qbiz && c.qbiz.terms) || '', maxPpl: Math.max(1, +o.maxPpl || 2), today, last, hours: o.hours || {} };
+      const date = String(req.query.date || ''), item = items.find((x) => x.id === String(req.query.item || '') && !x.pkg);
+      const base = { on: true, biz, items, thers: (c.ther || []).some((t) => t.active !== false), intro: o.intro || '', policy: o.policy || (c.qbiz && c.qbiz.terms) || '', maxPpl: Math.max(1, +o.maxPpl || 2), today, last, hours: o.hours || {}, resPhone: String(o.resPhone || '') };
       if (!date || !item) { res.json(base); return; }
       if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || date < today || date > last) { res.json({ ...base, slots: [] }); return; }
       const want = String(req.query.ther || 'any').split(',').slice(0, 6).map((k) => (k === 'm' || k === 'f' ? k : 'any'));
@@ -1098,7 +1100,7 @@ exports.spaPublic = functions.region(REGION).https.onRequest(async (req, res) =>
     }
     if (req.method !== 'POST') { res.status(405).send('method'); return; }
     const b = req.body || {}, name = String(b.name || '').trim().slice(0, 80), phone = String(b.phone || '').replace(/[^\d+]/g, '').slice(0, 20), email = String(b.email || '').trim().slice(0, 120);
-    const item = items.find((x) => x.id === String(b.item || '')), date = String(b.date || ''), time = String(b.time || ''), ppl0 = Math.min(Math.max(1, +o.maxPpl || 2), Math.max(1, Math.round(+b.people || 1)));
+    const item = items.find((x) => x.id === String(b.item || '') && !x.pkg), date = String(b.date || ''), time = String(b.time || ''), ppl0 = Math.min(Math.max(1, +o.maxPpl || 2), Math.max(1, Math.round(+b.people || 1)));
     const ppl = item && item.couple ? 2 : ppl0;
     const want = Array.from({ length: ppl }, (_, i) => { const k = (Array.isArray(b.ther) ? b.ther : [])[i]; return k === 'm' || k === 'f' ? k : 'any'; });
     if (!item || !/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{2}:\d{2}$/.test(time) || date < today || date > last) { res.status(400).json({ error: 'פרטי ההזמנה לא תקינים' }); return; }
@@ -1117,19 +1119,20 @@ exports.spaPublic = functions.region(REGION).https.onRequest(async (req, res) =>
       const docs = qs.docs.map((d) => d.data()), roster = (shd.exists && shd.data().ther) || {};
       const free = spaFree(o, c, date, item.mins, docs, Date.now(), roster, want);
       const tp = spaTherPick(c, roster, docs, date, hmMin(time), hmMin(time) + item.mins + Math.max(0, +c.brk || 0), want), tn = (id) => ((c.ther || []).find((t) => t.id === id) || {}).name || '';
-      if (!free.includes(time) || !tp.ok) throw Object.assign(new Error('השעה הזו כבר נתפסה. בחרו שעה אחרת.'), { code: 409 });
+      const isReq = spaReqDay(o, date);
+      if (!free.includes(time) || (!isReq && !tp.ok)) throw Object.assign(new Error('השעה הזו כבר נתפסה. בחרו שעה אחרת.'), { code: 409 });
       tx.set(rateRef, { hour, n: n + 1, at: Date.now() });
       const hl = {};
       for (let i = 0; i < ppl; i++) { const k = spaHealthKey(); hl[i] = { k, ok: false }; hkeys.push(k);
         tx.set(db.doc('spaHealth/' + k), { status: 'pending', bookingId: ref.id, idx: i, people: ppl, hotel: o.hotel || '', hotelName: hname, date, time, treatment: item.name, name: i ? '' : name, phone: i ? '' : local, expMs: spaHealthExp(date), createdAt: Date.now(), createdBy: 'online' }); }
-      tx.set(ref, { hl, hotel: o.hotel || '', date, time, treatment: item.name, mins: item.mins, people: ppl, ther: want, tid: tp.pick, tname: tp.pick.map(tn), tok: Array(ppl).fill(false),
-        amount: spaPrice(item, date, ppl), adds: [], name, phone: local, email, notes: String(b.notes || '').trim().slice(0, 300), status: 'booked', source: 'online', itemId: item.id,
+      tx.set(ref, { hl, hotel: o.hotel || '', date, time, treatment: item.name, mins: item.mins, people: ppl, ther: want, tid: isReq ? Array(ppl).fill('') : tp.pick, tname: isReq ? Array(ppl).fill('') : tp.pick.map(tn), tok: Array(ppl).fill(false),
+        amount: spaPrice(item, date, ppl), adds: [], name, phone: local, email, notes: String(b.notes || '').trim().slice(0, 300), status: isReq ? 'request' : 'booked', source: 'online', itemId: item.id,
         consent: { privacy: true, marketing: !!b.marketing, at: Date.now() }, createdAt: Date.now(), createdBy: 'online', createdByName: 'הזמנה אונליין', updatedAt: Date.now() });
     });
     // a spa lead with the same phone is now won (best effort)
-    try { const ls = await db.collection('leads').where('phone', '==', local).limit(5).get(); for (const d of ls.docs) { const l = d.data(); if (['won', 'junk'].includes(l.stage)) continue;
+    if (!spaReqDay(o, date)) try { const ls = await db.collection('leads').where('phone', '==', local).limit(5).get(); for (const d of ls.docs) { const l = d.data(); if (['won', 'junk'].includes(l.stage)) continue;
       await d.ref.update({ stage: 'won', wonAt: Date.now(), wonValue: Math.round(spaPrice(item, date, ppl)), updatedAt: Date.now(), acts: admin.firestore.FieldValue.arrayUnion({ at: Date.now(), by: 'online', byName: 'הזמנה אונליין', kind: 'note', text: `הזמין/ה טיפול ספא אונליין: ${item.name} · ${date.slice(8, 10)}.${date.slice(5, 7)} ${time}` }) }); } } catch (e) {}
-    res.json({ ok: true, id: ref.id, health: hkeys, date, time, item: item.name, mins: item.mins, people: ppl, total: spaPrice(item, date, ppl) });
+    res.json({ ok: true, req: spaReqDay(o, date), id: ref.id, health: hkeys, date, time, item: item.name, mins: item.mins, people: ppl, total: spaPrice(item, date, ppl) });
   } catch (e) { res.status(e.code === 429 || e.code === 409 ? e.code : 500).json({ error: e.code === 429 || e.code === 409 ? e.message : 'משהו השתבש. נסו שוב או התקשרו אלינו.' }); if (!(e.code === 429 || e.code === 409)) console.error('spaPublic', e); }
 });
 

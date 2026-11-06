@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202611061239"></script>
+<script src="i18n.js?v=202611061347"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -374,6 +374,24 @@ details.sub-fold>summary h4{margin:0}
 .hk-oosbox{border-color:#5B21B6;background:rgba(91,33,182,.08)}
 @media (min-width:1200px){.wrap{padding-left:32px;padding-right:32px}}
 .pwbox{position:relative;display:block}.pwbox input{width:100%;padding-right:44px!important;box-sizing:border-box}.pw-eye{position:absolute;right:4px;top:50%;transform:translateY(-50%);width:38px;height:36px;border:0;background:none;font-size:18px;cursor:pointer;padding:0;line-height:1;color:var(--ink)}
+/* Cyber dashboard (owner chose sketch 3, Nov 6): CEO + hotel manager pages, body.nx */
+body.nx{--bg:#05070F;--surface:#0A1428;--sunk:#07101F;--ink:#E0F7FF;--muted:#7FA3B3;--line:rgba(34,211,238,.22);--brass:#22D3EE;--brass-bg:rgba(34,211,238,.12);--gold:#22D3EE;--ok:#A3E635;--ok-bg:rgba(163,230,53,.12);--warn:#F59E0B;--warn-bg:rgba(245,158,11,.14);--bad:#F87171;--bad-bg:rgba(239,68,68,.15);--chipS:40%;--chipL:22%;--chipFg:82%;color-scheme:dark;
+  background-color:#05070F;background-image:linear-gradient(rgba(34,211,238,.07) 1px,transparent 1px),linear-gradient(90deg,rgba(34,211,238,.07) 1px,transparent 1px);background-size:28px 28px;background-attachment:fixed}
+body.nx .card,body.nx .kpi,body.nx .prow{background:rgba(10,20,40,.82)}body.nx .btn.pri{background:#22D3EE;border-color:#22D3EE;color:#05070F}body.nx .btn{background:rgba(10,20,40,.9);color:var(--ink)}body.nx input,body.nx select,body.nx textarea{background:#07101F;color:var(--ink)}
+.nx-g{display:grid;gap:12px;grid-template-columns:1fr;margin-top:10px}@media(min-width:900px){.nx-g{grid-template-columns:repeat(2,minmax(0,1fr))}.nx-g .nx-w{grid-column:1/-1}}@media(min-width:1300px){.nx-g.nx-3{grid-template-columns:repeat(3,minmax(0,1fr))}.nx-g.nx-3 .nx-w2{grid-column:span 2}}.nx-st{display:flex;flex-direction:column;gap:12px;min-width:0}
+.nx-c{background:rgba(10,20,40,.82);border:1px solid rgba(34,211,238,.25);border-radius:16px;padding:14px;box-shadow:inset 0 0 30px rgba(34,211,238,.05);color:#E0F7FF;min-width:0}
+.nx-c h3{font-size:.88rem;color:#7FA3B3;font-weight:600;margin:0 0 10px;display:flex;align-items:center;gap:8px}
+.nx-big{font-size:2rem;font-weight:800;line-height:1.15;text-shadow:0 0 18px #0EA5E9;font-variant-numeric:tabular-nums}.nx-dl{font-size:.8rem;margin-top:3px}.nx-dl b{font-weight:700}.nx-up{color:#A3E635}.nx-down{color:#F87171}
+.nx-rings{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;text-align:center}.nx-ring b{display:block;font-size:.98rem;margin-top:2px}.nx-ring small{color:#7FA3B3;font-size:.72rem}
+.nx-br{display:flex;gap:10px;align-items:center;margin:10px 0}.nx-ic{width:32px;height:32px;border-radius:9px;border:1.5px solid;display:grid;place-items:center;font-size:.8rem;font-weight:700;flex:none}.nx-bm{flex:1;min-width:0}.nx-bt{display:flex;justify-content:space-between;gap:8px;font-size:.85rem;margin-bottom:5px}.nx-bt b{font-variant-numeric:tabular-nums;white-space:nowrap}.nx-trk{height:7px;border-radius:5px;background:rgba(34,211,238,.14);overflow:hidden}.nx-trk i{display:block;height:100%;border-radius:5px}.nx-bm small{font-size:.7rem;color:#7FA3B3}
+.nx-dn{display:flex;align-items:center;gap:16px;flex-wrap:wrap}.nx-lg{font-size:.85rem;margin:5px 0;display:flex;gap:6px;align-items:center}.nx-lg i{width:10px;height:10px;border-radius:3px}
+.nx-ax{direction:ltr;display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);text-align:center;white-space:nowrap;font-size:.66rem;color:#7FA3B3;margin-top:3px}
+.nx-live{width:9px;height:9px;border-radius:50%;background:#A3E635;box-shadow:0 0 8px #A3E635;animation:nxp 1.6s infinite}@keyframes nxp{50%{opacity:.35}}
+.nx-rooms{display:grid;grid-template-columns:repeat(auto-fit,minmax(64px,1fr));gap:6px}.nx-rm{border-radius:10px;padding:6px 4px;text-align:center;border:1px solid}.nx-rm b{display:block;font-size:1.25rem;line-height:1.1}.nx-rm span{font-size:.68rem;opacity:.9}
+.nx-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.nx-pill{font-size:.75rem;padding:3px 9px;border-radius:20px;border:1px solid rgba(34,211,238,.3);color:#CFEFFA;background:rgba(34,211,238,.06)}
+.nx-sub{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:10px}.nx-k{border:1px solid rgba(34,211,238,.2);border-radius:10px;padding:8px 10px}.nx-k b{font-size:1.2rem;display:block}.nx-k span{font-size:.72rem;color:#7FA3B3}
+.nx-note{font-size:.75rem;color:#7FA3B3;margin:4px 2px 0}
+.nx-ev{display:flex;justify-content:space-between;gap:8px;font-size:.85rem;padding:6px 0;border-top:1px solid rgba(34,211,238,.12)}.nx-ev:first-child{border-top:0}.nx-ev small{color:#7FA3B3}
 </style>
 </head>
 <body>
@@ -661,7 +679,7 @@ function sheetIosPush(){return sheetHead('התראות באייפון','')+`<p>�
   <ol style="padding-inline-start:20px;line-height:1.9"><li>פותחים את האתר ב-<b>Safari</b>.</li><li>לוחצים על כפתור השיתוף <b>⎙</b> (ריבוע עם חץ למעלה) בתחתית המסך.</li><li>בוחרים <b>"הוסף למסך הבית"</b> ולוחצים "הוסף".</li><li>פותחים את <b>${esc(appName())}</b> מהאייקון החדש במסך הבית.</li><li>בתפריט לוחצים <b>"הפעלת התראות"</b> ומאשרים.</li></ol>
   <p class="muted" style="font-size:.85rem">צריך iOS 16.4 ומעלה. אחרי ההתקנה האתר נפתח כמו אפליקציה, בלי שורת הכתובת.</p>
   <div class="actions"><button class="btn pri" data-act="close">הבנתי</button></div>`}
-function render(){if(S.deep)deepOpen();if(isTyping()){S.pending=true;return}S.pending=false;renderTop();renderDrawer();$('#main').innerHTML=bcBannerHTML()+callsBannerHTML()+viewHTML();try{chipSelects($('#main'))}catch(e){}renderSheet()}
+function render(){if(S.deep)deepOpen();if(isTyping()){S.pending=true;return}S.pending=false;renderTop();renderDrawer();document.body.classList.toggle('nx',(S.tab==='ceo'||S.tab==='gm')&&!S.pmode);$('#main').innerHTML=bcBannerHTML()+callsBannerHTML()+viewHTML();try{chipSelects($('#main'))}catch(e){}renderSheet()}
 // filter chip rows → one compact "filter topic" button with a drop-down (owner, Nov 3). Only single-choice rows on the page (not in sheets):
 // every child a button.dchip, exactly one active, at least 3 options, and not a view switch or a multi-select row.
 const FSEL_SKIP=/-view$|^exp-tab$|^call-t$|^pcall-t$|^kc-dept$|^job-dept$|^perm-|^emp-dept$|^pf-dept$|^vchn-vh$|^pl-ag$|^pl-m$|^lead-catset$|^spa-mins$|^lead-stage$/;
@@ -1876,7 +1894,7 @@ function vCeo(){
   if(!C.data&&!C.loading&&!C.err){setTimeout(()=>ceoLoad(C.year),0)}
   const years=[0,1,2].map(i=>String(new Date().getFullYear()-i));
   const head=`<section class="head"><div class="head-t"><h1>מבט מנכ״ל · ${C.year}</h1>
-    <select data-ceo-year aria-label="שנה">${years.map(y=>`<option ${y===C.year?'selected':''}>${y}</option>`).join('')}</select></div>`;
+    <select data-ceo-year aria-label="שנה" style="width:auto">${years.map(y=>`<option ${y===C.year?'selected':''}>${y}</option>`).join('')}</select></div>`;
   if(C.err)return wrap(head+`<div class="notice">לא הצלחתי לטעון את הנתונים: ${esc(C.err)}</div></section>`);
   if(!C.data||C.loading)return wrap(head+'<p class="muted">טוען נתונים…</p></section>');
   const {rows,hs}=ceoCompute(),T=k=>rows.reduce((a,r)=>a+r[k],0),L=T('labor'),RE=T('rev'),RC=T('rec'),RG=T('grp'),R=RE+RC+RG,E=T('exp');
@@ -1889,7 +1907,19 @@ function vCeo(){
     ${unk?`<tr><td class="muted">אירועים בחללים שלא שויכו למלון</td><td></td><td></td><td class="num">${ils(unk)}</td><td class="num">${ils(unk)}</td><td></td><td></td><td class="num">${ils(unk)}</td></tr>`:''}
     <tr style="font-weight:700"><td>סה״כ</td><td class="num">${ils(mr.rec)}</td><td class="num">${ils(mr.grp)}</td><td class="num">${ils(mr.rev)}</td><td class="num">${ils(mr.inc)}</td><td class="num">${ils(mr.labor)}</td><td class="num">${ils(mr.exp)}</td><td class="num">${ils(mNet)}</td></tr></tbody></table></div>
     <p class="muted" style="font-size:.8rem">אירוע משויך למלון לפי חללי האירועים שהוגדרו למלון בעמוד ההרשאות.</p></div>`;
-  return wrap(head+mnav+`<div class="kpis">${kpi('הכנסות מלינה',ils(mr.rec),'מזומן לפי 420 + אשראי מדוחות סוף משמרת')}${kpi('הכנסות מקבוצות',ils(mr.grp),'קבוצות מאושרות דרך סוכנים · לפי הלילות בחודש')}${kpi('הכנסות מאירועים',ils(mr.rev),`${mr.events} אירועים שאושרו · לפני מע״מ`)}${kpi('סה״כ הכנסות',ils(mr.inc),'לינה + קבוצות + אירועים')}${kpi('עלות עובדים',ils(mr.labor),`${fmtH(mr.hours)} שעות לתשלום`)}${kpi('הוצאות ספקים',ils(mr.exp),'לפי חשבוניות · לפני מע״מ')}${kpi('הכנסות פחות עובדים והוצאות',ils(mNet),mr.inc?`עלות העובדים היא ${Math.round(mr.labor/mr.inc*100)}% מההכנסות`:'',mNet<0?'bad':'')}</div></section>${bcChainCardHTML()}
+  const mp=mr.m>0?rows[mr.m-1]:null,mOut=mr.labor+mr.exp;
+  const srcMax=Math.max(mr.rec,mr.rev,mr.grp,1);
+  const hsR=hs.map(h=>{const lo=mr.recH[h]||0,gp=mr.grpH[h]||0,ev=mr.evH[h]||0,ic=lo+gp+ev,nt=ic-(mr.h[h]||0)-(mr.expH[h]||0);return {h,ic,nt}}).filter(x=>x.ic||x.nt).sort((a,b)=>b.ic-a.ic),hMax=Math.max(1,...hsR.map(x=>x.ic));
+  const six=rows.slice(Math.max(0,mr.m-5),mr.m+1);
+  const dash=`<div class="nx-g nx-3">
+    <div class="nx-st">${nxHero('<span>הכנסות החודש</span> · '+monLabel(C.mon),ils(mr.inc),mr.inc,mp?mp.inc:0)}
+    ${nxCard('מדדים מרכזיים',`<div class="nx-rings">${nxRing(0,nxPct(Math.max(mNet,0),mr.inc),nxK(mNet),'רווח נקי')}${nxRing(1,nxPct(mr.labor,mr.inc),nxK(mr.labor),'עלות עובדים')}${nxRing(2,nxPct(mr.exp,mr.inc),nxK(mr.exp),'ספקים')}</div><p class="nx-note"><span>האחוזים הם מתוך ההכנסות של החודש.</span> ${fmtH(mr.hours)} <span>שעות לתשלום</span> · ${mr.events} <span>אירועים שאושרו</span></p>`)}</div>
+    ${nxCard('הכנסות לפי מקור',nxBar(0,'🛏','לינה',ils(mr.rec),nxPct(mr.rec,srcMax))+nxBar(1,'🎉','אירועים',ils(mr.rev),nxPct(mr.rev,srcMax))+nxBar(2,'🚌','קבוצות',ils(mr.grp),nxPct(mr.grp,srcMax)))}
+    ${nxCard('לפי מלון · הכנסה מול רווח',hsR.length?hsR.map((x,i)=>nxBar(i,nxIc(hotelName(x.h)),esc(hotelName(x.h)),ils(x.ic),nxPct(x.ic,hMax),`<span>רווח</span> ${ils(x.nt)}${x.ic?' · '+nxPct(Math.max(x.nt,0),x.ic)+'%':''}`)).join(''):'<p class="nx-note">אין עדיין נתונים בחודש הזה.</p>')}
+    ${nxCard('<span>הכנסות (עמודות) מול הוצאות (קו)</span> · '+six.length+' <span>חודשים</span>',nxChart(six.map(r=>r.inc),six.map(r=>r.labor+r.exp),six.map(r=>HE_MON[r.m])),'nx-w2')}
+    ${nxCard('חלוקת הכנסות',nxDonut([['לינה',mr.rec],['אירועים',mr.rev],['קבוצות',mr.grp]])+`<div class="nx-sub"><div class="nx-k"><b>${ils(mOut)}</b><span>סה״כ הוצאות</span></div><div class="nx-k"><b class="${mNet<0?'nx-down':'nx-up'}">${ils(mNet)}</b><span>הכנסות פחות הוצאות</span></div></div>`)}
+  </div>`;
+  return wrap(head+mnav+dash+'</section>'+bcChainCardHTML()+`
   ${perH}
   <div class="card"><h3><span>כל השנה לפי חודש</span> · ${C.year}</h3><div class="scroll-x"><table class="plain"><thead><tr><th>חודש</th>${hs.map(h=>`<th class="num">${esc(hotelName(h))}</th>`).join('')}<th class="num">סה״כ עובדים</th><th class="num">הוצאות ספקים</th><th class="num">הכנסות מאירועים</th><th class="num">הכנסות מלינה</th><th class="num">הכנסות מקבוצות</th><th class="num">סה״כ הכנסות</th><th class="num">הפרש</th></tr></thead><tbody>
   ${rows.map(r=>`<tr${r.key===cur?' style="font-weight:600"':''}><td>${HE_MON[r.m]}</td>${hs.map(h=>`<td class="num">${r.h[h]?ils(r.h[h]):'—'}</td>`).join('')}<td class="num">${r.labor?ils(r.labor):'—'}</td><td class="num">${r.exp?ils(r.exp):'—'}</td><td class="num">${r.rev?ils(r.rev):'—'}</td><td class="num">${r.rec?ils(r.rec):'—'}</td><td class="num">${r.grp?ils(r.grp):'—'}</td><td class="num">${r.inc?ils(r.inc):'—'}</td><td class="num">${r.labor||r.inc||r.exp?ils(r.inc-r.labor-r.exp):'—'}</td></tr>`).join('')}
@@ -2611,6 +2641,25 @@ function myBcSub(){if(S.live.myBc||!S.uid||S.station)return;S.live.myBc=true;
 function bcBannerHTML(){myBcSub();const mine=Object.entries(S.myBc||{}).filter(([,b])=>!(b.reads||{})[S.uid]&&Date.now()-(b.at||0)<864e5).sort(([,a],[,b])=>(b.at||0)-(a.at||0));
   if(!mine.length)return '';
   return `<div class="wrap stack" style="padding-bottom:0">${mine.map(([id,b])=>b.kind==='hkupd'?`<div class="card bc-card"><h3>🧹 בקשה מהקבלה</h3><p style="font-size:1.05rem;margin:4px 0 8px">${esc(b.text||HKUPD_TXT)}</p><div class="actions"><small class="muted">${new Date(b.at||0).toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'})}${b.byName?' · '+esc(b.byName):''}</small><button class="btn pri" data-act="bc-hk" data-id="${id}">פתיחת עמוד המשק</button><button class="btn ghost" data-act="bc-read" data-id="${id}">קראתי ✓</button></div></div>`:`<div class="card bc-card"><h3>📣 הודעה מ${esc(b.byName||'המנהל')}</h3><p style="white-space:pre-wrap;font-size:1.05rem;margin:4px 0 8px">${esc(b.text||'')}</p><div class="actions"><small class="muted">${new Date(b.at||0).toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'})}</small><button class="btn pri" data-act="bc-read" data-id="${id}">קראתי ✓</button></div></div>`).join('')}</div>`}
+/* ---------- cyber dashboard parts (owner chose sketch 3, Nov 6): rings, bars, charts for the CEO and hotel-manager pages ---------- */
+const NXG=[['#22D3EE','#0EA5E9'],['#F59E0B','#EF4444'],['#22D3EE','#A3E635'],['#F472B6','#F59E0B'],['#A3E635','#22D3EE'],['#0EA5E9','#A78BFA']];let nxN=0;
+const nxPct=(a,b)=>b>0?Math.max(0,Math.min(100,Math.round(a/b*100))):0;
+const nxK=n=>{const a=Math.abs(n||0),sg=n<0?'−':'';return a>=1e6?sg+'₪'+(a/1e6).toFixed(2)+'M':a>=1e4?sg+'₪'+Math.round(a/1e3)+'K':ils(n)};
+function nxRing(i,pct,val,lab,txt){const r=34,c=2*Math.PI*r,[a,b]=NXG[i%NXG.length],id='nxr'+(++nxN),p=Math.max(0,Math.min(100,pct||0));
+  return `<div class="nx-ring"><svg viewBox="0 0 84 84" width="84" height="84" aria-hidden="true"><defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${a}"/><stop offset="1" stop-color="${b}"/></linearGradient></defs><circle cx="42" cy="42" r="${r}" fill="none" stroke="rgba(34,211,238,.14)" stroke-width="7"/><circle cx="42" cy="42" r="${r}" fill="none" stroke="url(#${id})" stroke-width="7" stroke-linecap="round" stroke-dasharray="${(c*p/100).toFixed(1)} ${c.toFixed(1)}" transform="rotate(-90 42 42)" style="filter:drop-shadow(0 0 5px ${b})"/><text x="42" y="47" text-anchor="middle" font-size="16" font-weight="700" fill="#E0F7FF">${txt!=null?txt:p+'%'}</text></svg><b>${val}</b><small>${lab}</small></div>`}
+function nxBar(i,ic,lab,val,pct,sub){const [a,b]=NXG[i%NXG.length];return `<div class="nx-br"><span class="nx-ic" style="border-color:${a};color:${b}">${ic}</span><div class="nx-bm"><div class="nx-bt"><span>${lab}</span><b>${val}</b></div><div class="nx-trk"><i style="width:${Math.max(0,Math.min(100,pct||0))}%;background:linear-gradient(90deg,${a},${b});box-shadow:0 0 10px ${b}"></i></div>${sub?`<small>${sub}</small>`:''}</div></div>`}
+function nxChart(vals,vals2,labels){const w=330,h=110,n=vals.length||1,bw=w/n*.55,m=Math.max(1,...vals,...(vals2||[])),id='nxc'+(++nxN);let s='';
+  vals.forEach((v,i)=>{const x=i*w/n+(w/n-bw)/2,hh=Math.max(v>0?2:0,v/m*(h-14));s+=`<rect x="${x.toFixed(1)}" y="${(h-hh).toFixed(1)}" width="${bw.toFixed(1)}" height="${hh.toFixed(1)}" rx="3" fill="url(#${id})" style="filter:drop-shadow(0 0 4px #0EA5E9)"/>`});
+  if(vals2){const pt=(v,i)=>[(i*w/n+w/n/2).toFixed(1),(h-Math.max(0,v)/m*(h-14)).toFixed(1)];s+=`<polyline points="${vals2.map((v,i)=>pt(v,i).join(',')).join(' ')}" fill="none" stroke="#A3E635" stroke-width="2.5" style="filter:drop-shadow(0 0 4px #A3E635)"/>`+vals2.map((v,i)=>{const [x,y]=pt(v,i);return `<circle cx="${x}" cy="${y}" r="3" fill="#A3E635"/>`}).join('')}
+  return `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}" preserveAspectRatio="none" aria-hidden="true"><defs><linearGradient id="${id}" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#0EA5E9"/><stop offset="1" stop-color="#22D3EE"/></linearGradient></defs>${s}</svg>${labels?`<div class="nx-ax">${labels.map(l=>`<span>${l}</span>`).join('')}</div>`:''}`}
+const nxDC=i=>[NXG[0][1],NXG[1][1],NXG[4][0],NXG[3][0]][i%4];
+function nxDonut(parts){const tot=parts.reduce((a,p)=>a+Math.max(0,p[1]),0);if(!tot)return '<p class="nx-note">אין עדיין הכנסות בחודש הזה.</p>';const r=40,c=2*Math.PI*r;let off=0,s='';
+  parts.forEach((p,i)=>{const pc=Math.max(0,p[1])/tot,b=nxDC(i);if(pc>0)s+=`<circle cx="50" cy="50" r="${r}" fill="none" stroke="${b}" stroke-width="14" stroke-dasharray="${Math.max(0,c*pc-2).toFixed(1)} ${c.toFixed(1)}" stroke-dashoffset="${(-off).toFixed(1)}" transform="rotate(-90 50 50)" style="filter:drop-shadow(0 0 4px ${b})"/>`;off+=c*pc});
+  return `<div class="nx-dn"><svg viewBox="0 0 100 100" width="110" height="110" aria-hidden="true">${s}</svg><div>${parts.map((p,i)=>`<div class="nx-lg"><i style="background:${nxDC(i)}"></i><span>${p[0]}</span> <b>${nxPct(Math.max(0,p[1]),tot)}%</b></div>`).join('')}</div></div>`}
+const nxCard=(title,body,cls='')=>`<div class="nx-c ${cls}">${title?`<h3>${title}</h3>`:''}${body}</div>`;
+function nxHero(title,val,cur,prev,cls=''){const d=prev>0?Math.round((cur-prev)/prev*100):null;
+  return nxCard(title,`<div class="nx-big">${val}</div>${d!=null?`<div class="nx-dl ${d>=0?'nx-up':'nx-down'}"><b>${d>=0?'▲':'▼'} ${Math.abs(d)}%</b> <span>מהחודש הקודם</span></div>`:''}`,cls)}
+const nxIc=n=>esc(String(n||'').replace(/[^A-Za-z0-9֐-׿]/g,'').slice(0,2).toUpperCase()||'•');
 function vGm(){const hs=modHs('gm',scopeHs());if(!hs.length)return wrap(emptyBox('אין מלונות בהרשאה','בעל המערכת יכול להוסיף לך מלון בעמוד ההרשאות.'));
   if(!hs.includes(S.hotel))S.hotel=hs[0];const h=S.hotel;gmLoad(h);const G=S.gmData[h]||{};
   const w=S.week,today=todayISO(),sched=S.scheds[h]||{},daily=(sched.daily||{})[today]||{};
@@ -2630,18 +2679,34 @@ function vGm(){const hs=modHs('gm',scopeHs());if(!hs.length)return wrap(emptyBox
   const evM=(G.quotes||[]).filter(q=>q.status==='approved'&&q.kind!=='group'&&q.event&&q.event.date>=mStart&&q.event.date<=mEnd&&evForHotel(q,h)),evRev=evM.reduce((t,q)=>t+quoteNet(q,18),0);
   const gq=grpHotelSub(h),grpM=(gq||[]).filter(g=>g.status==='confirmed'),grpRev=grpM.reduce((t,g)=>t+(grpMonthShare(g)[M]||0),0),grpN=grpM.filter(g=>grpMonthShare(g)[M]).length;
   const inc=lodging+grpRev+evRev,mon=G.mgr?gmMonth(h,M):null,lab=mon&&mon.ready&&!mon.err?laborMonth(h,M,mon):null,net=inc-(lab?lab.labor:0)-mExp;
-  const money=`<h3 style="margin:10px 0 4px"><span>הכנסות והוצאות</span> · ${monLabel(M)}</h3><div class="kpis">
-    ${kpi('הכנסות מלינה',srM&&srM.__err?'—':ils(lodging),srM&&srM.__err?'אין גישה לדוחות':`${srN} דוחות סוף משמרת · מזומן לפי 420 + אשראי`)}
-    ${kpi('הכנסות מקבוצות',gq===null?'—':ils(grpRev),gq===null?'אין גישה לקבוצות':`${grpN} קבוצות מאושרות · לפי הלילות בחודש`)}
-    ${kpi('הכנסות מאירועים',G.quotes===null?'—':ils(evRev),G.quotes===null?'אין גישה לאירועים':`${evM.length} אירועים שאושרו · לפני מע״מ`)}
-    ${kpi('סה״כ הכנסות',ils(inc),'לינה + קבוצות + אירועים')}
-    ${G.mgr?kpi('עלות עובדים',lab?ils(lab.labor):mon&&mon.err?'—':'…',lab?`${fmtH(lab.hours)} שעות לתשלום`:mon&&mon.err?esc(mon.err):'מחשב…'):''}
-    ${G.invs?kpi('הוצאות ספקים',ils(mExp),'לפי חשבוניות · לפני מע״מ'):''}
-    ${kpi('הכנסות פחות הוצאות',ils(net),inc&&lab?`עלות העובדים ${Math.round(lab.labor/inc*100)}% מההכנסות`:'',net<0?'bad':'ok')}</div>
-    <p class="muted" style="font-size:.8rem;margin:0">הכל לפי החודש שנבחר. לינה = מזומן לפי דוח 420 ואשראי מדוחות סוף משמרת. קבוצות = קבוצות מאושרות בעמוד הקבוצות (בשקלים), לפי הלילות שבחודש. אירועים = הצעות שאושרו בחללים של המלון, לפי תאריך האירוע, לפני מע״מ. עובדים = לפי הסידורים של החודש ושכר חודשי, עם עלות מעסיק.</p>`;
-  const head=`<section class="head"><div class="head-t"><h1>מנהל מלון · ${esc(hotelName(h))}</h1>${nav}</div>${chips}
-    <div class="kpis">${G.invs?kpi('חוב לספקים',ils(owe),late?`${late} חשבוניות באיחור`:`${unpaid.length} חשבוניות פתוחות`,late?'bad':''):''}
-    ${kpi('ממתינות לאישור',String(pendN),pendN?'פירוט למטה':'אין בקשות פתוחות',pendN?'bad':'ok')}</div>${money}</section>`;
+  // previous month for the change line
+  const Mp=monAdd(M,-1),mpS=Mp+'-01',mpE=monLast(Mp);srSub(h,Mp);const srP=(S.sreps||{})[h+'|'+Mp],srPOk=srP&&!srP.__err;
+  const incP=(srPOk?Object.values(srP).reduce((t,r)=>t+srIncome(r),0):0)+(G.quotes||[]).filter(q=>q.status==='approved'&&q.kind!=='group'&&q.event&&q.event.date>=mpS&&q.event.date<=mpE&&evForHotel(q,h)).reduce((t,q)=>t+quoteNet(q,18),0)+(gq||[]).filter(g=>g.status==='confirmed').reduce((t,g)=>t+(grpMonthShare(g)[Mp]||0),0);
+  // live status: housekeeping board now, check-ins, who is on shift now, today's events, open faults
+  faultsSub(h);const foN=faultsOf(h).filter(([,f])=>f.status!=='done').length;
+  const X=briefHk(h,today),crewNow=bcCrew(h,'now'),me=S.emps&&S.emps[S.uid]&&(S.emps[S.uid].hotel||'main')===h&&crewOf(h,today,DEPTS.map(d=>d.k)).on.some(c=>c.u===S.uid);
+  const byDept={};for(const c of crewNow){const d=((S.emps[c.u]||{}).depts||[])[0]||'';byDept[d]=(byDept[d]||0)+1}
+  const evT=(G.quotes||[]).filter(q=>q.status!=='declined'&&q.event&&q.event.date&&q.event.date<=today&&evEndD(q.event)>=today&&evForHotel(q,h)).sort((a,b)=>String(a.event.start||'').localeCompare(String(b.event.start||'')));
+  const RC={vc:'#A3E635',vi:'#FACC15',vd:'#EF4444',od:'#F97316',oc:'#6EE7A0',ooo:'#94A3B8'};
+  const rooms=X&&!X.wait&&!X.err?`<div class="nx-rooms">${HK_CLEAN.map(([k,c,n])=>`<div class="nx-rm" style="border-color:${RC[k]};color:${RC[k]};background:${RC[k]}14" title="${esc(n)}"><b>${X.cc(k)}</b><span>${c}</span></div>`).join('')}${X.oos?`<div class="nx-rm" style="border-color:#A78BFA;color:#A78BFA;background:#A78BFA14"><b>${X.oos}</b><span>OOS</span></div>`:''}</div>
+    <div class="nx-sub"><div class="nx-k"><b>${X.ready.length}/${X.res.length}</b><span>צ׳ק אין היום · מוכנים</span></div><div class="nx-k"><b>${X.co('co')}</b><span>צ׳ק אאוט היום</span></div><div class="nx-k"><b>${X.co('free')}</b><span>חדרים פנויים</span></div></div>`
+    :X&&X.wait?'<p class="nx-note">טוען את לוח המשק…</p>':X&&X.err?'<p class="nx-note">אין גישה ללוח המשק</p>':'';
+  const live=nxCard('<span class="nx-live"></span><span>סטטוס המלון עכשיו</span>',rooms+`<div class="nx-sub"><div class="nx-k"><b>${crewNow.length+(me?1:0)}</b><span>עובדים במשמרת עכשיו</span></div><div class="nx-k"><b>${evT.length}</b><span>אירועים היום</span></div><div class="nx-k"><b class="${foN?'nx-down':''}">${foN}</b><span>תקלות פתוחות</span></div></div>
+    ${crewNow.length?`<div class="nx-row">${Object.entries(byDept).map(([d,n])=>`<span class="nx-pill">${esc(DMAP[d]?.n||'אחר')} · ${n}</span>`).join('')}</div>`:''}
+    ${evT.length?`<div style="margin-top:8px">${evT.slice(0,5).map(q=>`<div class="nx-ev"><span><b>${esc(q.event.start||'')}</b> ${esc(q.client?.name||'')}</span><small>${esc(q.event.type||'')} · ${+q.event.guests||0} <span>אורחים</span>${q.kind==='group'?' · <span>קבוצת מלון</span>':q.status==='approved'?'':' · <span>טנטטיב</span>'}</small></div>`).join('')}</div>`:''}`,'nx-w');
+  const labV=lab?lab.labor:0,mMax=Math.max(lodging,evRev,grpRev,labV,mExp,1);
+  const days=monDays(M),dayInc=days.map(d=>(srOk?Object.values(srM).filter(r=>r.date===d).reduce((t,r)=>t+srIncome(r),0):0)+evM.filter(q=>q.event.date===d).reduce((t,q)=>t+quoteNet(q,18),0));
+  const dl=days.map((d,i)=>(i===0||i===days.length-1||(i+1)%7===0)?String(i+1):'');
+  const cnt=n=>Math.min(100,n*10);
+  const dash=`<div class="nx-g nx-3">
+    ${live}
+    <div class="nx-st">${nxHero('<span>הכנסות החודש</span> · '+monLabel(M),ils(inc),inc,incP)}
+    ${nxCard('מדדים מרכזיים',`<div class="nx-rings">${nxRing(0,nxPct(Math.max(net,0),inc),lab||!G.mgr?nxK(net):'…','רווח נקי')}${G.mgr?nxRing(1,lab?nxPct(lab.labor,inc):0,lab?nxK(lab.labor):mon&&mon.err?'—':'…','עלות עובדים'):nxRing(1,nxPct(mExp,inc),nxK(mExp),'ספקים')}${X&&!X.wait&&!X.err?nxRing(2,nxPct(X.cc('vc')+X.cc('vi')+X.cc('oc'),hkRooms(h).units.length),`${X.cc('vc')+X.cc('vi')+X.cc('oc')}/${hkRooms(h).units.length}`,'חדרים נקיים'):nxRing(2,nxPct(mExp,inc),nxK(mExp),'ספקים')}</div><p class="nx-note">רווח ועובדים באחוזים מתוך ההכנסות של החודש.</p>`)}</div>
+    ${nxCard('כסף החודש',nxBar(0,'🛏','לינה',srM&&srM.__err?'—':ils(lodging),nxPct(lodging,mMax),srM&&srM.__err?'':`${srN} <span>דוחות סוף משמרת</span>`)+nxBar(1,'🎉','אירועים',G.quotes===null?'—':ils(evRev),nxPct(evRev,mMax),G.quotes===null?'':`${evM.length} <span>אירועים שאושרו</span>`)+nxBar(2,'🚌','קבוצות',gq===null?'—':ils(grpRev),nxPct(grpRev,mMax),gq===null?'':`${grpN} <span>קבוצות מאושרות</span>`)+(G.mgr?nxBar(3,'👥','עלות עובדים',lab?ils(lab.labor):'…',nxPct(labV,mMax),lab?`${fmtH(lab.hours)} <span>שעות לתשלום</span>`:''):'')+(G.invs?nxBar(4,'📦','ספקים',ils(mExp),nxPct(mExp,mMax)):'')+`<div class="nx-sub"><div class="nx-k"><b class="${net<0?'nx-down':'nx-up'}">${ils(net)}</b><span>הכנסות פחות הוצאות</span></div></div>`)}
+    ${nxCard('מה מחכה לי',nxBar(1,'✓','ממתין לאישור',String(pendN),cnt(pendN),pendN?`${preqs.length} <span>דרישות רכש</span> · ${toApprove.length} <span>חשבוניות</span> · ${sreqs.length} <span>בקשות משמרת</span>`:'<span>אין בקשות פתוחות</span>')+nxBar(3,'🔧','תקלות פתוחות',String(foN),cnt(foN))+(G.stock?nxBar(0,'📦','מלאי במינימום',String(low.length),cnt(low.length)):'')+(G.invs?nxBar(4,'₪','חוב לספקים',ils(owe),cnt(unpaid.length),late?`${late} <span>חשבוניות באיחור</span>`:`${unpaid.length} <span>חשבוניות פתוחות</span>`):''))}
+    ${nxCard('<span>הכנסות לפי יום</span> · <span>לינה ואירועים</span>',nxChart(dayInc,null,dl),'nx-w')}
+  </div><p class="nx-note">הכל לפי החודש שנבחר. לינה = מזומן לפי דוח 420 ואשראי מדוחות סוף משמרת. קבוצות = קבוצות מאושרות בעמוד הקבוצות (בשקלים), לפי הלילות שבחודש. אירועים = הצעות שאושרו בחללים של המלון, לפי תאריך האירוע, לפני מע״מ. עובדים = לפי הסידורים של החודש ושכר חודשי, עם עלות מעסיק.</p>`;
+  const head=`<section class="head"><div class="head-t"><h1>מנהל מלון · ${esc(hotelName(h))}</h1>${nav}</div>${chips}${dash}</section>`;
   const reqCard=`<div class="card" style="${pendN?'border-color:var(--brass)':''}"><h3>בקשות ממתינות לאישור · ${pendN}</h3>
     ${preqs.length?`<h3 style="font-size:.95rem">דרישות רכש</h3><div class="plist">${preqs.map(([rid,r])=>`<div class="prow"><span class="who"><b>${esc(r.itemName)} · ${+r.qty} ${esc(r.unit||'')}</b><small>${esc(DMAP[r.dept]?.n||'')} · ${esc(empName(r.by)||'')}${r.note?' · '+esc(r.note):''}</small></span><span class="actions"><button class="btn sm pri" data-act="preq-st" data-r="${rid}" data-h="${h}" data-st="approved">אישור</button><button class="btn sm" data-act="preq-st" data-r="${rid}" data-h="${h}" data-st="declined">דחייה</button></span></div>`).join('')}</div>`:''}
     ${toApprove.length?`<h3 style="font-size:.95rem">חשבוניות לאישור תשלום</h3><div class="plist">${toApprove.slice(0,15).map(([iid,v])=>`<div class="prow"><span class="who"><b>${esc((S.sups||{})[v.supplier]?.name||'ספק')}${v.number?' · #'+esc(v.number):''}</b><small>${v.date?dm(v.date):''} · ${invPill(v)}</small></span><span class="actions"><b class="mono">${ils(invTotals(v).total)}</b>${S.can.exp?`<button class="btn sm pri" data-act="inv-status" data-id="${iid}" data-st="approved">אישור לתשלום</button>`:''}</span></div>`).join('')}</div>`:''}

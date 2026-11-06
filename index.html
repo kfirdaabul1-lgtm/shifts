@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202611060830"></script>
+<script src="i18n.js?v=202611060845"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -4035,9 +4035,12 @@ function vOrg(){return vPerms()}
 // every chain is its own Firebase project (config.js SC_CHAINS); other chains are reached through a second Firebase app + one Google sign-in
 S.pc=S.pc||{};
 // chains from config.js + the registry (home database, collection "chains", added from Kfir app)
-function allChains(){const L=(window.SC_CHAINS||[]).slice();Object.values(S.reg||{}).forEach(c=>{if(c&&c.id&&!L.some(x=>x.id===c.id))L.push(c)});return L}
+function regCached(){const o={};try{for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k.startsWith('scChainCfg:')){const c=JSON.parse(localStorage.getItem(k)||'null');if(c&&c.id)o[c.id]=c}}}catch(_){ }return o}
+function allChains(){const L=(window.SC_CHAINS||[]).slice();Object.values(S.reg||regCached()).forEach(c=>{if(c&&c.id&&!L.some(x=>x.id===c.id))L.push(c)});return L}
 function homeDb(){const h=window.SC_HOME;if(!h||CFG.chainId===h)return fdb;const o=chainApp(h);return o&&o.signed?o.db:null}
-function regLoad(force){if(S.regLoading||(S.reg&&!force))return;const db=homeDb();if(!db)return;S.regLoading=true;db.collection('chains').get().then(q=>{S.reg={};q.docs.forEach(d=>{const c={...d.data(),id:d.id};S.reg[d.id]=c;try{localStorage.setItem('scChainCfg:'+d.id,JSON.stringify(c))}catch(_){ }});S.regLoading=false;render()},()=>{S.regLoading=false;S.reg=S.reg||{}})}
+function regLoad(force){if(S.regLoading||(S.reg&&!force))return;const db=homeDb();if(!db)return;S.regLoading=true;db.collection('chains').get().then(q=>{S.reg={};S.regErr='';q.docs.forEach(d=>{const c={...d.data(),id:d.id};S.reg[d.id]=c;try{localStorage.setItem('scChainCfg:'+d.id,JSON.stringify(c))}catch(_){ }});S.regLoading=false;render()},e=>{S.regLoading=false;S.regErr=errMsg(mapErr(e));render()})}
+// the registry is re-read every time a Kfir app page opens (owner, Nov 6: an independent hotel was missing from the permissions list)
+function regErrHTML(){return S.regErr?`<div class="card" style="border-color:var(--warn)"><b>לא הצלחתי לטעון את רשימת הרשתות והמלונות</b><p class="muted">${esc(S.regErr)}</p><button class="btn sm" data-act="reg-reload">ניסיון נוסף</button></div>`:''}
 // paste of Firebase's "const firebaseConfig = {...}" → config object
 function parseFbCfg(t){const o={};['apiKey','authDomain','projectId','storageBucket','messagingSenderId','appId','measurementId'].forEach(k=>{const m=new RegExp(k+'\\s*:\\s*["\']([^"\']+)["\']').exec(String(t||''));if(m)o[k]=m[1]});return o.apiKey&&o.projectId&&o.appId?o:null}
 function chainInfo(id){if(id===CFG.chainId)return {db:fdb,signed:true,org:S.org||{},hotels:hotelIds().length,hlist:hotelIds().map(h=>[h,hotelName(h)]),cur:true};return S.pc[id]||(chainApp(id),S.pc[id])}
@@ -4050,16 +4053,16 @@ const licOn=(org,m)=>((org||{}).lic||{})[m]!==false;
 const chainKind=c=>c&&c.kind==='hotel'?'hotel':'chain';
 function chainRow(c){const i=chainInfo(c.id)||{},cur=c.id===CFG.chainId,nm=cur?appName():((i.org&&i.org.name)||c.appName||c.id),hotel=chainKind(c)==='hotel';
   return `<div class="prow" style="flex-wrap:wrap"><span class="who"><b>${esc(nm)}</b><small>${cur?'פעיל עכשיו':i.signed?'מחובר':'לא מחובר עדיין'}${!hotel&&i.hotels!=null?' · '+i.hotels+' מלונות':''}${i.err?' · '+esc(i.err):''}</small></span><span class="actions" style="gap:6px">${cur?'<button class="btn sm pri" data-act="pexit">כניסה</button>':`${i.signed?'':`<button class="btn sm" data-act="pc-login" data-id="${esc(c.id)}">התחברות</button>`}<button class="btn sm pri" data-act="chain-go" data-id="${esc(c.id)}">כניסה</button>`}</span></div>`}
-function vPChains(){regLoad();const L=allChains();L.forEach(c=>chainInfo(c.id));const ch=L.filter(c=>chainKind(c)==='chain'),ho=L.filter(c=>chainKind(c)==='hotel');
+function vPChains(){if(!S.regFresh){S.regFresh=1;regLoad(true)}else regLoad();const L=allChains();L.forEach(c=>chainInfo(c.id));const ch=L.filter(c=>chainKind(c)==='chain'),ho=L.filter(c=>chainKind(c)==='hotel');
   return wrap(`<section class="head"><div class="head-t"><h1>רשתות ומלונות</h1></div><p class="lede">כל הלקוחות במערכת. לכל רשת ולכל מלון עצמאי מאגר נפרד; מלון עצמאי עובד בדיוק כמו רשת עם מלון אחד.</p></section>
-  ${appRefreshHTML()}
+  ${appRefreshHTML()}${regErrHTML()}
   <div class="card"><h3>רשתות</h3><div class="plist">${ch.map(chainRow).join('')||'<p class="muted">אין רשתות.</p>'}</div><div class="actions" style="margin-top:8px"><button class="btn" data-act="ch-add" data-k="chain">+ רשת חדשה</button></div></div>
   <div class="card"><h3>מלונות עצמאיים</h3><div class="plist">${ho.map(chainRow).join('')||'<p class="muted">עוד אין מלונות שלא שייכים לרשת.</p>'}</div><div class="actions" style="margin-top:8px"><button class="btn" data-act="ch-add" data-k="hotel">+ מלון עצמאי</button></div></div>
   ${hotelAddHTML()}
   <p class="muted" style="font-size:.82rem">רשת או מלון חדש מקבלים מאגר משלהם, כך שהנתונים שלהם נפרדים לגמרי מכל השאר. את ההקמה עושים יחד עם Claude, ואחריה הם מופיעים כאן.</p>`)}
 function vPBk(){return wrap(`<section class="head"><div class="head-t"><h1>גיבויים</h1></div><p class="lede">גיבוי של הרשת הפעילה. לגיבוי של רשת אחרת נכנסים לרשת ההיא.</p></section>`+backupHTML()+autoBackupHTML())}
 function vPJobs(){return wrap(`<section class="head"><div class="head-t"><h1>תפקידים</h1></div><p class="lede">התפקידים של הרשת הפעילה: לכל תפקיד בוחרים אילו הרשאות יש לו, ובעמוד העובדים משייכים אליו אנשים. לתפקידים של רשת אחרת נכנסים לרשת ההיא.</p></section>`+jobsCardHTML())}
-function vPPerms(){regLoad();const L=allChains();L.forEach(c=>chainInfo(c.id));
+function vPPerms(){if(!S.regFresh){S.regFresh=1;regLoad(true)}else regLoad();const L=allChains();L.forEach(c=>chainInfo(c.id));
   // permissions per body (owner, Nov 6): every chain, every hotel inside it and every independent hotel is listed; tap one to choose its pages
   const nm=c=>{const i=chainInfo(c.id)||{};return c.id===CFG.chainId?appName():((i.org&&i.org.name)||c.appName||c.id)};
   const row=c=>{const i=chainInfo(c.id)||{},org=i.org,hotel=chainKind(c)==='hotel',hl=(!hotel&&org&&i.hlist)||[];
@@ -4068,7 +4071,7 @@ function vPPerms(){regLoad();const L=allChains();L.forEach(c=>chainInfo(c.id));
       return `<button class="prow" data-act="hlic-open" data-id="${esc(c.id)}" data-h="${esc(h)}" style="width:calc(100% - 24px);margin-inline-start:24px;text-align:start;background:none;font:inherit;color:inherit;cursor:pointer;border-inline-start:3px solid var(--line)"><span class="who"><b>🏨 ${esc(hn)}</b><small>מלון ברשת${off.length?' · '+off.length+' עמודים כבויים':' · כל העמודים של הרשת'}</small></span><span class="meta">${off.map(m=>`<span class="pill">${esc((MODS.find(x=>x[0]===m)||[,m])[1])} כבוי</span>`).join('')}</span></button>`}).join('')}`};
   const ch=L.filter(c=>chainKind(c)==='chain'),ho=L.filter(c=>chainKind(c)==='hotel');
   return wrap(`<section class="head"><div class="head-t"><h1>הרשאות רשתות</h1></div><p class="lede">לוחצים על רשת, על מלון ברשת או על מלון עצמאי ובוחרים אילו עמודים יש לו. עמוד שלא ניתן לא מופיע שם בכלל, גם לא לבעלים.</p></section>
-  <div class="card"><h3>רשתות ומלונות ברשתות</h3><div class="plist">${ch.map(row).join('')||'<p class="muted">אין רשתות.</p>'}</div></div>
+  ${regErrHTML()}<div class="card"><h3>רשתות ומלונות ברשתות</h3><div class="plist">${ch.map(row).join('')||'<p class="muted">אין רשתות.</p>'}</div></div>
   <div class="card"><h3>מלונות עצמאיים</h3><div class="plist">${ho.map(row).join('')||'<p class="muted">אין מלונות עצמאיים.</p>'}</div>
   <p class="muted" style="font-size:.82rem;margin-top:8px">סידור עבודה, עובדים, הרשאות והגדרות קיימים תמיד. במלון בתוך רשת אפשר לכבות רק עמודים שהרשת קיבלה; אירועים, קבוצות, ספא, מבט מנכ״ל, סושיאל והוצאות הם לכל הרשת יחד.</p></div>`)}
 function sheetHLic(){const id=S.sheet.id,h=S.sheet.h,i=chainInfo(id)||{},org=i.org;
@@ -4328,7 +4331,7 @@ const ACT={
   'app-cfg':()=>{S.menu=false;setTab('cfg')},
   'app-org':()=>{S.menu=false;setTab('org')},
   brand:()=>{S.menu=false;if(S.plat){S.pmode=true;setTab('pchains')}else setTab('org')},
-  ptab:D=>{S.menu=false;S.pmode=true;setTab(D.t)},
+  ptab:D=>{S.menu=false;S.pmode=true;S.regFresh=0;setTab(D.t)},
   pexit:()=>{S.menu=false;S.pmode=false;setTab(S.station?'front':S.admin?'sched':'avail')},
   'pc-login':D=>{const c=chainApp(D.id);if(!c)return toast('אי אפשר להתחבר לרשת הזו');c.auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()).then(()=>chainLoad(D.id),e=>toast('ההתחברות נכשלה: '+(e&&e.message||'')))},
   'ch-add':D=>{S.drafts.cha=null;S.sheet={type:'chadd',kind:D.k};render()},
@@ -4340,6 +4343,7 @@ const ACT={
     const doc={id,name,kind:S.sheet.kind==='hotel'?'hotel':'chain',appName:name,firebase:fb,legacyPresets:false,createdAt:Date.now()};
     db.doc('chains/'+id).set(doc).then(()=>{S.reg={...(S.reg||{}),[id]:doc};try{localStorage.setItem('scChainCfg:'+id,JSON.stringify(doc))}catch(_){ }S.sheet={type:'chadd',kind:doc.kind,saved:id,owner,name};chainApp(id);render()},e=>toast('השמירה נכשלה: '+errMsg(mapErr(e))))},
   'ch-finish':()=>{const sh=S.sheet,o=S.pc[sh.saved];if(!o||!o.db)return;o.db.doc('orgcfg/main').set({name:sh.name,ownerEmail:sh.owner,kind:sh.kind,appUrl:CFG.appUrl||(location.origin+location.pathname),createdAt:Date.now()},{merge:true}).then(()=>{toast('ההגדרה הושלמה');S.sheet=null;S.drafts.cha=null;chainLoad(sh.saved);render()},e=>toast('לא הצלחתי לכתוב במאגר החדש: '+errMsg(mapErr(e))+' — בדקו שהחוקים פורסמו'))},
+  'reg-reload':()=>{S.regErr='';regLoad(true)},
   'hlic-open':D=>{S.drafts.hlic=null;S.sheet={type:'hlic',id:D.id,h:D.h};render()},
   'hlic-t':D=>{const i=chainInfo(S.sheet.id)||{},d=S.drafts.hlic||(S.drafts.hlic={off:{...(((i.org||{}).hmods||{})[S.sheet.h]||{})}});if(d.off[D.m]===false)delete d.off[D.m];else d.off[D.m]=false;render()},
   'hlic-save':()=>{const id=S.sheet.id,h=S.sheet.h,c=chainInfo(id),d=S.drafts.hlic;if(!d)return toast('אין שינויים');if(!c||!c.db)return toast('צריך להתחבר לרשת קודם');

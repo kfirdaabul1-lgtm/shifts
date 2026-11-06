@@ -1,0 +1,42 @@
+// Runs from the deploy workflow (owner, Nov 6): sets up the managers' assistant (function `assistant`).
+// 1) the Secret Manager secret ANTHROPIC_API_KEY exists (never prints it), 2) the functions' runtime account may read it,
+// 3) the HTTP function is public (our code checks the Firebase ID token itself), probe: GET → our 405 {"error":"method"}.
+const admin = require('firebase-admin');
+const P = 'hotel-shifts', SA = `serviceAccount:${P}@appspot.gserviceaccount.com`, ROLE = 'roles/secretmanager.secretAccessor', SEC = 'ANTHROPIC_API_KEY';
+const note = (t, m) => console.log(`::notice title=${t}::${String(m).replace(/\n/g, ' ').slice(0, 400)}`);
+const FN = 'https://europe-west1-hotel-shifts.cloudfunctions.net/assistant';
+(async () => {
+  const { access_token: t } = await admin.credential.applicationDefault().getAccessToken(), H = { Authorization: 'Bearer ' + t, 'Content-Type': 'application/json' };
+  const sm = `https://secretmanager.googleapis.com/v1/projects/${P}/secrets/${SEC}`;
+  const s = await (await fetch(sm, { headers: H })).json();
+  if (s.error) note('Assistant key', 'secret ' + SEC + ': ' + s.error.message);
+  else {
+    const v = await (await fetch(sm + '/versions/latest', { headers: H })).json();
+    note('Assistant key', v.error ? 'no version: ' + v.error.message : 'secret found, latest version ' + String(v.name || '').split('/').pop() + ' ' + (v.state || ''));
+    const pol = await (await fetch(sm + ':getIamPolicy', { headers: H })).json();
+    if (pol.error) note('Assistant key access', 'getIamPolicy: ' + pol.error.message);
+    else {
+      const b = (pol.bindings || []).find((x) => x.role === ROLE);
+      if (b && (b.members || []).includes(SA)) note('Assistant key access', 'runtime account already allowed');
+      else {
+        const bindings = (pol.bindings || []).filter((x) => x.role !== ROLE).concat([{ role: ROLE, members: [...new Set([...(b ? b.members : []), SA])] }]);
+        const r = await (await fetch(sm + ':setIamPolicy', { method: 'POST', headers: H, body: JSON.stringify({ policy: { ...pol, bindings } }) })).json();
+        note('Assistant key access', r.error ? 'setIamPolicy: ' + r.error.message : 'granted the runtime account access to the key');
+      }
+    }
+  }
+  const probe = () => fetch(FN).then(async (x) => ({ s: x.status, b: (await x.text()).slice(0, 60) })).catch((e) => ({ s: 0, b: e.message }));
+  let p = await probe(); note('Assistant probe', 'status ' + p.s + ' · ' + p.b);
+  if (p.s !== 405) {
+    const base = `https://cloudfunctions.googleapis.com/v1/projects/${P}/locations/europe-west1/functions/assistant`;
+    const pol = await (await fetch(base + ':getIamPolicy', { headers: H })).json();
+    if (pol.error) note('Assistant invoker', 'getIamPolicy: ' + pol.error.message);
+    else {
+      const b = (pol.bindings || []).find((x) => x.role === 'roles/cloudfunctions.invoker');
+      const bindings = (pol.bindings || []).filter((x) => x.role !== 'roles/cloudfunctions.invoker').concat([{ role: 'roles/cloudfunctions.invoker', members: [...new Set([...(b ? b.members : []), 'allUsers'])] }]);
+      const r = await (await fetch(base + ':setIamPolicy', { method: 'POST', headers: H, body: JSON.stringify({ policy: { ...pol, bindings } }) })).json();
+      note('Assistant invoker', r.error ? 'setIamPolicy: ' + r.error.message : 'made public');
+      await new Promise((x) => setTimeout(x, 20000)); p = await probe(); note('Assistant probe 2', 'status ' + p.s + ' · ' + p.b);
+    }
+  }
+})().catch((e) => note('Assistant setup error', e.message));

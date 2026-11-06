@@ -1551,3 +1551,7 @@ exports.leadVenueSync = trig('leads/{id}').onUpdate(async (ch, ctx) => {
     for (const d of q.docs) if ((d.data().venue || '') !== v) await d.ref.set({ venue: v }, { merge: true });
   }
 });
+
+
+// managers' assistant (owner, Nov 6): chat with Claude over the hotel's data, read-only, permission-checked → assistant.js
+exports.assistant = require('./assistant.js').assistant;

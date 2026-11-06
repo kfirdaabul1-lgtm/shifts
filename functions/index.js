@@ -1075,9 +1075,9 @@ function spaFree(o, c, date, mins, dayDocs, nowMs, roster, want) {
   }
   return out;
 }
-const spaItems = (c) => (c.menu || []).filter((m) => m.online !== false && +m.mins > 0).map((m) => ({ id: m.id, name: m.name, mins: +m.mins, price: +m.price || 0, desc: m.desc || '', couple: m.ppl == 2, fri: +m.fri || 0, sat: +m.sat || 0 }));
-// price of an online item on a date: single = per person, couple = per pair; Fri/Sat supplement added per unit
-const spaPrice = (it, date, ppl) => { const w = new Date(date + 'T12:00:00Z').getUTCDay(), u = it.price + (w === 5 ? it.fri : w === 6 ? it.sat : 0); return it.couple ? u : u * ppl; };
+const spaItems = (c) => (c.menu || []).filter((m) => m.online !== false && +m.mins > 0).map((m) => ({ id: m.id, name: m.name, mins: +m.mins, price: +m.price || 0, desc: m.desc || '', couple: m.ppl == 2, wk: +m.fri || +m.sat || 0 }));
+// price of an online item on a date: single = per person, couple = per pair; one weekend supplement (Fri + Sat) added per unit
+const spaPrice = (it, date, ppl) => { const w = new Date(date + 'T12:00:00Z').getUTCDay(), u = it.price + (w === 5 || w === 6 ? it.wk : 0); return it.couple ? u : u * ppl; };
 exports.spaPublic = functions.region(REGION).https.onRequest(async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*'); res.set('Access-Control-Allow-Headers', 'Content-Type'); res.set('Access-Control-Allow-Methods', 'GET, POST');
   if (req.method === 'OPTIONS') { res.status(204).send(''); return; }

@@ -14,22 +14,22 @@ async function waitFor(ids, maxMin) {
   }
 }
 (async () => {
+  // the repo and its Actions logs are public: diag prints only ids, status and sizes, never report text or business numbers
   if (String(process.env.DIAG).startsWith('rep:')) {
     const q = await db.collection('adReports').where('week', '==', process.env.DIAG.slice(4)).get();
-    q.docs.forEach((d) => { const x = d.data(); console.log('::notice title=' + d.id + '::' + JSON.stringify({ h: x.headline, s: x.summary, hl: x.highlights, d: x.directions, c: x.caveats, m: x.metrics && x.metrics.lastWeek }).slice(0, 3000)); });
-    const hs = await db.collection('hotels').get(); console.log('::notice title=hotels::' + hs.docs.map((d) => d.id + '=' + (d.data().name || '')).join(', '));
+    q.docs.forEach((d) => { const x = d.data(); console.log('::notice title=' + d.id + '::' + JSON.stringify({ kind: x.kind, hotel: x.hotel || 'chain', backfill: !!x.backfill, chars: JSON.stringify(x).length })); });
     return;
   }
   if (process.env.DIAG) {
     const q = await db.collection('agentLog').orderBy('at', 'desc').limit(8).get();
-    q.docs.forEach((d) => console.log('::notice title=log::' + JSON.stringify(d.data()).slice(0, 900)));
+    q.docs.forEach((d) => { const x = d.data(); console.log('::notice title=log::' + JSON.stringify({ agent: x.agent, at: x.at, kind: x.kind, scope: x.scope, ok: x.ok, error: x.error ? String(x.error).slice(0, 200) : undefined })); });
     return;
   }
   const stamp = Date.now().toString(36), since = process.env.SINCE || '';
   if (since) {
     const id = 'meta_' + stamp; await db.doc('adsJobs/' + id).set({ kind: 'meta', since, at: Date.now() });
     const [d] = await waitFor([id], 9); const x = d.data() || {};
-    console.log('::notice title=Meta pull::' + (x.status || '?') + ' ' + JSON.stringify(x.result || x.error || '').slice(0, 900));
+    console.log('::notice title=Meta pull::' + (x.status || '?') + ' ' + JSON.stringify(x.error || (x.result ? 'done' : '')).slice(0, 300));
   }
   const weeks = String(process.env.WEEKS || '').split(',').map((w) => w.trim()).filter((w) => /^\d{4}-\d{2}-\d{2}$/.test(w));
   const ids = [];

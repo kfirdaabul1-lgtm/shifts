@@ -23,7 +23,7 @@ async function ownTok() {
   const docs = [];
   for (const d of q.docs) {
     // the system owner (platform e-mail) gets notifications only from his home chain (Seven, project hotel-shifts) (owner, Nov 5)
-    if (ownU[d.id] === undefined) { try { const u = await admin.auth().getUser(d.id), em = String(u.email || '').toLowerCase(); ownU[d.id] = (em === 'kfirdaabul1@gmail.com' && (process.env.GCLOUD_PROJECT || process.env.GCP_PROJECT || 'hotel-shifts') !== 'hotel-shifts') ? false : await pwIsOwnerMail(em); } catch (e) { ownU[d.id] = false; } }
+    if (ownU[d.id] === undefined) { try { const u = await admin.auth().getUser(d.id), em = String(u.email || '').toLowerCase(); ownU[d.id] = !u.emailVerified ? false : (em === 'kfirdaabul1@gmail.com' && (process.env.GCLOUD_PROJECT || process.env.GCP_PROJECT || 'hotel-shifts') !== 'hotel-shifts') ? false : await pwIsOwnerMail(em); } catch (e) { ownU[d.id] = false; } }
     if (ownU[d.id]) docs.push(d);
   }
   return { docs, empty: !docs.length, size: docs.length, forEach: (f) => docs.forEach(f) };
@@ -1019,7 +1019,7 @@ exports.onBroadcast = trig('broadcasts/{id}').onCreate(async (snap) => {
   // owner, Nov 4: a hotel manager's message reaches only that hotel's staff; only the CEO (or the owner) sends to the whole chain
   let ceo = false;
   try { const r = await db.doc('roles/' + b.by).get(); ceo = !!(r.exists && (r.data().apps || {}).ceo); } catch (e) {}
-  if (!ceo) { try { const u = await admin.auth().getUser(b.by); ceo = await pwIsOwnerMail(u.email); } catch (e) {} }
+  if (!ceo) { try { const u = await admin.auth().getUser(b.by); ceo = !!u.emailVerified && (await pwIsOwnerMail(u.email)); } catch (e) {} }
   if (!ceo) {
     if (b.hotel === 'chain' || !b.hotel) to = [];
     else {
@@ -1257,7 +1257,7 @@ exports.pwGuard = functions.region(REGION).https.onRequest(async (req, res) => {
     if (op === 'info' || op === 'sendreset') {
       const uid = String(b.uid || '');
       if (!/^[A-Za-z0-9_-]{6,128}$/.test(uid)) { res.status(400).json({ error: 'bad' }); return; }
-      const owner = tok.email_verified !== false && (await pwIsOwnerMail(tok.email));
+      const owner = tok.email_verified === true && (await pwIsOwnerMail(tok.email));
       let ok = owner;
       if (!ok && uid !== tok.uid) {
         const [cr, te] = await Promise.all([db.doc('roles/' + tok.uid).get(), db.doc('employees/' + uid).get()]);
@@ -1285,7 +1285,7 @@ exports.pwGuard = functions.region(REGION).https.onRequest(async (req, res) => {
       if (!/^[A-Za-z0-9_-]{6,128}$/.test(uid) || pw.length < 6 || pw.length > 128) { res.status(400).json({ error: 'bad' }); return; }
       let target = null; try { target = await admin.auth().getUser(uid); } catch (e) {}
       if (!target || !(target.providerData || []).some((p) => p.providerId === 'password')) { res.status(404).json({ error: 'nouser' }); return; }
-      const owner = tok.email_verified !== false && (await pwIsOwnerMail(tok.email));
+      const owner = tok.email_verified === true && (await pwIsOwnerMail(tok.email));
       let ok = owner;
       if (!ok) {
         if (realMail(target.email) || (await pwIsOwnerMail(target.email)) || uid === tok.uid) { res.status(403).json({ error: 'realmail' }); return; }
@@ -1425,7 +1425,7 @@ exports.onGuideWa = trig('groups/{id}').onUpdate(async (ch, ctx) => {
   try {
     if (q.by) { const r = await db.doc('roles/' + q.by).get(); const rd = r.exists ? r.data() : {}; const hs = rd.hotels || [], ap = rd.apps || {};
       let okRole = (ap.front || ap.gm || ap.shifts || ap.grp) && (!hs.length || hs.includes(a.hotel));
-      if (!okRole) { try { const u = await admin.auth().getUser(q.by); okRole = await pwIsOwnerMail(u.email); } catch (e) {} }
+      if (!okRole) { try { const u = await admin.auth().getUser(q.by); okRole = !!u.emailVerified && (await pwIsOwnerMail(u.email)); } catch (e) {} }
       if (!okRole) return done(false, 'אין הרשאה לשלוח'); }
     const c = await waCfg(); if (!c.token) return done(false, 'הוואטסאפ של המערכת עוד לא מחובר');
     const to = waIdFrom(a.guidePhone); if (!to) return done(false, 'אין מספר טלפון תקין למדריך');

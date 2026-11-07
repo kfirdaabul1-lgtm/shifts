@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202611070810"></script>
+<script src="i18n.js?v=202611071036"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -3035,7 +3035,7 @@ const rP=v=>v==null||v===''?'':'₪'+Math.round(+v).toLocaleString('he-IL');
 function ratesCell(b,s){ // b = booking row, s = site row (either may be missing)
   const bp=b&&b.price!=null?+b.price:null,sp=s&&s.price!=null?+s.price:null;
   if(bp==null&&sp==null)return `<td class="rt-c rt-out"><span>אזל</span></td>`;
-  const gap=bp!=null&&sp!=null?bp-sp:null,cls=gap==null?'':gap<0?'rt-good':gap>0?'rt-bad':'';
+  const gap=bp!=null&&sp!=null?bp-sp:null,cls=gap==null?'':gap>0?'rt-good':gap<0?'rt-bad':'';
   return `<td class="rt-c ${cls}"><div class="rt-l"><small>Genius</small><b>${bp!=null?rP(bp):'—'}</b><span>${b&&b.orig!=null&&+b.orig>bp?`<s>${rP(b.orig)}</s> `:''}${b&&b.bf?'<i title="כולל ארוחת בוקר">☕</i>':''}</span></div><div class="rt-l"><small>אתר הבית</small><b>${sp!=null?rP(sp):'—'}</b><span>${s&&s.bf?'<i title="כולל ארוחת בוקר">☕</i>':''}</span></div>${gap!=null?`<div class="rt-gap">${gap?`<span dir="ltr">${gap>0?'+':'−'}${rP(Math.abs(gap))}</span>`:'<span>אותו מחיר</span>'}</div>`:''}${(b&&b.left!=null&&+b.left<=3)||(s&&s.left!=null&&+s.left<=3)?`<div class="rt-left"><span>נשארו</span> ${Math.min(...[b&&b.left,s&&s.left].filter(x=>x!=null).map(Number))}</div>`:''}</td>`}
 function ratesKeyHTML(){if(!S.isOwner)return '';ratesCfgSub();const c=S.ratesCfg,k=c&&c.key;
   const body=`<p class="muted"><span>הסוכן שבודק מחירים שולח את התוצאות לכתובת הזו, עם המפתח. רק בעל המערכת רואה את המפתח. אפשר להחליף אותו בכל רגע, ואז צריך לעדכן אותו גם במשימה של הסוכן.</span></p>
@@ -3064,8 +3064,8 @@ function vRates(){const hs=ratesHs();if(!hs.length)return wrap(emptyBox('אין 
   let cheaper=0,dearer=0;dates.forEach(d=>{const b=minOf('booking',d),s=minOf('site',d);if(b&&s){if(+b.price<+s.price)cheaper++;else if(+b.price>+s.price)dearer++}});
   const runSel=R.runs.length>1?`<select data-ratesrun style="width:auto">${R.runs.map(r=>`<option value="${esc(r.id)}" ${r.id===run.id?'selected':''}>${esc(fmtDM(r.runDate||''))}</option>`).join('')}</select>`:'';
   const table=`<div class="card"><div class="row" style="justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center"><h3 style="margin:0"><span>ריצה אחרונה</span>: ${at?esc(fmtDM(run.runDate))+' · '+at.toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'}):''}</h3>${runSel}</div>
-    <div class="kpis" style="margin:10px 0"><div class="kpi"><b>${dates.length}</b><span>תאריכים</span></div><div class="kpi"><b style="color:var(--ok)">${cheaper}</b><span>ימים ש-Genius זול מהאתר</span></div><div class="kpi"><b style="color:var(--bad)">${dearer}</b><span>ימים ש-Genius יקר מהאתר</span></div></div>
-    <p class="muted" style="font-size:.8rem"><span>לילה אחד, 2 מבוגרים. ירוק = Genius זול מאתר הבית, אדום = Genius יקר מאתר הבית. ☕ = כולל ארוחת בוקר (ב-Booking Genius יש ארוחת בוקר ובאתר הבית לא, ולכן ההשוואה לא שווה לגמרי).</span></p>
+    <div class="kpis" style="margin:10px 0"><div class="kpi"><b>${dates.length}</b><span>תאריכים</span></div><div class="kpi"><b style="color:var(--ok)">${dearer}</b><span>ימים שאתר הבית זול</span></div><div class="kpi"><b style="color:var(--bad)">${cheaper}</b><span>ימים ש-Booking זול</span></div></div>
+    <p class="muted" style="font-size:.8rem"><span>לילה אחד, 2 מבוגרים. ירוק = אתר הבית זול מ-Booking Genius, אדום = Booking Genius זול מאתר הבית. ☕ = כולל ארוחת בוקר (ב-Booking Genius יש ארוחת בוקר ובאתר הבית לא, ולכן ההשוואה לא שווה לגמרי).</span></p>
     <div class="rt-wrap"><table class="rt"><thead><tr><th>תאריך</th><th>הכי זול</th>${rooms.map(r=>`<th>${esc(r)}</th>`).join('')}</tr></thead><tbody>
     ${dates.map(d=>`<tr><th class="rt-d">${esc(fmtDM(d).slice(0,5))}<small>${dw(d)}</small></th>${ratesCell(minOf('booking',d),minOf('site',d))}${rooms.map(rm=>ratesCell(pick('booking',d,rm),pick('site',d,rm))).join('')}</tr>`).join('')}
     </tbody></table></div></div>`;

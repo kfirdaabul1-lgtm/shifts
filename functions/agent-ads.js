@@ -8,8 +8,11 @@
 //
 // Who gets which report (one run per scope):
 //   chain scope (hotel '')   - all data; read by the owner, the CEO and marketing holders who see every hotel
-//   hotel scope (hotel 'h1') - only the campaigns and leads whose venue belongs to that hotel (settings/{hotel}.venues); read by that hotel's manager
-//   A hotel with no event venues, and campaigns / leads with no venue, appear in the chain report only.
+//   hotel scope (hotel 'h1') - only the campaigns and leads that belong to that hotel; read by that hotel's manager. EVERY hotel gets one
+//   (also one with no event venues, e.g. a hostel that advertises rooms or hiring). Which hotel a campaign / lead belongs to is decided by, in order:
+//     1. a hotel field on the document, 2. the Meta connection (agentcfg/ads.hotelOf {connectionId or connection name: hotelId}),
+//     3. the venue (settings/{hotel}.venues), 4. the hotel's name inside the connection / campaign name, 5. (leads) the campaign it came from.
+//   Anything that matches no hotel appears in the chain report only. The chain report always has everything.
 //
 // Schedule (Israel time):
 //   adsDaily  07:00 every day except Sunday - a short analysis: what changed, what needs attention
@@ -30,25 +33,37 @@ const r2 = (x) => Math.round(x * 100) / 100;
 const div = (a, b) => (b > 0 ? r2(a / b) : null);
 const isSunday = (iso) => new Date(iso + 'T12:00:00Z').getUTCDay() === 0;
 
-// ---------- scopes: the chain, and every hotel that owns event venues ----------
-async function scopeList() {
-  const [hs, ss] = await Promise.all([db.collection('hotels').get(), db.collection('settings').get()]);
-  const venues = {}; ss.docs.forEach((d) => { const v = (d.data() || {}).venues; venues[d.id] = Array.isArray(v) ? v : []; });
-  const out = [{ key: 'chain', hotel: '', name: 'כל הרשת', venues: null }];
-  hs.docs.forEach((d) => { const v = venues[d.id] || []; if (v.length) out.push({ key: d.id, hotel: d.id, name: (d.data() || {}).name || d.id, venues: v }); });
-  return out;
+// ---------- scopes: the chain, and every hotel ----------
+const norm = (x) => String(x || '').toLowerCase().replace(/^the\s+/, '').replace(/[^a-z0-9֐-׿]+/g, '');
+// which hotel does a campaign / lead belong to (see the header for the order)
+async function attribution(cfg) {
+  const [hs, ss, cs] = await Promise.all([db.collection('hotels').get(), db.collection('settings').get(), db.collection('campaigns').get()]);
+  const hotels = hs.docs.map((d) => ({ id: d.id, name: (d.data() || {}).name || d.id, key: norm((d.data() || {}).name || d.id) })), ids = new Set(hotels.map((h) => h.id));
+  const venueHotel = {}; ss.docs.forEach((d) => { const v = (d.data() || {}).venues; if (ids.has(d.id) && Array.isArray(v)) v.forEach((x) => { if (x && !venueHotel[x]) venueHotel[x] = d.id; }); });
+  const conf = {}; Object.entries(cfg.hotelOf || {}).forEach(([k, v]) => { if (ids.has(v)) conf[norm(k)] = v; });
+  const byConn = (id, name) => conf[norm(id)] || conf[norm(name)] || '';
+  const byText = (t) => { const n = norm(t), hit = hotels.filter((h) => h.key.length >= 3 && n.includes(h.key)); return hit.length === 1 ? hit[0].id : ''; };
+  const ok = (h) => (ids.has(h) ? h : '');
+  const camp = (c) => ok(c.hotel) || byConn(c.metaConn, c.metaConnName) || venueHotel[c.venue] || byText((c.metaConnName || '') + ' ' + (c.name || '')) || '';
+  const byName = {}; cs.docs.forEach((d) => { const c = d.data() || {}, n = String(c.name || '').trim(), h = camp(c); if (n && h && !byName[n]) byName[n] = h; });
+  const lead = (l) => ok(l.hotel) || byConn(l.metaConn, l.metaConnName) || venueHotel[l.venue] || byName[String(l.campaign || '').trim()] || byText(l.campaign) || '';
+  return { hotels, camp, lead };
 }
-const inScope = (scope, venue) => scope.venues === null || scope.venues.includes(venue || '');
+async function scopeList(cfg) {
+  const A = await attribution(cfg || {});
+  return [{ key: 'chain', hotel: '', name: 'כל הרשת', A: null }, ...A.hotels.map((h) => ({ key: h.id, hotel: h.id, name: h.name, A }))];
+}
+const inScope = (scope, kind, item) => !scope.A || scope.A[kind](item) === scope.hotel;
 
 // ---------- data (always through a scope) ----------
 async function campRows(scope, from, to) {
   const w0 = C.weekOf(from), snap = await db.collection('campaigns').get();
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((c) => inScope(scope, c.venue))
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((c) => inScope(scope, 'camp', c))
     .map((c) => ({ ...c, week: c.week || C.weekOf(c.start || C.ilDate(new Date())) })).filter((c) => c.week >= w0 && c.week <= to);
 }
 async function leadsIn(scope, from, to) {
   const t0 = Date.parse(from + 'T00:00:00+02:00'), t1 = Date.parse(to + 'T23:59:59+02:00');
-  return (await db.collection('leads').get()).docs.map((d) => d.data()).filter((l) => inScope(scope, l.venue) && (+l.createdAt || 0) >= t0 && (+l.createdAt || 0) <= t1);
+  return (await db.collection('leads').get()).docs.map((d) => d.data()).filter((l) => inScope(scope, 'lead', l) && (+l.createdAt || 0) >= t0 && (+l.createdAt || 0) <= t1);
 }
 const rowOut = (c) => ({ week: c.week, name: c.name || '', platform: c.platform || '', spend: r2(+c.spend || 0), leads: +c.leads || 0, conversations: +c.msgs || 0, impressions: +c.impressions || 0, clicks: +c.clicks || 0, ctrPct: c.impressions ? r2((+c.clicks || 0) / c.impressions * 100) : null, cpl: div(+c.spend || 0, (+c.leads || 0)), revenue: +c.revenue || 0, cplMax: +c.cplMax || null, source: c.auto === 'meta' ? 'meta-sync' : 'manual' });
 const range = (a) => { const to = C.isoOk(a.to) ? a.to : C.ilDate(new Date()); const from = C.isoOk(a.from) ? a.from : C.addDays(to, -28); return { from, to }; };
@@ -96,7 +111,7 @@ function readTools(scope) {
 // ---------- prompts ----------
 function system(kb, scope, kind) {
   const who = scope.hotel ? `the manager of ${scope.name}` : 'the chain management (owner / CEO)';
-  const rules = `You are the paid-advertising analyst of the Seven Collection hotels (event venues 7EVEN / Sola, The Gutman with its spa, 7seas, Hostel 180). Today is ${C.ilDate(new Date())}.
+  const rules = `You are the paid-advertising analyst of the Seven Collection hotels (7EVEN / Sola, The Gutman with its spa, 7seas, Hostel 180). The ads are not only for events: they also promote rooms, the spa, brides and hiring (a hostel has no event hall and advertises rooms and jobs). Today is ${C.ilDate(new Date())}.
 You write a ${kind === 'weekly' ? 'WEEKLY CAMPAIGN REPORT' : 'DAILY ANALYSIS'} for ${who}, for scope "${scope.name}". It is a document the manager READS in the app, not a chat: write it so it can be read in under a minute and acted on.
 
 You can only READ data. You cannot change campaigns, budgets, bids or creatives, and you never say that you did. Directions you suggest are for the manager to decide.
@@ -175,7 +190,7 @@ async function runAll(kind, force) {
   const today = C.ilDate(new Date());
   if (!force && kind === 'daily' && isSunday(today)) return []; // on Sunday the weekly report replaces the daily one
   const done = [];
-  for (const s of await scopeList()) { // one after the other: the scheduled function has up to 9 minutes
+  for (const s of await scopeList(cfg)) { // one after the other: the scheduled function has up to 9 minutes
     try { done.push(await runScope(s, kind, cfg, today, force)); }
     catch (e) { console.error('ads', kind, s.key, e); await C.logRun('ads', { scope: s.key, kind, error: clip(e.message || e, 300) }); done.push({ scope: s.key, error: true }); }
   }
@@ -211,7 +226,7 @@ exports.adsAgent = http('adsAgent', 120, async (req, res, cfg, u) => {
     .filter((m) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.text === 'string' && m.text.trim()).map((m) => ({ role: m.role, content: m.text.slice(0, 2000) }));
   while (hist.length && hist[0].role !== 'user') hist.shift();
   if (!hist.length || hist[hist.length - 1].role !== 'user') { res.status(400).json({ error: 'empty' }); return; }
-  const scope = { key: 'chain', hotel: '', name: 'כל הרשת', venues: null }, model = cfg.model || SMART;
+  const scope = { key: 'chain', hotel: '', name: 'כל הרשת', A: null }, model = cfg.model || SMART;
   const out = await C.runLoop({ model, system: system(await C.loadKB('ads'), scope, 'daily').map((b) => ({ ...b, text: b.text.replace(/Finish by calling save_report ONCE[^\n]*/, 'Answer the owner\'s question directly.') })), tools: readTools(scope), messages: hist, maxTurns: 8, maxTokens: 1200 });
   await C.logRun('ads', { uid: u.uid, kind: 'chat', model, usage: out.U, tools: out.used });
   res.json({ text: out.text || 'לא הצלחתי לענות על זה. אפשר לנסח אחרת?', tools: [...new Set(out.used)] });

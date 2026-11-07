@@ -4,6 +4,11 @@ on:
     branches: [main]
     paths: ['functions/**', 'firebase.json', '.github/workflows/deploy-functions.yml']
   workflow_dispatch:
+    inputs:
+      only:
+        description: 'What to deploy (default: all functions), e.g. functions:adsDaily,functions:adsWeekly'
+        required: false
+        default: ''
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -16,12 +21,18 @@ jobs:
       - name: Deploy to Firebase
         env:
           KEY: ${{ secrets.FIREBASE_DEPLOY_KEY }}
+          ONLY: ${{ inputs.only }}
+          MSG: ${{ github.event.head_commit.message }}
         run: |
           if [ -z "$KEY" ]; then echo "Secret FIREBASE_DEPLOY_KEY is missing"; exit 1; fi
           echo "$KEY" > "$RUNNER_TEMP/key.json"
           export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/key.json"
+          TARGET="${ONLY:-functions}"
+          # a push whose commit message has [ads-only] deploys only the paid-advertising agent
+          case "$MSG" in *"[ads-only]"*) TARGET="functions:adsDaily,functions:adsWeekly,functions:adsRunNow,functions:adsAgent";; esac
+          echo "Deploying: $TARGET"
           set +e
-          npx -y firebase-tools@13 deploy --only functions --project hotel-shifts --non-interactive --force 2>&1 | tee "$RUNNER_TEMP/out.txt"
+          npx -y firebase-tools@13 deploy --only "$TARGET" --project hotel-shifts --non-interactive --force 2>&1 | tee "$RUNNER_TEMP/out.txt"
           rc=${PIPESTATUS[0]}
           if [ "$rc" != "0" ]; then
             { tail -n 40 "$RUNNER_TEMP/out.txt"; [ -f firebase-debug.log ] && grep -iE 'error|denied|permission|requires|enable' firebase-debug.log | tail -n 25; } > "$RUNNER_TEMP/err.txt"

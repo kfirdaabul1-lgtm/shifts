@@ -3030,7 +3030,7 @@ const RATES_URL='https://europe-west1-hotel-shifts.cloudfunctions.net/ratesInges
 function ratesHs(){return S.isOwner||S.can.ceo?hotelIds():scopeHs()}
 function ratesSub(h){S.rates=S.rates||{};if(S.rates[h])return S.rates[h];S.rates[h]={wait:true,runs:[]};
   S.db.collection('ratesLog').where('hotel','==',h).onSnapshot(q=>{const runs=q.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.runAt||0)-(a.runAt||0)).slice(0,12);S.rates[h]={runs};render()},e=>{S.rates[h]={err:e.message||'שגיאה',runs:[]};render()});return S.rates[h]}
-function ratesCfgSub(){if(S.ratesCfg!==undefined||!S.isOwner)return;S.ratesCfg=null;S.db.collection('ratescfg').doc('main').onSnapshot(d=>{S.ratesCfg=d.exists?d.data():{};render()},()=>{S.ratesCfg={}})}
+function ratesCfgSub(){if(S.ratesCfg!==undefined||!S.isOwner)return;S.ratesCfg=null;fdb.doc('ratescfg/main').onSnapshot(d=>{S.ratesCfg=d.exists?d.data():{};render()},()=>{S.ratesCfg={}})}
 const rP=v=>v==null||v===''?'':'₪'+Math.round(+v).toLocaleString('he-IL');
 function ratesCell(b,s){ // b = booking row, s = site row (either may be missing)
   const bp=b&&b.price!=null?+b.price:null,sp=s&&s.price!=null?+s.price:null;
@@ -5074,7 +5074,7 @@ const ACT={
   'app-bar':()=>{S.menu=false;setTab('bar')},
   'app-rates':()=>{S.menu=false;setTab('rates')},
   'rates-h':e=>{S.ratesH=e.dataset.h;S.ratesRun='';render()},
-  'rates-key':async()=>{if(!S.isOwner)return;if((S.ratesCfg||{}).key&&S.confirm!=='rkey'){S.confirm='rkey';render();setTimeout(()=>{if(S.confirm==='rkey'){S.confirm='';render()}},4000);return}S.confirm='';const a=new Uint8Array(24);crypto.getRandomValues(a);const k='r'+[...a].map(x=>x.toString(16).padStart(2,'0')).join('');try{await S.db.collection('ratescfg').doc('main').set({key:k,at:Date.now(),by:S.uid},{merge:true});toast('המפתח נשמר')}catch(err){toast('שמירה נכשלה: '+(err.message||''))}},
+  'rates-key':async()=>{if(!S.isOwner)return;if((S.ratesCfg||{}).key&&S.confirm!=='rkey'){S.confirm='rkey';render();setTimeout(()=>{if(S.confirm==='rkey'){S.confirm='';render()}},4000);return}S.confirm='';const a=new Uint8Array(24);crypto.getRandomValues(a);const k='r'+[...a].map(x=>x.toString(16).padStart(2,'0')).join('');try{await fdb.doc('ratescfg/main').set({key:k,at:Date.now(),by:S.uid},{merge:true});toast('המפתח נשמר')}catch(err){toast('שמירה נכשלה: '+(err.message||''))}},
   'rates-copy':async()=>{try{await navigator.clipboard.writeText(ratesAgentText());toast('ההוראות הועתקו. הדבק אותן בשיחה של סוכן המחירים.')}catch(e){toast('ההעתקה נכשלה')}},
   'bar-h':D=>{S.barH=D.h;render()},
   'bar-month':D=>{S.barM=monAdd(S.barM||todayISO().slice(0,7),+D.d);render()},

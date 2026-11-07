@@ -16,8 +16,10 @@ const { fxSync } = require('./fx.js');
       const lines = g.lines || []; const rooms = lines.reduce((t, l) => t + (+l.rooms || 0), 0);
       inc(rooms > 0 ? 'hasRooms' : 'noRooms'); inc(lines.some((l) => +l.price > 0) ? 'linePrice' : 'noLinePrice');
       inc(g.plId ? 'hasPl' : 'noPl'); inc(g.noPl ? 'freeMode' : 'plMode'); inc(+g.rate > 0 ? 'legacyRate' : 'noLegacyRate');
-      inc(g.origin ? 'origin:' + g.origin : 'noOrigin');
+      inc(g.origin ? 'origin:' + g.origin : 'noOrigin'); inc('h:' + (g.hotel || '-') + ':' + (g.cur || 'ils') + ':' + (rooms > 0 ? 'rooms' : 'empty'));
     }
+    const hs = await admin.firestore().collection('hotels').get(); console.log('::notice title=grp hotels::' + hs.docs.map((d) => d.id + '=' + (d.data().name || '')).join(', '));
+    const fx = await admin.firestore().collection('fxRates').get(); console.log('::notice title=grp fx::' + fx.size + ' weeks');
     console.log('::notice title=grp diag::' + JSON.stringify(c)); return;
   }
   const fg = q.docs.map((d) => d.data()).filter((g) => g.cur && g.cur !== 'ils' && g.ci);

@@ -1,0 +1,220 @@
+// ================= Paid-advertising agent: daily analysis + weekly report, per hotel and for the chain (owner, Nov 7) =================
+// STATUS: written, NOT deployed. Not required from functions/index.js until you connect it (see claude/agents-setup.md).
+// Even when deployed it does nothing until agentcfg/ads.enabled === true.
+//
+// READ ONLY. The agent reads the campaign rows the Meta sync already writes (collection `campaigns`) and the CRM leads
+// (collection `leads`), and writes REPORTS for managers to READ in the app (collection `adReports`). It cannot change a campaign,
+// a budget or a bid: it has no tool for it, and the Meta token the app holds (ads_read) could not do it either.
+//
+// Who gets which report (one run per scope):
+//   chain scope (hotel '')   - all data; read by the owner, the CEO and marketing holders who see every hotel
+//   hotel scope (hotel 'h1') - only the campaigns and leads whose venue belongs to that hotel (settings/{hotel}.venues); read by that hotel's manager
+//   A hotel with no event venues, and campaigns / leads with no venue, appear in the chain report only.
+//
+// Schedule (Israel time):
+//   adsDaily  07:00 every day except Sunday - a short analysis: what changed, what needs attention
+//   adsWeekly 08:00 on Sunday               - the weekly campaign report for the week that just ended, with the directions the agent suggests
+// The daily run skips a scope when the numbers have not changed since the last analysis (saves tokens), but never for more than 3 days.
+// Manual run (owner only): POST adsRunNow {kind: 'daily' | 'weekly'}; chat with the data (owner only): POST adsAgent.
+//
+// Reports are documents adReports/{kind}_{scope}_{date|week}: {kind, hotel, scopeName, date, week, headline, summary, highlights[],
+// directions[], caveats, metrics, at, model, by:'ai'}. The numbers in `metrics` are computed by this code, not by the model.
+const functions = require('firebase-functions/v1');
+const crypto = require('crypto');
+const C = require('./agent-common');
+const { db } = C;
+const REGION = 'europe-west1';
+const SMART = 'claude-sonnet-5-5';
+const DEFAULTS = { enabled: false, model: '', daily: true, weekly: true, rateHour: 30, keepDailyDays: 45, skipMaxDays: 3 };
+const r2 = (x) => Math.round(x * 100) / 100;
+const div = (a, b) => (b > 0 ? r2(a / b) : null);
+const isSunday = (iso) => new Date(iso + 'T12:00:00Z').getUTCDay() === 0;
+
+// ---------- scopes: the chain, and every hotel that owns event venues ----------
+async function scopeList() {
+  const [hs, ss] = await Promise.all([db.collection('hotels').get(), db.collection('settings').get()]);
+  const venues = {}; ss.docs.forEach((d) => { const v = (d.data() || {}).venues; venues[d.id] = Array.isArray(v) ? v : []; });
+  const out = [{ key: 'chain', hotel: '', name: 'כל הרשת', venues: null }];
+  hs.docs.forEach((d) => { const v = venues[d.id] || []; if (v.length) out.push({ key: d.id, hotel: d.id, name: (d.data() || {}).name || d.id, venues: v }); });
+  return out;
+}
+const inScope = (scope, venue) => scope.venues === null || scope.venues.includes(venue || '');
+
+// ---------- data (always through a scope) ----------
+async function campRows(scope, from, to) {
+  const w0 = C.weekOf(from), snap = await db.collection('campaigns').get();
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((c) => inScope(scope, c.venue))
+    .map((c) => ({ ...c, week: c.week || C.weekOf(c.start || C.ilDate(new Date())) })).filter((c) => c.week >= w0 && c.week <= to);
+}
+async function leadsIn(scope, from, to) {
+  const t0 = Date.parse(from + 'T00:00:00+02:00'), t1 = Date.parse(to + 'T23:59:59+02:00');
+  return (await db.collection('leads').get()).docs.map((d) => d.data()).filter((l) => inScope(scope, l.venue) && (+l.createdAt || 0) >= t0 && (+l.createdAt || 0) <= t1);
+}
+const rowOut = (c) => ({ week: c.week, name: c.name || '', platform: c.platform || '', spend: r2(+c.spend || 0), leads: +c.leads || 0, conversations: +c.msgs || 0, impressions: +c.impressions || 0, clicks: +c.clicks || 0, ctrPct: c.impressions ? r2((+c.clicks || 0) / c.impressions * 100) : null, cpl: div(+c.spend || 0, (+c.leads || 0)), revenue: +c.revenue || 0, cplMax: +c.cplMax || null, source: c.auto === 'meta' ? 'meta-sync' : 'manual' });
+const range = (a) => { const to = C.isoOk(a.to) ? a.to : C.ilDate(new Date()); const from = C.isoOk(a.from) ? a.from : C.addDays(to, -28); return { from, to }; };
+const sumWeek = (rows, w) => { const x = rows.filter((c) => c.week === w).reduce((t, c) => ({ n: t.n + 1, spend: t.spend + (+c.spend || 0), leads: t.leads + (+c.leads || 0), conversations: t.conversations + (+c.msgs || 0), clicks: t.clicks + (+c.clicks || 0), impressions: t.impressions + (+c.impressions || 0) }), { n: 0, spend: 0, leads: 0, conversations: 0, clicks: 0, impressions: 0 }); return { ...x, spend: r2(x.spend), cpl: div(x.spend, x.leads) }; };
+
+// the numbers of a report, computed here (the model explains them, it does not calculate them)
+async function metricsOf(scope, today) {
+  const wk = C.weekOf(today), dow = new Date(today + 'T12:00:00Z').getUTCDay() + 1; // day of the week 1..7
+  const rows = await campRows(scope, C.addDays(wk, -35), today), leads = await leadsIn(scope, C.addDays(today, -90), today);
+  const fun = leads.reduce((t, l) => ({ leads: t.leads + 1, won: t.won + (l.stage === 'won' ? 1 : 0), lost: t.lost + (l.stage === 'lost' ? 1 : 0), revenue: t.revenue + (l.stage === 'won' ? +l.wonValue || 0 : 0) }), { leads: 0, won: 0, lost: 0, revenue: 0 });
+  const last4 = [1, 2, 3, 4].map((i) => sumWeek(rows, C.addDays(wk, -7 * i)));
+  return { today, weekStart: wk, dayOfWeek: dow, note: 'thisWeek is partial (dayOfWeek of 7 days so far); lastWeek and last4Weeks are complete weeks', thisWeek: sumWeek(rows, wk), lastWeek: last4[0], last4Weeks: last4, crm90d: { ...fun, revenue: Math.round(fun.revenue) }, hasData: rows.length > 0 || leads.length > 0 };
+}
+
+// ---------- tools (read-only; the scope is baked in, so a hotel report can never see another hotel) ----------
+function readTools(scope) {
+  return [
+    { name: 'campaign_weeks', description: 'Weekly campaign rows (Meta sync + manual reports): spend ₪, leads, conversations started, impressions, clicks, CTR, cost per lead, revenue. Default: last 4 weeks.',
+      input_schema: { type: 'object', properties: { weeks: { type: 'number', description: 'how many weeks back, default 4, max 26' }, platform: { type: 'string', description: 'meta | google | tiktok | other' } } },
+      run: async (a) => { const n = Math.min(26, Math.max(1, +a.weeks || 4)), to = C.ilDate(new Date()), from = C.addDays(to, -7 * n);
+        let rows = await campRows(scope, from, to); if (a.platform) rows = rows.filter((c) => c.platform === a.platform);
+        return { scope: scope.name, from, to, rows: rows.sort((x, y) => y.week.localeCompare(x.week) || (y.spend || 0) - (x.spend || 0)).slice(0, 150).map(rowOut) }; } },
+
+    { name: 'campaign_totals', description: 'Campaign totals for a date range (default last 28 days): spend, leads, conversations, clicks, CTR, cost per lead, over/under the cost-per-lead limit.',
+      input_schema: { type: 'object', properties: { from: { type: 'string', description: 'YYYY-MM-DD' }, to: { type: 'string', description: 'YYYY-MM-DD' } } },
+      run: async (a) => { const { from, to } = range(a), g = {}, lim = ((await db.doc('mktcfg/main').get()).data() || {}).cplMax || 0;
+        for (const c of await campRows(scope, from, to)) { const k = (c.name || '?') + '|' + (c.platform || ''), x = g[k] = g[k] || { name: c.name || '?', platform: c.platform || '', spend: 0, leads: 0, conversations: 0, impressions: 0, clicks: 0, revenue: 0, weeks: 0, cplMax: +c.cplMax || +lim || 0 };
+          x.spend += +c.spend || 0; x.leads += +c.leads || 0; x.conversations += +c.msgs || 0; x.impressions += +c.impressions || 0; x.clicks += +c.clicks || 0; x.revenue += +c.revenue || 0; x.weeks++; }
+        const rows = Object.values(g).map((x) => ({ ...x, spend: r2(x.spend), ctrPct: x.impressions ? r2(x.clicks / x.impressions * 100) : null, cpl: div(x.spend, x.leads), overCplLimit: !!x.cplMax && x.spend > 0 && (x.leads ? x.spend / x.leads > x.cplMax : true) })).sort((x, y) => y.spend - x.spend);
+        const T = rows.reduce((t, x) => ({ spend: t.spend + x.spend, leads: t.leads + x.leads, conversations: t.conversations + x.conversations }), { spend: 0, leads: 0, conversations: 0 });
+        return { scope: scope.name, from, to, defaultCplLimit: +lim || null, total: { ...T, spend: r2(T.spend), cpl: div(T.spend, T.leads) }, campaigns: rows.slice(0, 60) }; } },
+
+    { name: 'leads_funnel', description: 'What the leads really became (CRM), grouped by campaign (default), source, venue or kind. Counts: leads, open, won, lost, junk; won revenue (₪ before VAT), win rate, average days to close; for campaigns also spend, cost per lead, cost per won event and ROI.',
+      input_schema: { type: 'object', properties: { group: { type: 'string', enum: ['campaign', 'source', 'venue', 'kind'] }, from: { type: 'string' }, to: { type: 'string' } } },
+      run: async (a) => { const { from, to } = range(a), grp = ['source', 'venue', 'kind'].includes(a.group) ? a.group : 'campaign', ls = await leadsIn(scope, from, to), g = {}, lost = {};
+        for (const l of ls) { const k = grp === 'campaign' ? (l.campaign || '· ' + (l.source || 'no source')) : grp === 'source' ? (l.source || 'none') : grp === 'venue' ? (l.venue || 'none') : (l.cat || 'events');
+          const x = g[k] = g[k] || { n: 0, open: 0, won: 0, lost: 0, junk: 0, revenue: 0, days: 0 };
+          x.n++; if (l.stage === 'won') { x.won++; x.revenue += +l.wonValue || 0; if (l.wonAt && l.createdAt) x.days += (l.wonAt - l.createdAt) / 864e5; } else if (l.stage === 'lost') { x.lost++; const why = l.lostReason || 'not given'; lost[why] = (lost[why] || 0) + 1; } else if (l.stage === 'junk') x.junk++; else x.open++; }
+        const spend = {}; if (grp === 'campaign') for (const c of await campRows(scope, from, to)) { const n = String(c.name || '').trim(); if (n) spend[n] = (spend[n] || 0) + (+c.spend || 0); }
+        const rows = Object.entries(g).map(([k, x]) => { const sp = spend[k] || 0; return { group: k, leads: x.n, open: x.open, won: x.won, lost: x.lost, junk: x.junk, winRatePct: x.won + x.lost ? Math.round(x.won / (x.won + x.lost) * 100) : null, revenue: Math.round(x.revenue), avgDaysToClose: x.won ? r2(x.days / x.won) : null, ...(grp === 'campaign' ? { spend: r2(sp), costPerLead: div(sp, x.n), costPerWon: div(sp, x.won), roi: sp ? r2(x.revenue / sp) : null } : {}) }; }).sort((x, y) => y.revenue - x.revenue || y.leads - x.leads);
+        return { scope: scope.name, from, to, group: grp, note: 'Leads are counted by creation date; revenue is booked on the lead (stage won). Thin samples (<10 leads or <3 won) prove nothing.', rows: rows.slice(0, 60), lostReasons: lost }; } },
+  ];
+}
+
+// ---------- prompts ----------
+function system(kb, scope, kind) {
+  const who = scope.hotel ? `the manager of ${scope.name}` : 'the chain management (owner / CEO)';
+  const rules = `You are the paid-advertising analyst of the Seven Collection hotels (event venues 7EVEN / Sola, The Gutman with its spa, 7seas, Hostel 180). Today is ${C.ilDate(new Date())}.
+You write a ${kind === 'weekly' ? 'WEEKLY CAMPAIGN REPORT' : 'DAILY ANALYSIS'} for ${who}, for scope "${scope.name}". It is a document the manager READS in the app, not a chat: write it so it can be read in under a minute and acted on.
+
+You can only READ data. You cannot change campaigns, budgets, bids or creatives, and you never say that you did. Directions you suggest are for the manager to decide.
+Data: weekly campaign rows (the Meta sync writes spend ₪, impressions, clicks, leads, conversations started; manual reports may exist too) and the CRM leads with source, campaign name, stage and won revenue (before VAT). Google Ads is NOT connected yet: say so once in caveats, never invent Google numbers. The tools only show this scope's data.
+
+How to work:
+- The METRICS in the user message are computed by the system: trust and quote them, do not recompute. Use the tools to look inside campaigns and the CRM funnel.
+- Judge a campaign by what it brought, not by cheap leads: cost per lead AND cost per won event AND return on spend. Events close slowly (weeks), so recent weeks always look worse than they will: say so.
+- The current week is partial (see dayOfWeek): never call a partial week a drop without saying it is partial.
+- Flag campaigns over the cost-per-lead limit, big changes against the previous weeks, and leads with no campaign name (we cannot learn from them).
+- Small samples (under 10 leads or under 3 won) prove nothing: say the data is thin and what you would watch next.
+- ${kind === 'weekly' ? 'Weekly report: what happened this week against the previous weeks, which campaigns earned their budget and which did not, and up to 3 directions you suggest for next week. Build on the daily headlines you are given.' : 'Daily analysis: what changed since the previous analysis, and what needs attention today. If nothing important changed, say so in one line; do not repeat the previous analysis.'}
+- Directions: specific (which campaign, which number, what to do, why), at most 3, ranked. No generic marketing advice.
+- Write in Hebrew. Short. Numbers with ₪. Never invent a number.
+- Finish by calling save_report ONCE with the final content. That is what the manager reads.`;
+  const k = kb.trim() ? '\n\nBUSINESS CONTEXT FROM THE OWNER (goals, budgets, seasons, rules):\n' + kb : '\n\nBUSINESS CONTEXT: none given yet. Do not assume goals or budgets; state your assumption when it matters.';
+  return [{ type: 'text', text: rules + k, cache_control: { type: 'ephemeral' } }];
+}
+
+const clip = (s, n) => String(s == null ? '' : s).slice(0, n);
+const SAVE_REPORT = { name: 'save_report', description: 'Save the report the manager will read. Call it ONCE, at the end.',
+  input_schema: { type: 'object', properties: {
+    headline: { type: 'string', description: 'one line (Hebrew, max 140 chars): the single most important thing' },
+    summary: { type: 'string', description: '3-6 short sentences: what is happening, with numbers' },
+    highlights: { type: 'array', description: 'up to 6 campaigns worth a look', items: { type: 'object', properties: { campaign: { type: 'string' }, status: { type: 'string', enum: ['good', 'watch', 'bad'] }, note: { type: 'string' } }, required: ['campaign', 'status', 'note'] } },
+    directions: { type: 'array', description: 'up to 3 suggested directions, ranked', items: { type: 'object', properties: { title: { type: 'string' }, why: { type: 'string', description: 'the numbers behind it' }, action: { type: 'string' }, priority: { type: 'string', enum: ['high', 'medium', 'low'] } }, required: ['title', 'why', 'action'] } },
+    caveats: { type: 'string', description: 'data limits: thin sample, partial week, leads without campaign, Google not connected' } }, required: ['headline', 'summary'] } };
+const cleanReport = (a) => ({ headline: clip(a.headline, 200), summary: clip(a.summary, 1500),
+  highlights: (Array.isArray(a.highlights) ? a.highlights : []).slice(0, 6).map((h) => ({ campaign: clip(h.campaign, 120), status: ['good', 'watch', 'bad'].includes(h.status) ? h.status : 'watch', note: clip(h.note, 300) })),
+  directions: (Array.isArray(a.directions) ? a.directions : []).slice(0, 3).map((d) => ({ title: clip(d.title, 160), why: clip(d.why, 400), action: clip(d.action, 400), priority: ['high', 'medium', 'low'].includes(d.priority) ? d.priority : 'medium' })),
+  caveats: clip(a.caveats, 400) });
+
+// ---------- one scope, one report ----------
+async function previousReports(scope, ids) { // by fixed document ids, so no index is needed
+  const snaps = await Promise.all(ids.map((id) => db.doc('adReports/' + id).get()));
+  return snaps.filter((s) => s.exists).map((s) => { const d = s.data(); return { date: d.date, headline: d.headline, summary: clip(d.summary, 400), directions: (d.directions || []).map((x) => x.title) }; });
+}
+async function runScope(scope, kind, cfg, today, force) {
+  const M = await metricsOf(scope, today);
+  if (!M.hasData) return { scope: scope.key, skipped: 'no data' };
+  const digest = crypto.createHash('sha1').update(JSON.stringify([M.thisWeek, M.last4Weeks, M.crm90d])).digest('hex').slice(0, 16);
+  const sref = db.doc('agentState/ads_' + kind + '_' + scope.key), st = (await sref.get()).data() || {};
+  if (!force && kind === 'daily' && st.digest === digest && Date.now() - (+st.at || 0) < cfg.skipMaxDays * 864e5) return { scope: scope.key, skipped: 'unchanged' };
+
+  let week = M.weekStart, ctxTxt;
+  if (kind === 'weekly') {
+    week = C.addDays(M.weekStart, -7); // the week that just ended
+    const days = await previousReports(scope, [0, 1, 2, 3, 4, 5, 6].map((i) => 'daily_' + scope.key + '_' + C.addDays(week, i)));
+    ctxTxt = `Weekly report for the week ${week} to ${C.addDays(week, 6)} (Sunday to Saturday), compared with the weeks before it. It is now ${today}, so that week is complete; use campaign_weeks / campaign_totals with from=${week} and to=${C.addDays(week, 6)} for it.\nDaily headlines of that week (yours, from the daily analyses): ${JSON.stringify(days)}`;
+  } else {
+    const prev = await previousReports(scope, [1, 2, 3].map((i) => 'daily_' + scope.key + '_' + C.addDays(today, -i)));
+    const pw = await previousReports(scope, ['weekly_' + scope.key + '_' + C.addDays(M.weekStart, -7)]);
+    ctxTxt = `Daily analysis for ${today}.\nPrevious daily analyses (latest first): ${JSON.stringify(prev)}\nLast weekly report: ${JSON.stringify(pw)}`;
+  }
+  let saved = null;
+  const tools = [...readTools(scope), { ...SAVE_REPORT, run: async (a) => { saved = cleanReport(a || {}); return { saved: true }; } }];
+  const model = cfg.model || SMART;
+  const out = await C.runLoop({ model, system: system(await C.loadKB('ads'), scope, kind), tools, messages: [{ role: 'user', content: ctxTxt + '\n\nMETRICS (computed by the system):\n' + JSON.stringify(M) }], maxTurns: kind === 'weekly' ? 10 : 8, maxTokens: 1500 });
+  if (!saved) { const t = String(out.text || '').trim(); if (!t) { await C.logRun('ads', { scope: scope.key, kind, model, usage: out.U, error: 'no report produced' }); return { scope: scope.key, skipped: 'no report' }; } saved = cleanReport({ headline: t.split('\n')[0], summary: t }); }
+  const id = kind + '_' + scope.key + '_' + (kind === 'weekly' ? week : today);
+  await db.doc('adReports/' + id).set({ kind, hotel: scope.hotel, scopeKey: scope.key, scopeName: scope.name, date: today, week, ...saved, metrics: { thisWeek: M.thisWeek, lastWeek: M.lastWeek, dayOfWeek: M.dayOfWeek, crm90d: M.crm90d }, at: Date.now(), model, by: 'ai' });
+  await sref.set({ digest, at: Date.now() });
+  await C.logRun('ads', { scope: scope.key, kind, model, usage: out.U, tools: out.used, report: id });
+  return { scope: scope.key, report: id };
+}
+
+async function cleanupDaily(cfg) { // old daily analyses are not kept forever; weekly reports stay
+  try {
+    const cut = Date.now() - cfg.keepDailyDays * 864e5, q = await db.collection('adReports').where('at', '<', cut).limit(200).get();
+    for (const d of q.docs) if ((d.data() || {}).kind === 'daily') await d.ref.delete();
+  } catch (e) { console.error('adsDaily cleanup', e); }
+}
+async function runAll(kind, force) {
+  const cfg = { ...DEFAULTS, ...(await C.cfg('ads')) };
+  if (cfg.enabled !== true || (!force && cfg[kind] === false)) return [];
+  const today = C.ilDate(new Date());
+  if (!force && kind === 'daily' && isSunday(today)) return []; // on Sunday the weekly report replaces the daily one
+  const done = [];
+  for (const s of await scopeList()) { // one after the other: the scheduled function has up to 9 minutes
+    try { done.push(await runScope(s, kind, cfg, today, force)); }
+    catch (e) { console.error('ads', kind, s.key, e); await C.logRun('ads', { scope: s.key, kind, error: clip(e.message || e, 300) }); done.push({ scope: s.key, error: true }); }
+  }
+  if (kind === 'daily') await cleanupDaily(cfg);
+  return done;
+}
+exports.adsDaily = functions.region(REGION).runWith({ timeoutSeconds: 540, memory: '512MB' }).pubsub.schedule('0 7 * * *').timeZone('Asia/Jerusalem').onRun(async () => { await runAll('daily', false); return null; });
+exports.adsWeekly = functions.region(REGION).runWith({ timeoutSeconds: 540, memory: '512MB' }).pubsub.schedule('0 8 * * 0').timeZone('Asia/Jerusalem').onRun(async () => { await runAll('weekly', false); return null; });
+
+// ---------- owner-only: run now / chat with the data ----------
+async function rateOk(uid, max) {
+  const ref = db.doc('agentRate/ads_' + uid), hour = new Date().toISOString().slice(0, 13);
+  return db.runTransaction(async (tx) => { const s = await tx.get(ref), d = s.exists ? s.data() : {}, n = d.hour === hour ? (+d.n || 0) : 0; if (n >= max) return false; tx.set(ref, { hour, n: n + 1, total: (+d.total || 0) + 1, at: Date.now() }); return true; });
+}
+const http = (name, timeout, fn) => functions.region(REGION).runWith({ timeoutSeconds: timeout, memory: '512MB' }).https.onRequest(async (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*'); res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization'); res.set('Access-Control-Allow-Methods', 'POST');
+  if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
+  if (req.method !== 'POST') { res.status(405).json({ error: 'method' }); return; }
+  try {
+    const cfg = { ...DEFAULTS, ...(await C.cfg('ads')) };
+    if (cfg.enabled !== true) { res.status(503).json({ error: 'סוכן הקידום עוד לא הופעל.' }); return; }
+    const u = await C.ownerOnly(req); if (!u) { res.status(401).json({ error: 'auth' }); return; }
+    if (!(await rateOk(u.uid, cfg.rateHour))) { res.status(429).json({ error: 'הגעת למגבלת הבקשות לשעה.' }); return; }
+    await fn(req, res, cfg, u);
+  } catch (e) { console.error(name, e); res.status(500).json({ error: 'משהו השתבש. נסו שוב בעוד רגע.' }); }
+});
+exports.adsRunNow = http('adsRunNow', 540, async (req, res) => {
+  const kind = (req.body || {}).kind === 'weekly' ? 'weekly' : 'daily';
+  res.json({ kind, results: await runAll(kind, true) });
+});
+exports.adsAgent = http('adsAgent', 120, async (req, res, cfg, u) => {
+  const hist = (Array.isArray((req.body || {}).messages) ? req.body.messages : []).slice(-8)
+    .filter((m) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.text === 'string' && m.text.trim()).map((m) => ({ role: m.role, content: m.text.slice(0, 2000) }));
+  while (hist.length && hist[0].role !== 'user') hist.shift();
+  if (!hist.length || hist[hist.length - 1].role !== 'user') { res.status(400).json({ error: 'empty' }); return; }
+  const scope = { key: 'chain', hotel: '', name: 'כל הרשת', venues: null }, model = cfg.model || SMART;
+  const out = await C.runLoop({ model, system: system(await C.loadKB('ads'), scope, 'daily').map((b) => ({ ...b, text: b.text.replace(/Finish by calling save_report ONCE[^\n]*/, 'Answer the owner\'s question directly.') })), tools: readTools(scope), messages: hist, maxTurns: 8, maxTokens: 1200 });
+  await C.logRun('ads', { uid: u.uid, kind: 'chat', model, usage: out.U, tools: out.used });
+  res.json({ text: out.text || 'לא הצלחתי לענות על זה. אפשר לנסח אחרת?', tools: [...new Set(out.used)] });
+});
+
+exports._t = { readTools, metricsOf, scopeList, runScope, runAll, system, cleanReport };

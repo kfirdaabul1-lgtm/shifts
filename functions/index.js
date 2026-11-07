@@ -1561,6 +1561,13 @@ exports.leadVenueSync = trig('leads/{id}').onUpdate(async (ch, ctx) => {
 
 // managers' assistant (owner, Nov 6): chat with Claude over the hotel's data, read-only, permission-checked → assistant.js
 exports.assistant = require('./assistant.js').assistant;
+// paid-advertising agent (Nov 7, owner): daily analysis + weekly campaign report per hotel and for the chain, READ ONLY.
+// Does nothing until agentcfg/ads.enabled === true. See agents-setup.md.
+const ads = require('./agent-ads.js');
+exports.adsDaily = ads.adsDaily;
+exports.adsWeekly = ads.adsWeekly;
+exports.adsRunNow = ads.adsRunNow;
+exports.adsAgent = ads.adsAgent;
 
 // ---------- price comparison (Nov 7, owner: page "השוואת מחירים") ----------
 // The owner's scheduled price agent POSTs {hotel, rows:[{src booking|site, checkin, room, orig, price, bf, left, note}]} with header x-rates-key.

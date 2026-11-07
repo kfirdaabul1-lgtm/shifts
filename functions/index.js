@@ -1591,13 +1591,14 @@ exports.ratesIngest = functions.region(REGION).https.onRequest(async (req, res) 
       hotel = m.id; hname = m.data().name || m.id;
     }
     const rows = Array.isArray(b.rows) ? b.rows : [];
-    if (!rows.length || rows.length > 600) { res.status(400).json({ error: 'rows' }); return; }
+    if (!rows.length || rows.length > 1500) { res.status(400).json({ error: 'rows' }); return; }
     const num = (v) => { if (v === null || v === undefined || v === '') return null; const n = Number(v); return Number.isFinite(n) && n >= 0 && n <= 100000 ? Math.round(n * 100) / 100 : null; };
     const clean = [];
     for (const r of rows) {
-      const src = r && (r.src === 'booking' || r.src === 'site') ? r.src : null, ci = String((r && r.checkin) || '');
+      const src = r && (r.src === 'booking' || r.src === 'site' || r.src === 'comp') ? r.src : null, ci = String((r && r.checkin) || '');
       if (!src || !/^\d{4}-\d{2}-\d{2}$/.test(ci)) continue;
-      clean.push({ src, checkin: ci, room: String(r.room || '').slice(0, 60), orig: num(r.orig), price: num(r.price), bf: !!r.bf, left: num(r.left), note: String(r.note || '').slice(0, 120) });
+      if (src === 'comp' && !String(r.comp || r.room || '').trim()) continue;
+      clean.push({ src, checkin: ci, ...(src === 'comp' ? { comp: String(r.comp || r.room || '').slice(0, 60) } : {}), room: String(r.room || '').slice(0, 60), orig: num(r.orig), price: num(r.price), bf: !!r.bf, left: num(r.left), note: String(r.note || '').slice(0, 120) });
     }
     if (!clean.length) { res.status(400).json({ error: 'rows' }); return; }
     const day = ilDate(new Date());

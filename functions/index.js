@@ -390,7 +390,7 @@ const actVal = (acts, types) => { for (const t of types) { const a = (acts || []
 async function metaInsights(cfg) {
   // one or more ad accounts (one per hotel's business portfolio), comma separated
   const accs = String(cfg.adAccount || '').split(/[^0-9]+/).filter(Boolean); if (!accs.length) return { campaigns: 0 };
-  const until = ilDate(new Date()), since = weekOfISO(isoAdd(until, -35)), rows = [];
+  const until = ilDate(new Date()), since = (cfg.since && /^\d{4}-\d{2}-\d{2}$/.test(cfg.since)) ? weekOfISO(cfg.since) : weekOfISO(isoAdd(until, -35)), rows = [];
   for (const acc of accs) rows.push(...await graphAll('act_' + acc + '/insights', cfg.token, { level: 'campaign', time_increment: '1', time_range: { since, until }, fields: 'campaign_id,campaign_name,spend,impressions,clicks,actions', limit: '500' }));
   const by = {};
   rows.forEach((r) => {
@@ -1568,6 +1568,26 @@ exports.adsDaily = ads.adsDaily;
 exports.adsWeekly = ads.adsWeekly;
 exports.adsRunNow = ads.adsRunNow;
 exports.adsAgent = ads.adsAgent;
+// one-off catch-up jobs for the ads agent (Nov 7, owner): adsJobs/{id} created by an admin script
+//   {kind:'meta', since} = pull Meta insights from `since`; {kind:'week', week} = historical weekly reports of that week
+exports.adsJob = functions.region(REGION).runWith({ timeoutSeconds: 540, memory: '1GB' }).firestore.document('adsJobs/{id}').onCreate(async (snap) => {
+  const j = snap.data() || {}, ref = snap.ref;
+  await ref.set({ status: 'running', startedAt: Date.now() }, { merge: true });
+  try {
+    if (j.kind === 'meta') {
+      const m = (await db.doc('metacfg/main').get()).data() || {}, out = [];
+      for (const [id, conn] of metaConnList(m)) {
+        try { const r = await metaInsights({ token: conn.token, adAccount: conn.adAccount, since: j.since, conn: { id, name: conn.name || '', venue: conn.venue || '' } }); out.push({ id, ...r }); }
+        catch (e) { out.push({ id, error: String(e.message || e).slice(0, 200) }); }
+      }
+      await ref.set({ status: 'done', doneAt: Date.now(), result: out }, { merge: true });
+    } else if (j.kind === 'week' && /^\d{4}-\d{2}-\d{2}$/.test(j.week || '')) {
+      const r = await require('./agent-ads-backfill.js').runWeek(j.week);
+      await ref.set({ status: 'done', doneAt: Date.now(), result: r }, { merge: true });
+    } else await ref.set({ status: 'error', error: 'bad job' }, { merge: true });
+  } catch (e) { console.error('adsJob', e); await ref.set({ status: 'error', error: String(e.message || e).slice(0, 300) }, { merge: true }); }
+  return null;
+});
 
 // ---------- price comparison (Nov 7, owner: page "השוואת מחירים") ----------
 // The owner's scheduled price agent POSTs {hotel, rows:[{src booking|site, checkin, room, orig, price, bf, left, note}]} with header x-rates-key.

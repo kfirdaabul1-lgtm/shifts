@@ -29,7 +29,7 @@ jobs:
           export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/key.json"
           TARGET="${ONLY:-functions}"
           # a push whose commit message has [ads-only] deploys only the paid-advertising agent
-          case "$MSG" in *"[ads-only]"*) TARGET="functions:adsDaily,functions:adsWeekly,functions:adsRunNow,functions:adsAgent";; esac
+          case "$MSG" in *"[ads-only]"*) TARGET="functions:adsDaily,functions:adsWeekly,functions:adsRunNow,functions:adsAgent,functions:adsJob";; esac
           echo "Deploying: $TARGET"
           set +e
           npx -y firebase-tools@13 deploy --only "$TARGET" --project hotel-shifts --non-interactive --force 2>&1 | tee "$RUNNER_TEMP/out.txt"

@@ -1,0 +1,24 @@
+name: Ads agent catch-up reports
+on:
+  workflow_dispatch:
+    inputs:
+      weeks: { description: 'Sundays, comma separated', required: true }
+      since: { description: 'Meta insights from (YYYY-MM-DD, empty = skip)', required: false, default: '' }
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: cd functions && npm install --omit=dev
+      - env:
+          KEY: ${{ secrets.FIREBASE_DEPLOY_KEY }}
+          WEEKS: ${{ inputs.weeks }}
+          SINCE: ${{ inputs.since }}
+        run: |
+          echo "$KEY" > "$RUNNER_TEMP/key.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/key.json"
+          cd functions && node ads-backfill.js
+          rm -f "$RUNNER_TEMP/key.json"

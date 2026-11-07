@@ -653,7 +653,8 @@ service cloud.firestore {
       allow create: if isOwner() || ((maintIn(request.resource.data.hotel) || frontIn(request.resource.data.hotel)
           || (request.resource.data.get('source', '') == 'hk' && hkWorkIn(request.resource.data.hotel)))
         && request.resource.data.status == 'open' && request.resource.data.openedBy == request.auth.uid);
-      allow update: if maintIn(resource.data.hotel) && maintIn(request.resource.data.hotel);
+      allow update: if (maintIn(resource.data.hotel) && maintIn(request.resource.data.hotel))
+        || (frontIn(resource.data.hotel) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['upd', 'updAt']));
       allow delete: if manages(resource.data.hotel) || gmIn(resource.data.hotel);
     }
 

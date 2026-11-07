@@ -269,6 +269,12 @@ async function oooRelease(a, id) {
 }
 exports.onFaultDone = trig('faults/{id}').onUpdate(async (ch) => {
   const b = ch.before.data() || {}, a = ch.after.data() || {};
+  const nb = (b.upd || []).length, na = (a.upd || []).length;
+  if (na > nb && a.status !== 'done') { // an update was added to an open fault → maintenance / managers (not the writer)
+    const u = a.upd[na - 1] || {};
+    const to = (await roleHolders(a.hotel, ['maint', 'gm', 'shifts'], 'maintenance')).filter((x) => x !== u.by);
+    return sendTo(to, { title: 'עדכון לתקלה', body: `${a.room ? 'חדר ' + a.room + ' · ' : ''}${a.desc || ''}: ${u.text || ''}${u.byName ? ' · ' + u.byName : ''}`, hash: '#maint', tag: 'ft-' + ch.after.id });
+  }
   if (a.status !== 'done' || b.status === 'done') return;
   await oooRelease(a, ch.after.id).catch((e) => console.error('oooRelease', e));
   const st = await stationsOf(a.hotel); if (!st.length) return;

@@ -3043,7 +3043,7 @@ function ratesKeyHTML(){if(!S.isOwner)return '';ratesCfgSub();const c=S.ratesCfg
     <div class="field"><label>כתובת</label><input readonly dir="ltr" value="${RATES_URL}" onclick="this.select()"></div>
     ${k?`<div class="field"><label>מפתח (x-rates-key)</label><input readonly dir="ltr" value="${esc(k)}" onclick="this.select()"></div><div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn" data-act="rates-copy">העתקת ההוראות לסוכן</button><button class="btn" data-act="rates-key">${S.confirm==='rkey'?'לחיצה נוספת להחלפה':'החלפת מפתח'}</button></div>`
     :`<button class="btn pri" data-act="rates-key">יצירת מפתח לסוכן</button>`}`;
-  return foldCard(`<div class="card"><h3>🔑 <span>חיבור סוכן המחירים</span></h3>${body}</div>`,'rtk')}
+  return foldCard(`<div class="card"><h3>🔑 <span>חיבור סוכן המחירים</span> · ${esc(appName())}</h3>${body}</div>`,'rtk')}
 function ratesAgentText(){const k=(S.ratesCfg||{}).key||'';return `אחרי כל ריצה, שלח את התוצאות למערכת:
 POST ${RATES_URL}
 כותרות: Content-Type: application/json, x-rates-key: ${k}
@@ -3054,9 +3054,9 @@ function vRates(){const hs=ratesHs();if(!hs.length)return wrap(emptyBox('אין 
   if(!S.ratesH||!hs.includes(S.ratesH))S.ratesH=hs.includes(S.hotel)?S.hotel:hs[0];const h=S.ratesH,R=ratesSub(h);
   const chips=hs.length>1?`<div class="chips">${hs.map(x=>`<button class="dchip ${x===h?'':'off'}" data-act="rates-h" data-h="${x}">${esc(hotelName(x))}</button>`).join('')}</div>`:'';
   const head=`<section class="head"><div class="head-t"><h1><span>השוואת מחירים</span> · ${esc(hotelName(h))}</h1></div>${chips}</section>`;
-  if(R.wait)return wrap(head+ratesKeyHTML()+`<div class="card"><p class="muted">טוען…</p></div>`);
-  if(R.err)return wrap(head+ratesKeyHTML()+`<div class="card"><p class="muted"><span>אין גישה לנתונים</span>: ${esc(R.err)}</p></div>`);
-  if(!R.runs.length)return wrap(head+ratesKeyHTML()+emptyBox('עוד אין נתונים למלון הזה','הנתונים מגיעים מסוכן המחירים (Booking Genius מול אתר הבית). אחרי הריצה הראשונה שלו הם יופיעו כאן.'));
+  if(R.wait)return wrap(head+`<div class="card"><p class="muted">טוען…</p></div>`);
+  if(R.err)return wrap(head+`<div class="card"><p class="muted"><span>אין גישה לנתונים</span>: ${esc(R.err)}</p></div>`);
+  if(!R.runs.length)return wrap(head+emptyBox('עוד אין נתונים למלון הזה','הנתונים מגיעים מסוכן המחירים (Booking Genius מול אתר הבית). אחרי הריצה הראשונה שלו הם יופיעו כאן.'));
   const run=R.runs.find(r=>r.id===S.ratesRun)||R.runs[0],rows=run.rows||[];
   const dates=[...new Set(rows.map(r=>r.checkin))].sort(),rooms=[...new Set(rows.map(r=>r.room||'חדר'))];
   const pick=(src,d,rm)=>rows.find(r=>r.src===src&&r.checkin===d&&(r.room||'חדר')===rm);
@@ -3070,7 +3070,7 @@ function vRates(){const hs=ratesHs();if(!hs.length)return wrap(emptyBox('אין 
     <div class="rt-wrap"><table class="rt"><thead><tr><th>תאריך</th><th>הכי זול</th>${rooms.map(r=>`<th>${esc(r)}</th>`).join('')}</tr></thead><tbody>
     ${dates.map(d=>`<tr><th class="rt-d">${esc(fmtDM(d).slice(0,5))}<small>${dw(d)}</small></th>${ratesCell(minOf('booking',d),minOf('site',d))}${rooms.map(rm=>ratesCell(pick('booking',d,rm),pick('site',d,rm))).join('')}</tr>`).join('')}
     </tbody></table></div></div>`;
-  return wrap(head+table+ratesKeyHTML())}
+  return wrap(head+table)}
 function vBar(){const hs=modHs('bar',barHs());if(!hs.length)return wrap(emptyBox('אין מלון','צריך להיות רשום במלון ובמחלקת בר.'));
   if(!hs.includes(S.barH))S.barH=hs.includes(S.myHotel)?S.myHotel:hs[0];const h=S.barH,boss=barBoss(h),M=S.barM||(S.barM=todayISO().slice(0,7));
   if(!S.live['bemps:'+h]){S.live['bemps:'+h]=true;S.db.collection('employees').where('hotel','==',h).onSnapshot(q=>{S.emps={...S.emps,...docsMap(q)};render()},()=>{})}
@@ -4273,7 +4273,7 @@ function vPPerms(){if(!S.regFresh){S.regFresh=1;regLoad(true)}else regLoad();con
   return wrap(`<section class="head"><div class="head-t"><h1>הרשאות רשתות</h1></div><p class="lede">לוחצים על רשת, על מלון ברשת או על מלון עצמאי ובוחרים אילו עמודים יש לו. עמוד שלא ניתן לא מופיע שם בכלל, גם לא לבעלים.</p></section>
   ${regErrHTML()}<div class="card"><h3>רשתות ומלונות ברשתות</h3><div class="plist">${ch.map(row).join('')||'<p class="muted">אין רשתות.</p>'}</div></div>
   <div class="card"><h3>מלונות עצמאיים</h3><div class="plist">${ho.map(row).join('')||'<p class="muted">אין מלונות עצמאיים.</p>'}</div>
-  <p class="muted" style="font-size:.82rem;margin-top:8px">סידור עבודה, עובדים, הרשאות והגדרות קיימים תמיד. במלון בתוך רשת אפשר לכבות רק עמודים שהרשת קיבלה; אירועים, קבוצות, ספא, מבט מנכ״ל, סושיאל והוצאות הם לכל הרשת יחד.</p></div>`)}
+  <p class="muted" style="font-size:.82rem;margin-top:8px">סידור עבודה, עובדים, הרשאות והגדרות קיימים תמיד. במלון בתוך רשת אפשר לכבות רק עמודים שהרשת קיבלה; אירועים, קבוצות, ספא, מבט מנכ״ל, סושיאל והוצאות הם לכל הרשת יחד.</p></div>${ratesKeyHTML()}`)}
 function sheetHLic(){const id=S.sheet.id,h=S.sheet.h,i=chainInfo(id)||{},org=i.org;
   const hn=((i.hlist||[]).find(x=>x[0]===h)||[,h])[1];
   if(!org)return sheetHead('עמודים למלון',esc(hn))+'<p class="muted">טוען…</p>';

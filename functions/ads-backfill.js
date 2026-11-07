@@ -14,6 +14,12 @@ async function waitFor(ids, maxMin) {
   }
 }
 (async () => {
+  if (String(process.env.DIAG).startsWith('rep:')) {
+    const q = await db.collection('adReports').where('week', '==', process.env.DIAG.slice(4)).get();
+    q.docs.forEach((d) => { const x = d.data(); console.log('::notice title=' + d.id + '::' + JSON.stringify({ h: x.headline, s: x.summary, hl: x.highlights, d: x.directions, c: x.caveats, m: x.metrics && x.metrics.lastWeek }).slice(0, 3000)); });
+    const hs = await db.collection('hotels').get(); console.log('::notice title=hotels::' + hs.docs.map((d) => d.id + '=' + (d.data().name || '')).join(', '));
+    return;
+  }
   if (process.env.DIAG) {
     const q = await db.collection('agentLog').orderBy('at', 'desc').limit(8).get();
     q.docs.forEach((d) => console.log('::notice title=log::' + JSON.stringify(d.data()).slice(0, 900)));

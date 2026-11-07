@@ -4,6 +4,7 @@ on:
     inputs:
       weeks: { description: 'Sundays, comma separated', required: true }
       since: { description: 'Meta insights from (YYYY-MM-DD, empty = skip)', required: false, default: '' }
+      diag: { description: 'print the last agent log lines only', required: false, default: '' }
 jobs:
   run:
     runs-on: ubuntu-latest
@@ -17,6 +18,7 @@ jobs:
           KEY: ${{ secrets.FIREBASE_DEPLOY_KEY }}
           WEEKS: ${{ inputs.weeks }}
           SINCE: ${{ inputs.since }}
+          DIAG: ${{ inputs.diag }}
         run: |
           echo "$KEY" > "$RUNNER_TEMP/key.json"
           export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/key.json"

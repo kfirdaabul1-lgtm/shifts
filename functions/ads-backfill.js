@@ -14,6 +14,11 @@ async function waitFor(ids, maxMin) {
   }
 }
 (async () => {
+  if (process.env.DIAG) {
+    const q = await db.collection('agentLog').orderBy('at', 'desc').limit(8).get();
+    q.docs.forEach((d) => console.log('::notice title=log::' + JSON.stringify(d.data()).slice(0, 900)));
+    return;
+  }
   const stamp = Date.now().toString(36), since = process.env.SINCE || '';
   if (since) {
     const id = 'meta_' + stamp; await db.doc('adsJobs/' + id).set({ kind: 'meta', since, at: Date.now() });

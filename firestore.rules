@@ -462,6 +462,20 @@ service cloud.firestore {
         || (resource.data.hotel == '' && canMkt() && roleHotels().size() == 0);
       allow write: if false;
     }
+    // managers' directions for the ads agent (Nov 7): same readers as adReports; writers = the same people, own text only; author or owner deletes
+    match /adNotes/{id} {
+      allow read: if isOwner() || canCeo()
+        || (resource.data.hotel != '' && (gmIn(resource.data.hotel) || (canMkt() && (roleHotels().size() == 0 || resource.data.hotel in roleHotels()))))
+        || (resource.data.hotel == '' && canMkt() && roleHotels().size() == 0);
+      allow create: if signedIn() && request.resource.data.by == request.auth.uid
+        && request.resource.data.keys().hasOnly(['hotel', 'text', 'by', 'byName', 'at'])
+        && request.resource.data.hotel is string && request.resource.data.text is string
+        && request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 400
+        && (isOwner() || canCeo()
+          || (request.resource.data.hotel != '' && (gmIn(request.resource.data.hotel) || (canMkt() && (roleHotels().size() == 0 || request.resource.data.hotel in roleHotels()))))
+          || (request.resource.data.hotel == '' && canMkt() && roleHotels().size() == 0));
+      allow delete: if isOwner() || (signedIn() && resource.data.by == request.auth.uid);
+    }
     // the agent's switch (agentcfg/ads {enabled}) and its business context (agentKB/ads {text}): owner only; its run log: owner reads, server writes
     match /agentcfg/{id} { allow read, write: if isOwner(); }
     match /agentKB/{id}  { allow read, write: if isOwner(); }

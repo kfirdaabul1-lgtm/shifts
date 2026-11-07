@@ -325,4 +325,4 @@ exports.assistant = functions.region(REGION).runWith({ timeoutSeconds: 120, memo
 });
 
 // exported for the tests only
-exports._t = { P, roomsParse, weekOf, TOOLS };
+exports._t = { P, roomsParse, weekOf, TOOLS, caller };

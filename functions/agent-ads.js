@@ -1,6 +1,6 @@
 // ================= Paid-advertising agent: daily analysis + weekly report, per hotel and for the chain (owner, Nov 7) =================
-// STATUS: written, NOT deployed. Not required from functions/index.js until you connect it (see claude/agents-setup.md).
-// Even when deployed it does nothing until agentcfg/ads.enabled === true.
+// STATUS: connected to functions/index.js (Nov 7). The scheduled reports do nothing until agentcfg/ads.enabled === true.
+// Also reads metaStruct (campaign structure, written daily by meta-struct.js) and adNotes (managers' directions).
 //
 // READ ONLY. The agent reads the campaign rows the Meta sync already writes (collection `campaigns`) and the CRM leads
 // (collection `leads`), and writes REPORTS for managers to READ in the app (collection `adReports`). It cannot change a campaign,
@@ -18,7 +18,7 @@
 //   adsDaily  07:00 every day except Sunday - a short analysis: what changed, what needs attention
 //   adsWeekly 08:00 on Sunday               - the weekly campaign report for the week that just ended, with the directions the agent suggests
 // The daily run skips a scope when the numbers have not changed since the last analysis (saves tokens), but never for more than 3 days.
-// Manual run (owner only): POST adsRunNow {kind: 'daily' | 'weekly'}; chat with the data (owner only): POST adsAgent.
+// Manual run (owner only): POST adsRunNow {kind: 'daily' | 'weekly'}; chat with the data: POST adsAgent {messages, hotel} (managers by scope, Haiku).
 //
 // Reports are documents adReports/{kind}_{scope}_{date|week}: {kind, hotel, scopeName, date, week, headline, summary, highlights[],
 // directions[], caveats, metrics, at, model, by:'ai'}. The numbers in `metrics` are computed by this code, not by the model.
@@ -105,8 +105,31 @@ function readTools(scope) {
         const spend = {}; if (grp === 'campaign') for (const c of await campRows(scope, from, to)) { const n = String(c.name || '').trim(); if (n) spend[n] = (spend[n] || 0) + (+c.spend || 0); }
         const rows = Object.entries(g).map(([k, x]) => { const sp = spend[k] || 0; return { group: k, leads: x.n, open: x.open, won: x.won, lost: x.lost, junk: x.junk, winRatePct: x.won + x.lost ? Math.round(x.won / (x.won + x.lost) * 100) : null, revenue: Math.round(x.revenue), avgDaysToClose: x.won ? r2(x.days / x.won) : null, ...(grp === 'campaign' ? { spend: r2(sp), costPerLead: div(sp, x.n), costPerWon: div(sp, x.won), roi: sp ? r2(x.revenue / sp) : null } : {}) }; }).sort((x, y) => y.revenue - x.revenue || y.leads - x.leads);
         return { scope: scope.name, from, to, group: grp, note: 'Leads are counted by creation date; revenue is booked on the lead (stage won). Thin samples (<10 leads or <3 won) prove nothing.', rows: rows.slice(0, 60), lostReasons: lost }; } },
+
+    { name: 'campaign_structure', description: 'How the Meta campaigns are BUILT (read once a day from Meta, last 28 days): objective, budget, bid; ad sets with optimisation goal and audience (ages, genders, places, interests, custom audiences, placements); ads with format, headline, text, button and each ad\'s numbers; numbers split by age+gender and by placement. Without "campaign": a short overview of every campaign. With "campaign" (part of the name): the full detail of the matching campaigns.',
+      input_schema: { type: 'object', properties: { campaign: { type: 'string', description: 'part of the campaign name; empty = overview of all' } } },
+      run: async (a) => {
+        const cut = Date.now() - 4 * 864e5, q = String(a.campaign || '').trim().toLowerCase();
+        const all = (await db.collection('metaStruct').get()).docs.map((d) => d.data()).filter((c) => (+c.at || 0) > cut && inScope(scope, 'camp', c));
+        if (!all.length) return { scope: scope.name, note: 'No campaign structure was read from Meta yet for this scope (it is read once a day at 05:30).' };
+        if (!q) return { scope: scope.name, readAt: new Date(Math.max(...all.map((c) => +c.at || 0))).toISOString().slice(0, 10), campaigns: all.sort((x, y) => ((y.last28 || {}).spend || 0) - ((x.last28 || {}).spend || 0)).slice(0, 40).map((c) => ({ name: c.name, ...c.campaign, last28: c.last28, adsets: (c.adsets || []).length, ads: (c.ads || []).length,
+          audience: (c.adsets || []).slice(0, 2).map((x) => ({ ages: x.audience && x.audience.ages, genders: x.audience && x.audience.genders, places: x.audience && (x.audience.places || []).slice(0, 4), interests: x.audience && (x.audience.interests || []).slice(0, 5), placements: x.audience && x.audience.placements })),
+          formats: [...new Set((c.ads || []).map((x) => x.format))] })) };
+        const hit = all.filter((c) => String(c.name || '').toLowerCase().includes(q)).slice(0, 3);
+        if (!hit.length) return { scope: scope.name, error: 'no campaign name contains that text', names: all.map((c) => c.name).slice(0, 60) };
+        return { scope: scope.name, campaigns: hit.map((c) => ({ name: c.name, ...c.campaign, last28: c.last28, adsets: c.adsets, ads: c.ads, byAgeGender: c.byAgeGender, byPlacement: c.byPlacement })) };
+      } },
   ];
 }
+
+// ---------- managers' directions (adNotes {hotel ('' = whole chain), text, by, byName, at}) ----------
+async function notesFor(scope) {
+  const hs = scope.hotel ? [scope.hotel, ''] : [''];
+  const q = await Promise.all(hs.map((h) => db.collection('adNotes').where('hotel', '==', h).get()));
+  return q.flatMap((x) => x.docs.map((d) => d.data())).sort((a, b) => (+b.at || 0) - (+a.at || 0)).slice(0, 15)
+    .map((n) => ({ date: C.ilDate(new Date(+n.at || Date.now())), by: clip(n.byName, 40), forWhole: n.hotel ? 'this hotel' : 'whole chain', text: clip(n.text, 400) }));
+}
+const notesTxt = (ns) => ns.length ? '\n\nMANAGERS\' DIRECTIONS (newest first). Follow them; when two conflict follow the newest and say so in caveats. In the report, say briefly how you took them into account:\n' + JSON.stringify(ns) : '';
 
 // ---------- prompts ----------
 function system(kb, scope, kind) {
@@ -169,7 +192,7 @@ async function runScope(scope, kind, cfg, today, force) {
   let saved = null;
   const tools = [...readTools(scope), { ...SAVE_REPORT, run: async (a) => { saved = cleanReport(a || {}); return { saved: true }; } }];
   const model = cfg.model || SMART;
-  const out = await C.runLoop({ model, system: system(await C.loadKB('ads'), scope, kind), tools, messages: [{ role: 'user', content: ctxTxt + '\n\nMETRICS (computed by the system):\n' + JSON.stringify(M) }], maxTurns: kind === 'weekly' ? 10 : 8, maxTokens: 1500 });
+  const out = await C.runLoop({ model, system: system(await C.loadKB('ads'), scope, kind), tools, messages: [{ role: 'user', content: ctxTxt + notesTxt(await notesFor(scope)) + '\n\nMETRICS (computed by the system):\n' + JSON.stringify(M) }], maxTurns: kind === 'weekly' ? 10 : 8, maxTokens: 4000 }); // Hebrew reports need room (1500 cut them off)
   if (!saved) { const t = String(out.text || '').trim(); if (!t) { await C.logRun('ads', { scope: scope.key, kind, model, usage: out.U, error: 'no report produced' }); return { scope: scope.key, skipped: 'no report' }; } saved = cleanReport({ headline: t.split('\n')[0], summary: t }); }
   const id = kind + '_' + scope.key + '_' + (kind === 'weekly' ? week : today);
   await db.doc('adReports/' + id).set({ kind, hotel: scope.hotel, scopeKey: scope.key, scopeName: scope.name, date: today, week, ...saved, metrics: { thisWeek: M.thisWeek, lastWeek: M.lastWeek, dayOfWeek: M.dayOfWeek, crm90d: M.crm90d }, at: Date.now(), model, by: 'ai' });
@@ -221,15 +244,38 @@ exports.adsRunNow = http('adsRunNow', 540, async (req, res) => {
   const kind = (req.body || {}).kind === 'weekly' ? 'weekly' : 'daily';
   res.json({ kind, results: await runAll(kind, true) });
 });
-exports.adsAgent = http('adsAgent', 120, async (req, res, cfg, u) => {
-  const hist = (Array.isArray((req.body || {}).messages) ? req.body.messages : []).slice(-8)
-    .filter((m) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.text === 'string' && m.text.trim()).map((m) => ({ role: m.role, content: m.text.slice(0, 2000) }));
-  while (hist.length && hist[0].role !== 'user') hist.shift();
-  if (!hist.length || hist[hist.length - 1].role !== 'user') { res.status(400).json({ error: 'empty' }); return; }
-  const scope = { key: 'chain', hotel: '', name: 'כל הרשת', A: null }, model = cfg.model || SMART;
-  const out = await C.runLoop({ model, system: system(await C.loadKB('ads'), scope, 'daily').map((b) => ({ ...b, text: b.text.replace(/Finish by calling save_report ONCE[^\n]*/, 'Answer the owner\'s question directly.') })), tools: readTools(scope), messages: hist, maxTurns: 8, maxTokens: 1200 });
-  await C.logRun('ads', { uid: u.uid, kind: 'chat', model, usage: out.U, tools: out.used });
-  res.json({ text: out.text || 'לא הצלחתי לענות על זה. אפשר לנסח אחרת?', tools: [...new Set(out.used)] });
+// chat with the ads agent (owner, Nov 7): managers ask questions about THEIR scope; runs on Haiku (cfg.chatModel), reports stay on Sonnet.
+// Who: owner / CEO (any scope, incl. the chain), hotel managers (gm) and social media holders (mkt) for their hotels; mkt with all hotels also the chain.
+// Works even while the scheduled reports are off (cfg.enabled); cfg.chat === false turns it off.
+const CHAT = 'claude-haiku-5-5';
+const chatOk = (c, h) => c.owner || c.apps.ceo === true || (h ? ((c.apps.gm === true || c.apps.mkt === true) && (c.hotels.length === 0 || c.hotels.includes(h))) : (c.apps.mkt === true && c.hotels.length === 0));
+exports.adsAgent = functions.region(REGION).runWith({ timeoutSeconds: 120, memory: '512MB' }).https.onRequest(async (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*'); res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization'); res.set('Access-Control-Allow-Methods', 'POST');
+  if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
+  if (req.method !== 'POST') { res.status(405).json({ error: 'method' }); return; }
+  try {
+    const cfg = { ...DEFAULTS, ...(await C.cfg('ads')) };
+    if (cfg.chat === false) { res.status(503).json({ error: 'הצ׳אט עם סוכן הקידום כבוי.' }); return; }
+    const c = await require('./assistant.js')._t.caller(req);
+    if (!c || c.denied) { res.status(401).json({ error: 'auth' }); return; }
+    const body = req.body || {}, hs = (await db.collection('hotels').get()).docs.map((d) => ({ id: d.id, name: (d.data() || {}).name || d.id }));
+    let h = typeof body.hotel === 'string' ? body.hotel : null;
+    if (h === null) h = chatOk(c, '') ? '' : (c.hotels[0] || '');
+    if (h && !hs.some((x) => x.id === h)) { res.status(400).json({ error: 'מלון לא מוכר.' }); return; }
+    if (!chatOk(c, h)) { res.status(403).json({ error: 'אין לך הרשאה לדוחות הקידום של ' + (h ? 'המלון הזה' : 'כל הרשת') + '.' }); return; }
+    if (!(await rateOk(c.uid, +cfg.chatRate || 30))) { res.status(429).json({ error: 'הגעת למגבלת השאלות לשעה. נסו שוב מאוחר יותר.' }); return; }
+    const hist = (Array.isArray(body.messages) ? body.messages : []).slice(-8)
+      .filter((m) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.text === 'string' && m.text.trim()).map((m) => ({ role: m.role, content: m.text.slice(0, 2000) }));
+    while (hist.length && hist[0].role !== 'user') hist.shift();
+    if (!hist.length || hist[hist.length - 1].role !== 'user') { res.status(400).json({ error: 'empty' }); return; }
+    const scope = h ? (await scopeList(cfg)).find((x) => x.hotel === h) : { key: 'chain', hotel: '', name: 'כל הרשת', A: null };
+    if (!scope) { res.status(400).json({ error: 'scope' }); return; }
+    const model = cfg.chatModel || CHAT, ns = await notesFor(scope);
+    const sys = system(await C.loadKB('ads'), scope, 'daily').map((b) => ({ ...b, text: b.text.replace(/Finish by calling save_report ONCE[^\n]*/, `This is a CHAT, not a report: answer the question of ${clip(c.name, 60) || 'the manager'} directly, short (a few sentences or a short list), in Hebrew, with numbers from the tools. Use campaign_structure for questions about audiences, ads, texts or placements. Do not write a full report.`) + notesTxt(ns) }));
+    const out = await C.runLoop({ model, system: sys, tools: readTools(scope), messages: hist, maxTurns: 6, maxTokens: 1500 });
+    await C.logRun('ads', { uid: c.uid, kind: 'chat', scope: scope.key, model, usage: out.U, tools: out.used });
+    res.json({ text: out.text || 'לא הצלחתי לענות על זה. אפשר לנסח אחרת?', scope: scope.name, tools: [...new Set(out.used)] });
+  } catch (e) { console.error('adsAgent', e); res.status(500).json({ error: 'משהו השתבש. נסו שוב בעוד רגע.' }); }
 });
 
-exports._t = { readTools, metricsOf, scopeList, runScope, runAll, system, cleanReport };
+exports._t = { readTools, metricsOf, scopeList, runScope, runAll, system, cleanReport, notesFor, notesTxt, chatOk };

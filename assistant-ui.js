@@ -4,12 +4,14 @@
    The server checks permissions again on every question, so hiding the button is only for comfort, not security. */
 (function () {
   const PID = () => ((window.APP_CONFIG || {}).firebase || {}).projectId || '';
-  const URL_ = () => 'https://europe-west1-' + PID() + '.cloudfunctions.net/assistant';
+  const URL_ = () => 'https://europe-west1-' + PID() + '.cloudfunctions.net/' + (agent === 'ads' ? 'adsAgent' : 'assistant');
   const KEY = 'scAsstHist';
-  let hist = [], busy = false, root = null, me = '';
+  // two agents (owner, Nov 7): the general assistant and the ads agent (Haiku chat about campaigns, by hotel); each keeps its own conversation
+  let H = { gen: [], ads: [] }, agent = 'gen', adsH = null, adsScopes = [], busy = false, root = null, me = '';
+  let hist = H.gen;
   // the conversation is kept per signed-in user for this tab only
-  const load = (uid) => { me = uid || ''; hist = []; try { const o = JSON.parse(sessionStorage.getItem(KEY) || '{}'); if (o.uid === me) hist = (o.hist || []).slice(-20); } catch (e) { } };
-  const save = () => { try { sessionStorage.setItem(KEY, JSON.stringify({ uid: me, hist: hist.slice(-20) })); } catch (e) { } };
+  const load = (uid) => { me = uid || ''; H = { gen: [], ads: [] }; agent = 'gen'; adsH = null; try { const o = JSON.parse(sessionStorage.getItem(KEY) || '{}'); if (o.uid === me) { H.gen = (o.hist || o.gen || []).slice(-20); H.ads = (o.ads || []).slice(-20); if (o.agent === 'ads') agent = 'ads'; if (typeof o.adsH === 'string') adsH = o.adsH; } } catch (e) { } hist = H[agent]; };
+  const save = () => { try { sessionStorage.setItem(KEY, JSON.stringify({ uid: me, gen: H.gen.slice(-20), ads: H.ads.slice(-20), agent, adsH })); } catch (e) { } };
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   // light formatting: **bold**, "- " list lines, line breaks
   const fmt = (t) => esc(t).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/^[-•] (.*)$/gm, '• $1').replace(/\n/g, '<br>');
@@ -32,26 +34,35 @@
   #asst .hint{color:#666;font-size:13px}
   #asst .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
   #asst .chips button{border:1px solid #ddd;background:#fff;border-radius:999px;padding:5px 10px;font-size:13px;cursor:pointer}
+  #asst .ag{display:flex;align-items:center;gap:6px;padding:8px 12px;border-bottom:1px solid #eee;flex-wrap:wrap}
+  #asst .ag button{border:1px solid #ddd;background:#fff;border-radius:6px;padding:5px 10px;font:inherit;font-size:13px;cursor:pointer}
+  #asst .ag button.on{background:#B08D57;border-color:#B08D57;color:#fff}
+  #asst .ag select{margin-inline-start:auto;font:inherit;font-size:13px;border:1px solid #ddd;border-radius:6px;padding:4px 6px;max-width:45%}
+  #asst .ag[hidden]{display:none}
   #asst form{display:flex;gap:8px;padding:10px;border-top:1px solid #eee}
   #asst textarea{flex:1;resize:none;border:1px solid #ddd;border-radius:10px;padding:8px 10px;font:inherit;height:42px;max-height:120px}
   #asst form button{border:0;background:#14213D;color:#fff;border-radius:10px;padding:0 14px;font:inherit;cursor:pointer}
   #asst form button:disabled{opacity:.5}
   @media (prefers-color-scheme:dark){#asst{background:#1b1d21;color:#eee}#asst .a{background:#2a2d33}#asst header,#asst form{border-color:#333}
-    #asst textarea,#asst .chips button{background:#24272c;color:#eee;border-color:#3a3d43}}`;
+    #asst textarea,#asst .chips button,#asst .ag button,#asst .ag select{background:#24272c;color:#eee;border-color:#3a3d43}#asst .ag{border-color:#333}#asst .ag button.on{background:#B08D57;color:#fff}}`;
 
   const SUGG = ['מי במשמרת היום?', 'אילו חדרים עדיין VD?', 'תקלות פתוחות', 'מה במינימום במלאי?', 'מה יש היום בספא?'];
+  const SUGG_ADS = ['איך הלכו הקמפיינים השבוע?', 'איזה קמפיין הכי משתלם?', 'איזו מודעה עובדת הכי טוב?', 'איזה קהל מביא את הלידים הכי זולים?'];
 
   function build() {
     const st = document.createElement('style'); st.textContent = css; document.head.appendChild(st);
     const b = document.createElement('button'); b.id = 'asst-btn'; b.type = 'button'; b.title = 'עוזר למנהלים'; b.textContent = '✦'; b.hidden = true;
     const w = document.createElement('div'); w.id = 'asst'; w.hidden = true;
     w.innerHTML = `<header><span><span style="color:#D9B66C">✦</span> <span>עוזר למנהלים</span></span><span><button type="button" data-a="clear" title="שיחה חדשה">↺</button><button type="button" data-a="close" title="סגירה">✕</button></span></header>
+      <div class="ag" hidden><button type="button" data-ag="gen">עוזר כללי</button><button type="button" data-ag="ads">📣 סוכן קידום</button><select aria-label="איזה מלון" data-agh></select></div>
       <div class="log" aria-live="polite"></div>
       <form><textarea rows="1" placeholder="לשאול על משמרות, חדרים, תקלות, מלאי…" maxlength="1500"></textarea><button type="submit">שליחה</button></form>`;
     document.body.append(b, w);
     b.onclick = () => { w.hidden = false; b.hidden = true; draw(); w.querySelector('textarea').focus(); };
     w.querySelector('[data-a=close]').onclick = () => { w.hidden = true; b.hidden = false; };
-    w.querySelector('[data-a=clear]').onclick = () => { hist = []; save(); draw(); };
+    w.querySelector('[data-a=clear]').onclick = () => { hist = H[agent] = []; save(); draw(); };
+    w.querySelectorAll('[data-ag]').forEach((x) => { x.onclick = () => { if (busy) return; agent = x.dataset.ag; hist = H[agent]; save(); draw(); }; });
+    w.querySelector('[data-agh]').onchange = (e) => { adsH = e.target.value; hist = H.ads = []; save(); draw(); };
     const ta = w.querySelector('textarea');
     ta.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); w.querySelector('form').requestSubmit(); } });
     w.querySelector('form').onsubmit = (e) => { e.preventDefault(); const t = ta.value.trim(); if (t) { ta.value = ''; ask(t); } };
@@ -59,8 +70,16 @@
   }
   function draw(err) {
     const log = root.querySelector('.log');
+    const ag = root.querySelector('.ag'), sel = root.querySelector('[data-agh]'), ads = agent === 'ads' && adsScopes.length;
+    ag.hidden = !adsScopes.length; if (!adsScopes.length && agent === 'ads') { agent = 'gen'; hist = H.gen; }
+    ag.querySelectorAll('[data-ag]').forEach((x) => x.classList.toggle('on', x.dataset.ag === agent));
+    if (adsH === null || !adsScopes.some((x) => x.id === adsH)) adsH = adsScopes.length ? adsScopes[0].id : '';
+    sel.hidden = !ads; sel.innerHTML = adsScopes.map((x) => `<option value="${esc(x.id)}" ${x.id === adsH ? 'selected' : ''}>${esc(x.name)}</option>`).join('');
+    root.querySelector('header span span:last-child').textContent = ads ? 'סוכן קידום' : 'עוזר למנהלים';
+    root.querySelector('textarea').placeholder = ads ? 'לשאול על הקמפיינים, הקהלים, המודעות…' : 'לשאול על משמרות, חדרים, תקלות, מלאי…';
     let h = hist.map((m) => `<div class="m ${m.role === 'user' ? 'u' : 'a'}">${fmt(m.text)}</div>`).join('');
-    if (!hist.length) h = `<div class="hint">אפשר לשאול על הנתונים של המלונות שבהרשאה שלך. העוזר רק קורא, לא משנה כלום.</div><div class="chips">${SUGG.map((s) => `<button type="button">${esc(s)}</button>`).join('')}</div>`;
+    if (!hist.length) h = ads ? `<div class="hint">סוכן הקידום עונה על הקמפיינים, הקהלים והמודעות של ${esc((adsScopes.find((x) => x.id === adsH) || {}).name || '')}. הוא רק קורא, לא משנה קמפיינים.</div><div class="chips">${SUGG_ADS.map((s) => `<button type="button">${esc(s)}</button>`).join('')}</div>`
+      : `<div class="hint">אפשר לשאול על הנתונים של המלונות שבהרשאה שלך. העוזר רק קורא, לא משנה כלום.</div><div class="chips">${SUGG.map((s) => `<button type="button">${esc(s)}</button>`).join('')}</div>`;
     if (busy) h += '<div class="m a">…</div>';
     if (err) h += `<div class="e">${esc(err)}</div>`;
     log.innerHTML = h; log.scrollTop = log.scrollHeight;
@@ -73,9 +92,9 @@
     hist.push({ role: 'user', text }); busy = true; save(); draw();
     let err = '';
     try {
-      const r = await fetch(URL_(), { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + (await u.getIdToken()) }, body: JSON.stringify({ messages: hist.slice(-8) }) });
+      const r = await fetch(URL_(), { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + (await u.getIdToken()) }, body: JSON.stringify(agent === 'ads' ? { messages: hist.slice(-8), hotel: adsH || '' } : { messages: hist.slice(-8) }) });
       const j = await r.json().catch(() => ({}));
-      if (!r.ok) err = j.error && j.error.length > 8 ? j.error : 'העוזר לא זמין כרגע (' + r.status + ').';
+      if (!r.ok) err = j.error && j.error.length > 8 ? j.error : (agent === 'ads' ? 'סוכן הקידום' : 'העוזר') + ' לא זמין כרגע (' + r.status + ').';
       else hist.push({ role: 'assistant', text: String(j.text || '') });
     } catch (e) { err = 'אין חיבור לשרת. נסו שוב.'; }
     if (err) hist.pop(); // the question was not answered: let the person send it again
@@ -89,8 +108,20 @@
       let ok = user.emailVerified && (em === 'kfirdaabul1@gmail.com' || em === String(cfg.ownerEmail || '').toLowerCase());
       const db = firebase.firestore();
       if (!ok) { try { const o = await db.doc('orgcfg/main').get(); ok = user.emailVerified && !!em && em === String((o.data() || {}).ownerEmail || '').toLowerCase(); } catch (e) { } }
-      if (!ok) { const r = await db.doc('roles/' + user.uid).get(); ok = r.exists && !r.data().station; }
+      const owner = ok; let role = null;
+      if (!ok) { const r = await db.doc('roles/' + user.uid).get(); role = r.exists ? r.data() : null; ok = !!role && !role.station; }
       btn.hidden = !ok;
+      // ads agent scopes: owner / CEO / all-hotel social media = whole chain + every hotel; hotel managers and social media = their hotels
+      adsScopes = [];
+      if (ok) {
+        const ap = owner ? {} : ((role && role.apps) || {}), rh = owner ? [] : ((role && role.hotels) || []);
+        if (owner || ap.ceo || ap.gm || ap.mkt) {
+          const hs = (await db.collection('hotels').get()).docs.map((d) => ({ id: d.id, name: (d.data() || {}).name || d.id }));
+          const chain = owner || ap.ceo || (ap.mkt && !rh.length);
+          adsScopes = [...(chain ? [{ id: '', name: 'כל הרשת' }] : []), ...hs.filter((x) => owner || ap.ceo || !rh.length || rh.includes(x.id))];
+        }
+      }
+      if (root && !root.hidden) draw();
     } catch (e) { btn.hidden = true; }
   }
   function start() {

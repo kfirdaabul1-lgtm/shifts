@@ -1568,6 +1568,16 @@ exports.adsDaily = ads.adsDaily;
 exports.adsWeekly = ads.adsWeekly;
 exports.adsRunNow = ads.adsRunNow;
 exports.adsAgent = ads.adsAgent;
+// Meta campaign structure for the ads agent (Nov 7, owner): read-only, once a day → metaStruct/{campaignId}
+async function metaStructAll() {
+  const m = (await db.doc('metacfg/main').get()).data() || {}, out = [], S = require('./meta-struct.js');
+  for (const [id, conn] of metaConnList(m)) {
+    try { out.push({ id, ...(await S.structOne(db, graphAll, { token: conn.token, adAccount: conn.adAccount, conn: { id, name: conn.name || '', venue: conn.venue || '' } })) }); }
+    catch (e) { out.push({ id, error: String(e.message || e).slice(0, 200) }); }
+  }
+  return out;
+}
+exports.metaStructDaily = functions.region(REGION).runWith({ timeoutSeconds: 540, memory: '512MB' }).pubsub.schedule('30 5 * * *').timeZone('Asia/Jerusalem').onRun(async () => { await metaStructAll(); return null; });
 // one-off catch-up jobs for the ads agent (Nov 7, owner): adsJobs/{id} created by an admin script
 //   {kind:'meta', since} = pull Meta insights from `since`; {kind:'week', week} = historical weekly reports of that week
 exports.adsJob = functions.region(REGION).runWith({ timeoutSeconds: 540, memory: '1GB' }).firestore.document('adsJobs/{id}').onCreate(async (snap) => {
@@ -1581,6 +1591,8 @@ exports.adsJob = functions.region(REGION).runWith({ timeoutSeconds: 540, memory:
         catch (e) { out.push({ id, error: String(e.message || e).slice(0, 200) }); }
       }
       await ref.set({ status: 'done', doneAt: Date.now(), result: out }, { merge: true });
+    } else if (j.kind === 'struct') {
+      await ref.set({ status: 'done', doneAt: Date.now(), result: await metaStructAll() }, { merge: true });
     } else if (j.kind === 'week' && /^\d{4}-\d{2}-\d{2}$/.test(j.week || '')) {
       const r = await require('./agent-ads-backfill.js').runWeek(j.week);
       await ref.set({ status: 'done', doneAt: Date.now(), result: r }, { merge: true });

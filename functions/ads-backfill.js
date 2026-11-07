@@ -20,6 +20,14 @@ async function waitFor(ids, maxMin) {
     q.docs.forEach((d) => { const x = d.data(); console.log('::notice title=' + d.id + '::' + JSON.stringify({ kind: x.kind, hotel: x.hotel || 'chain', backfill: !!x.backfill, chars: JSON.stringify(x).length })); });
     return;
   }
+  if (process.env.DIAG === 'struct') {
+    const id = 'struct_' + Date.now().toString(36); await db.doc('adsJobs/' + id).set({ kind: 'struct', at: Date.now() });
+    const [d] = await waitFor([id], 9); const x = d.data() || {};
+    console.log('::notice title=Structure pull::' + (x.status || '?') + ' ' + JSON.stringify(x.result || x.error || '').slice(0, 900));
+    const q = await db.collection('metaStruct').get();
+    q.docs.slice(0, 40).forEach((s) => { const c = s.data(); console.log('::notice title=' + String(c.name).slice(0, 60).replace(/[:,]/g, ' ') + '::' + JSON.stringify({ conn: c.metaConnName, obj: c.campaign.objective, st: c.campaign.status, sets: (c.adsets || []).length, ads: (c.ads || []).length, a0: (c.adsets || [])[0] && c.adsets[0].audience, ad0: (c.ads || [])[0], age: (c.byAgeGender || []).slice(0, 2) }).slice(0, 900)); });
+    return;
+  }
   if (process.env.DIAG) {
     const q = await db.collection('agentLog').orderBy('at', 'desc').limit(8).get();
     q.docs.forEach((d) => { const x = d.data(); console.log('::notice title=log::' + JSON.stringify({ agent: x.agent, at: x.at, kind: x.kind, scope: x.scope, ok: x.ok, error: x.error ? String(x.error).slice(0, 200) : undefined })); });

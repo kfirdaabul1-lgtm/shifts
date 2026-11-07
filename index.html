@@ -394,8 +394,8 @@ body.nx .card,body.nx .kpi,body.nx .prow{background:rgba(10,20,40,.82)}body.nx .
 .nx-note{font-size:.75rem;color:#7FA3B3;margin:4px 2px 0}
 .nx-ev{display:flex;justify-content:space-between;gap:8px;font-size:.85rem;padding:6px 0;border-top:1px solid rgba(34,211,238,.12)}.nx-ev:first-child{border-top:0}.nx-ev small{color:#7FA3B3}
 .rt-wrap{overflow:auto;max-height:75vh;border:1px solid var(--line);border-radius:10px}.rt{border-collapse:collapse;font-size:.82rem;min-width:100%}.rt th,.rt td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:center;vertical-align:top;white-space:nowrap}.rt thead th{position:sticky;top:0;background:var(--surface);z-index:2;font-weight:600}.rt .rt-d{position:sticky;right:0;background:var(--surface);z-index:1;text-align:start}[dir=ltr] .rt .rt-d{right:auto;left:0}.rt .rt-d small{display:block;color:var(--muted);font-weight:400}
-.rtcal-w{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:14px;align-items:start}@media(max-width:820px){.rtcal-w{grid-template-columns:1fr}}
-.rtcal{min-width:0}.rtcal-dw,.rtcal-g{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px}.rtcal-dw{font-size:.72rem;color:var(--muted);margin-bottom:4px;text-align:center}
+.rtcal-w{display:grid;grid-template-columns:minmax(0,1fr) 270px;gap:14px;align-items:stretch}@media(max-width:820px){.rtcal-w{grid-template-columns:1fr}}
+.rtcal{min-width:0;display:flex;flex-direction:column}.rtcal .rtcal-g{flex:1;grid-auto-rows:minmax(96px,1fr)}.rtcal-dw,.rtcal-g{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px}.rtcal-dw{font-size:.72rem;color:var(--muted);margin-bottom:4px;text-align:center}
 .rtc{border:1px solid var(--line);border-radius:6px;padding:8px;min-height:96px;display:flex;flex-direction:column;gap:2px;background:var(--surface);font:inherit;color:inherit;text-align:start;cursor:pointer;min-width:0}.rtc-h{display:flex;justify-content:space-between;gap:2px;font-size:.74rem}.rtc-h small{color:var(--muted)}.rtc-g{font-weight:700;font-size:.85rem;font-variant-numeric:tabular-nums}
 .rtc-p{display:flex;justify-content:space-between;gap:4px;font-size:.8rem;font-variant-numeric:tabular-nums}.rtc-p small{color:var(--muted);font-size:.68rem}.rtc-c{border-top:1px dashed var(--line);padding-top:2px;margin-top:auto}.rtcal-g{gap:6px}
 @media(max-width:640px){.rtc{min-height:70px;padding:4px}.rtc-p small{display:none}.rtc-p{justify-content:center}.rtc-h small{display:none}}
@@ -3102,18 +3102,18 @@ function vRates(){const hs=ratesHs();if(!hs.length)return wrap(emptyBox('אין 
     d=addDays(d,1);if(cells.length>200000)break}
   const x=day(sel),pill=(t,c)=>`<div class="rtd-pill ${c}">${t}</div>`;
   const cl=x.best!=null?[...x.comps.map(([n,v])=>({n,v})),{n:'אנחנו',v:x.best,me:1}].sort((a,b)=>a.v-b.v||(b.me||0)-(a.me||0)):[];
-  const detail=`<div class="rtd-w"><div class="rtd"><h3 style="margin:0 0 4px">${dw(sel)} ${esc(fmtDM(sel).slice(0,5))} · <span>החדר הכי זול שלנו</span></h3>
+  const detail=`<div class="rtd"><h3 style="margin:0 0 4px">${dw(sel)} ${esc(fmtDM(sel).slice(0,5))}</h3><div class="rtd-t" style="margin-top:0">החדר הכי זול שלנו</div>
     ${x.rm?`<div class="rtd-room">${esc(x.rm)}</div>`:''}
     <div class="rtd-r"><span>Booking Genius</span><span><b>${x.bp!=null?rP(x.bp):'אזל'}</b>${x.b&&x.b.orig!=null&&+x.b.orig>x.bp?` <s>${rP(x.b.orig)}</s>`:''}${x.b&&x.b.bf?' ☕':''}</span></div>
     <div class="rtd-r"><span>אתר הבית</span><span><b>${x.sp!=null?rP(x.sp):'אזל'}</b>${x.sv&&x.sv.bf?' ☕':''}</span></div>
     ${x.gap==null?'':x.gap>0?pill(`<span>אתר הבית זול ב-</span>${rP(x.gap)}`,'good'):x.gap<0?pill(`<span>Booking זול ב-</span>${rP(-x.gap)}`,'bad'):pill('אותו מחיר','')}
-    <button class="btn sm" style="margin-top:6px;align-self:flex-start" data-act="rates-v" data-v="room">כל סוגי החדרים ←</button></div>
-    <div class="rtd"><h3 style="margin:0 0 4px"><span>מתחרים</span> · <span>החדר הכי זול</span></h3>
+    <div class="rtd-t"><span>מתחרים</span> · <span>החדר הכי זול</span></div>
     ${cl.length>1?cl.map(c=>`<div class="rtd-r ${c.me?'me':''}"><span>${c.me?'<b>אנחנו</b>':esc(c.n)}</span><b class="${!c.me&&c.v<x.best?'bad':''}">${rP(c.v)}</b></div>`).join('')+pill(`<span>אנחנו במקום</span> ${x.rank} <span>מתוך</span> ${x.n}`,x.rank===1?'good':x.rank===x.n?'bad':'mid')
-      :'<p class="muted" style="font-size:.82rem;margin:0">עוד אין מחירי מתחרים. אחרי שסוכן המחירים יתחיל לשלוח אותם הם יופיעו כאן.</p>'}</div></div>`;
+      :'<p class="muted" style="font-size:.82rem;margin:0">עוד אין מחירי מתחרים. אחרי שסוכן המחירים יתחיל לשלוח אותם הם יופיעו כאן.</p>'}
+    <button class="btn sm" style="margin-top:8px;align-self:flex-start" data-act="rates-v" data-v="room">כל סוגי החדרים ←</button></div>`;
   const cal=`<div class="card">${top}
     <p class="muted" style="font-size:.8rem"><span>בכל יום: החדר הכי זול שלנו, Booking מול אתר הבית.</span> <span>ירוק = אתר הבית זול מ-Booking Genius, אדום = Booking Genius זול מאתר הבית.</span>${hasComp?' <span>#n = המיקום שלנו מול המתחרים (1 = הכי זולים).</span>':''} <span>לחיצה על יום מציגה את כל המחירים.</span></p>
-    <div class="rtcal"><div class="rtcal-dw">${['א׳','ב׳','ג׳','ד׳','ה׳','ו׳','ש׳'].map(x=>`<span>${x}</span>`).join('')}</div><div class="rtcal-g">${cells}</div></div>${detail}</div>`;
+    <div class="rtcal-w"><div class="rtcal"><div class="rtcal-dw">${['א׳','ב׳','ג׳','ד׳','ה׳','ו׳','ש׳'].map(x=>`<span>${x}</span>`).join('')}</div><div class="rtcal-g">${cells}</div></div>${detail}</div></div>`;
   return wrap(head+tabs+cal)}
 function vBar(){const hs=modHs('bar',barHs());if(!hs.length)return wrap(emptyBox('אין מלון','צריך להיות רשום במלון ובמחלקת בר.'));
   if(!hs.includes(S.barH))S.barH=hs.includes(S.myHotel)?S.myHotel:hs[0];const h=S.barH,boss=barBoss(h),M=S.barM||(S.barM=todayISO().slice(0,7));

@@ -561,7 +561,9 @@ service cloud.firestore {
       // כספים: רק סימון אישור ההפקדה
       allow update: if manages(resource.data.hotel) || gmIn(resource.data.hotel)
         || (finIn(resource.data.hotel) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['finStatus', 'finNote', 'finBy', 'finAt']));
-      allow delete: if manages(resource.data.hotel) || gmIn(resource.data.hotel) || finIn(resource.data.hotel);
+      // a wrong report may be deleted only within 24 h of being filed (owner, Nov 7); the owner always
+      allow delete: if isOwner() || ((manages(resource.data.hotel) || gmIn(resource.data.hotel) || finIn(resource.data.hotel))
+        && resource.data.createdAt is number && request.time.toMillis() - resource.data.createdAt < 86400000);
     }
 
     // דוחות משמרת בלי סכומים (עותק שהשרת כותב): הקבלה רואה את הדוחות של המלון שלה לצורך חפיפה

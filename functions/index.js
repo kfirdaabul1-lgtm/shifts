@@ -1575,9 +1575,12 @@ exports.ratesIngest = functions.region(REGION).https.onRequest(async (req, res) 
     const byId = hs.docs.find((d) => d.id === hotel);
     if (byId) hname = byId.data().name || hotel;
     else {
-      const q = hotel.toLowerCase().replace(/^the\s+/, '');
-      const al = { gutman: ['gutman', 'גוטמן'], 'גוטמן': ['gutman', 'גוטמן'] }[q] || [q];
-      const m = q ? hs.docs.find((d) => { const n = String(d.data().name || '').toLowerCase(); return al.some((a) => n.includes(a)); }) : null;
+      const q = hotel.toLowerCase().trim().replace(/^the\s+/, ''), qs = q.replace(/[\s_-]+/g, '');
+      const AL = [[['gutman', 'גוטמן'], ['gutman', 'גוטמן']], [['7seas', 'sevenseas', 'seas', 'סיז', '7סיז'], ['seas', 'סיז']], [['hostel180', 'hostel', '180', 'הוסטל', 'הוסטל180'], ['hostel', 'הוסטל', '180']], [['7even', 'seven', 'סבן', 'sola', 'סולה'], ['7even', 'סבן']]];
+      const hit = AL.find(([keys]) => keys.includes(qs));
+      const al = hit ? hit[1] : [q];
+      const nm = (d) => String(d.data().name || '').toLowerCase();
+      const m = q ? (hs.docs.find((d) => nm(d).replace(/^the\s+/, '') === q) || hs.docs.find((d) => al.some((x) => nm(d).replace(/\s+/g, '').includes(x)))) : null;
       if (!m) { res.status(400).json({ error: 'hotel', hotels: hs.docs.map((d) => ({ id: d.id, name: d.data().name || '' })) }); return; }
       hotel = m.id; hname = m.data().name || m.id;
     }

@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202611071600"></script>
+<script src="i18n.js?v=202611071615"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -396,7 +396,10 @@ body.nx .card,body.nx .kpi,body.nx .prow{background:rgba(10,20,40,.82)}body.nx .
 .rt-wrap{overflow:auto;max-height:75vh;border:1px solid var(--line);border-radius:10px}.rt{border-collapse:collapse;font-size:.82rem;min-width:100%}.rt th,.rt td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:center;vertical-align:top;white-space:nowrap}.rt thead th{position:sticky;top:0;background:var(--surface);z-index:2;font-weight:600}.rt .rt-d{position:sticky;right:0;background:var(--surface);z-index:1;text-align:start}[dir=ltr] .rt .rt-d{right:auto;left:0}.rt .rt-d small{display:block;color:var(--muted);font-weight:400}
 .rtcal-w{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:14px;align-items:start}@media(max-width:820px){.rtcal-w{grid-template-columns:1fr}}
 .rtcal{min-width:0}.rtcal-dw,.rtcal-g{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px}.rtcal-dw{font-size:.72rem;color:var(--muted);margin-bottom:4px;text-align:center}
-.rtc{border:1px solid var(--line);border-radius:6px;padding:6px;min-height:58px;display:flex;flex-direction:column;gap:2px;background:var(--surface);font:inherit;color:inherit;text-align:start;cursor:pointer;min-width:0}.rtc-h{display:flex;justify-content:space-between;gap:2px;font-size:.74rem}.rtc-h small{color:var(--muted)}.rtc-g{font-weight:700;font-size:.85rem;font-variant-numeric:tabular-nums}
+.rtc{border:1px solid var(--line);border-radius:6px;padding:8px;min-height:96px;display:flex;flex-direction:column;gap:2px;background:var(--surface);font:inherit;color:inherit;text-align:start;cursor:pointer;min-width:0}.rtc-h{display:flex;justify-content:space-between;gap:2px;font-size:.74rem}.rtc-h small{color:var(--muted)}.rtc-g{font-weight:700;font-size:.85rem;font-variant-numeric:tabular-nums}
+.rtc-p{display:flex;justify-content:space-between;gap:4px;font-size:.8rem;font-variant-numeric:tabular-nums}.rtc-p small{color:var(--muted);font-size:.68rem}.rtc-c{border-top:1px dashed var(--line);padding-top:2px;margin-top:auto}.rtcal-g{gap:6px}
+@media(max-width:640px){.rtc{min-height:70px;padding:4px}.rtc-p small{display:none}.rtc-p{justify-content:center}.rtc-h small{display:none}}
+.rtd-w{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:14px}@media(max-width:720px){.rtd-w{grid-template-columns:1fr}}.rtd-room{font-weight:700;font-size:.95rem}
 .rtc-good{background:var(--ok-bg)}.rtc-good .rtc-g{color:var(--ok)}.rtc-bad{background:var(--bad-bg)}.rtc-bad .rtc-g{color:var(--bad)}.rtc-out,.rtc-none{background:var(--sunk);color:var(--muted)}.rtc-none{cursor:default;opacity:.55}.rtc.on{outline:3px solid var(--navy,var(--ink));outline-offset:-1px}
 .rtd{border:1px solid var(--line);border-radius:8px;padding:12px;background:var(--surface);display:flex;flex-direction:column;gap:6px;min-width:0}.rtd-r{display:flex;justify-content:space-between;gap:8px;font-size:.86rem;padding:3px 0;border-bottom:1px solid var(--line)}.rtd-r.me{font-weight:700}.rtd-r b.bad{color:var(--bad)}.rtd-r s{color:var(--muted);font-size:.75rem}.rtd-t{font-size:.76rem;color:var(--muted);margin-top:6px}.rtd-pill{padding:5px 10px;border-radius:6px;font-weight:700;font-size:.85rem;background:var(--sunk)}.rtd-pill.good{background:var(--ok-bg);color:var(--ok)}.rtd-pill.bad{background:var(--bad-bg);color:var(--bad)}.rtd-pill.mid{background:var(--warn-bg);color:var(--warn)}
 .rt-c{min-width:118px}.rt-c .rt-l{display:grid;grid-template-columns:52px auto 1fr;gap:4px;align-items:baseline;text-align:start}.rt-c .rt-l small{white-space:nowrap}.rt-c .rt-l small{color:var(--muted);font-size:.68rem}.rt-c s{color:var(--muted);font-size:.7rem}.rt-c i{font-style:normal;font-size:.75rem}.rt-gap{font-weight:700;margin-top:2px}.rt-good{background:var(--ok-bg)}.rt-good .rt-gap{color:var(--ok)}.rt-bad{background:var(--bad-bg)}.rt-bad .rt-gap{color:var(--bad)}.rt-out{color:var(--muted);background:var(--sunk)}.rt-left{font-size:.68rem;color:var(--warn)}
@@ -3069,10 +3072,12 @@ function vRates(){const hs=ratesHs();if(!hs.length)return wrap(emptyBox('אין 
   const minOf=(src,d)=>{const l=own.filter(r=>r.src===src&&r.checkin===d&&r.price!=null);return l.length?l.reduce((a,r)=>+r.price<+a.price?r:a):null};
   const at=run.runAt?new Date(run.runAt):null,dw=d=>['א׳','ב׳','ג׳','ד׳','ה׳','ו׳','ש׳'][new Date(d+'T12:00').getDay()];
   // one night: cheapest Genius, cheapest site, gap, competitors (cheapest per competitor) and our place among them
-  const day=d=>{const b=minOf('booking',d),sv=minOf('site',d),bp=b?+b.price:null,sp=sv?+sv.price:null,gap=bp!=null&&sp!=null?bp-sp:null;
+  // owner, Nov 7: compare OUR CHEAPEST ROOM (Booking + site prices of that same room) with the competitors' cheapest room
+  const day=d=>{let rm=null,rv=Infinity;rooms.forEach(r=>{const b=pick('booking',d,r),sv=pick('site',d,r),v=Math.min(b&&b.price!=null?+b.price:Infinity,sv&&sv.price!=null?+sv.price:Infinity);if(v<rv){rv=v;rm=r}});
+    const b=rm?pick('booking',d,rm):null,sv=rm?pick('site',d,rm):null,bp=b&&b.price!=null?+b.price:null,sp=sv&&sv.price!=null?+sv.price:null,gap=bp!=null&&sp!=null?bp-sp:null;
     const cm={};comp.filter(r=>r.checkin===d&&r.price!=null).forEach(r=>{const n=r.comp||r.room||'מתחרה';if(cm[n]==null||+r.price<cm[n])cm[n]=+r.price});
     const comps=Object.entries(cm).sort((x,y)=>x[1]-y[1]),ours=[bp,sp].filter(x=>x!=null),best=ours.length?Math.min(...ours):null;
-    const rank=best!=null&&comps.length?1+comps.filter(([,v])=>v<best).length:null;return {b,sv,bp,sp,gap,comps,best,rank,n:comps.length+1}};
+    const rank=best!=null&&comps.length?1+comps.filter(([,v])=>v<best).length:null;return {rm,b,sv,bp,sp,gap,comps,best,rank,n:comps.length+1}};
   let cheaper=0,dearer=0,first=0;dates.forEach(d=>{const x=day(d);if(x.gap!=null){if(x.gap<0)cheaper++;else if(x.gap>0)dearer++}if(x.rank===1)first++});
   const hasComp=comp.length>0;
   const runSel=R.runs.length>1?`<select data-ratesrun style="width:auto">${R.runs.map(r=>`<option value="${esc(r.id)}" ${r.id===run.id?'selected':''}>${esc(fmtDM(r.runDate||''))}</option>`).join('')}</select>`:'';
@@ -3093,23 +3098,22 @@ function vRates(){const hs=ratesHs();if(!hs.length)return wrap(emptyBox('אין 
   while(d<=last||new Date(d+'T12:00').getDay()!==0){
     if(!dset.has(d))cells+=`<div class="rtc rtc-none"><b>${esc(fmtDM(d).slice(0,5))}</b></div>`;
     else{const x=day(d),cls=x.gap==null?(x.bp==null&&x.sp==null?'rtc-out':''):x.gap>0?'rtc-good':x.gap<0?'rtc-bad':'rtc-eq';
-      cells+=`<button class="rtc ${cls} ${d===sel?'on':''}" data-act="rates-day" data-d="${d}" aria-pressed="${d===sel}"><span class="rtc-h"><b>${esc(fmtDM(d).slice(0,5))}</b>${x.rank?`<small title="המיקום שלנו מול המתחרים">#${x.rank}</small>`:''}</span><span class="rtc-g">${x.gap==null?(x.bp==null&&x.sp==null?'אזל':'—'):x.gap?`<span dir="ltr">${x.gap>0?'+':'−'}${rP(Math.abs(x.gap))}</span>`:'שווה'}</span></button>`}
+      cells+=`<button class="rtc ${cls} ${d===sel?'on':''}" data-act="rates-day" data-d="${d}" aria-pressed="${d===sel}"><span class="rtc-h"><b>${esc(fmtDM(d).slice(0,5))}</b>${x.rank?`<small title="המיקום שלנו מול המתחרים">#${x.rank}</small>`:''}</span>${x.bp==null&&x.sp==null?'<span class="rtc-g">אזל</span>':`<span class="rtc-p"><small>Booking</small><b>${x.bp!=null?rP(x.bp):'—'}</b></span><span class="rtc-p"><small>אתר</small><b>${x.sp!=null?rP(x.sp):'—'}</b></span><span class="rtc-g">${x.gap==null?'':x.gap?`<span dir="ltr">${x.gap>0?'+':'−'}${rP(Math.abs(x.gap))}</span>`:'שווה'}</span>`}${x.comps.length?`<span class="rtc-p rtc-c"><small>מתחרה</small><b>${rP(x.comps[0][1])}</b></span>`:''}</button>`}
     d=addDays(d,1);if(cells.length>200000)break}
   const x=day(sel),pill=(t,c)=>`<div class="rtd-pill ${c}">${t}</div>`;
-  const rmRows=rooms.map(rm=>{const b=pick('booking',sel,rm),sv=pick('site',sel,rm);if(!b&&!sv)return '';return `<div class="rtd-r"><span>${esc(rm)}</span><span>Genius <b>${b&&b.price!=null?rP(b.price):'—'}</b> · <span>אתר</span> <b>${sv&&sv.price!=null?rP(sv.price):'—'}</b></span></div>`}).join('');
   const cl=x.best!=null?[...x.comps.map(([n,v])=>({n,v})),{n:'אנחנו',v:x.best,me:1}].sort((a,b)=>a.v-b.v||(b.me||0)-(a.me||0)):[];
-  const detail=`<div class="rtd"><h3 style="margin:0 0 6px">${dw(sel)} ${esc(fmtDM(sel).slice(0,5))}</h3>
-    <div class="rtd-r"><span>Genius</span><span><b>${x.bp!=null?rP(x.bp):'אזל'}</b>${x.b&&x.b.orig!=null&&+x.b.orig>x.bp?` <s>${rP(x.b.orig)}</s>`:''}${x.b&&x.b.bf?' ☕':''}</span></div>
+  const detail=`<div class="rtd-w"><div class="rtd"><h3 style="margin:0 0 4px">${dw(sel)} ${esc(fmtDM(sel).slice(0,5))} · <span>החדר הכי זול שלנו</span></h3>
+    ${x.rm?`<div class="rtd-room">${esc(x.rm)}</div>`:''}
+    <div class="rtd-r"><span>Booking Genius</span><span><b>${x.bp!=null?rP(x.bp):'אזל'}</b>${x.b&&x.b.orig!=null&&+x.b.orig>x.bp?` <s>${rP(x.b.orig)}</s>`:''}${x.b&&x.b.bf?' ☕':''}</span></div>
     <div class="rtd-r"><span>אתר הבית</span><span><b>${x.sp!=null?rP(x.sp):'אזל'}</b>${x.sv&&x.sv.bf?' ☕':''}</span></div>
     ${x.gap==null?'':x.gap>0?pill(`<span>אתר הבית זול ב-</span>${rP(x.gap)}`,'good'):x.gap<0?pill(`<span>Booking זול ב-</span>${rP(-x.gap)}`,'bad'):pill('אותו מחיר','')}
-    ${rmRows?`<div class="rtd-t">לפי סוג חדר</div>${rmRows}`:''}
-    <div class="rtd-t">מתחרים</div>
+    <button class="btn sm" style="margin-top:6px;align-self:flex-start" data-act="rates-v" data-v="room">כל סוגי החדרים ←</button></div>
+    <div class="rtd"><h3 style="margin:0 0 4px"><span>מתחרים</span> · <span>החדר הכי זול</span></h3>
     ${cl.length>1?cl.map(c=>`<div class="rtd-r ${c.me?'me':''}"><span>${c.me?'<b>אנחנו</b>':esc(c.n)}</span><b class="${!c.me&&c.v<x.best?'bad':''}">${rP(c.v)}</b></div>`).join('')+pill(`<span>אנחנו במקום</span> ${x.rank} <span>מתוך</span> ${x.n}`,x.rank===1?'good':x.rank===x.n?'bad':'mid')
-      :'<p class="muted" style="font-size:.82rem;margin:0">עוד אין מחירי מתחרים. אחרי שסוכן המחירים יתחיל לשלוח אותם הם יופיעו כאן.</p>'}
-    <button class="btn sm" style="margin-top:8px" data-act="rates-v" data-v="room">פירוט לפי סוג חדר ←</button></div>`;
+      :'<p class="muted" style="font-size:.82rem;margin:0">עוד אין מחירי מתחרים. אחרי שסוכן המחירים יתחיל לשלוח אותם הם יופיעו כאן.</p>'}</div></div>`;
   const cal=`<div class="card">${top}
-    <p class="muted" style="font-size:.8rem"><span>ירוק = אתר הבית זול מ-Booking Genius, אדום = Booking Genius זול מאתר הבית.</span>${hasComp?' <span>#n = המיקום שלנו מול המתחרים (1 = הכי זולים).</span>':''} <span>לחיצה על יום מציגה את כל המחירים.</span></p>
-    <div class="rtcal-w"><div class="rtcal"><div class="rtcal-dw">${['א׳','ב׳','ג׳','ד׳','ה׳','ו׳','ש׳'].map(x=>`<span>${x}</span>`).join('')}</div><div class="rtcal-g">${cells}</div></div>${detail}</div></div>`;
+    <p class="muted" style="font-size:.8rem"><span>בכל יום: החדר הכי זול שלנו, Booking מול אתר הבית.</span> <span>ירוק = אתר הבית זול מ-Booking Genius, אדום = Booking Genius זול מאתר הבית.</span>${hasComp?' <span>#n = המיקום שלנו מול המתחרים (1 = הכי זולים).</span>':''} <span>לחיצה על יום מציגה את כל המחירים.</span></p>
+    <div class="rtcal"><div class="rtcal-dw">${['א׳','ב׳','ג׳','ד׳','ה׳','ו׳','ש׳'].map(x=>`<span>${x}</span>`).join('')}</div><div class="rtcal-g">${cells}</div></div>${detail}</div>`;
   return wrap(head+tabs+cal)}
 function vBar(){const hs=modHs('bar',barHs());if(!hs.length)return wrap(emptyBox('אין מלון','צריך להיות רשום במלון ובמחלקת בר.'));
   if(!hs.includes(S.barH))S.barH=hs.includes(S.myHotel)?S.myHotel:hs[0];const h=S.barH,boss=barBoss(h),M=S.barM||(S.barM=todayISO().slice(0,7));

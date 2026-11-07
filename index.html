@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202611071615"></script>
+<script src="i18n.js?v=202611071620"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -3038,7 +3038,7 @@ function barRow(id,r,boss){return `<div class="prow" style="flex-wrap:wrap"><spa
 const RATES_URL='https://europe-west1-hotel-shifts.cloudfunctions.net/ratesIngest';
 function ratesHs(){return S.isOwner||S.can.ceo?hotelIds():myScopeHs()}
 function ratesSub(h){S.rates=S.rates||{};if(S.rates[h])return S.rates[h];S.rates[h]={wait:true,runs:[]};
-  S.db.collection('ratesLog').where('hotel','==',h).onSnapshot(q=>{const runs=q.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.runAt||0)-(a.runAt||0)).slice(0,12);S.rates[h]={runs};render()},e=>{S.rates[h]={err:e.message||'שגיאה',runs:[]};render()});return S.rates[h]}
+  S.db.collection('ratesLog').where('hotel','==',h).onSnapshot(q=>{const runs=q.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.runAt||0)-(a.runAt||0)).slice(0,62);S.rates[h]={runs};render()},e=>{S.rates[h]={err:e.message||'שגיאה',runs:[]};render()});return S.rates[h]}
 function ratesCfgSub(){if(S.ratesCfg!==undefined||!S.isOwner)return;S.ratesCfg=null;fdb.doc('ratescfg/main').onSnapshot(d=>{S.ratesCfg=d.exists?d.data():{};render()},()=>{S.ratesCfg={}})}
 const rP=v=>v==null||v===''?'':'₪'+Math.round(+v).toLocaleString('he-IL');
 function ratesCell(b,s){ // b = booking row, s = site row (either may be missing)
@@ -3065,7 +3065,11 @@ function vRates(){const hs=ratesHs();if(!hs.length)return wrap(emptyBox('אין 
   if(R.wait)return wrap(head+`<div class="card"><p class="muted">טוען…</p></div>`);
   if(R.err)return wrap(head+`<div class="card"><p class="muted"><span>אין גישה לנתונים</span>: ${esc(R.err)}</p></div>`);
   if(!R.runs.length)return wrap(head+emptyBox('עוד אין נתונים למלון הזה','הנתונים מגיעים מסוכן המחירים (Booking Genius מול אתר הבית). אחרי הריצה הראשונה שלו הם יופיעו כאן.'));
-  const run=R.runs.find(r=>r.id===S.ratesRun)||R.runs[0],rows=run.rows||[];
+  const run=R.runs.find(r=>r.id===S.ratesRun)||R.runs[0],view=S.ratesV==='room'?'room':'cal';
+  // calendar (owner, Nov 7): past days stay, each date from the LATEST run (up to the chosen one) that had it, from the 1st of that run's month
+  const older=R.runs.filter(r=>(r.runAt||0)<=(run.runAt||0)),m0=String(run.runDate||todayISO()).slice(0,7)+'-01',srcOf={};
+  older.forEach(r=>(r.rows||[]).forEach(x=>{if(x.checkin>=m0&&!(x.checkin in srcOf))srcOf[x.checkin]=r}));
+  const rows=view==='room'?(run.rows||[]):older.flatMap(r=>(r.rows||[]).filter(x=>srcOf[x.checkin]===r));
   const own=rows.filter(r=>r.src!=='comp'),comp=rows.filter(r=>r.src==='comp');
   const dates=[...new Set(own.map(r=>r.checkin))].sort(),rooms=[...new Set(own.map(r=>r.room||'חדר'))];
   const pick=(src,d,rm)=>own.find(r=>r.src===src&&r.checkin===d&&(r.room||'חדר')===rm);
@@ -3080,8 +3084,7 @@ function vRates(){const hs=ratesHs();if(!hs.length)return wrap(emptyBox('אין 
     const rank=best!=null&&comps.length?1+comps.filter(([,v])=>v<best).length:null;return {rm,b,sv,bp,sp,gap,comps,best,rank,n:comps.length+1}};
   let cheaper=0,dearer=0,first=0;dates.forEach(d=>{const x=day(d);if(x.gap!=null){if(x.gap<0)cheaper++;else if(x.gap>0)dearer++}if(x.rank===1)first++});
   const hasComp=comp.length>0;
-  const runSel=R.runs.length>1?`<select data-ratesrun style="width:auto">${R.runs.map(r=>`<option value="${esc(r.id)}" ${r.id===run.id?'selected':''}>${esc(fmtDM(r.runDate||''))}</option>`).join('')}</select>`:'';
-  const view=S.ratesV==='room'?'room':'cal';
+  const runSel=R.runs.length>1?`<select data-ratesrun style="width:auto">${R.runs.slice(0,12).map(r=>`<option value="${esc(r.id)}" ${r.id===run.id?'selected':''}>${esc(fmtDM(r.runDate||''))}</option>`).join('')}</select>`:'';
   const tabs=`<div class="chips" style="gap:6px"><button class="dchip ${view==='cal'?'':'off'}" data-act="rates-v" data-v="cal">לוח שנה</button><button class="dchip ${view==='room'?'':'off'}" data-act="rates-v" data-v="room">לפי סוג חדר</button></div>`;
   const top=`<div class="row" style="justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center"><h3 style="margin:0"><span>ריצה אחרונה</span>: ${at?esc(fmtDM(run.runDate))+' · '+at.toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'}):''}</h3>${runSel}</div>
     <div class="kpis" style="margin:10px 0"><div class="kpi"><b>${dates.length}</b><span>תאריכים</span></div><div class="kpi"><b style="color:var(--ok)">${dearer}</b><span>ימים שאתר הבית זול</span></div><div class="kpi"><b style="color:var(--bad)">${cheaper}</b><span>ימים ש-Booking זול</span></div>${hasComp?`<div class="kpi"><b>${first}</b><span>ימים שאנחנו הכי זולים באזור</span></div>`:''}</div>`;
@@ -3102,7 +3105,7 @@ function vRates(){const hs=ratesHs();if(!hs.length)return wrap(emptyBox('אין 
     d=addDays(d,1);if(cells.length>200000)break}
   const x=day(sel),pill=(t,c)=>`<div class="rtd-pill ${c}">${t}</div>`;
   const cl=x.best!=null?[...x.comps.map(([n,v])=>({n,v})),{n:'אנחנו',v:x.best,me:1}].sort((a,b)=>a.v-b.v||(b.me||0)-(a.me||0)):[];
-  const detail=`<div class="rtd"><h3 style="margin:0 0 4px">${dw(sel)} ${esc(fmtDM(sel).slice(0,5))}</h3><div class="rtd-t" style="margin-top:0">החדר הכי זול שלנו</div>
+  const detail=`<div class="rtd"><h3 style="margin:0 0 4px">${dw(sel)} ${esc(fmtDM(sel).slice(0,5))}</h3>${srcOf[sel]&&srcOf[sel]!==run?`<div class="muted" style="font-size:.76rem">עודכן לאחרונה ב-${esc(fmtDM(srcOf[sel].runDate||'').slice(0,5))}</div>`:''}<div class="rtd-t" style="margin-top:0">החדר הכי זול שלנו</div>
     ${x.rm?`<div class="rtd-room">${esc(x.rm)}</div>`:''}
     <div class="rtd-r"><span>Booking Genius</span><span><b>${x.bp!=null?rP(x.bp):'אזל'}</b>${x.b&&x.b.orig!=null&&+x.b.orig>x.bp?` <s>${rP(x.b.orig)}</s>`:''}${x.b&&x.b.bf?' ☕':''}</span></div>
     <div class="rtd-r"><span>אתר הבית</span><span><b>${x.sp!=null?rP(x.sp):'אזל'}</b>${x.sv&&x.sv.bf?' ☕':''}</span></div>

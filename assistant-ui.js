@@ -22,6 +22,14 @@
   #asst{position:fixed;inset:auto 12px calc(12px + env(safe-area-inset-bottom)) 12px;max-width:440px;height:min(72vh,620px);z-index:9999;
     background:#fff;color:#111;border-radius:16px;box-shadow:0 10px 40px rgba(0,0,0,.3);display:flex;flex-direction:column;direction:rtl;font:15px/1.45 system-ui,sans-serif}
   #asst[hidden],#asst-btn[hidden]{display:none}
+  #asst .log{overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+  html.asst-open,html.asst-open body{overflow:hidden!important;touch-action:none}
+  html.asst-open #asst{touch-action:auto}
+  @media (max-width:720px){
+    #asst{inset:0;max-width:none;width:100%;height:100dvh;bottom:auto;border-radius:0;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);box-sizing:border-box;overflow:hidden}
+    #asst header{border-radius:0}
+    #asst textarea,#asst .ag select,#asst .ag button{font-size:16px}
+  }
   #asst header{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:2px solid #B08D57;font-weight:600;background:#14213D;color:#fff;border-radius:16px 16px 0 0}
   #asst header button{color:#e8e1d2!important}
   body:has(.sheet:not([hidden])) #asst-btn{display:none}
@@ -58,8 +66,10 @@
       <div class="log" aria-live="polite"></div>
       <form><textarea rows="1" placeholder="לשאול על משמרות, חדרים, תקלות, מלאי…" maxlength="1500"></textarea><button type="submit">שליחה</button></form>`;
     document.body.append(b, w);
-    b.onclick = () => { w.hidden = false; b.hidden = true; draw(); w.querySelector('textarea').focus(); };
-    w.querySelector('[data-a=close]').onclick = () => { w.hidden = true; b.hidden = false; };
+    b.onclick = () => { w.hidden = false; b.hidden = true; document.documentElement.classList.add('asst-open'); draw(); if (!matchMedia('(max-width:720px)').matches) w.querySelector('textarea').focus(); };
+    const vv = window.visualViewport;
+    if (vv) { const fit = () => { if (w.hidden || !matchMedia('(max-width:720px)').matches) { w.style.height = ''; w.style.top = ''; return; } w.style.height = vv.height + 'px'; w.style.top = vv.offsetTop + 'px'; const l = w.querySelector('.log'); if (l) l.scrollTop = l.scrollHeight; }; vv.addEventListener('resize', fit); vv.addEventListener('scroll', fit); b.addEventListener('click', () => setTimeout(fit, 0)); }
+    w.querySelector('[data-a=close]').onclick = () => { w.hidden = true; b.hidden = false; document.documentElement.classList.remove('asst-open'); };
     w.querySelector('[data-a=clear]').onclick = () => { hist = H[agent] = []; save(); draw(); };
     w.querySelectorAll('[data-ag]').forEach((x) => { x.onclick = () => { if (busy) return; agent = x.dataset.ag; hist = H[agent]; save(); draw(); }; });
     w.querySelector('[data-agh]').onchange = (e) => { adsH = e.target.value; hist = H.ads = []; save(); draw(); };
@@ -102,7 +112,7 @@
   }
   // show the button only for the owner / role holders (not reception desks)
   async function gate(btn, user) {
-    btn.hidden = true; if (root) root.hidden = true; if (!user) return;
+    btn.hidden = true; if (root) root.hidden = true; document.documentElement.classList.remove('asst-open'); if (!user) return;
     try {
       const em = String(user.email || '').toLowerCase(), cfg = window.APP_CONFIG || {};
       let ok = user.emailVerified && (em === 'kfirdaabul1@gmail.com' || em === String(cfg.ownerEmail || '').toLowerCase());

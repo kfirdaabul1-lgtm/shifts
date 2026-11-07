@@ -20,16 +20,6 @@ async function waitFor(ids, maxMin) {
     q.docs.forEach((d) => { const x = d.data(); console.log('::notice title=' + d.id + '::' + JSON.stringify({ kind: x.kind, hotel: x.hotel || 'chain', backfill: !!x.backfill, chars: JSON.stringify(x).length })); });
     return;
   }
-  if (String(process.env.DIAG).startsWith('chat:')) { // one test question as the owner (custom token → ID token, kept in memory only)
-    const src = require('fs').readFileSync(__dirname + '/index.js', 'utf8'), key = (src.match(/WEB_KEY = [^']*'([^']+)'/) || [])[1];
-    const u = await admin.auth().getUserByEmail('kfirdaabul1@gmail.com'), ct = await admin.auth().createCustomToken(u.uid);
-    const t = await (await fetch('https://identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key=' + key, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: ct, returnSecureToken: true }) })).json();
-    const [hotel, q] = process.env.DIAG.slice(5).split('|');
-    const r = await fetch('https://europe-west1-hotel-shifts.cloudfunctions.net/adsAgent', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + t.idToken }, body: JSON.stringify({ hotel, messages: [{ role: 'user', text: q }] }) });
-    const j = await r.json().catch(() => ({}));
-    console.log('::notice title=chat ' + r.status + '::' + JSON.stringify(j).slice(0, 3000));
-    return;
-  }
   if (process.env.DIAG === 'struct') {
     const id = 'struct_' + Date.now().toString(36); await db.doc('adsJobs/' + id).set({ kind: 'struct', at: Date.now() });
     const [d] = await waitFor([id], 9); const x = d.data() || {};

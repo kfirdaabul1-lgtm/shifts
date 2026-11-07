@@ -21,7 +21,7 @@ async function waitFor(ids, maxMin) {
     return;
   }
   if (String(process.env.DIAG).startsWith('chat:')) { // one test question as the owner (custom token → ID token, kept in memory only)
-    const src = require('fs').readFileSync(__dirname + '/index.js', 'utf8'), key = (src.match(/WEB_KEY = '([^']+)'/) || [])[1];
+    const src = require('fs').readFileSync(__dirname + '/index.js', 'utf8'), key = (src.match(/WEB_KEY = [^']*'([^']+)'/) || [])[1];
     const u = await admin.auth().getUserByEmail('kfirdaabul1@gmail.com'), ct = await admin.auth().createCustomToken(u.uid);
     const t = await (await fetch('https://identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key=' + key, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: ct, returnSecureToken: true }) })).json();
     const [hotel, q] = process.env.DIAG.slice(5).split('|');

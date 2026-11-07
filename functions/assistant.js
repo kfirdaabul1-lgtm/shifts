@@ -19,7 +19,7 @@ const functions = require('firebase-functions/v1');
 const admin = require('firebase-admin');
 const db = admin.firestore();
 const REGION = 'europe-west1';
-const MODEL = process.env.ASSISTANT_MODEL || 'claude-sonnet-5-5';
+const MODEL = process.env.ASSISTANT_MODEL || 'claude-haiku-5-5'; // owner, Nov 7: Haiku (cheaper); was claude-sonnet-5-5
 const PLATFORM = 'kfirdaabul1@gmail.com';
 const CHAIN = 'chain';
 const RATE_H = 40, MAX_TURNS = 6, MAX_HIST = 8; // history = last 8 text messages (older ones cost tokens on every question)

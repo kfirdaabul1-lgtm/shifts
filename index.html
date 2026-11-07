@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202611061520"></script>
+<script src="i18n.js?v=202611070810"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -392,6 +392,8 @@ body.nx .card,body.nx .kpi,body.nx .prow{background:rgba(10,20,40,.82)}body.nx .
 .nx-sub{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:10px}.nx-k{border:1px solid rgba(34,211,238,.2);border-radius:10px;padding:8px 10px}.nx-k b{font-size:1.2rem;display:block}.nx-k span{font-size:.72rem;color:#7FA3B3}
 .nx-note{font-size:.75rem;color:#7FA3B3;margin:4px 2px 0}
 .nx-ev{display:flex;justify-content:space-between;gap:8px;font-size:.85rem;padding:6px 0;border-top:1px solid rgba(34,211,238,.12)}.nx-ev:first-child{border-top:0}.nx-ev small{color:#7FA3B3}
+.rt-wrap{overflow:auto;max-height:75vh;border:1px solid var(--line);border-radius:10px}.rt{border-collapse:collapse;font-size:.82rem;min-width:100%}.rt th,.rt td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:center;vertical-align:top;white-space:nowrap}.rt thead th{position:sticky;top:0;background:var(--surface);z-index:2;font-weight:600}.rt .rt-d{position:sticky;inset-inline-start:0;background:var(--surface);z-index:1;text-align:start}.rt .rt-d small{display:block;color:var(--muted);font-weight:400}
+.rt-c{min-width:118px}.rt-c .rt-l{display:grid;grid-template-columns:52px auto 1fr;gap:4px;align-items:baseline;text-align:start}.rt-c .rt-l small{white-space:nowrap}.rt-c .rt-l small{color:var(--muted);font-size:.68rem}.rt-c s{color:var(--muted);font-size:.7rem}.rt-c i{font-style:normal;font-size:.75rem}.rt-gap{font-weight:700;margin-top:2px}.rt-good{background:var(--ok-bg)}.rt-good .rt-gap{color:var(--ok)}.rt-bad{background:var(--bad-bg)}.rt-bad .rt-gap{color:var(--bad)}.rt-out{color:var(--muted);background:var(--sunk)}.rt-left{font-size:.68rem;color:var(--warn)}
 </style>
 </head>
 <body>
@@ -432,7 +434,7 @@ const modHs=(m,hs)=>(hs||[]).filter(h=>modOn(m,h));
 const appsOn=()=>APPS.filter(([k])=>{const m=modOf(k);return !m||modOn(m)});
 function myScopeHs(){if(S.station)return [S.myHotel];if(S.isOwner||(S.role&&Array.isArray(S.role.hotels)&&!S.role.hotels.length))return hotelIds();if(S.role&&Array.isArray(S.role.hotels)&&S.role.hotels.length)return S.role.hotels;return S.myHotel&&S.myHotel!==CHAIN?[S.myHotel]:hotelIds()}
 function applyMods(){if(!S.can0)return;const hs=myScopeHs();for(const k of Object.keys(S.can0)){const m=modOf(k);if(!m)continue;const md=MODS.find(x=>x[0]===m);S.can[k]=!!S.can0[k]&&modOn(m)&&(!md[2]||hs.some(h=>modOn(m,h)))}
-  const gated={events:'events',leads:'events',spa:'spa',grp:'grp',front:'front',brief:'brief',gm:'gm',ceo:'ceo',fin:'fin',hk:'hk',pub:'pub',bar:'bar',cmp:'cmp',vch:'vch',maint:'maint',stock:'stock',mkt:'mkt',exp:'exp'}[S.tab];
+  const gated={events:'events',leads:'events',spa:'spa',grp:'grp',front:'front',brief:'brief',gm:'gm',ceo:'ceo',fin:'fin',hk:'hk',pub:'pub',bar:'bar',rates:'rates',cmp:'cmp',vch:'vch',maint:'maint',stock:'stock',mkt:'mkt',exp:'exp'}[S.tab];
   if(gated&&!(S.can[S.tab==='leads'?'events':S.tab]||(S.tab==='vch'&&S.can.vchr)||(S.tab==='grp'&&grpFOk())))S.tab=S.station?'front':S.admin?'sched':'avail'}
 const orgVenues=()=>{const o=(typeof S!=='undefined'&&S.org)||{};return Array.isArray(o.venues)?o.venues:DEF_VENUES};
 document.documentElement.setAttribute('dir','rtl');document.documentElement.setAttribute('lang','he');
@@ -491,7 +493,7 @@ function kindsFor(dept){const k=(cfg().deptKinds||{})[dept],base=Array.isArray(k
   return [...new Set(base.concat(KINDS.filter(x=>x.custom&&(x.depts||[]).includes(dept)).map(x=>x.k)))]}
 const hrsOf=(a,b)=>{a=toMin(a);b=toMin(b);if(b<=a)b+=1440;return (b-a)/60};
 const openWeek=()=>cfg().openWeek||addDays(weekOf(todayISO()),7);
-const APPTABS=['pchains','pperms','pjobs','pbk','org','grp','pub','bar','cfg','vch','cmp','spa','hr','perms','ceo','mkt','exp','gm','stock','brief','front','maint','fin','hk','leads'];
+const APPTABS=['pchains','pperms','pjobs','pbk','org','grp','pub','bar','rates','cfg','vch','cmp','spa','hr','perms','ceo','mkt','exp','gm','stock','brief','front','maint','fin','hk','leads'];
 const deptOk=k=>!S.deptOnly||S.myDepts.includes(k);
 const myDEPTS=()=>DEPTS.filter(d=>deptOk(d.k));
 const isActive=u=>S.mgr[u]?.active!==false;
@@ -730,7 +732,7 @@ function renderTop(){
   ${S.ready&&!S.registering&&S.auth==='in'&&!APPTABS.includes(S.tab)?`<nav class="wrap tabs" aria-label="ניווט">${tabs.map(([k,n])=>`<button data-act="tab" data-t="${k}" ${S.tab===k?'aria-current="page"':''}>${n}</button>`).join('')}</nav>`:''}<div id="topx"></div>`;
 }
 function renderDrawer(){const el=$('#drawer');if(!S.menu||S.auth!=='in'){el.innerHTML='';return}
-  const items=S.pmode?[['org','רשתות ומלונות','data-act="ptab" data-t="pchains"',S.tab==='pchains'],['perms','הרשאות רשתות','data-act="ptab" data-t="pperms"',S.tab==='pperms'],['hr','תפקידים','data-act="ptab" data-t="pjobs"',S.tab==='pjobs'],['ceo','גיבויים','data-act="ptab" data-t="pbk"',S.tab==='pbk']]:S.registering?[]:S.station?[['front','קבלה','data-act="app-front"',S.tab==='front'],['hk','משק','data-act="app-hk"',S.tab==='hk'],['pub','שטחים ציבוריים','data-act="app-pub"',S.tab==='pub'],['grp','קבוצות','data-act="app-grp"',S.tab==='grp']].filter(x=>S.can[x[0]]||(x[0]==='grp'&&grpFOk())):[['shifts','סידור עבודה','data-act="app-shifts"',!APPTABS.includes(S.tab)],S.can.hr&&['hr','עובדים','data-act="app-hr"',S.tab==='hr'],S.can.events&&['events','אירועים','href="events.html"',false],S.can.spa&&['spa','ספא','data-act="app-spa"',S.tab==='spa'],(S.can.grp||grpFOk())&&['grp','קבוצות','data-act="app-grp"',S.tab==='grp'],S.can.events&&['leads','לידים ומכירות'+(()=>{const n=S.can&&S.can.events?waUnread()+myTasksDue()+Object.values(S.leads||{}).filter(l=>l.owner===S.uid&&leadLate(l)).length:0;return n?` (${n})`:''})(),'data-act="app-leads"',S.tab==='leads'],S.can.front&&['front','קבלה','data-act="app-front"',S.tab==='front'],S.can.brief&&['brief','בריף יומי','data-act="app-brief"',S.tab==='brief'],S.can.gm&&['gm','מנהל מלון','data-act="app-gm"',S.tab==='gm'],S.can.ceo&&['ceo','מבט מנכ״ל','data-act="app-ceo"',S.tab==='ceo'],S.can.fin&&['fin','כספים'+(finPendingAll()?` (${finPendingAll()})`:''),'data-act="app-fin"',S.tab==='fin'],S.can.hk&&['hk','משק','data-act="app-hk"',S.tab==='hk'],S.can.pub&&['pub','שטחים ציבוריים','data-act="app-pub"',S.tab==='pub'],S.can.bar&&['bar','בר','data-act="app-bar"',S.tab==='bar'],S.can.cmp&&['cmp','תלונות אורחים','data-act="app-cmp"',S.tab==='cmp'],(S.can.vch||S.can.vchr)&&['vch','שוברים','data-act="app-vch"',S.tab==='vch'],S.can.maint&&['maint','אחזקה'+(()=>{const o=(S.can.gm||S.can.shifts||S.isOwner)?openFaultsN():0,r=S.can.maint?recurRooms(Object.values(S.alertFaultsAll||{})).length:0;return o||r?` (${[o?o+' פתוחות':'',r?r+' חוזרת':''].filter(Boolean).join(' · ')})`:''})(),'data-act="app-maint"',S.tab==='maint'],S.can.stock&&['stock','מלאי'+((S.can.gm||S.can.shifts||S.isOwner)&&lowItems().length?` (${lowItems().length} במינימום)`:''),'data-act="app-stock"',S.tab==='stock'],S.can.mkt&&['mkt','סושיאל מדיה','data-act="app-mkt"',S.tab==='mkt'],S.can.exp&&['exp','הוצאות','data-act="app-exp"',S.tab==='exp'],(S.isOwner||S.can.shifts)&&['cfg','הגדרות מלון','data-act="app-cfg"',S.tab==='cfg'],(S.isOwner||S.can.perms)&&['org','הגדרות רשת','data-act="app-org"',S.tab==='org']].filter(Boolean);
+  const items=S.pmode?[['org','רשתות ומלונות','data-act="ptab" data-t="pchains"',S.tab==='pchains'],['perms','הרשאות רשתות','data-act="ptab" data-t="pperms"',S.tab==='pperms'],['hr','תפקידים','data-act="ptab" data-t="pjobs"',S.tab==='pjobs'],['ceo','גיבויים','data-act="ptab" data-t="pbk"',S.tab==='pbk']]:S.registering?[]:S.station?[['front','קבלה','data-act="app-front"',S.tab==='front'],['hk','משק','data-act="app-hk"',S.tab==='hk'],['pub','שטחים ציבוריים','data-act="app-pub"',S.tab==='pub'],['grp','קבוצות','data-act="app-grp"',S.tab==='grp']].filter(x=>S.can[x[0]]||(x[0]==='grp'&&grpFOk())):[['shifts','סידור עבודה','data-act="app-shifts"',!APPTABS.includes(S.tab)],S.can.hr&&['hr','עובדים','data-act="app-hr"',S.tab==='hr'],S.can.events&&['events','אירועים','href="events.html"',false],S.can.spa&&['spa','ספא','data-act="app-spa"',S.tab==='spa'],(S.can.grp||grpFOk())&&['grp','קבוצות','data-act="app-grp"',S.tab==='grp'],S.can.events&&['leads','לידים ומכירות'+(()=>{const n=S.can&&S.can.events?waUnread()+myTasksDue()+Object.values(S.leads||{}).filter(l=>l.owner===S.uid&&leadLate(l)).length:0;return n?` (${n})`:''})(),'data-act="app-leads"',S.tab==='leads'],S.can.front&&['front','קבלה','data-act="app-front"',S.tab==='front'],S.can.brief&&['brief','בריף יומי','data-act="app-brief"',S.tab==='brief'],S.can.gm&&['gm','מנהל מלון','data-act="app-gm"',S.tab==='gm'],S.can.ceo&&['ceo','מבט מנכ״ל','data-act="app-ceo"',S.tab==='ceo'],S.can.fin&&['fin','כספים'+(finPendingAll()?` (${finPendingAll()})`:''),'data-act="app-fin"',S.tab==='fin'],S.can.hk&&['hk','משק','data-act="app-hk"',S.tab==='hk'],S.can.pub&&['pub','שטחים ציבוריים','data-act="app-pub"',S.tab==='pub'],S.can.bar&&['bar','בר','data-act="app-bar"',S.tab==='bar'],S.can.rates&&['ceo','השוואת מחירים','data-act="app-rates"',S.tab==='rates'],S.can.cmp&&['cmp','תלונות אורחים','data-act="app-cmp"',S.tab==='cmp'],(S.can.vch||S.can.vchr)&&['vch','שוברים','data-act="app-vch"',S.tab==='vch'],S.can.maint&&['maint','אחזקה'+(()=>{const o=(S.can.gm||S.can.shifts||S.isOwner)?openFaultsN():0,r=S.can.maint?recurRooms(Object.values(S.alertFaultsAll||{})).length:0;return o||r?` (${[o?o+' פתוחות':'',r?r+' חוזרת':''].filter(Boolean).join(' · ')})`:''})(),'data-act="app-maint"',S.tab==='maint'],S.can.stock&&['stock','מלאי'+((S.can.gm||S.can.shifts||S.isOwner)&&lowItems().length?` (${lowItems().length} במינימום)`:''),'data-act="app-stock"',S.tab==='stock'],S.can.mkt&&['mkt','סושיאל מדיה','data-act="app-mkt"',S.tab==='mkt'],S.can.exp&&['exp','הוצאות','data-act="app-exp"',S.tab==='exp'],(S.isOwner||S.can.shifts)&&['cfg','הגדרות מלון','data-act="app-cfg"',S.tab==='cfg'],(S.isOwner||S.can.perms)&&['org','הגדרות רשת','data-act="app-org"',S.tab==='org']].filter(Boolean);
   el.innerHTML=`<div class="drawer-bg" data-act="menu-close"></div><nav class="drawer" aria-label="אפליקציות">
     <div class="drawer-h"><b>${esc(S.pmode?platName():appName())}</b><button class="x" data-act="menu-close" aria-label="סגירה">×</button></div>
     <div class="drawer-who">${esc(S.meName||'')}${S.meName&&(S.email||S.phone)?'<br>':''}<bdi>${esc(String(S.email||S.phone||'').replace('@'+USER_DOMAIN,''))}</bdi></div>
@@ -754,7 +756,7 @@ function viewHTML(){
   if(!S.admin&&S.tab!=='mine'&&myPending().length){const b=`<div class="wrap" style="padding-top:12px"><div class="notice" style="display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap"><span>יש לך ${myPending().length} בקשות מהמנהל לשינוי משמרות</span><button class="btn sm pri" data-act="tab" data-t="mine">לצפייה ואישור</button></div></div>`;const v=viewInner();return b+v}
   return viewInner()}
 function viewInner(){
-  switch(S.tab){case 'sched':return vSched();case 'shifts':return vShifts();case 'staff':case 'hr':return S.can.hr?vHr():'';case 'spa':return S.can.spa?vSpa():'';case 'bar':return S.can.bar?vBar():'';case 'cmp':return S.can.cmp?vCmp():'';case 'vch':return S.can.vch||S.can.vchr?vVch():'';case 'costs':return vCosts();case 'settings':return vSettings();case 'perms':return S.can.perms?vPerms():'';case 'cfg':return S.isOwner||S.can.shifts?vCfg():'';case 'org':return S.isOwner||S.can.perms?vOrg():'';case 'pchains':return S.plat?vPChains():'';case 'pperms':return S.plat?vPPerms():'';case 'pjobs':return S.plat?vPJobs():'';case 'pbk':return S.plat?vPBk():'';case 'ceo':return S.can.ceo?vCeo():'';case 'mkt':return S.can.mkt?vMkt():'';case 'exp':return S.can.exp?vExp():'';case 'gm':return S.can.gm?vGm():'';case 'brief':return S.can.brief?vBrief():'';case 'front':return S.can.front?vFront():'';case 'maint':return S.can.maint?vMaint():'';case 'hk':return S.can.hk?vHk():'';case 'pub':return S.can.pub?vPub():'';case 'grp':return S.can.grp?vGrp():grpFOk()?vGrpFront():'';case 'leads':return S.can.events?vLeads():'';case 'fin':return S.can.fin?vFin():'';case 'stock':return S.can.stock?vStock():'';
+  switch(S.tab){case 'sched':return vSched();case 'shifts':return vShifts();case 'staff':case 'hr':return S.can.hr?vHr():'';case 'spa':return S.can.spa?vSpa():'';case 'rates':return S.can.rates?vRates():'';case 'bar':return S.can.bar?vBar():'';case 'cmp':return S.can.cmp?vCmp():'';case 'vch':return S.can.vch||S.can.vchr?vVch():'';case 'costs':return vCosts();case 'settings':return vSettings();case 'perms':return S.can.perms?vPerms():'';case 'cfg':return S.isOwner||S.can.shifts?vCfg():'';case 'org':return S.isOwner||S.can.perms?vOrg():'';case 'pchains':return S.plat?vPChains():'';case 'pperms':return S.plat?vPPerms():'';case 'pjobs':return S.plat?vPJobs():'';case 'pbk':return S.plat?vPBk():'';case 'ceo':return S.can.ceo?vCeo():'';case 'mkt':return S.can.mkt?vMkt():'';case 'exp':return S.can.exp?vExp():'';case 'gm':return S.can.gm?vGm():'';case 'brief':return S.can.brief?vBrief():'';case 'front':return S.can.front?vFront():'';case 'maint':return S.can.maint?vMaint():'';case 'hk':return S.can.hk?vHk():'';case 'pub':return S.can.pub?vPub():'';case 'grp':return S.can.grp?vGrp():grpFOk()?vGrpFront():'';case 'leads':return S.can.events?vLeads():'';case 'fin':return S.can.fin?vFin():'';case 'stock':return S.can.stock?vStock():'';
     case 'avail':return vAvail();case 'mine':return vMine();case 'daily':return vDailyEmp();case 'profile':return vProfile()}
   return '';
 }
@@ -1088,7 +1090,7 @@ function spshDaysHTML(days,th,t){
   // one card per day, therapists as rows (Nov 6: the wide table jumped back on phones after every tap, so taps hit the wrong cell)
   const row=(tr,d)=>{const r=((S.spaSh[d]||{}).ther||{})[tr.id];return `<div class="spsh-r${r?' on':''}"><button class="btn sm ${r?'ok':'ghost'}" data-act="spsh-t" data-d="${d}" data-id="${tr.id}" aria-pressed="${!!r}">${r?'✓':'+'} ${esc(tr.name)} <small>${tr.g==='m'?'מטפל':'מטפלת'}</small></button>${r?`<span class="spsh-h"><input type="time" step="900" data-spsh="${d}|${tr.id}|o" value="${esc(r.o||'')}" aria-label="התחלה ${esc(tr.name)}"><span>–</span><input type="time" step="900" data-spsh="${d}|${tr.id}|c" value="${esc(r.c||'')}" aria-label="סיום ${esc(tr.name)}"></span>`:''}</div>`};
   return `<p class="muted" style="font-size:.85rem;margin:4px 0 8px">לוחצים על שם המטפל/ת כדי לסמן שעובד/ת באותו יום (לחיצה נוספת מורידה), ומשנים שעות לפי הצורך. בימים "פתוח" ההזמנה אונליין מציעה רק שעות שיש בהן מטפל/ת פנוי/ה מהסוג שהאורח ביקש.</p><div class="spsh-days">${days.map(d=>`<div class="card spsh-d${d===t?' today':''}${d<t?' past':''}"><h3 style="margin:0 0 6px">${DAYS[dow(d)]} ${dm(d)} <small class="muted" style="font-weight:400">${cnt(d)}</small> ${mode(d)}</h3>${th.map(tr=>row(tr,d)).join('')}</div>`).join('')}</div>`}
-document.addEventListener('change',e=>{const t=e.target;if(t.matches&&t.matches('[data-spshsrc]')){S.spshSrc=t.value;render();return}if(!t.matches||!t.matches('[data-spsh]'))return;const [d,id,k]=t.dataset.spsh.split('|');if(!/^\d{1,2}:\d{2}$/.test(t.value))return;
+document.addEventListener('change',e=>{const t=e.target;if(t.matches&&t.matches('[data-ratesrun]')){S.ratesRun=t.value;render();return}if(t.matches&&t.matches('[data-spshsrc]')){S.spshSrc=t.value;render();return}if(!t.matches||!t.matches('[data-spsh]'))return;const [d,id,k]=t.dataset.spsh.split('|');if(!/^\d{1,2}:\d{2}$/.test(t.value))return;
   fdb.doc('spaShifts/'+d).set({date:d,ther:{[id]:{[k]:t.value}},updatedAt:Date.now(),updatedBy:S.uid},{merge:true}).catch(err=>toast('לא נשמר: '+errMsg(mapErr(err))))});
 // blocked time in the spa calendar (owner, Nov 2: online booking won't offer it): spa docs {kind:'block', hotel, date, time, mins, notes}
 function sheetSpaBlk(){const id=S.sheet.id,b=(S.spaBk||{})[id]||{},isNew=!(S.spaBk||{})[id],g=(k,d)=>dv('spb',k,b[k]??d),from=g('time','12:00'),to=dv('spb','to',b.time?spaHM(spaMin(b.time)+(+b.mins||60)):'14:00');
@@ -3022,6 +3024,52 @@ function barFormHTML(h){const g=(k,d='')=>dv('bar',k,d),staff=barStaff(h),me=sta
   <div class="f"><span>צילום הבר נקי</span>${barPhotoHTML('bar_c',S.barC,'צילום הבר (חובה)')}</div>
   <div class="actions" style="margin-top:10px"><button class="btn pri" data-act="bar-save" ${S.barBusy?'disabled':''}>${S.barBusy?'שולח…':'שליחת הדוח'}</button></div></div>`}
 function barRow(id,r,boss){return `<div class="prow" style="flex-wrap:wrap"><span class="who" data-act="bar-view" data-id="${id}" style="cursor:pointer"><b>יום ${DAYS[dow(r.date)]} ${dm(r.date)} · ${esc(SR_N[r.shift]||'')} · ${esc(r.name||'')}</b><small>מזומן ${ils(r.cash)} · אשראי ${ils(r.credit)} · טיפים מזומן ${ils(barTC(r))} · טיפים אשראי ${ils(barTK(r))}${r.missing==='yes'?` · <span class="bad-t">⚠️ חסר: ${esc(r.missingNote||'')}</span>`:''}</small></span><button class="btn sm ghost" data-act="bar-view" data-id="${id}">פתיחה</button>${boss?`<button class="btn sm ghost" data-act="bar-del" data-id="${id}">${S.confirm==='bar-del'+id?'לחיצה נוספת תמחק':'מחיקה'}</button>`:''}</div>`}
+/* ---------- price comparison page (Nov 7, owner: "השוואת מחירים"; plan = project doc claude/rates-page-plan.md, sketch A) ----------
+   ratesLog/{hotel}__{date} is written only by the function ratesIngest (the owner's price agent posts there with the key in ratescfg/main). */
+const RATES_URL='https://europe-west1-hotel-shifts.cloudfunctions.net/ratesIngest';
+function ratesHs(){return S.isOwner||S.can.ceo?hotelIds():scopeHs()}
+function ratesSub(h){S.rates=S.rates||{};if(S.rates[h])return S.rates[h];S.rates[h]={wait:true,runs:[]};
+  S.db.collection('ratesLog').where('hotel','==',h).onSnapshot(q=>{const runs=q.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.runAt||0)-(a.runAt||0)).slice(0,12);S.rates[h]={runs};render()},e=>{S.rates[h]={err:e.message||'שגיאה',runs:[]};render()});return S.rates[h]}
+function ratesCfgSub(){if(S.ratesCfg!==undefined||!S.isOwner)return;S.ratesCfg=null;S.db.collection('ratescfg').doc('main').onSnapshot(d=>{S.ratesCfg=d.exists?d.data():{};render()},()=>{S.ratesCfg={}})}
+const rP=v=>v==null||v===''?'':'₪'+Math.round(+v).toLocaleString('he-IL');
+function ratesCell(b,s){ // b = booking row, s = site row (either may be missing)
+  const bp=b&&b.price!=null?+b.price:null,sp=s&&s.price!=null?+s.price:null;
+  if(bp==null&&sp==null)return `<td class="rt-c rt-out"><span>אזל</span></td>`;
+  const gap=bp!=null&&sp!=null?bp-sp:null,cls=gap==null?'':gap<0?'rt-good':gap>0?'rt-bad':'';
+  return `<td class="rt-c ${cls}"><div class="rt-l"><small>Genius</small><b>${bp!=null?rP(bp):'—'}</b><span>${b&&b.orig!=null&&+b.orig>bp?`<s>${rP(b.orig)}</s> `:''}${b&&b.bf?'<i title="כולל ארוחת בוקר">☕</i>':''}</span></div><div class="rt-l"><small>אתר הבית</small><b>${sp!=null?rP(sp):'—'}</b><span>${s&&s.bf?'<i title="כולל ארוחת בוקר">☕</i>':''}</span></div>${gap!=null?`<div class="rt-gap">${gap?`<span dir="ltr">${gap>0?'+':'−'}${rP(Math.abs(gap))}</span>`:'<span>אותו מחיר</span>'}</div>`:''}${(b&&b.left!=null&&+b.left<=3)||(s&&s.left!=null&&+s.left<=3)?`<div class="rt-left"><span>נשארו</span> ${Math.min(...[b&&b.left,s&&s.left].filter(x=>x!=null).map(Number))}</div>`:''}</td>`}
+function ratesKeyHTML(){if(!S.isOwner)return '';ratesCfgSub();const c=S.ratesCfg,k=c&&c.key;
+  const body=`<p class="muted"><span>הסוכן שבודק מחירים שולח את התוצאות לכתובת הזו, עם המפתח. רק בעל המערכת רואה את המפתח. אפשר להחליף אותו בכל רגע, ואז צריך לעדכן אותו גם במשימה של הסוכן.</span></p>
+    <div class="field"><label>כתובת</label><input readonly dir="ltr" value="${RATES_URL}" onclick="this.select()"></div>
+    ${k?`<div class="field"><label>מפתח (x-rates-key)</label><input readonly dir="ltr" value="${esc(k)}" onclick="this.select()"></div><div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn" data-act="rates-copy">העתקת ההוראות לסוכן</button><button class="btn" data-act="rates-key">${S.confirm==='rkey'?'לחיצה נוספת להחלפה':'החלפת מפתח'}</button></div>`
+    :`<button class="btn pri" data-act="rates-key">יצירת מפתח לסוכן</button>`}`;
+  return foldCard(`<div class="card"><h3>🔑 <span>חיבור סוכן המחירים</span></h3>${body}</div>`,'rtk')}
+function ratesAgentText(){const k=(S.ratesCfg||{}).key||'';return `אחרי כל ריצה, שלח את התוצאות למערכת:
+POST ${RATES_URL}
+כותרות: Content-Type: application/json, x-rates-key: ${k}
+גוף:
+{"hotel":"Gutman","rows":[{"src":"booking","checkin":"YYYY-MM-DD","room":"שם החדר","orig":0,"price":0,"bf":true,"left":null,"note":""},{"src":"site","checkin":"YYYY-MM-DD","room":"שם החדר","price":0,"bf":false}]}
+src = booking (מחיר Genius ב-price, המחיר המקורי ב-orig) או site (אתר הבית). מחיר ריק = אזל. עד 600 שורות. התשובה {"ok":true} מאשרת שנשמר.`}
+function vRates(){const hs=ratesHs();if(!hs.length)return wrap(emptyBox('אין מלון','אין לך מלון בהרשאות.'));
+  if(!S.ratesH||!hs.includes(S.ratesH))S.ratesH=hs.includes(S.hotel)?S.hotel:hs[0];const h=S.ratesH,R=ratesSub(h);
+  const chips=hs.length>1?`<div class="chips">${hs.map(x=>`<button class="dchip ${x===h?'':'off'}" data-act="rates-h" data-h="${x}">${esc(hotelName(x))}</button>`).join('')}</div>`:'';
+  const head=`<section class="head"><div class="head-t"><h1><span>השוואת מחירים</span> · ${esc(hotelName(h))}</h1></div>${chips}</section>`;
+  if(R.wait)return wrap(head+ratesKeyHTML()+`<div class="card"><p class="muted">טוען…</p></div>`);
+  if(R.err)return wrap(head+ratesKeyHTML()+`<div class="card"><p class="muted"><span>אין גישה לנתונים</span>: ${esc(R.err)}</p></div>`);
+  if(!R.runs.length)return wrap(head+ratesKeyHTML()+emptyBox('עוד אין נתונים למלון הזה','הנתונים מגיעים מסוכן המחירים (Booking Genius מול אתר הבית). אחרי הריצה הראשונה שלו הם יופיעו כאן.'));
+  const run=R.runs.find(r=>r.id===S.ratesRun)||R.runs[0],rows=run.rows||[];
+  const dates=[...new Set(rows.map(r=>r.checkin))].sort(),rooms=[...new Set(rows.map(r=>r.room||'חדר'))];
+  const pick=(src,d,rm)=>rows.find(r=>r.src===src&&r.checkin===d&&(r.room||'חדר')===rm);
+  const minOf=(src,d)=>{const l=rows.filter(r=>r.src===src&&r.checkin===d&&r.price!=null);return l.length?l.reduce((a,r)=>+r.price<+a.price?r:a):null};
+  const at=run.runAt?new Date(run.runAt):null,dw=d=>['א׳','ב׳','ג׳','ד׳','ה׳','ו׳','ש׳'][new Date(d+'T12:00').getDay()];
+  let cheaper=0,dearer=0;dates.forEach(d=>{const b=minOf('booking',d),s=minOf('site',d);if(b&&s){if(+b.price<+s.price)cheaper++;else if(+b.price>+s.price)dearer++}});
+  const runSel=R.runs.length>1?`<select data-ratesrun style="width:auto">${R.runs.map(r=>`<option value="${esc(r.id)}" ${r.id===run.id?'selected':''}>${esc(fmtDM(r.runDate||''))}</option>`).join('')}</select>`:'';
+  const table=`<div class="card"><div class="row" style="justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center"><h3 style="margin:0"><span>ריצה אחרונה</span>: ${at?esc(fmtDM(run.runDate))+' · '+at.toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'}):''}</h3>${runSel}</div>
+    <div class="kpis" style="margin:10px 0"><div class="kpi"><b>${dates.length}</b><span>תאריכים</span></div><div class="kpi"><b style="color:var(--ok)">${cheaper}</b><span>ימים ש-Genius זול מהאתר</span></div><div class="kpi"><b style="color:var(--bad)">${dearer}</b><span>ימים ש-Genius יקר מהאתר</span></div></div>
+    <p class="muted" style="font-size:.8rem"><span>לילה אחד, 2 מבוגרים. ירוק = Genius זול מאתר הבית, אדום = Genius יקר מאתר הבית. ☕ = כולל ארוחת בוקר (ב-Booking Genius יש ארוחת בוקר ובאתר הבית לא, ולכן ההשוואה לא שווה לגמרי).</span></p>
+    <div class="rt-wrap"><table class="rt"><thead><tr><th>תאריך</th><th>הכי זול</th>${rooms.map(r=>`<th>${esc(r)}</th>`).join('')}</tr></thead><tbody>
+    ${dates.map(d=>`<tr><th class="rt-d">${esc(fmtDM(d).slice(0,5))}<small>${dw(d)}</small></th>${ratesCell(minOf('booking',d),minOf('site',d))}${rooms.map(rm=>ratesCell(pick('booking',d,rm),pick('site',d,rm))).join('')}</tr>`).join('')}
+    </tbody></table></div></div>`;
+  return wrap(head+table+ratesKeyHTML())}
 function vBar(){const hs=modHs('bar',barHs());if(!hs.length)return wrap(emptyBox('אין מלון','צריך להיות רשום במלון ובמחלקת בר.'));
   if(!hs.includes(S.barH))S.barH=hs.includes(S.myHotel)?S.myHotel:hs[0];const h=S.barH,boss=barBoss(h),M=S.barM||(S.barM=todayISO().slice(0,7));
   if(!S.live['bemps:'+h]){S.live['bemps:'+h]=true;S.db.collection('employees').where('hotel','==',h).onSnapshot(q=>{S.emps={...S.emps,...docsMap(q)};render()},()=>{})}
@@ -5024,6 +5072,10 @@ const ACT={
   'pub-h':D=>{S.pubH=D.h;render()},
   'app-pub':()=>{S.menu=false;setTab('pub')},
   'app-bar':()=>{S.menu=false;setTab('bar')},
+  'app-rates':()=>{S.menu=false;setTab('rates')},
+  'rates-h':e=>{S.ratesH=e.dataset.h;S.ratesRun='';render()},
+  'rates-key':async()=>{if(!S.isOwner)return;if((S.ratesCfg||{}).key&&S.confirm!=='rkey'){S.confirm='rkey';render();setTimeout(()=>{if(S.confirm==='rkey'){S.confirm='';render()}},4000);return}S.confirm='';const a=new Uint8Array(24);crypto.getRandomValues(a);const k='r'+[...a].map(x=>x.toString(16).padStart(2,'0')).join('');try{await S.db.collection('ratescfg').doc('main').set({key:k,at:Date.now(),by:S.uid},{merge:true});toast('המפתח נשמר')}catch(err){toast('שמירה נכשלה: '+(err.message||''))}},
+  'rates-copy':async()=>{try{await navigator.clipboard.writeText(ratesAgentText());toast('ההוראות הועתקו. הדבק אותן בשיחה של סוכן המחירים.')}catch(e){toast('ההעתקה נכשלה')}},
   'bar-h':D=>{S.barH=D.h;render()},
   'bar-month':D=>{S.barM=monAdd(S.barM||todayISO().slice(0,7),+D.d);render()},
   'bar-shift':D=>{(S.drafts.bar||(S.drafts.bar={})).shift=D.v;render()},
@@ -5397,6 +5449,7 @@ function applyHash(){const H=location.hash||'',hb=H.split('?')[0],qp=new URLSear
   if(hb==='#grp'&&(S.can.grp||grpFOk()))S.tab='grp';
   if(hb==='#pub'&&S.can.pub)S.tab='pub';
   if(hb==='#bar'&&S.can.bar)S.tab='bar';
+  if(hb==='#rates'&&S.can.rates)S.tab='rates';
   if(hb==='#cmp'&&S.can.cmp)S.tab='cmp';
   if(H.startsWith('#vch')&&(S.can.vch||S.can.vchr)){S.tab='vch';const m=H.match(/[?&]c=([A-Za-z0-9-]+)/);if(m)S.vchQ=m[1]}
   if(hb==='#ceo'&&S.can.ceo)S.tab='ceo';
@@ -5462,6 +5515,7 @@ async function start(u){
   // housekeeping page: reception, managers, the hk app and housekeeping staff
   S.can.hk=S.isOwner||S.station||S.can.hkchk||S.can.shifts||S.can.gm||S.can.front||!!(S.role&&roleApps(S.role).hk)||!!S.myHkDept||(S.deptOnly&&S.myDepts.includes('housekeeping'));
   S.can.bar=S.isOwner||S.can.shifts||S.can.gm||!!S.myBarDept||(S.deptOnly&&S.myDepts.includes('bar'));
+  S.can.rates=S.isOwner||!!S.can.gm||!!S.can.ceo;
   S.can.pub=S.isOwner||S.station||S.can.shifts||S.can.gm||S.can.front||!!S.myPubDept||(S.deptOnly&&S.myDepts.includes('public'));
   S.can0={...S.can};applyMods();
   const setIds=()=>S.admin?(S.scoped?S.role.hotels:null):(S.myHotel===CHAIN?[]:[S.hotel]);
@@ -5473,7 +5527,7 @@ async function start(u){
   catch(e){onErr(e)}
   S.week=openWeek();
   let t=null;try{t=localStorage.getItem('hs_tab')}catch(_){ }
-  const allowed=S.station?['front','hk'].concat(grpFOk()?['grp']:[]):((S.admin?(S.deptOnly?['sched','shifts']:['sched','shifts','costs','settings']):S.myHotel===CHAIN||S.myMgmt?['profile']:['avail','mine','profile']).concat(S.can.hr?['hr']:[]).concat(S.can.spa?['spa']:[]).concat(S.can.grp||grpFOk()?['grp']:[]).concat(S.can.pub?['pub']:[]).concat(S.can.bar?['bar']:[]).concat(S.can.cmp?['cmp']:[]).concat(S.can.vch||S.can.vchr?['vch']:[]).concat(S.can.perms?['perms']:[]).concat(S.isOwner||S.can.shifts?['cfg']:[]).concat(S.isOwner||S.can.perms?['org']:[]).concat(S.can.ceo?['ceo']:[]).concat(S.can.mkt?['mkt']:[]).concat(S.can.exp?['exp']:[]).concat(S.can.gm?['gm']:[]).concat(S.can.stock?['stock']:[]).concat(S.can.brief?['brief']:[]).concat(S.can.front?['front']:[]).concat(S.can.maint?['maint']:[]).concat(S.can.fin?['fin']:[]).concat(S.can.hk&&!S.station?['hk']:[]).concat(S.can.events?['leads']:[]));S.tab=allowed.includes(t)?t:allowed[0];
+  const allowed=S.station?['front','hk'].concat(grpFOk()?['grp']:[]):((S.admin?(S.deptOnly?['sched','shifts']:['sched','shifts','costs','settings']):S.myHotel===CHAIN||S.myMgmt?['profile']:['avail','mine','profile']).concat(S.can.hr?['hr']:[]).concat(S.can.spa?['spa']:[]).concat(S.can.grp||grpFOk()?['grp']:[]).concat(S.can.pub?['pub']:[]).concat(S.can.bar?['bar']:[]).concat(S.can.rates?['rates']:[]).concat(S.can.cmp?['cmp']:[]).concat(S.can.vch||S.can.vchr?['vch']:[]).concat(S.can.perms?['perms']:[]).concat(S.isOwner||S.can.shifts?['cfg']:[]).concat(S.isOwner||S.can.perms?['org']:[]).concat(S.can.ceo?['ceo']:[]).concat(S.can.mkt?['mkt']:[]).concat(S.can.exp?['exp']:[]).concat(S.can.gm?['gm']:[]).concat(S.can.stock?['stock']:[]).concat(S.can.brief?['brief']:[]).concat(S.can.front?['front']:[]).concat(S.can.maint?['maint']:[]).concat(S.can.fin?['fin']:[]).concat(S.can.hk&&!S.station?['hk']:[]).concat(S.can.events?['leads']:[]));S.tab=allowed.includes(t)?t:allowed[0];
   applyHash();
   // the reception page always opens on the current week (today's 10days)
   if(S.tab==='front')S.week=weekOf(todayISO());

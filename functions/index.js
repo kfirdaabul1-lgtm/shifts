@@ -1555,3 +1555,44 @@ exports.leadVenueSync = trig('leads/{id}').onUpdate(async (ch, ctx) => {
 
 // managers' assistant (owner, Nov 6): chat with Claude over the hotel's data, read-only, permission-checked → assistant.js
 exports.assistant = require('./assistant.js').assistant;
+
+// ---------- price comparison (Nov 7, owner: page "השוואת מחירים") ----------
+// The owner's scheduled price agent POSTs {hotel, rows:[{src booking|site, checkin, room, orig, price, bf, left, note}]} with header x-rates-key.
+// Key in ratescfg/main.key (owner only in rules). Writes ratesLog/{hotel}__{ilDate}; clients never write there.
+exports.ratesIngest = functions.region(REGION).https.onRequest(async (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*'); res.set('Access-Control-Allow-Headers', 'Content-Type, x-rates-key'); res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
+  if (req.method !== 'POST') { res.status(405).send('method'); return; }
+  try {
+    if (await pwRate(req, 30)) { res.status(429).json({ error: 'rate' }); return; }
+    const cfg = await db.doc('ratescfg/main').get(), key = cfg.exists ? String(cfg.data().key || '') : '';
+    const got = String(req.get('x-rates-key') || '');
+    if (!key || key.length < 24 || got.length !== key.length || !crypto.timingSafeEqual(Buffer.from(got), Buffer.from(key))) { res.status(403).json({ error: 'forbidden' }); return; }
+    const b = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
+    // hotel = an id in hotels/, or a name ("Gutman" / "גוטמן") matched against the hotel names
+    let hotel = String(b.hotel || '').slice(0, 60), hname = '';
+    const hs = await db.collection('hotels').get();
+    const byId = hs.docs.find((d) => d.id === hotel);
+    if (byId) hname = byId.data().name || hotel;
+    else {
+      const q = hotel.toLowerCase().replace(/^the\s+/, '');
+      const al = { gutman: ['gutman', 'גוטמן'], 'גוטמן': ['gutman', 'גוטמן'] }[q] || [q];
+      const m = q ? hs.docs.find((d) => { const n = String(d.data().name || '').toLowerCase(); return al.some((a) => n.includes(a)); }) : null;
+      if (!m) { res.status(400).json({ error: 'hotel', hotels: hs.docs.map((d) => ({ id: d.id, name: d.data().name || '' })) }); return; }
+      hotel = m.id; hname = m.data().name || m.id;
+    }
+    const rows = Array.isArray(b.rows) ? b.rows : [];
+    if (!rows.length || rows.length > 600) { res.status(400).json({ error: 'rows' }); return; }
+    const num = (v) => { if (v === null || v === undefined || v === '') return null; const n = Number(v); return Number.isFinite(n) && n >= 0 && n <= 100000 ? Math.round(n * 100) / 100 : null; };
+    const clean = [];
+    for (const r of rows) {
+      const src = r && (r.src === 'booking' || r.src === 'site') ? r.src : null, ci = String((r && r.checkin) || '');
+      if (!src || !/^\d{4}-\d{2}-\d{2}$/.test(ci)) continue;
+      clean.push({ src, checkin: ci, room: String(r.room || '').slice(0, 60), orig: num(r.orig), price: num(r.price), bf: !!r.bf, left: num(r.left), note: String(r.note || '').slice(0, 120) });
+    }
+    if (!clean.length) { res.status(400).json({ error: 'rows' }); return; }
+    const day = ilDate(new Date());
+    await db.doc('ratesLog/' + hotel + '__' + day).set({ hotel, hotelName: hname, runDate: day, runAt: Date.now(), rows: clean, n: clean.length });
+    res.json({ ok: true, hotel, hotelName: hname, saved: clean.length, doc: hotel + '__' + day });
+  } catch (e) { console.error('ratesIngest', e); res.status(500).json({ error: 'server' }); }
+});

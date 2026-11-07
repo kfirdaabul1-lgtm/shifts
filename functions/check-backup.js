@@ -42,5 +42,10 @@ async function grant(fn = 'driveBackup') {
   const ggProbe = () => fetch(GG).then(async (x) => ({ s: x.status, b: (await x.text()).slice(0, 40) })).catch((e) => ({ s: 0, b: e.message }));
   let gg = await ggProbe(); note('Group guide probe', 'status ' + gg.s);
   if (gg.s !== 404 || gg.b.indexOf('notfound') < 0) { note('Group guide invoker', await grant('grpGuide').catch((e) => 'grant failed: ' + e.message)); await new Promise((x) => setTimeout(x, 20000)); gg = await ggProbe(); note('Group guide probe 2', 'status ' + gg.s + ' · ' + gg.b); }
+  // price comparison endpoint must be public (the owner's price agent calls it with its key); GET answers our own 405 "method"
+  const RI = 'https://europe-west1-hotel-shifts.cloudfunctions.net/ratesIngest';
+  const riProbe = () => fetch(RI).then(async (x) => ({ s: x.status, b: (await x.text()).slice(0, 40) })).catch((e) => ({ s: 0, b: e.message }));
+  let ri = await riProbe(); note('Rates probe', 'status ' + ri.s);
+  if (ri.s !== 405 || ri.b.trim() !== 'method') { note('Rates invoker', await grant('ratesIngest').catch((e) => 'grant failed: ' + e.message)); await new Promise((x) => setTimeout(x, 20000)); ri = await riProbe(); note('Rates probe 2', 'status ' + ri.s + ' · ' + ri.b.replace(/<[^>]+>/g, ' ').trim()); }
   // no real call here: a real call would update lastAt and hide a broken Apps Script schedule
 })().catch((e) => { note('Backup check error', e.message); });

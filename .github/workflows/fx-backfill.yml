@@ -3,6 +3,7 @@ on:
   workflow_dispatch:
     inputs:
       from: { description: 'from date (YYYY-MM-DD, empty = first foreign group)', required: false, default: '' }
+      diag: { description: 'grp = counts only', required: false, default: '' }
 jobs:
   run:
     runs-on: ubuntu-latest
@@ -14,6 +15,7 @@ jobs:
       - env:
           KEY: ${{ secrets.FIREBASE_DEPLOY_KEY }}
           FROM: ${{ inputs.from }}
+          DIAG: ${{ inputs.diag }}
         run: |
           echo "$KEY" > "$RUNNER_TEMP/key.json"
           export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/key.json"

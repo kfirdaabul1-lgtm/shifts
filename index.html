@@ -392,7 +392,7 @@ body.nx .card,body.nx .kpi,body.nx .prow{background:rgba(10,20,40,.82)}body.nx .
 .nx-sub{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:10px}.nx-k{border:1px solid rgba(34,211,238,.2);border-radius:10px;padding:8px 10px}.nx-k b{font-size:1.2rem;display:block}.nx-k span{font-size:.72rem;color:#7FA3B3}
 .nx-note{font-size:.75rem;color:#7FA3B3;margin:4px 2px 0}
 .nx-ev{display:flex;justify-content:space-between;gap:8px;font-size:.85rem;padding:6px 0;border-top:1px solid rgba(34,211,238,.12)}.nx-ev:first-child{border-top:0}.nx-ev small{color:#7FA3B3}
-.rt-wrap{overflow:auto;max-height:75vh;border:1px solid var(--line);border-radius:10px}.rt{border-collapse:collapse;font-size:.82rem;min-width:100%}.rt th,.rt td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:center;vertical-align:top;white-space:nowrap}.rt thead th{position:sticky;top:0;background:var(--surface);z-index:2;font-weight:600}.rt .rt-d{position:sticky;inset-inline-start:0;background:var(--surface);z-index:1;text-align:start}.rt .rt-d small{display:block;color:var(--muted);font-weight:400}
+.rt-wrap{overflow:auto;max-height:75vh;border:1px solid var(--line);border-radius:10px}.rt{border-collapse:collapse;font-size:.82rem;min-width:100%}.rt th,.rt td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:center;vertical-align:top;white-space:nowrap}.rt thead th{position:sticky;top:0;background:var(--surface);z-index:2;font-weight:600}.rt .rt-d{position:sticky;right:0;background:var(--surface);z-index:1;text-align:start}[dir=ltr] .rt .rt-d{right:auto;left:0}.rt .rt-d small{display:block;color:var(--muted);font-weight:400}
 .rt-c{min-width:118px}.rt-c .rt-l{display:grid;grid-template-columns:52px auto 1fr;gap:4px;align-items:baseline;text-align:start}.rt-c .rt-l small{white-space:nowrap}.rt-c .rt-l small{color:var(--muted);font-size:.68rem}.rt-c s{color:var(--muted);font-size:.7rem}.rt-c i{font-style:normal;font-size:.75rem}.rt-gap{font-weight:700;margin-top:2px}.rt-good{background:var(--ok-bg)}.rt-good .rt-gap{color:var(--ok)}.rt-bad{background:var(--bad-bg)}.rt-bad .rt-gap{color:var(--bad)}.rt-out{color:var(--muted);background:var(--sunk)}.rt-left{font-size:.68rem;color:var(--warn)}
 </style>
 </head>
@@ -687,7 +687,7 @@ function render(){if(S.deep)deepOpen();if(isTyping()){S.pending=true;return}S.pe
 const FSEL_SKIP=/-view$|^exp-tab$|^call-t$|^pcall-t$|^kc-dept$|^job-dept$|^perm-|^emp-dept$|^pf-dept$|^vchn-vh$|^pl-ag$|^pl-m$|^lead-catset$|^spa-mins$|^lead-stage$/;
 // owner, Nov 4: like the schedule pages, every page's hotel picker and sub-page switch live in the navy top bar.
 // The page still renders its own chip rows; liftTop moves the first hotel row and the first view row into #topx (buttons keep their actions).
-const TOP_HOTEL_ACTS=['bar-h','gm-hotel','cmp-hotel','hk-hotel','hr-hotel','pub-h','photel'],TOP_VIEW_ACTS=['grp-view','lead-view','mkt-view','spa-view','exp-tab'];
+const TOP_HOTEL_ACTS=['bar-h','rates-h','gm-hotel','cmp-hotel','hk-hotel','hr-hotel','pub-h','photel'],TOP_VIEW_ACTS=['grp-view','lead-view','mkt-view','spa-view','exp-tab'];
 function liftTop(root){const tx=$('#topx');if(!tx)return;tx.innerHTML='';if(!APPTABS.includes(S.tab))return;
   const rowOf=acts=>[...root.querySelectorAll('.chips,.seg')].find(b=>{if(b.closest('.sheet,.card'))return false;const bs=[...b.children];return bs.length>1&&bs.every(x=>x.tagName==='BUTTON'&&acts.includes(x.dataset.act)&&x.dataset.act===bs[0].dataset.act)});
   const on=x=>x.getAttribute('aria-pressed')==='true'||(!x.classList.contains('off')&&x.getAttribute('aria-pressed')!=='false');
@@ -5073,7 +5073,7 @@ const ACT={
   'app-pub':()=>{S.menu=false;setTab('pub')},
   'app-bar':()=>{S.menu=false;setTab('bar')},
   'app-rates':()=>{S.menu=false;setTab('rates')},
-  'rates-h':e=>{S.ratesH=e.dataset.h;S.ratesRun='';render()},
+  'rates-h':D=>{S.ratesH=D.h;S.ratesRun='';render()},
   'rates-key':async()=>{if(!S.isOwner)return;if((S.ratesCfg||{}).key&&S.confirm!=='rkey'){S.confirm='rkey';render();setTimeout(()=>{if(S.confirm==='rkey'){S.confirm='';render()}},4000);return}S.confirm='';const a=new Uint8Array(24);crypto.getRandomValues(a);const k='r'+[...a].map(x=>x.toString(16).padStart(2,'0')).join('');try{await fdb.doc('ratescfg/main').set({key:k,at:Date.now(),by:S.uid},{merge:true});toast('המפתח נשמר')}catch(err){toast('שמירה נכשלה: '+(err.message||''))}},
   'rates-copy':async()=>{try{await navigator.clipboard.writeText(ratesAgentText());toast('ההוראות הועתקו. הדבק אותן בשיחה של סוכן המחירים.')}catch(e){toast('ההעתקה נכשלה')}},
   'bar-h':D=>{S.barH=D.h;render()},

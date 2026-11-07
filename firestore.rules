@@ -170,11 +170,12 @@ service cloud.firestore {
         && (!a.get('cmp', false) || roleApp('cmp'))
         && (!a.get('vch', false) || roleApp('vch'))
         && (!a.get('vchr', false) || roleApp('vchr'))
-        && (!a.get('hkchk', false) || roleApp('hkchk') || roleApp('gm') || roleApp('shifts'));
+        && (!a.get('hkchk', false) || roleApp('hkchk') || roleApp('gm') || roleApp('shifts'))
+        && (!a.get('rates', false) || roleApp('rates') || roleApp('gm') || roleApp('ceo'));
     }
     function grantOk(n) {
       return n.apps is map
-        && n.apps.keys().hasOnly(['shifts', 'events', 'perms', 'ceo', 'dept', 'mkt', 'exp', 'gm', 'brief', 'front', 'maint', 'fin', 'hk', 'hr', 'spa', 'grp', 'cmp', 'vch', 'vchr', 'hkchk'])
+        && n.apps.keys().hasOnly(['shifts', 'events', 'perms', 'ceo', 'dept', 'mkt', 'exp', 'gm', 'brief', 'front', 'maint', 'fin', 'hk', 'hr', 'spa', 'grp', 'cmp', 'vch', 'vchr', 'hkchk', 'rates'])
         && n.get('hotels', []) is list
         && n.get('depts', []) is list
         && (isOwner() || roleApp('shifts') || n.get('depts', []).hasOnly(roleDepts()))
@@ -191,7 +192,7 @@ service cloud.firestore {
     function chainTarget(uid) { return exists(/databases/$(database)/documents/employees/$(uid)) && get(/databases/$(database)/documents/employees/$(uid)).data.get('hotel', 'main') == 'chain'; }
     function chainGrantOk(n) {
       return n.apps is map
-        && n.apps.keys().hasOnly(['shifts', 'events', 'perms', 'ceo', 'dept', 'mkt', 'exp', 'gm', 'brief', 'front', 'maint', 'fin', 'hk', 'hr', 'spa', 'grp', 'cmp', 'vch', 'vchr', 'hkchk'])
+        && n.apps.keys().hasOnly(['shifts', 'events', 'perms', 'ceo', 'dept', 'mkt', 'exp', 'gm', 'brief', 'front', 'maint', 'fin', 'hk', 'hr', 'spa', 'grp', 'cmp', 'vch', 'vchr', 'hkchk', 'rates'])
         && n.get('hotels', []) is list && n.get('hotels', []).size() == 0
         && n.get('depts', []) is list
         && (isOwner() || roleApp('shifts') || n.get('depts', []).hasOnly(roleDepts()))
@@ -742,7 +743,7 @@ service cloud.firestore {
       allow read, write: if isOwner();
     }
     match /ratesLog/{id} {
-      allow read: if isOwner() || canCeo() || gmIn(resource.data.hotel);
+      allow read: if isOwner() || canCeo() || gmIn(resource.data.hotel) || (hasRole() && roleApp('rates') && (roleHotels().size() == 0 || resource.data.hotel in roleHotels()));
       allow write: if false;
     }
     // Meta (Facebook/Instagram) connection: system-user token, owner only; the functions (admin) read it and write status

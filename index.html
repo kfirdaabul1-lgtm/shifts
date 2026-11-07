@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202611071036"></script>
+<script src="i18n.js?v=202611071053"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -3027,7 +3027,7 @@ function barRow(id,r,boss){return `<div class="prow" style="flex-wrap:wrap"><spa
 /* ---------- price comparison page (Nov 7, owner: "השוואת מחירים"; plan = project doc claude/rates-page-plan.md, sketch A) ----------
    ratesLog/{hotel}__{date} is written only by the function ratesIngest (the owner's price agent posts there with the key in ratescfg/main). */
 const RATES_URL='https://europe-west1-hotel-shifts.cloudfunctions.net/ratesIngest';
-function ratesHs(){return S.isOwner||S.can.ceo?hotelIds():scopeHs()}
+function ratesHs(){return S.isOwner||S.can.ceo?hotelIds():myScopeHs()}
 function ratesSub(h){S.rates=S.rates||{};if(S.rates[h])return S.rates[h];S.rates[h]={wait:true,runs:[]};
   S.db.collection('ratesLog').where('hotel','==',h).onSnapshot(q=>{const runs=q.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.runAt||0)-(a.runAt||0)).slice(0,12);S.rates[h]={runs};render()},e=>{S.rates[h]={err:e.message||'שגיאה',runs:[]};render()});return S.rates[h]}
 function ratesCfgSub(){if(S.ratesCfg!==undefined||!S.isOwner)return;S.ratesCfg=null;fdb.doc('ratescfg/main').onSnapshot(d=>{S.ratesCfg=d.exists?d.data():{};render()},()=>{S.ratesCfg={}})}
@@ -4110,9 +4110,9 @@ function roleHTML(u,e,isNew){if(!S.can.perms||isNew||e.manual||u===S.uid)return 
   return `<div class="sep"></div><h3>הרשאות</h3><p class="muted" style="font-size:.85rem">${r?esc(permSummary(r)):'עובד רגיל, בלי הרשאות ניהול.'}</p><div><button class="btn" data-act="perm-open" data-u="${u}">עריכת הרשאות</button></div>`}
 
 /* ---------- permissions page ---------- */
-const APPS=[['shifts','ניהול סידור עבודה','סידור, משמרות ועלויות במלונות שנבחרו'],['vch','הנפקת שוברים','הנפקת שוברי פיצוי ושוברי מתנה (כספי, אחוזי הנחה או לשירות), שליחה לאורח עם קוד ו-QR, וביטול שובר'],['vchr','מימוש שוברים','מימוש שובר לפי קוד או סריקת QR, כולל מימוש חלקי של שובר כספי'],['cmp','תלונות אורחים','עמוד שמרכז את תלונות האורחים מדוחות סוף משמרת, לפי מלון. כל תלונה חדשה קופצת כהתראה'],['grp','קבוצות','עמוד הקבוצות: כל הקבוצות לפי תאריכים עם ההצעה של כל קבוצה (סוכן, מחיר ללילה, סה״כ), וניהול הסוכנים'],['spa','ספא','יומן הטיפולים בספא: הזנת טיפולים וצפייה בגריד השבועי. כל טיפול חדש קופץ כהתראה לכל מי שיש לו הרשאת ספא'],['hr','עובדים','עמוד העובדים: הקמת עובדים, שיוך למחלקות, שכר ופרטים. רק מי שיש לו את ההרשאה הזו מקים ועורך עובדים'],['events','אירועים','כל ההצעות, התפריטים והחוזים'],['perms','ניהול הרשאות','יכול לתת לאחרים רק הרשאות שיש לו בעצמו'],['front','קבלת המלון','רואה את סידור העבודה והאירועים של המלון ומזין את נתוני 10days'],['hk','משק','עמוד החדרים: עדכון מצב ניקיון ותחזוקה של החדרים. עובדי מחלקת משק מקבלים אותו אוטומטית, והקבלה מעדכנת גם את מצב ההזמנה'],['hkchk','בודק חדרים','בודק את החדרים שהחדרנים סימנו כנקיים, ומאשר אותם (VI → VC) או מחזיר לניקוי'],['maint','אחזקה','עמוד התקלות של המלונות שנבחרו: פתיחה, תאריך תיקון וסגירה'],['fin','כספים','מקבל התראה על כל דוח סוף משמרת ומאשר שהמזומן שהופקד הוא הסכום שנכתב'],['brief','בריף יומי','נתוני 10days, האירועים ומי במשמרת, לכל יום במלונות שנבחרו'],['gm','מנהל מלון','עמוד מנהל מלון עם כל נתוני המלונות שנבחרו, אישור דרישות רכש. לא נספר בהגשת משמרות'],['ceo','מנכ״ל','מבט מנכ״ל: עלויות עובדים, הוצאות והכנסות לפי חודש. לא נספר בהגשת משמרות'],['dept','מנהל מחלקה','מסדר רק את המחלקות שנבחרו, בלי שכר ועלויות'],['mkt','סושיאל מדיה','דוחות שבועיים של הרשתות: השקעה, לידים והכנסות'],['exp','הוצאות','ספקים, חשבוניות ומעקב אחרי מחירים']];
+const APPS=[['shifts','ניהול סידור עבודה','סידור, משמרות ועלויות במלונות שנבחרו'],['rates','השוואת מחירים','מחירי Booking Genius מול אתר הבית לכל מלון, מהסוכן שבודק מחירים. רואים רק את המלונות של העובד'],['vch','הנפקת שוברים','הנפקת שוברי פיצוי ושוברי מתנה (כספי, אחוזי הנחה או לשירות), שליחה לאורח עם קוד ו-QR, וביטול שובר'],['vchr','מימוש שוברים','מימוש שובר לפי קוד או סריקת QR, כולל מימוש חלקי של שובר כספי'],['cmp','תלונות אורחים','עמוד שמרכז את תלונות האורחים מדוחות סוף משמרת, לפי מלון. כל תלונה חדשה קופצת כהתראה'],['grp','קבוצות','עמוד הקבוצות: כל הקבוצות לפי תאריכים עם ההצעה של כל קבוצה (סוכן, מחיר ללילה, סה״כ), וניהול הסוכנים'],['spa','ספא','יומן הטיפולים בספא: הזנת טיפולים וצפייה בגריד השבועי. כל טיפול חדש קופץ כהתראה לכל מי שיש לו הרשאת ספא'],['hr','עובדים','עמוד העובדים: הקמת עובדים, שיוך למחלקות, שכר ופרטים. רק מי שיש לו את ההרשאה הזו מקים ועורך עובדים'],['events','אירועים','כל ההצעות, התפריטים והחוזים'],['perms','ניהול הרשאות','יכול לתת לאחרים רק הרשאות שיש לו בעצמו'],['front','קבלת המלון','רואה את סידור העבודה והאירועים של המלון ומזין את נתוני 10days'],['hk','משק','עמוד החדרים: עדכון מצב ניקיון ותחזוקה של החדרים. עובדי מחלקת משק מקבלים אותו אוטומטית, והקבלה מעדכנת גם את מצב ההזמנה'],['hkchk','בודק חדרים','בודק את החדרים שהחדרנים סימנו כנקיים, ומאשר אותם (VI → VC) או מחזיר לניקוי'],['maint','אחזקה','עמוד התקלות של המלונות שנבחרו: פתיחה, תאריך תיקון וסגירה'],['fin','כספים','מקבל התראה על כל דוח סוף משמרת ומאשר שהמזומן שהופקד הוא הסכום שנכתב'],['brief','בריף יומי','נתוני 10days, האירועים ומי במשמרת, לכל יום במלונות שנבחרו'],['gm','מנהל מלון','עמוד מנהל מלון עם כל נתוני המלונות שנבחרו, אישור דרישות רכש. לא נספר בהגשת משמרות'],['ceo','מנכ״ל','מבט מנכ״ל: עלויות עובדים, הוצאות והכנסות לפי חודש. לא נספר בהגשת משמרות'],['dept','מנהל מחלקה','מסדר רק את המחלקות שנבחרו, בלי שכר ועלויות'],['mkt','סושיאל מדיה','דוחות שבועיים של הרשתות: השקעה, לידים והכנסות'],['exp','הוצאות','ספקים, חשבוניות ומעקב אחרי מחירים']];
 const roleApps=r=>r?(r.apps||{shifts:true}):{};
-function myApps(){if(S.isOwner)return {shifts:true,events:true,perms:true,ceo:true,dept:true,mkt:true,exp:true,gm:true,brief:true,front:true,maint:true,fin:true,hk:true,hkchk:true,hr:true,spa:true,grp:true,cmp:true,vch:true,vchr:true};const a={...roleApps(S.role)};if(a.shifts)a.dept=true;return a}
+function myApps(){if(S.isOwner)return {shifts:true,events:true,perms:true,ceo:true,dept:true,mkt:true,exp:true,gm:true,brief:true,front:true,maint:true,fin:true,hk:true,hkchk:true,hr:true,spa:true,grp:true,cmp:true,vch:true,vchr:true,rates:true};const a={...roleApps(S.role)};if(a.shifts)a.dept=true;if(a.gm||a.ceo)a.rates=true;return a}
 const grantDepts=()=>S.isOwner||roleApps(S.role).shifts?DEPTS:DEPTS.filter(d=>((S.role&&S.role.depts)||[]).includes(d.k));
 const allHotelsP=()=>S.isOwner||!(S.role&&Array.isArray(S.role.hotels)&&S.role.hotels.length);
 function grantableHotels(){return allHotelsP()?hotelIds():hotelIds().filter(h=>S.role.hotels.includes(h))}
@@ -5515,7 +5515,7 @@ async function start(u){
   // housekeeping page: reception, managers, the hk app and housekeeping staff
   S.can.hk=S.isOwner||S.station||S.can.hkchk||S.can.shifts||S.can.gm||S.can.front||!!(S.role&&roleApps(S.role).hk)||!!S.myHkDept||(S.deptOnly&&S.myDepts.includes('housekeeping'));
   S.can.bar=S.isOwner||S.can.shifts||S.can.gm||!!S.myBarDept||(S.deptOnly&&S.myDepts.includes('bar'));
-  S.can.rates=S.isOwner||!!S.can.gm||!!S.can.ceo;
+  S.can.rates=S.isOwner||!!S.can.gm||!!S.can.ceo||!!roleApps(S.role).rates;
   S.can.pub=S.isOwner||S.station||S.can.shifts||S.can.gm||S.can.front||!!S.myPubDept||(S.deptOnly&&S.myDepts.includes('public'));
   S.can0={...S.can};applyMods();
   const setIds=()=>S.admin?(S.scoped?S.role.hotels:null):(S.myHotel===CHAIN?[]:[S.hotel]);

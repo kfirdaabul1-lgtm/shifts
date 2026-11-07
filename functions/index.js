@@ -1567,6 +1567,18 @@ const ads = require('./agent-ads.js');
 exports.adsDaily = ads.adsDaily;
 exports.adsWeekly = ads.adsWeekly;
 exports.adsRunNow = ads.adsRunNow;
+// weekly FX rates for foreign-currency groups (owner, Nov 7): Sunday 16:45 Israel; fxRunNow (owner only) fills past weeks: POST {from:'YYYY-MM-DD'}
+const fx = require('./fx.js');
+exports.fxWeekly = functions.region(REGION).pubsub.schedule('45 16 * * 0').timeZone('Asia/Jerusalem').onRun(async () => { try { await fx.fxSync(); } catch (e) { console.error('fxWeekly', e); } return null; });
+exports.fxRunNow = functions.region(REGION).https.onRequest(async (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*'); res.set('Access-Control-Allow-Headers', 'Authorization, Content-Type');
+  if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
+  if (req.method !== 'POST') { res.status(405).json({ error: 'method' }); return; }
+  const u = await require('./agent-common').ownerOnly(req); if (!u) { res.status(401).json({ error: 'auth' }); return; }
+  const from = String((req.body || {}).from || ''); if (from && !/^\d{4}-\d{2}-\d{2}$/.test(from)) { res.status(400).json({ error: 'from' }); return; }
+  try { res.json({ ok: true, weeks: await fx.fxSync(from || undefined) }); } catch (e) { res.status(500).json({ error: String(e.message || e).slice(0, 300) }); }
+});
+
 exports.adsAgent = ads.adsAgent;
 // Meta campaign structure for the ads agent (Nov 7, owner): read-only, once a day → metaStruct/{campaignId}
 async function metaStructAll() {

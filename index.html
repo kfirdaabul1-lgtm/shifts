@@ -1196,8 +1196,11 @@ function grpDue(g){if(g.dueDate)return g.dueDate;const a=(S.agents||{})[g.agentI
   if(t.startsWith('pre'))return addDays(g.ci,-(+t.slice(3)));if(t==='arr')return g.ci;if(t==='co')return g.co;return dueFrom(g.co,t)}
 const plOf=id=>(S.pls||{})[id]||null;
 // group revenue for the gm / CEO pages: confirmed groups in ₪, the offer total spread over the nights (each night counts in its month)
-function grpMonthShare(g){const out={};if(!g||g.status!=='confirmed'||(g.cur&&g.cur!=='ils'))return out;const n=grpNights(g);if(!n)return out;const per=grpCalc(g).exVat/n;
-  for(let i=0;i<n;i++){const m=addDays(g.ci,i).slice(0,7);out[m]=(out[m]||0)+per}return out}
+// foreign-currency groups (owner, Nov 7): each night at the weekly Bank of Israel rate (fxRates/{Sunday}); no rate for that week → the latest earlier one (else the earliest known); none at all → not counted
+function fxRate(cur,d){if(!cur||cur==='ils')return 1;liveColl('fx','fxRates');const m=S.fx||{},k=cur==='eur'?'eur':'usd',w=weekOf(d);if(m[w]&&+m[w][k])return +m[w][k];
+  const ws=Object.keys(m).filter(x=>+m[x][k]).sort(),p=ws.filter(x=>x<=w).pop()||ws[0];return p?+m[p][k]:0}
+function grpMonthShare(g){const out={};if(!g||g.status!=='confirmed')return out;const n=grpNights(g);if(!n)return out;const cur=g.cur||'ils',per=grpCalc(g).exVat/n;
+  for(let i=0;i<n;i++){const d=addDays(g.ci,i),k=fxRate(cur,d);if(!k)continue;const m=d.slice(0,7);out[m]=(out[m]||0)+per*k}return out}
 function grpHotelSub(h){const k='grpH:'+h;S.grpByH=S.grpByH||{};if(!S.live[k]){S.live[k]=true;
   S.db.collection('groups').where('hotel','==',h).onSnapshot(q=>{S.grpByH[h]=Object.values(docsMap(q));render()},()=>{S.grpByH[h]=null;render()})}return S.grpByH[h]}
 function vGrp(){liveColl('grps','groups');liveColl('agents','agents');liveColl('pls','priceLists');

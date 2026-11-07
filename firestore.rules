@@ -775,6 +775,11 @@ service cloud.firestore {
       allow read, write: if isOwner();
     }
     // price comparison (Nov 7): key for the owner's price agent (owner only); results are written by the function ratesIngest (admin)
+    // weekly FX rates (Nov 7): written by the server (fxWeekly / fxRunNow); the owner may fix a week by hand (manual: true)
+    match /fxRates/{id} {
+      allow read: if signedIn();
+      allow write: if isOwner();
+    }
     match /ratescfg/{id} {
       allow read, write: if isOwner();
     }

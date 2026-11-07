@@ -1532,6 +1532,19 @@ exports.mirrorGroupPub = trig('groups/{id}').onWrite(async (ch, ctx) => {
 });
 
 
+// social media spend per hotel (Nov 7, owner): each campaign report gets hotelAuto (see camphotel.js), so the hotel manager
+// can read their hotel's spend (rules) and the gm / CEO pages count it in expenses. Written only when it changes (no loop).
+const { campCtx, campHotelOf } = require('./camphotel.js');
+let _campX = null, _campAt = 0;
+exports.campHotelTag = trig('campaigns/{id}').onWrite(async (ch) => {
+  if (!ch.after.exists) return;
+  if (!_campX || Date.now() - _campAt > 600000) { _campX = await campCtx(db); _campAt = Date.now(); }
+  const c = ch.after.data() || {}, h = campHotelOf(c, _campX);
+  if (c.hotelAuto === h) return;
+  await ch.after.ref.update({ hotelAuto: h });
+});
+
+
 // hotel separation (security, Nov 5): WhatsApp chats and tasks carry the venue of their lead, so a hotel's events users see only theirs.
 async function leadVenue(id) { if (!id) return null; try { const d = await db.doc('leads/' + id).get(); return d.exists ? String(d.data().venue || '') : null; } catch (e) { return null; } }
 exports.waChatVenue = trig('waChats/{id}').onWrite(async (ch) => {

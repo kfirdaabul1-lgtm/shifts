@@ -35,4 +35,8 @@ const KEYS = ['hotel', 'month', 'date', 'shift', 'name', 'empUid', 'ooo', 'fault
   const cq = await db.collection('clients').get();
   for (const d of cq.docs) { const x = d.data() || {}; if (x.venue !== undefined) continue; const k = String(d.id).replace(/\D/g, ''); await d.ref.set({ venue: byTel[k] || '' }, { merge: true }); vn++; }
   console.log('::notice title=Backfill::venue set on ' + vn + ' docs');
+  // social media spend per hotel: hotelAuto on every campaign report (idempotent)
+  const CH = require('./camphotel.js'), CX = await CH.campCtx(db), cps = await db.collection('campaigns').get(); let cn = 0, cu = 0;
+  for (const d of cps.docs) { const c = d.data() || {}, h = CH.campHotelOf(c, CX); if (h) cn++; if (c.hotelAuto !== h) { await d.ref.update({ hotelAuto: h }); cu++; } }
+  console.log('::notice title=Backfill::campaigns ' + cps.size + ', with hotel ' + cn + ', updated ' + cu);
 })().catch((e) => { console.error(e); console.log('::error title=Backfill failed::' + String(e && e.message || e).slice(0, 300)); process.exit(1); });

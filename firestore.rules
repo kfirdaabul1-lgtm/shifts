@@ -450,7 +450,11 @@ service cloud.firestore {
     }
 
     // ---------- שיווק ----------
-    match /campaigns/{id} { allow read, write: if canMkt(); }
+    // social media spend per hotel (Nov 7): the CEO reads all reports, a hotel manager those of their hotel (hotelAuto, set by the server)
+    match /campaigns/{id} {
+      allow read: if canMkt() || canCeo() || (resource.data.get('hotelAuto', '') != '' && gmIn(resource.data.hotelAuto));
+      allow write: if canMkt();
+    }
     match /mktcfg/{id} { allow read, write: if canMkt(); }
     // ---------- paid-advertising agent (Nov 7, owner) ----------
     // adReports: written only by the server (admin). A hotel report (hotel = 'h1') is read by that hotel's manager, or by marketing

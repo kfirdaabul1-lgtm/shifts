@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202611072310"></script>
+<script src="i18n.js?v=202611072340"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1870,11 +1870,11 @@ async function ceoLoad(Y){
   const db=S.db,C=S.ceo;C.loading=true;C.err='';render();
   try{
     const from=addDays(weekOf(Y+'-01-01'),-7),to=Y+'-12-31';
-    const [sh,sc,mg,st,qs,cf,iv,sr,gq,fx]=await Promise.all([
+    const [sh,sc,mg,st,qs,cf,iv,sr,gq,fx,cp]=await Promise.all([
       db.collection('shifts').where('date','>=',from).where('date','<=',to).get(),
       db.collection('schedule').get(),db.collection('mgr').get(),db.collection('settings').get(),
-      db.collection('quotes').get().catch(()=>null),db.doc('config/main').get().catch(()=>null),db.collection('invoices').get().catch(()=>null),db.collection('shiftReports').get().catch(()=>null),db.collection('groups').get().catch(()=>null),db.collection('fixedExp').get().catch(()=>null)]);
-    C.data={shifts:docsMap(sh),scheds:docsMap(sc),mgr:docsMap(mg),settings:docsMap(st),quotes:qs?qs.docs.map(d=>d.data()):[],cfg:cf&&cf.exists?cf.data():{},invs:iv?iv.docs.map(d=>d.data()):[],sreps:sr?sr.docs.map(d=>d.data()):[],grps:gq?gq.docs.map(d=>d.data()):[],fixs:fx?fx.docs.map(d=>d.data()):[]};C.year=Y;
+      db.collection('quotes').get().catch(()=>null),db.doc('config/main').get().catch(()=>null),db.collection('invoices').get().catch(()=>null),db.collection('shiftReports').get().catch(()=>null),db.collection('groups').get().catch(()=>null),db.collection('fixedExp').get().catch(()=>null),db.collection('campaigns').get().catch(()=>null)]);
+    C.data={shifts:docsMap(sh),scheds:docsMap(sc),mgr:docsMap(mg),settings:docsMap(st),quotes:qs?qs.docs.map(d=>d.data()):[],cfg:cf&&cf.exists?cf.data():{},invs:iv?iv.docs.map(d=>d.data()):[],sreps:sr?sr.docs.map(d=>d.data()):[],grps:gq?gq.docs.map(d=>d.data()):[],fixs:fx?fx.docs.map(d=>d.data()):[],camps:cp?cp.docs.map(d=>d.data()):[]};C.year=Y;
   }catch(e){C.err=errMsg(mapErr(e))}
   C.loading=false;render();
 }
@@ -1913,6 +1913,8 @@ function ceoCompute(){
   for(const v of D.invs||[]){const d=String(v.date||'');if(d.slice(0,4)!==Y)continue;const r=rows[+d.slice(5,7)-1];if(r){const n=+v.net||invTotals(v).net;r.exp+=n;r.expH[v.hotel||'main']=(r.expH[v.hotel||'main']||0)+n}}
   // fixed expenses (rent, municipal tax…; owner Nov 7), each month's share before VAT
   for(const r of rows)for(const x of D.fixs||[]){const n=fixMonthNet(x,r.key);if(n){r.exp+=n;r.fix=(r.fix||0)+n;r.expH[x.hotel||'main']=(r.expH[x.hotel||'main']||0)+n}}
+  // social media ad spend (owner Nov 7), by the month of the report's week, hotel = hotelAuto from the server ('' = chain only)
+  for(const c of D.camps||[]){const n=+c.spend||0;if(!n)continue;const m=campWeek(c);if(m.slice(0,4)!==Y)continue;const r=rows[+m.slice(5,7)-1];if(!r)continue;r.exp+=n;r.ads=(r.ads||0)+n;const k=c.hotelAuto||'';r.expH[k]=(r.expH[k]||0)+n}
   // reception takings: cash + card from the shift reports, by report date
   for(const x of D.sreps||[]){const d=String(x.date||'');if(d.slice(0,4)!==Y)continue;const r=rows[+d.slice(5,7)-1];if(!r)continue;const v=srIncome(x);r.rec+=v;r.recH[x.hotel]=(r.recH[x.hotel]||0)+v}
   // groups (agents): confirmed groups in ₪, spread over their nights
@@ -1933,9 +1935,10 @@ function vCeo(){
   const mr=rows[+C.mon.slice(5,7)-1],mNet=mr.inc-mr.labor-mr.exp;
   const mnav=`<div class="actions" style="align-items:center;margin-top:8px"><button class="btn sm" data-act="ceo-month" data-d="-1" aria-label="חודש קודם" ${mr.m===0?'disabled':''}>›</button><b>${monLabel(C.mon)}</b><button class="btn sm" data-act="ceo-month" data-d="1" aria-label="חודש הבא" ${mr.m===11?'disabled':''}>‹</button></div>`;
   const unk=mr.evH['']||0;
-  const perH=`<div class="card"><h3><span>לפי מלון</span> · ${monLabel(C.mon)}</h3><div class="scroll-x"><table class="plain"><thead><tr><th>מלון</th><th class="num">הכנסות מלינה</th><th class="num">הכנסות מקבוצות</th><th class="num">הכנסות מאירועים</th><th class="num">סה״כ הכנסות</th><th class="num">עלות עובדים</th><th class="num">הוצאות (ספקים וקבועות)</th><th class="num">הפרש</th></tr></thead><tbody>
+  const perH=`<div class="card"><h3><span>לפי מלון</span> · ${monLabel(C.mon)}</h3><div class="scroll-x"><table class="plain"><thead><tr><th>מלון</th><th class="num">הכנסות מלינה</th><th class="num">הכנסות מקבוצות</th><th class="num">הכנסות מאירועים</th><th class="num">סה״כ הכנסות</th><th class="num">עלות עובדים</th><th class="num">הוצאות (ספקים, קבועות וסושיאל)</th><th class="num">הפרש</th></tr></thead><tbody>
     ${hs.map(h=>{const lo=mr.recH[h]||0,gp=mr.grpH[h]||0,ev=mr.evH[h]||0,lb=mr.h[h]||0,ex=mr.expH[h]||0,ic=lo+gp+ev;return `<tr><td>${esc(hotelName(h))}</td><td class="num">${lo?ils(lo):'—'}</td><td class="num">${gp?ils(gp):'—'}</td><td class="num">${ev?ils(ev):'—'}</td><td class="num">${ic?ils(ic):'—'}</td><td class="num">${lb?ils(lb):'—'}</td><td class="num">${ex?ils(ex):'—'}</td><td class="num">${ic||lb||ex?ils(ic-lb-ex):'—'}</td></tr>`}).join('')}
     ${unk?`<tr><td class="muted">אירועים בחללים שלא שויכו למלון</td><td></td><td></td><td class="num">${ils(unk)}</td><td class="num">${ils(unk)}</td><td></td><td></td><td class="num">${ils(unk)}</td></tr>`:''}
+    ${mr.expH['']?`<tr><td class="muted">סושיאל מדיה שלא שויך למלון</td><td></td><td></td><td></td><td></td><td></td><td class="num">${ils(mr.expH[''])}</td><td class="num">${ils(-mr.expH[''])}</td></tr>`:''}
     <tr style="font-weight:700"><td>סה״כ</td><td class="num">${ils(mr.rec)}</td><td class="num">${ils(mr.grp)}</td><td class="num">${ils(mr.rev)}</td><td class="num">${ils(mr.inc)}</td><td class="num">${ils(mr.labor)}</td><td class="num">${ils(mr.exp)}</td><td class="num">${ils(mNet)}</td></tr></tbody></table></div>
     <p class="muted" style="font-size:.8rem">אירוע משויך למלון לפי חללי האירועים שהוגדרו למלון בעמוד ההרשאות.</p></div>`;
   const mp=mr.m>0?rows[mr.m-1]:null,mOut=mr.labor+mr.exp;
@@ -1952,7 +1955,7 @@ function vCeo(){
   </div>`;
   return wrap(head+mnav+dash+'</section>'+adRepHTML('ceo',['',...hotelIds()])+bcChainCardHTML()+`
   ${perH}
-  <div class="card"><h3><span>כל השנה לפי חודש</span> · ${C.year}</h3><div class="scroll-x"><table class="plain"><thead><tr><th>חודש</th>${hs.map(h=>`<th class="num">${esc(hotelName(h))}</th>`).join('')}<th class="num">סה״כ עובדים</th><th class="num">הוצאות (ספקים וקבועות)</th><th class="num">הכנסות מאירועים</th><th class="num">הכנסות מלינה</th><th class="num">הכנסות מקבוצות</th><th class="num">סה״כ הכנסות</th><th class="num">הפרש</th></tr></thead><tbody>
+  <div class="card"><h3><span>כל השנה לפי חודש</span> · ${C.year}</h3><div class="scroll-x"><table class="plain"><thead><tr><th>חודש</th>${hs.map(h=>`<th class="num">${esc(hotelName(h))}</th>`).join('')}<th class="num">סה״כ עובדים</th><th class="num">הוצאות (ספקים, קבועות וסושיאל)</th><th class="num">הכנסות מאירועים</th><th class="num">הכנסות מלינה</th><th class="num">הכנסות מקבוצות</th><th class="num">סה״כ הכנסות</th><th class="num">הפרש</th></tr></thead><tbody>
   ${rows.map(r=>`<tr${r.key===cur?' style="font-weight:600"':''}><td>${HE_MON[r.m]}</td>${hs.map(h=>`<td class="num">${r.h[h]?ils(r.h[h]):'—'}</td>`).join('')}<td class="num">${r.labor?ils(r.labor):'—'}</td><td class="num">${r.exp?ils(r.exp):'—'}</td><td class="num">${r.rev?ils(r.rev):'—'}</td><td class="num">${r.rec?ils(r.rec):'—'}</td><td class="num">${r.grp?ils(r.grp):'—'}</td><td class="num">${r.inc?ils(r.inc):'—'}</td><td class="num">${r.labor||r.inc||r.exp?ils(r.inc-r.labor-r.exp):'—'}</td></tr>`).join('')}
   <tr style="font-weight:700"><td>סה״כ</td>${hs.map(h=>`<td class="num">${ils(rows.reduce((a,r)=>a+(r.h[h]||0),0))}</td>`).join('')}<td class="num">${ils(L)}</td><td class="num">${ils(E)}</td><td class="num">${ils(RE)}</td><td class="num">${ils(RC)}</td><td class="num">${ils(RG)}</td><td class="num">${ils(R)}</td><td class="num">${ils(R-L-E)}</td></tr></tbody></table></div>
   ${RC?`<h3 style="margin-top:14px">הכנסות מלינה לפי מלון</h3><div class="scroll-x"><table class="plain"><thead><tr><th>חודש</th>${hs.map(h=>`<th class="num">${esc(hotelName(h))}</th>`).join('')}</tr></thead><tbody>${rows.filter(r=>r.rec).map(r=>`<tr><td>${HE_MON[r.m]}</td>${hs.map(h=>`<td class="num">${r.recH[h]?ils(r.recH[h]):'—'}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`:''}
@@ -2710,6 +2713,7 @@ function gmLoad(h){const G=S.gmData||(S.gmData={});if(G[h])return;G[h]={ready:fa
   db.collection('employees').where('hotel','==',h).onSnapshot(q=>{S.emps={...S.emps,...docsMap(q)};mine({emps:true})},()=>{});
   db.collection('invoices').where('hotel','==',h).onSnapshot(q=>mine({invs:docsMap(q)}),()=>mine({invs:null}));
   db.collection('fixedExp').where('hotel','==',h).onSnapshot(q=>mine({fixs:Object.values(docsMap(q))}),()=>mine({fixs:null}));
+  db.collection('campaigns').where('hotelAuto','==',h).onSnapshot(q=>mine({camps:Object.values(docsMap(q))}),()=>mine({camps:null}));
   db.collection('inventory').where('hotel','==',h).onSnapshot(q=>mine({stock:docsMap(q)}),()=>mine({stock:null}));
   db.collection('purchaseReqs').where('hotel','==',h).onSnapshot(q=>mine({preqs:docsMap(q)}),()=>mine({preqs:null}));
   quotesQ().then(q=>q?q.get():{docs:[]}).then(q=>mine({quotes:q.docs.map(d=>d.data())})).catch(()=>mine({quotes:null}));
@@ -2810,7 +2814,7 @@ function vGm(){const hs=modHs('gm',scopeHs());if(!hs.length)return wrap(emptyBox
   if(!hs.includes(S.hotel))S.hotel=hs[0];const h=S.hotel;gmLoad(h);const G=S.gmData[h]||{};
   const w=S.week,today=todayISO(),sched=S.scheds[h]||{},daily=(sched.daily||{})[today]||{};
   const M=S.gmM||(S.gmM=today.slice(0,7)),mStart=M+'-01',mEnd=monLast(M);
-  const invs=Object.entries(G.invs||{}),mExp=invs.filter(([,v])=>String(v.date||'').slice(0,7)===M).reduce((a,[,v])=>a+invTotals(v).net,0)+fixSum(G.fixs,M,h);
+  const invs=Object.entries(G.invs||{}),mExp=invs.filter(([,v])=>String(v.date||'').slice(0,7)===M).reduce((a,[,v])=>a+invTotals(v).net,0)+fixSum(G.fixs,M,h)+(G.camps||[]).filter(c=>campWeek(c).slice(0,7)===M).reduce((a,c)=>a+(+c.spend||0),0);
   const unpaid=invs.filter(([,v])=>invStatus(v)!=='paid'),owe=unpaid.reduce((a,[,v])=>a+invTotals(v).total,0),late=unpaid.filter(([,v])=>isOverdue(v)).length;
   const toApprove=invs.filter(([,v])=>invStatus(v)==='open');
   const items=Object.entries(G.stock||{}),low=items.filter(([,x])=>isLow(x)),preqs=Object.entries(G.preqs||{}).filter(([,r])=>r.status==='pending');
@@ -2848,7 +2852,7 @@ function vGm(){const hs=modHs('gm',scopeHs());if(!hs.length)return wrap(emptyBox
     ${live}
     <div class="nx-st">${nxHero('<span>הכנסות החודש</span> · '+monLabel(M),ils(inc),inc,incP)}
     ${nxCard('מדדים מרכזיים',`<div class="nx-rings">${nxRing(0,nxPct(Math.max(net,0),inc),lab||!G.mgr?nxK(net):'…','רווח נקי')}${G.mgr?nxRing(1,lab?nxPct(lab.labor,inc):0,lab?nxK(lab.labor):mon&&mon.err?'—':'…','עלות עובדים'):nxRing(1,nxPct(mExp,inc),nxK(mExp),'הוצאות')}${X&&!X.wait&&!X.err?nxRing(2,nxPct(X.cc('vc')+X.cc('vi')+X.cc('oc'),hkRooms(h).units.length),`${X.cc('vc')+X.cc('vi')+X.cc('oc')}/${hkRooms(h).units.length}`,'חדרים נקיים'):nxRing(2,nxPct(mExp,inc),nxK(mExp),'הוצאות')}</div><p class="nx-note">רווח ועובדים באחוזים מתוך ההכנסות של החודש.</p>`)}</div>
-    ${nxCard('כסף החודש',nxBar(0,'🛏','לינה',srM&&srM.__err?'—':ils(lodging),nxPct(lodging,mMax),srM&&srM.__err?'':`${srN} <span>דוחות סוף משמרת</span>`)+nxBar(1,'🎉','אירועים',G.quotes===null?'—':ils(evRev),nxPct(evRev,mMax),G.quotes===null?'':`${evM.length} <span>אירועים שאושרו</span>`)+nxBar(2,'🚌','קבוצות',gq===null?'—':ils(grpRev),nxPct(grpRev,mMax),gq===null?'':`${grpN} <span>קבוצות מאושרות</span>`)+(G.mgr?nxBar(3,'👥','עלות עובדים',lab?ils(lab.labor):'…',nxPct(labV,mMax),lab?`${fmtH(lab.hours)} <span>שעות לתשלום</span>`:''):'')+(G.invs?nxBar(4,'📦','הוצאות',ils(mExp),nxPct(mExp,mMax),'<span>ספקים וקבועות</span>'):'')+`<div class="nx-sub"><div class="nx-k"><b class="${net<0?'nx-down':'nx-up'}">${ils(net)}</b><span>הכנסות פחות הוצאות</span></div></div>`)}
+    ${nxCard('כסף החודש',nxBar(0,'🛏','לינה',srM&&srM.__err?'—':ils(lodging),nxPct(lodging,mMax),srM&&srM.__err?'':`${srN} <span>דוחות סוף משמרת</span>`)+nxBar(1,'🎉','אירועים',G.quotes===null?'—':ils(evRev),nxPct(evRev,mMax),G.quotes===null?'':`${evM.length} <span>אירועים שאושרו</span>`)+nxBar(2,'🚌','קבוצות',gq===null?'—':ils(grpRev),nxPct(grpRev,mMax),gq===null?'':`${grpN} <span>קבוצות מאושרות</span>`)+(G.mgr?nxBar(3,'👥','עלות עובדים',lab?ils(lab.labor):'…',nxPct(labV,mMax),lab?`${fmtH(lab.hours)} <span>שעות לתשלום</span>`:''):'')+(G.invs?nxBar(4,'📦','הוצאות',ils(mExp),nxPct(mExp,mMax),'<span>ספקים, קבועות וסושיאל</span>'):'')+`<div class="nx-sub"><div class="nx-k"><b class="${net<0?'nx-down':'nx-up'}">${ils(net)}</b><span>הכנסות פחות הוצאות</span></div></div>`)}
     ${nxCard('מה מחכה לי',nxBar(1,'✓','ממתין לאישור',String(pendN),cnt(pendN),pendN?`${preqs.length} <span>דרישות רכש</span> · ${toApprove.length} <span>חשבוניות</span> · ${sreqs.length} <span>בקשות משמרת</span>`:'<span>אין בקשות פתוחות</span>')+nxBar(3,'🔧','תקלות פתוחות',String(foN),cnt(foN))+(G.stock?nxBar(0,'📦','מלאי במינימום',String(low.length),cnt(low.length)):'')+(G.invs?nxBar(4,'₪','חוב לספקים',ils(owe),cnt(unpaid.length),late?`${late} <span>חשבוניות באיחור</span>`:`${unpaid.length} <span>חשבוניות פתוחות</span>`):''))}
     ${nxCard('<span>הכנסות לפי יום</span> · <span>לינה ואירועים</span>',nxChart(dayInc,null,dl),'nx-w')}
   </div><p class="nx-note">הכל לפי החודש שנבחר. לינה = מזומן לפי דוח 420 ואשראי מדוחות סוף משמרת. קבוצות = קבוצות מאושרות בעמוד הקבוצות (בשקלים), לפי הלילות שבחודש. אירועים = הצעות שאושרו בחללים של המלון, לפי תאריך האירוע, לפני מע״מ. עובדים = לפי הסידורים של החודש ושכר חודשי, עם עלות מעסיק.</p>`;

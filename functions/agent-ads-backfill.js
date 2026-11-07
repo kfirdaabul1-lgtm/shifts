@@ -31,7 +31,7 @@ Use ONLY data up to ${end}: always pass from/to to campaign_totals and leads_fun
 Lead stages are as of today, so won/lost for this week may include deals closed after it — mention that once in caveats.
 In METRICS, "lastWeek" is the report week; "thisWeek" is the week after it (ignore it).`;
   const model = cfg.model || SMART;
-  const out = await C.runLoop({ model, system: sys, tools, messages: [{ role: 'user', content: ctx + '\n\nMETRICS (computed by the system):\n' + JSON.stringify(M) }], maxTurns: 10, maxTokens: 1500 });
+  const out = await C.runLoop({ model, system: sys, tools, messages: [{ role: 'user', content: ctx + '\n\nMETRICS (computed by the system):\n' + JSON.stringify(M) }], maxTurns: 10, maxTokens: 4000 });
   if (!saved) { const t = String(out.text || '').trim(); if (!t) { await C.logRun('ads', { scope: scope.key, kind: 'weekly-backfill', week, model, usage: out.U, error: 'no report' }); return { scope: scope.key, skipped: 'no report' }; } saved = A.cleanReport({ headline: t.split('\n')[0], summary: t }); }
   const id = 'weekly_' + scope.key + '_' + week;
   await db.doc('adReports/' + id).set({ kind: 'weekly', hotel: scope.hotel, scopeKey: scope.key, scopeName: scope.name, date: asOf, week, ...saved,

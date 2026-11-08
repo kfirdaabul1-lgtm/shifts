@@ -59,10 +59,10 @@
 
   function build() {
     const st = document.createElement('style'); st.textContent = css; document.head.appendChild(st);
-    const b = document.createElement('button'); b.id = 'asst-btn'; b.type = 'button'; b.title = 'שרון · העוזרת למנהלים'; b.textContent = '✦'; b.hidden = true;
+    const b = document.createElement('button'); b.id = 'asst-btn'; b.type = 'button'; b.title = 'שרון · עוזרת כללית'; b.textContent = '✦'; b.hidden = true;
     const w = document.createElement('div'); w.id = 'asst'; w.hidden = true;
-    w.innerHTML = `<header><span><span style="color:#D9B66C">✦</span> <span>שרון</span></span><span><button type="button" data-a="clear" title="שיחה חדשה">↺</button><button type="button" data-a="close" title="סגירה">✕</button></span></header>
-      <div class="ag" hidden><button type="button" data-ag="gen">✦ שרון</button><button type="button" data-ag="ads">📣 אליאנה</button><select aria-label="איזה מלון" data-agh></select></div>
+    w.innerHTML = `<header><span><span style="color:#D9B66C">✦</span> <span>שרון · עוזרת כללית</span></span><span><button type="button" data-a="clear" title="שיחה חדשה">↺</button><button type="button" data-a="close" title="סגירה">✕</button></span></header>
+      <div class="ag" hidden><button type="button" data-ag="gen">✦ שרון · עוזרת כללית</button><button type="button" data-ag="ads">📣 אליאנה · קמפיינים</button><select aria-label="איזה מלון" data-agh></select></div>
       <div class="log" aria-live="polite"></div>
       <form><textarea rows="1" placeholder="לשאול על משמרות, חדרים, תקלות, מלאי…" maxlength="1500"></textarea><button type="submit">שליחה</button></form>`;
     document.body.append(b, w);
@@ -85,7 +85,7 @@
     ag.querySelectorAll('[data-ag]').forEach((x) => x.classList.toggle('on', x.dataset.ag === agent));
     if (adsH === null || !adsScopes.some((x) => x.id === adsH)) adsH = adsScopes.length ? adsScopes[0].id : '';
     sel.hidden = !ads; sel.innerHTML = adsScopes.map((x) => `<option value="${esc(x.id)}" ${x.id === adsH ? 'selected' : ''}>${esc(x.name)}</option>`).join('');
-    root.querySelector('header span span:last-child').textContent = ads ? 'אליאנה · קידום ממומן' : 'שרון · עוזרת למנהלים';
+    root.querySelector('header span span:last-child').textContent = ads ? 'אליאנה · קמפיינים' : 'שרון · עוזרת כללית';
     root.querySelector('textarea').placeholder = ads ? 'לשאול על הקמפיינים, הקהלים, המודעות…' : 'לשאול על משמרות, חדרים, תקלות, מלאי…';
     let h = hist.map((m) => `<div class="m ${m.role === 'user' ? 'u' : 'a'}">${fmt(m.text)}</div>`).join('');
     if (!hist.length) h = ads ? `<div class="hint">אליאנה עונה על הקמפיינים, הקהלים והמודעות של ${esc((adsScopes.find((x) => x.id === adsH) || {}).name || '')}. היא רק קוראת, לא משנה קמפיינים.</div><div class="chips">${SUGG_ADS.map((s) => `<button type="button">${esc(s)}</button>`).join('')}</div>`

@@ -763,6 +763,11 @@ exports.onSignDone = trig('signs/{id}').onUpdate(async (ch) => {
 // waChats/{waId} {waId, phone, name, leadId, lastAt, lastText, lastDir, lastInAt, unread}; msgs/{id} {dir in|out, type, text, at, status, by, byName, src system|app|history, wamid, error}
 // waIds/{wamid} {chat, msg} maps delivery statuses to our message docs
 const WA_GRAPH = 'https://graph.facebook.com/v23.0/', WA_360 = 'https://waba-v2.360dialog.io/';
+// WhatsApp templates: positional {{1}} and named {{customer_name}} variables (Nov 8)
+const TPL_NAMED = /\{\{([A-Za-z_][A-Za-z0-9_]*)\}\}/g;
+const tplNames = (txt) => [...new Set([...String(txt || '').matchAll(TPL_NAMED)].map((m) => m[1]))];
+const tplText = (t, params) => String(t.body || '').replace(/\{\{(\w+)\}\}/g, (m0, k) => { const i = /^\d+$/.test(k) ? +k - 1 : (t.names || []).indexOf(k); return i >= 0 && params[i] != null && params[i] !== '' ? params[i] : m0; });
+const tplRef = (t, params) => ({ name: t.name, lang: t.lang, params, ...(t.names && t.names.length ? { names: t.names } : {}) });
 const waLocal = (id) => { const d = String(id || '').replace(/\D/g, ''); return d.startsWith('972') ? '0' + d.slice(3) : d; };
 const waTail = (p) => String(p || '').replace(/\D/g, '').replace(/^972/, '0').slice(-9);
 async function waCfg() { const d = await db.doc('wacfg/main').get(); return d.exists ? d.data() : {}; }
@@ -886,7 +891,8 @@ exports.onWaOut = trig('waChats/{chat}/msgs/{id}').onCreate(async (snap, ctx) =>
   if (!c.token || (c.provider !== '360dialog' && !c.phoneId)) return snap.ref.update({ status: 'failed', error: 'וואטסאפ עוד לא מחובר (הגדרות אצל הבעלים).' });
   let body;
   if (m.type === 'template' && m.tpl) {
-    const params = (m.tpl.params || []).map((t) => ({ type: 'text', text: String(t || '-') }));
+    const nm = Array.isArray(m.tpl.names) ? m.tpl.names : [];
+    const params = (m.tpl.params || []).map((t, i) => ({ type: 'text', ...(nm[i] ? { parameter_name: nm[i] } : {}), text: String(t || '-') }));
     body = { messaging_product: 'whatsapp', to: chat, type: 'template', template: { name: m.tpl.name, language: { code: m.tpl.lang || 'he' }, ...(params.length ? { components: [{ type: 'body', parameters: params }] } : {}) } };
   } else body = { messaging_product: 'whatsapp', recipient_type: 'individual', to: chat, type: 'text', text: { body: String(m.text || '').slice(0, 4096), preview_url: true } };
   try {
@@ -940,8 +946,8 @@ async function waSync() {
     }
     const out = tpls.filter((x) => String(x.status || '').toUpperCase() === 'APPROVED').map((x) => {
       const bodyC = (x.components || []).find((k) => String(k.type).toUpperCase() === 'BODY') || {}, txt = bodyC.text || '';
-      const n = Math.max(0, ...(txt.match(/\{\{(\d+)\}\}/g) || []).map((s) => +s.replace(/\D/g, '')));
-      return { name: x.name, lang: x.language || 'he', body: txt, n };
+      const names = tplNames(txt), n = names.length ? names.length : Math.max(0, ...(txt.match(/\{\{(\d+)\}\}/g) || []).map((s) => +s.replace(/\D/g, '')));
+      return { name: x.name, lang: x.language || 'he', body: txt, n, ...(names.length ? { names } : {}) };
     });
     st.ok = true; st.msg = 'מחובר'; st.templates = out.length;
     await db.doc('wapub/main').set({ on: true, phone: st.phone || '', name: st.name || '', templates: out, at: Date.now() });
@@ -1030,11 +1036,11 @@ exports.onLeadAuto = trig('leads/{id}').onCreate(async (snap) => {
   const first = String(l.name || '').trim().split(/\s+/)[0] || '';
   const O = await org(), spaLink = String(O.url || APP).replace(/[^/]*$/, '') + 'spa.html' + '?' + [l.name && 'n=' + encodeURIComponent(String(l.name).trim().slice(0, 80)), l.phone && 'p=' + encodeURIComponent(String(l.phone).trim().slice(0, 20))].filter(Boolean).join('&');
   const params = Array.from({ length: t.n || 0 }, (_, i) => { const p = (r.params || [])[i] || {}; const v = p.src === 'first' ? first : p.src === 'name' ? l.name : p.src === 'venue' ? (r.venueName || '') : p.src === 'spalink' ? spaLink.replace(/\?$/, '') : p.text; return String(v || '').trim() || '-'; });
-  const text = String(t.body || '').replace(/\{\{(\d+)\}\}/g, (m, n) => params[+n - 1] || m);
+  const text = tplText(t, params);
   const cref = db.doc('waChats/' + to), cs = await cref.get();
   if (!cs.exists) await cref.set({ waId: to, phone: waLocal(to), name: l.name || '', leadId: id, createdAt: now, createdBy: 'auto', unread: 0, status: 'open', cat });
   else if (!cs.data().leadId) await cref.set({ leadId: id }, { merge: true });
-  await cref.collection('msgs').add({ dir: 'out', type: 'template', tpl: { name: t.name, lang: t.lang, params }, text, status: 'queued', by: 'auto', byName: 'הודעה אוטומטית', at: now, src: 'auto' });
+  await cref.collection('msgs').add({ dir: 'out', type: 'template', tpl: tplRef(t, params), text, status: 'queued', by: 'auto', byName: 'הודעה אוטומטית', at: now, src: 'auto' });
   await note('נשלחה הודעת וואטסאפ אוטומטית (' + t.name + ')');
 });
 
@@ -1473,8 +1479,8 @@ exports.onGuideWa = trig('groups/{id}').onUpdate(async (ch, ctx) => {
     if (!t) return done(false, 'המדריך עוד לא כתב לנו ב-24 השעות האחרונות, ולכן וואטסאפ מאפשר לשלוח לו רק תבנית מאושרת. ' + (pick.tpl ? 'התבנית שנבחרה לא נמצאה ברשימת המאושרות.' : 'בעל המערכת צריך לבחור תבנית למדריכים.'));
     const val = [a.guideName || 'מדריך', a.name || 'הקבוצה', hn || '', kind === 'invite' ? link : String(((a.guideMsgs || []).find((x) => x.id === q.msgId) || {}).text || '').replace(/\s*\n+\s*/g, ' · ').slice(0, 900)];
     const params = Array.from({ length: t.n || 0 }, (_, i) => String(val[i] || '-').trim() || '-');
-    const body = String(t.body || '').replace(/\{\{(\d+)\}\}/g, (m0, n) => params[+n - 1] || m0);
-    await cref.collection('msgs').add({ dir: 'out', type: 'template', tpl: { name: t.name, lang: t.lang, params }, text: body, status: 'queued', by: q.by || 'system', byName: q.byName || 'קבלה', at: now, src: 'guide' });
+    const body = tplText(t, params);
+    await cref.collection('msgs').add({ dir: 'out', type: 'template', tpl: tplRef(t, params), text: body, status: 'queued', by: q.by || 'system', byName: q.byName || 'קבלה', at: now, src: 'guide' });
     return done(true, 'נשלח בוואטסאפ של המערכת (תבנית ' + t.name + ')', 'template');
   } catch (e) { return done(false, e.message); }
 });

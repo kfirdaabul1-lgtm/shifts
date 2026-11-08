@@ -406,16 +406,23 @@ service cloud.firestore {
       allow update: if canEvents() && taskOk(resource.data) && request.resource.data.get('venue', '') == resource.data.get('venue', '');
     }
     // WhatsApp (Oct 26): conversations for events users; the server (admin) writes incoming messages and statuses
+    // chat ownership (Nov 8): agent = the employee who wrote to the customer first (set by the server); others see the chat only while
+    // agent is ''. The owner sees every chat and may transfer it; the agent may release it (agent → '').
+    function waSee(c) { return c.get('agent', '') == '' || c.get('agent', '') == request.auth.uid || isOwner(); }
+    function waChatOk(id) { let c = get(/databases/$(database)/documents/waChats/$(id)).data; return leadVenueOk(c.get('venue', '')) && waSee(c); }
     match /waChats/{id} {
       // hotel separation (Nov 5): venue = the linked lead's venue (kept by the server, waChatVenue); '' = chain roles only
-      allow read: if canEvents() && leadVenueOk(resource.data.get('venue', ''));
-      allow create: if canEvents() && request.resource.data.keys().hasOnly(['waId', 'phone', 'name', 'leadId', 'createdAt', 'createdBy', 'unread', 'cat', 'venue']) && leadVenueOk(request.resource.data.get('venue', ''));
-      allow update: if canEvents() && leadVenueOk(resource.data.get('venue', '')) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['unread', 'readAt', 'readBy', 'leadId', 'name', 'status', 'doneAt', 'doneBy', 'cat']);
+      allow read: if canEvents() && leadVenueOk(resource.data.get('venue', '')) && waSee(resource.data);
+      allow create: if canEvents() && request.resource.data.keys().hasOnly(['waId', 'phone', 'name', 'leadId', 'createdAt', 'createdBy', 'unread', 'cat', 'venue', 'agent']) && request.resource.data.get('agent', '') == '' && leadVenueOk(request.resource.data.get('venue', ''));
+      allow update: if canEvents() && leadVenueOk(resource.data.get('venue', '')) && waSee(resource.data)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['unread', 'readAt', 'readBy', 'leadId', 'name', 'status', 'doneAt', 'doneBy', 'cat', 'agent', 'agentName', 'agentAt'])
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['agent', 'agentName', 'agentAt']) || isOwner()
+            || (resource.data.get('agent', '') == request.auth.uid && request.resource.data.get('agent', '') == ''));
       match /msgs/{m} {
-        allow read: if canEvents() && leadVenueOk(get(/databases/$(database)/documents/waChats/$(id)).data.get('venue', ''));
+        allow read: if canEvents() && waChatOk(id);
         // a message to a number with no chat yet is allowed (the server opens the chat)
         allow create: if canEvents() && request.resource.data.dir == 'out' && request.resource.data.status == 'queued' && request.resource.data.by == request.auth.uid
-          && (!exists(/databases/$(database)/documents/waChats/$(id)) || leadVenueOk(get(/databases/$(database)/documents/waChats/$(id)).data.get('venue', '')));
+          && (!exists(/databases/$(database)/documents/waChats/$(id)) || waChatOk(id));
       }
     }
     match /wacfg/{id} {

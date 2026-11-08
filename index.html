@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202611072340"></script>
+<script src="i18n.js?v=202611081120"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -226,6 +226,7 @@ table.plain.plg{width:100%;table-layout:fixed;min-width:0}.plg th,table.plain.pl
 .wa-newc{display:flex;gap:6px}.wa-newc input{flex:1}
 .wa-rows{max-height:none}.wa-row{padding:10px 12px;gap:12px;border-bottom:0;position:relative}.wa-row::after{content:'';position:absolute;bottom:0;inset-inline-start:72px;inset-inline-end:0;border-bottom:1px solid var(--line)}.wa-row .wa-av{width:48px;height:48px;font-size:1rem}
 .wa-mid{gap:1px}.wa-r1,.wa-r2{display:flex;align-items:center;gap:8px}.wa-r1 b{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600;font-size:1rem}.wa-row .wa-when{font-size:.75rem;color:var(--muted);flex:none}.wa-row.un .wa-when{color:#1DAA61;font-weight:700}.wa-row.un .wa-r1 b{font-weight:800}
+.wac-ag{display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:6px 10px;border-bottom:1px solid var(--line);background:var(--surface)}.wac-ag select{padding:4px 8px;font-size:.85rem}
 .wa-r2 .wa-prev{flex:1;min-width:0;font-size:.9rem}.wa-row.un .wa-prev{color:var(--ink)}.wa-tk{color:#53BDEB}.wa-r2 .wa-u{background:#25D366;margin:0;flex:none;min-width:20px;line-height:20px;padding:0 6px}.wac-cat{display:flex;gap:6px;align-items:center;flex-wrap:nowrap;overflow-x:auto;padding:6px 10px 0;background:var(--card,#fff)}.wac-cat .btn{white-space:nowrap;flex:none}.wac-cat small{white-space:nowrap}.lead-cats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-top:10px}.lead-cat{display:flex;flex-direction:column;align-items:center;gap:2px;padding:10px 6px;border:2px solid var(--line,#e5e5e5);border-radius:14px;background:var(--card,#fff);cursor:pointer;font:inherit;color:inherit}.lead-cat span{font-size:1.4rem;line-height:1}.lead-cat small{color:var(--muted,#777);font-size:.75rem}.lead-cat small i{color:#E23022;font-style:normal;font-weight:600}.lead-cat.on{border-color:var(--ink,#111);background:var(--ink,#111);color:#fff}.lead-cat.on small{color:#ddd}.lead-cat.on small i{color:#FCA5A5}
 .wa-wait{flex:none;width:10px;height:10px;border-radius:50%;background:#3B82F6}.wa-r3{font-size:.72rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .panel.wa-full{position:fixed;inset:0;width:100%;max-width:none;max-height:none;height:100dvh;border-radius:0;padding:0;gap:0;overflow:hidden}
@@ -2074,6 +2075,8 @@ const leadTel=p=>String(p||'').replace(/\D/g,'').replace(/^972/,'0').slice(-9);
 // three kinds of leads (owner, Nov 2): events / rooms / spa. A lead's kind = its own `cat`, else the kind its campaign is mapped to
 // (leadcats/main.campCat {campaign name: cat}, set on the leads page), else a guess from the campaign/type/notes words, else events.
 const LEAD_CAT=[['events','אירועים','🎉'],['rooms','חדרים','🛏️'],['spa','ספא','💆'],['bride','התארגנות כלה','👰']],LCAT=Object.fromEntries(LEAD_CAT.map(([k,n])=>[k,n]));
+// lead kinds a person sees (owner, Nov 8): roles/{uid}.leadCats, empty = all; the owner always sees all
+const myLeadCats=()=>{const all=LEAD_CAT.map(x=>x[0]);if(S.isOwner)return all;const c=((S.role&&S.role.leadCats)||[]).filter(k=>LCAT[k]);return c.length?c:all};
 function leadCatGuess(t){t=String(t||'');if(/כלה|כלות|התארגנות|bride|bridal/i.test(t))return 'bride';if(/ספא|spa|עיסוי|massage|טיפולי|טיפול זוגי|wellness/i.test(t))return 'spa';if(/חדר|חדרים|room|לינה|נופש|חופש|stay|night|לילה|לילות|סוויט|suite|booking|הזמנת מלון/i.test(t))return 'rooms';return ''}
 function campCatOf(name){name=String(name||'').trim();if(!name)return '';const m=(S.leadCats&&S.leadCats.campCat)||{};return m[name]||leadCatGuess(name)}
 function leadCat(l){if(l.cat&&LCAT[l.cat])return l.cat;return campCatOf(l.campaign)||leadCatGuess([l.type,l.notes].join(' '))||'events'}
@@ -2147,9 +2150,9 @@ function leadCard(id,l){const late=leadLate(l),lq=leadQuote(id,l),q=lq&&lq[1];
     <small class="${late?'bad-t':'muted'}">${l.nextAt&&leadOpen(l)?`${late?'⚠ ':''}לחזור: ${dm(l.nextAt)}`:''}${l.ownerName?` · ${esc(l.ownerName)}`:(leadOpen(l)?' · <span class="bad-t">ללא מטפל</span>':'')}</small>
     ${l.stage==='won'&&l.wonValue?`<small><b>${ils(l.wonValue)}</b></small>`:+l.value?`<small class="muted">${ils(l.value)} צפוי</small>`:''}</button>`}
 const myTasksDue=()=>Object.values(S.tasks||{}).filter(t=>!t.done&&t.owner===S.uid&&t.due&&t.due<=todayISO()).length;
-function vLeads(){leadsSub();tasksSub();waSub();leadCatsLive();leadsSync();const f=S.leadF||(S.leadF={view:'pipe',own:'all',src:'all',q:''});const cat=f.cat||(f.cat='events');
+function vLeads(){leadsSub();tasksSub();waSub();leadCatsLive();leadsSync();const f=S.leadF||(S.leadF={view:'pipe',own:'all',src:'all',q:''});const mlc=myLeadCats();if(!mlc.includes(f.cat))f.cat=mlc[0];const cat=f.cat;
   const catN=k=>Object.values(S.leads||{}).filter(l=>leadCat(l)===k&&leadOpen(l)).length,catNew=k=>Object.values(S.leads||{}).filter(l=>leadCat(l)===k&&(l.stage||'new')==='new').length;
-  const catBar=`<div class="lead-cats">${LEAD_CAT.map(([k,n,i])=>`<button class="lead-cat ${cat===k?'on':''}" data-act="lead-catv" data-v="${k}"><span>${i}</span><b>${n}</b><small>${f.view==='wa'?`💬 ${waUnreadCat(k)?`<i>${waUnreadCat(k)} לא נקראו</i>`:'אין חדשות'}`:`${catN(k)} פתוחים${catNew(k)?` · <i>${catNew(k)} חדשים</i>`:''}`}</small></button>`).join('')}</div>`;
+  const catBar=`<div class="lead-cats">${LEAD_CAT.filter(([k])=>mlc.includes(k)).map(([k,n,i])=>`<button class="lead-cat ${cat===k?'on':''}" data-act="lead-catv" data-v="${k}"><span>${i}</span><b>${n}</b><small>${f.view==='wa'?`💬 ${waUnreadCat(k)?`<i>${waUnreadCat(k)} לא נקראו</i>`:'אין חדשות'}`:`${catN(k)} פתוחים${catNew(k)?` · <i>${catNew(k)} חדשים</i>`:''}`}</small></button>`).join('')}</div>`;
   const head=`<section class="head"><div class="head-t"><h1>לידים ומכירות</h1><span class="row" style="gap:6px;flex-wrap:wrap"><button class="btn" data-act="qlead-new">⚡ ליד מהיר מוואטסאפ</button><button class="btn pri" data-act="lead-new">+ ליד חדש · ${LCAT[cat]}</button></span></div>${catBar}
     <div class="chips" style="gap:6px;margin-top:8px"><button class="dchip ${f.view==='pipe'?'':'off'}" data-act="lead-view" data-v="pipe">פייפליין</button><button class="dchip ${f.view==='list'?'':'off'}" data-act="lead-view" data-v="list">רשימה</button>${cat==='events'?`<button class="dchip ${f.view==='clients'?'':'off'}" data-act="lead-view" data-v="clients">לקוחות</button>`:''}<button class="dchip ${f.view==='tasks'?'':'off'}" data-act="lead-view" data-v="tasks">משימות${myTasksDue()?` (${myTasksDue()})`:''}</button><button class="dchip ${f.view==='sales'?'':'off'}" data-act="lead-view" data-v="sales">דשבורד מכירות</button><button class="dchip ${f.view==='wa'?'':'off'}" data-act="lead-view" data-v="wa">💬 וואטסאפ${waUnread()?` (${waUnread()})`:''}</button><button class="dchip ${f.view==='auto'?'':'off'}" data-act="lead-view" data-v="auto">⚡ אוטומציות</button>
     ${f.view==='wa'||f.view==='auto'?'':`    <select data-leadf="own" style="width:auto"><option value="all">כל המטפלים</option><option value="me" ${f.own==='me'?'selected':''}>רק שלי</option><option value="none" ${f.own==='none'?'selected':''}>ללא מטפל</option></select>
@@ -2301,10 +2304,10 @@ function sheetClient(){const k=S.sheet.k,c=crmClients()[k];if(!c)return sheetHea
 // tasks
 // hotel separation (security, Nov 5): WhatsApp chats, tasks and client notes carry `venue`; a scoped role listens per venue (equality, so the rules
 // can prove each query) + for tasks also its own (owner / createdBy); owner and all-hotel roles listen to the whole collection.
-function scopedLive(key,coll,extra,onData){if(S.live[key])return;S.live[key]=true;S[key]=S[key]||{};const done=m=>{S[key]=m;S[key+'Ready']=true;onData?onData(m):render()};
+function scopedLive(key,coll,extra,onData,andQ){if(S.live[key])return;S.live[key]=true;S[key]=S[key]||{};const done=m=>{S[key]=m;S[key+'Ready']=true;onData?onData(m):render()};
   (async()=>{if(!S.isOwner)await leadScopeLoad();const vs=leadScope(),col=S.db.collection(coll),err=e=>{S[key+'Err']=errMsg(mapErr(e));render()};
     if(!vs){col.onSnapshot(q=>done(docsMap(q)),err);return}
-    const qs=vs.map(v=>['v:'+v,col.where('venue','==',v)]).concat((extra||[]).map(([f,val])=>['x:'+f,col.where(f,'==',val)])),parts={};
+    const qs=vs.map(v=>['v:'+v,andQ?andQ(col.where('venue','==',v)):col.where('venue','==',v)]).concat((extra||[]).map(([f,val])=>['x:'+f,col.where(f,'==',val)])),parts={};
     if(!qs.length){done({});return}
     qs.forEach(([k,q])=>q.onSnapshot(x=>{parts[k]=docsMap(x);if(qs.every(([kk])=>parts[kk]))done(Object.assign({},...qs.map(([kk])=>parts[kk])))},err))})()}
 function tasksSub(){scopedLive('tasks','tasks',[['owner',S.uid],['createdBy',S.uid]])}
@@ -2315,16 +2318,26 @@ const waLocalOf=id=>{const d=String(id||'');return d.startsWith('972')?'0'+d.sli
 // phone notifications stay in the list until removed: close the WhatsApp ones whose chat was already read / answered / archived (owner, Nov 2)
 function notifClose(pred){try{if(!('serviceWorker' in navigator))return;navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.getNotifications&&r.getNotifications().then(ns=>ns.forEach(n=>{try{if(pred(n.tag||''))n.close()}catch(_){}})).catch(()=>{}))).catch(()=>{})}catch(_){}}
 function waNotifSweep(){const C=S.waChatsRaw||{};notifClose(t=>{if(!t.startsWith('wa-'))return false;const c=C[t.slice(3)];return !!c&&(!(+c.unread>0)||c.lastDir==='out'||c.status==='done'||(typeof waArch==='function'&&waArch(t.slice(3),c)))})}
-const waUnread=()=>S.can&&S.can.events?Object.entries(S.waChats||{}).filter(([id,c])=>+c.unread>0&&!(typeof waArch==='function'&&waArch(id,c))).length:0;
+const waUnread=()=>{if(!(S.can&&S.can.events))return 0;const mc=myLeadCats();return Object.entries(S.waChats||{}).filter(([id,c])=>+c.unread>0&&!(typeof waArch==='function'&&waArch(id,c))&&mc.includes((typeof waCatOf==='function'&&waCatOf(id,c))||'events')).length};
 const waOpenWin=c=>!!(c&&c.lastInAt&&Date.now()-c.lastInAt<864e5);
 function waSub(){if(!S.can||!S.can.events||S.live.wa)return;S.live.wa=true;
   const onChats=m=>{S.waChatsRaw=m;waApply();waNotifSweep();S.waReady=true;if(S.waPend){const id=S.waPend;S.waPend='';waOpen(id)}render()};
-  (async()=>{if(!S.isOwner)await leadScopeLoad();if(!leadScope()){fdb.collection('waChats').orderBy('lastAt','desc').limit(300).onSnapshot(q=>onChats(docsMap(q)),e=>{S.waErr=errMsg(mapErr(e));render()});return}
-    scopedLive('waScoped','waChats',null,onChats)})();
+  // chat ownership (owner, Nov 8): everyone but the owner sees only free chats (agent '') and their own; the rules check agent in ['', me]
+  const ag=q=>q.where('agent','in',['',S.uid]),werr=e=>{S.waErr=errMsg(mapErr(e));render()};
+  (async()=>{if(!S.isOwner)await leadScopeLoad();if(S.isOwner){fdb.collection('waChats').orderBy('lastAt','desc').limit(300).onSnapshot(q=>onChats(docsMap(q)),werr);return}
+    if(!leadScope()){ag(fdb.collection('waChats')).onSnapshot(q=>onChats(docsMap(q)),werr);return}
+    scopedLive('waScoped','waChats',null,onChats,ag)})();
   S.db.doc('wapub/main').onSnapshot(d=>{S.wapub=d.exists?d.data():{};render()},()=>{S.wapub={}})}
 function waMsgsSub(id){if(S.waMsgsId===id)return;if(S.waMsgsUn){try{S.waMsgsUn()}catch(_){}}S.waMsgsId=id;S.waMsgs=null;
   S.waMsgsUn=fdb.collection('waChats/'+id+'/msgs').orderBy('at','desc').limit(300).onSnapshot(q=>{S.waMsgs=q.docs.map(d=>({id:d.id,...d.data()})).reverse();render()},e=>{S.waMsgs=[];S.waMsgsErr=errMsg(mapErr(e));render()})}
 const waWide=()=>window.innerWidth>=900;
+const waErrTxt=e=>e&&(e.code==='permission-denied'||/permission/i.test(String(e.message||'')))?'לא נשלח: השיחה עם המספר הזה נמצאת אצל עובד אחר':'לא נשלח: '+errMsg(mapErr(e));
+// owner transfers a chat (and its lead) to someone, or the owner / the agent releases it to everyone
+async function waAgentSet(id,u){const c=(S.waChats||{})[id]||{},nm=u?(leadOwners()[u]||''):'';
+  try{await fdb.doc('waChats/'+id).update({agent:u,agentName:nm,agentAt:Date.now()});
+    if(u&&c.leadId&&S.isOwner)await fdb.doc('leads/'+c.leadId).update({owner:u,ownerName:nm,updatedAt:Date.now()}).catch(()=>{});
+    toast(u?'השיחה הועברה ל'+nm:'השיחה שוחררה, כל מי שמטפל בלידים רואה אותה');if(!u&&!S.isOwner){S.waSel='';if(S.sheet&&S.sheet.type==='wachat')S.sheet=null}render()}catch(e){toast('לא נשמר: '+errMsg(mapErr(e)))}}
+document.addEventListener('change',e=>{const t=e.target;if(t&&t.matches&&t.matches('[data-waag]')&&t.value)waAgentSet(t.dataset.waag,t.value)});
 const waCur=()=>S.sheet&&S.sheet.type==='wachat'?S.sheet.id:S.waSel;
 function waOpen(id,extra){S.drafts.wa=null;S.confirm=null;S.waAtBottom=true;
   if(waWide()&&!extra&&S.tab==='leads'&&S.leadF&&S.leadF.view==='wa'&&!(S.sheet&&S.sheet.type!=='wachat')){S.waSel=id;S.waSelX=null;S.sheet=null}
@@ -2397,7 +2410,7 @@ function waListHTML(f){waSub();leadCatsLive();const W=S.wapub||{},q=String(S.waQ
   const cnt=k=>k==='arch'?all.filter(([id,c])=>waArch(id,c)).length:all.filter(([id,c])=>{if(waArch(id,c))return false;if(k==='all')return true;if(k==='wait')return waWait(c);const L=waLeadOf(id,c);return k==='unread'?+c.unread>0:k==='open'?c.status!=='done':k==='done'?c.status==='done':k==='win'?waOpenWin(c):k==='lead'?!!L:!L}).length;
   // WhatsApp-Business-like rows (owner, Nov 2): avatar, name + time, last message + unread badge, a thin line of lead info
   const row=([id,c])=>{const L=waLeadOf(id,c),l=L&&L[1],nm=c.name||(l&&l.name)||waLocalOf(id),un=+c.unread>0;
-    const meta=[waCatOf(id,c)?'':'❔ לא משויך',l?(LSTG[l.stage]||'ליד'):'בלי ליד',l&&l.venue&&EV_VENUE[l.venue]?'📍 '+EV_VENUE[l.venue]:'',c.status==='done'?'✓ טופל':'',l&&l.ownerName?'👤 '+l.ownerName:''].filter(Boolean).join(' · ');
+    const meta=[waCatOf(id,c)?'':'❔ לא משויך',l?(LSTG[l.stage]||'ליד'):'בלי ליד',l&&l.venue&&EV_VENUE[l.venue]?'📍 '+EV_VENUE[l.venue]:'',c.status==='done'?'✓ טופל':'',c.agent?(c.agent===S.uid?'🔒 אצלי':'🔒 '+(c.agentName||'עובד')):(l&&l.ownerName?'👤 '+l.ownerName:'')].filter(Boolean).join(' · ');
     return `<button class="wa-row${id===sel?' sel':''}${un?' un':''}" data-act="wa-open" data-id="${id}"><span class="wa-av" style="background:${waColor(id)}">${esc(waInit(nm))}</span>
       <span class="wa-mid"><span class="wa-r1"><b>${esc(nm)}</b><small class="wa-when">${waListTime(c.lastAt)}</small></span>
       <span class="wa-r2"><span class="wa-prev">${c.lastDir==='out'?'<span class="wa-tk">✓✓</span> ':''}${esc(c.lastText||'')}</span>${un?`<span class="wa-u">${+c.unread}</span>`:waWait(c)?'<span class="wa-wait" title="מחכה לתשובה"></span>':''}</span>
@@ -2432,7 +2445,9 @@ function waChatBody(id,inPane){const c=(S.waChats||{})[id]||{},L=waLeadOf(id,c),
   // WhatsApp-like chat screen (owner, Nov 2): green header (back on phones), small action chips, wallpaper, bubbles, composer at the bottom
   const wc=waCatOf(id,c),catChips=`<div class="wac-cat"><small class="${wc?'muted':'bad-t'}">${wc?'תיבה:':'❔ לאיזו תיבה?'}</small>${LEAD_CAT.map(([k,n,i])=>`<button class="btn sm ${wc===k?'pri':'ghost'}" data-act="wa-cat" data-id="${esc(id)}" data-v="${k}" title="${n}">${i} ${n}</button>`).join('')}</div>`;
   const spaActs=wc==='spa'?`<button class="btn sm ok" data-act="wa-spalink" data-id="${esc(id)}">📅 קישור להזמנה אונליין</button>${S.can.spa?`<button class="btn sm" data-act="wa-spabk" data-id="${esc(id)}">🗓 קביעת תור ביומן</button>`:''}`:'';
-  const acts=catChips+`<div class="wac-acts">${doneBtn}${spaActs}${L?`<button class="btn sm" data-act="lead-open" data-id="${L[0]}">כרטיס הליד · ${esc(LSTG[l.stage]||'')}</button><button class="btn sm ${l.stage==='junk'?'':'ghost'}" data-act="lead-junk" data-id="${L[0]}" data-chat="${esc(id)}">${l.stage==='junk'?'↺ החזרה ללידים':'🚫 לא רלוונטי'}</button>`:`<button class="btn sm" data-act="wa-mklead">+ יצירת ליד</button>`}</div>`;
+  const ag=c.agent||'',agOpts=S.isOwner?Object.entries(leadOwners()).filter(([u])=>u!==ag&&u!==S.uid):[];
+  const agRow=`<div class="wac-ag">${ag?`<small>🔒 השיחה אצל <b>${esc(c.agentName||'עובד')}</b>${ag===S.uid?' (אצלך)':''} · ${ag===S.uid?'רק את/ה והבעלים רואים אותה':'רק הוא/היא והבעלים רואים אותה'}</small>`:'<small class="muted">השיחה פנויה. מי שכותב ללקוח ראשון לוקח אחריות על הליד, ומאותו רגע רק הוא רואה את השיחה.</small>'}${agOpts.length?`<select data-waag="${esc(id)}" style="width:auto"><option value="">העברה ל…</option>${agOpts.map(([u,n])=>`<option value="${u}">${esc(n)}</option>`).join('')}</select>`:''}${ag&&(S.isOwner||ag===S.uid)?`<button class="btn sm ghost" data-act="wa-agent" data-id="${esc(id)}">שחרור לכולם</button>`:''}</div>`;
+  const acts=agRow+catChips+`<div class="wac-acts">${doneBtn}${spaActs}${L?`<button class="btn sm" data-act="lead-open" data-id="${L[0]}">כרטיס הליד · ${esc(LSTG[l.stage]||'')}</button><button class="btn sm ${l.stage==='junk'?'':'ghost'}" data-act="lead-junk" data-id="${L[0]}" data-chat="${esc(id)}">${l.stage==='junk'?'↺ החזרה ללידים':'🚫 לא רלוונטי'}</button>`:`<button class="btn sm" data-act="wa-mklead">+ יצירת ליד</button>`}</div>`;
   return `<div class="wac${inPane?' pane':''}"><div class="wac-h">${inPane?'':'<button class="wac-back" data-act="close" aria-label="חזרה לרשימה">→</button>'}<span class="wa-av" style="background:${waColor(id)}" data-act="wa-info">${esc(waInit(name))}</span><div class="wac-t" data-act="wa-info"><b>${esc(name)}</b><small>${sub}</small></div><a class="wac-ic lt" href="tel:${esc(waLocalOf(id))}" aria-label="חיוג">📞</a></div>
   ${acts}${info}<div class="wa-msgs">${bubbles}</div><div class="wac-comp">${comp}</div></div>`}
 
@@ -4565,7 +4580,7 @@ function vPerms(){
 }
 function sheetPerm(){
   const u=S.sheet.id,e=S.emps[u];if(!e)return '';const r=S.roles[u],mine=myApps(),hs=grantableHotels(),moveHs=peopleHotels();
-  const d=S.drafts.perm||(S.drafts.perm={extraHotels:[...((r&&r.extraHotels)||[])],job:(r&&r.job)||'',apps:{...(r&&r.job?(r.extra||{}):roleApps(r))},hotels:[...((r&&r.hotels)||(allHotelsP()?[]:[e.hotel||'main']))],depts:[...((r&&r.depts)||[])],expHotels:[...((r&&r.expHotels)||[])]});
+  const d=S.drafts.perm||(S.drafts.perm={extraHotels:[...((r&&r.extraHotels)||[])],job:(r&&r.job)||'',apps:{...(r&&r.job?(r.extra||{}):roleApps(r))},hotels:[...((r&&r.hotels)||(allHotelsP()?[]:[e.hotel||'main']))],depts:[...((r&&r.depts)||[])],expHotels:[...((r&&r.expHotels)||[])],leadCats:[...((r&&r.leadCats)||[])]});
   const outside=r&&!allHotelsP()&&!(r.hotels||[]).length;
   // moving someone between hotels needs shift-manager rights over both hotels
   const canMove=S.can.shifts&&moveHs.includes(e.hotel||'main')&&moveHs.length>1,curH=d.hotel||e.hotel||'main';
@@ -4576,6 +4591,7 @@ function sheetPerm(){
   ${d.job?'<p class="muted" style="font-size:.85rem;margin:4px 0">ההרשאות של התפקיד מסומנות ונעולות. אפשר להוסיף הרשאות אישיות נוספות.</p>':''}
   <div class="plist">${appsOn().map(([k,n,desc])=>{const fj=!!(d.job&&((jobsSub()[d.job]||{}).apps||{})[k]);return `<label class="prow" style="cursor:${mine[k]&&!fj?'pointer':'default'}"><span class="who"><b>${n}${fj?' <span class="pill brass">מהתפקיד</span>':''}</b><small>${mine[k]?desc:'אין לך את ההרשאה הזו, ולכן אי אפשר לתת אותה'}</small></span><input type="checkbox" id="pa_${k}" data-act="perm-app" data-k="${k}" ${d.apps[k]||fj?'checked':''} ${mine[k]&&!outside&&!fj?'':'disabled'}></label>`}).join('')}</div>
   ${d.apps.dept?`<div class="f"><span>מנהל מחלקה של:</span><div class="chips" style="gap:6px">${grantDepts().map(x=>`<button class="dchip ${d.depts.includes(x.k)?'':'off'}" style="--h:${x.h};cursor:pointer" data-act="perm-dept" data-k="${x.k}" aria-pressed="${d.depts.includes(x.k)}">${x.n}</button>`).join('')}</div></div>`:''}
+  ${d.apps.events||(d.job&&((jobsSub()[d.job]||{}).apps||{}).events)?`<div class="f"><span>תחומי לידים שהוא רואה <small class="muted">(בלי סימון = כל התחומים)</small></span><div class="chips" style="gap:6px">${LEAD_CAT.map(([k,n,i])=>`<button class="dchip ${(d.leadCats||[]).includes(k)?'':'off'}" style="--h:var(--brass);cursor:pointer" data-act="perm-lcat" data-k="${k}" aria-pressed="${(d.leadCats||[]).includes(k)}">${i} ${n}</button>`).join('')}</div></div>`:''}
   ${curH===CHAIN?'<div class="notice" style="font-size:.88rem">ההרשאות חלות על <b>כל המלונות</b> (עובד רשת).</div>':(()=>{const ex=d.extraHotels||[],opts=grantableHotels().filter(x=>x!==curH);return `<div class="f"><span>ההרשאות חלות על המלון שבו העובד רשום: <b>${esc(hotelName(curH))}</b>${opts.length?', ועל המלונות הנוספים שמסמנים כאן:':'.'}</span>${opts.length?`<div class="chips" style="gap:6px;margin-top:4px">${opts.map(x=>`<button class="dchip ${ex.includes(x)?'':'off'}" style="--h:var(--brass);cursor:pointer" data-act="perm-xh" data-h="${x}">${esc(hotelName(x))}</button>`).join('')}</div>`:''}</div>`})()}
   <p class="muted" style="font-size:.82rem">השינוי נכנס לתוקף כשהאדם מרענן את האתר.</p>
   <div class="actions"><button class="btn pri" data-act="perm-save" ${outside?'disabled':''}>שמירה</button><button class="btn ghost" data-act="close">ביטול</button></div>`;
@@ -5106,16 +5122,17 @@ const ACT={
   'wa-spabk':D=>{if(!S.can.spa){toast('אין לך הרשאה ליומן הספא');return}const c=(S.waChats||{})[D.id]||{},L=waLeadOf(D.id,c),l=L&&L[1];
     S.drafts.spa={name:c.name||(l&&l.name)||'',phone:(l&&l.phone)||waLocalOf(D.id),notes:l&&l.notes?String(l.notes).slice(0,300):''};S.drafts.spax=null;S.confirm=null;
     S.sheet={type:'spa',id:'sp'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),d:todayISO(),waChat:D.id,leadId:L?L[0]:''};render()},
+  'wa-agent':D=>waAgentSet(D.id,''),
   'wa-send':async()=>{const id=waCur(),c=(S.waChats||{})[id],text=String(dv('wa','text','')).trim();if(!text){toast('צריך לכתוב הודעה');return}
     if(!waOpenWin(c)){toast('עברו 24 שעות. צריך לשלוח תבנית');return}
     const now=Date.now(),L=waLeadOf(id,c);S.drafts.wa=null;S.waAtBottom=true;render();
     try{if(L&&!c.leadId)await fdb.doc('waChats/'+id).update({leadId:L[0]});
-      await fdb.collection('waChats/'+id+'/msgs').add({dir:'out',type:'text',text,status:'queued',by:S.uid,byName:S.meName||'',at:now,src:'system'})}catch(e){S.drafts.wa={text};render();toast('לא נשלח: '+errMsg(mapErr(e)))}},
+      await fdb.collection('waChats/'+id+'/msgs').add({dir:'out',type:'text',text,status:'queued',by:S.uid,byName:S.meName||'',at:now,src:'system'})}catch(e){S.drafts.wa={text};render();toast(waErrTxt(e))}},
   'wa-tpl-send':async()=>{const id=waCur(),c=(S.waChats||{})[id],T=(S.wapub||{}).templates||[],t=T[+dv('wa','tpl',0)||0];if(!t){toast('צריך לבחור תבנית');return}
     const L=waLeadOf(id,c),params=Array.from({length:t.n},(_,i)=>String(dv('wa','p'+(i+1),i===0&&L?L[1].name:'')).trim());if(params.some(x=>!x)){toast('צריך למלא את כל הערכים בתבנית');return}
     const text=t.body.replace(/\{\{(\d+)\}\}/g,(m,n)=>params[+n-1]||m),now=Date.now();S.drafts.wa=null;S.waAtBottom=true;render();
-    try{if(!c)await fdb.doc('waChats/'+id).set({waId:id,phone:waLocalOf(id),name:L?String(L[1].name||''):'',leadId:L?L[0]:'',createdAt:now,createdBy:S.uid,unread:0,cat:(L&&L[1].cat)||(S.leadF&&S.leadF.cat)||'events',venue:leadVenueNew(L&&L[1])});else if(L&&!c.leadId)await fdb.doc('waChats/'+id).update({leadId:L[0]});
-      await fdb.collection('waChats/'+id+'/msgs').add({dir:'out',type:'template',tpl:{name:t.name,lang:t.lang,params},text,status:'queued',by:S.uid,byName:S.meName||'',at:now,src:'system'});toast('התבנית נשלחה')}catch(e){toast('לא נשלח: '+errMsg(mapErr(e)))}},
+    try{if(!c)await fdb.doc('waChats/'+id).set({waId:id,phone:waLocalOf(id),name:L?String(L[1].name||''):'',leadId:L?L[0]:'',createdAt:now,createdBy:S.uid,unread:0,cat:(L&&L[1].cat)||(S.leadF&&S.leadF.cat)||'events',venue:leadVenueNew(L&&L[1]),agent:''});else if(L&&!c.leadId)await fdb.doc('waChats/'+id).update({leadId:L[0]});
+      await fdb.collection('waChats/'+id+'/msgs').add({dir:'out',type:'template',tpl:{name:t.name,lang:t.lang,params},text,status:'queued',by:S.uid,byName:S.meName||'',at:now,src:'system'});toast('התבנית נשלחה')}catch(e){toast(waErrTxt(e))}},
   'wa-mklead':async()=>{const id=waCur(),c=(S.waChats||{})[id]||{},lid='wa_'+id,now=Date.now();
     const o={cat:c.cat||(S.leadF&&S.leadF.cat)||'events',name:c.name||waLocalOf(id),phone:waLocalOf(id),email:'',company:'',type:'',date:'',guests:0,venue:'',source:'whatsapp',campaign:'',stage:'new',owner:'',ownerName:'',nextAt:todayISO(),value:0,notes:'',acts:[],createdAt:now,createdBy:S.uid,updatedAt:now};
     try{await fdb.doc('leads/'+lid).set(o,{merge:true});S.leads={...S.leads,[lid]:o};if(S.waChats[id])await fdb.doc('waChats/'+id).update({leadId:lid});S.sheet={type:'lead',id:lid};render();toast('נפתח ליד')}catch(e){toast('לא הצלחתי: '+errMsg(mapErr(e)))}},
@@ -5490,6 +5507,7 @@ const ACT={
     if(D.k==='shifts'&&t.checked)d.apps.dept=false;if(D.k==='dept'&&t.checked)d.apps.shifts=false;
     if((D.k==='shifts'&&t.checked&&!allHotelsP()||D.k==='dept'&&t.checked)&&!d.hotels.length){const e=S.emps[S.sheet.id];const h=e?.hotel||'main';d.hotels=grantableHotels().includes(h)?[h]:grantableHotels().slice(0,1)}render()},
   'perm-exph':D=>{const d=S.drafts.perm;if(!d)return;d.expHotels=d.expHotels.includes(D.h)?d.expHotels.filter(x=>x!==D.h):[...d.expHotels,D.h];render()},
+  'perm-lcat':D=>{const d=S.drafts.perm;if(!d)return;const l=d.leadCats||[];d.leadCats=l.includes(D.k)?l.filter(x=>x!==D.k):[...l,D.k];render()},
   'perm-dept':D=>{const d=S.drafts.perm;if(!d)return;d.depts=d.depts.includes(D.k)?d.depts.filter(x=>x!==D.k):[...d.depts,D.k];render()},
   'perm-hotel':D=>{const d=S.drafts.perm;if(!d)return;d.hotels=d.hotels.includes(D.h)?d.hotels.filter(h=>h!==D.h):[...d.hotels,D.h];render()},
   'perm-save':()=>{const u=S.sheet.id,d=S.drafts.perm,e=S.emps[u];if(!d||!e)return;const mine=myApps();
@@ -5507,7 +5525,7 @@ const ACT={
       if(apps.dept&&!jm.depts.length){toast('צריך לבחור לפחות מחלקה אחת');return}
       const expHotels=apps.exp?hotels.filter(x=>th===CHAIN||expAllP()||grantExpHotels().includes(x)):[];if(apps.exp&&(th===CHAIN?!expAllP():!grantExpHotels().includes(th))){toast('אין לך הרשאת הוצאות למלון של העובד הזה');return}
       const mg=apps.gm?'gm':apps.ceo?'ceo':(e.mgmt==='noshift'?'noshift':'');if((e.mgmt||'')!==mg&&(S.isOwner||(S.can.shifts&&grantableHotels().includes(e.hotel||'main')))){S.emps[u]={...S.emps[u],mgmt:mg};save('employees/'+u,S.emps[u])}
-      const doc={apps,hotels,depts:apps.dept?jm.depts:[],expHotels,name:e.name||'',job:d.job||'',jobName:d.job?((jobsSub()[d.job]||{}).name||''):'',extraHotels:th===CHAIN?[]:xh,extra,extraDepts:d.job?d.depts.filter(x=>grantDepts().some(g=>g.k===x)):[],updatedBy:S.uid,updatedAt:Date.now()};S.roles[u]=doc;save('roles/'+u,doc)}
+      const doc={apps,hotels,depts:apps.dept?jm.depts:[],expHotels,name:e.name||'',job:d.job||'',jobName:d.job?((jobsSub()[d.job]||{}).name||''):'',extraHotels:th===CHAIN?[]:xh,extra,extraDepts:d.job?d.depts.filter(x=>grantDepts().some(g=>g.k===x)):[],leadCats:apps.events?(d.leadCats||[]).filter(k=>LCAT[k]):[],updatedBy:S.uid,updatedAt:Date.now()};S.roles[u]=doc;save('roles/'+u,doc)}
     S.sheet=null;S.drafts.perm=null;render();toast(moved?`${e.name||'העובד'} הועבר ל${hotelName(moved)}`:`ההרשאות של ${e.name||'העובד'} נשמרו`)},
   'bg-close':(D,t,e)=>{if(e.target===t)ACT.close()},
 };

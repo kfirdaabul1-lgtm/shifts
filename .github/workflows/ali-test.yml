@@ -1,0 +1,23 @@
+name: Ali test
+on:
+  workflow_dispatch:
+    inputs:
+      from: { description: 'from date (YYYY-MM-DD, empty = first foreign group)', required: false, default: '' }
+      diag: { description: 'grp = counts only', required: false, default: '' }
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: cd functions && npm install --omit=dev
+      - env:
+          KEY: ${{ secrets.FIREBASE_DEPLOY_KEY }}
+          FROM: ${{ inputs.from }}
+          DIAG: ${{ inputs.diag }}
+        run: |
+          echo "$KEY" > "$RUNNER_TEMP/key.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/key.json"
+          cd functions && node ali-test.js
+          rm -f "$RUNNER_TEMP/key.json"

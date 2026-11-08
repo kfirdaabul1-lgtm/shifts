@@ -57,7 +57,7 @@ async function runLoop({ model, system, tools, messages, maxTurns = 5, maxTokens
   const by = Object.fromEntries(tools.map((t) => [t.name, t]));
   const api = tools.map(({ name, description, input_schema }) => ({ name, description, input_schema }));
   if (api.length) api[api.length - 1].cache_control = { type: 'ephemeral' };
-  const msgs = messages.slice(), used = [], U = { in: 0, out: 0, cr: 0, cw: 0 }; let text = '';
+  const msgs = messages.slice(), used = [], U = { in: 0, out: 0, cr: 0, cw: 0 }; let text = '', stop = '';
   for (let turn = 0; turn < maxTurns; turn++) {
     const last = msgs[msgs.length - 1], send = msgs.slice(0, -1);
     const lc = typeof last.content === 'string' ? [{ type: 'text', text: last.content }] : last.content.map((b) => ({ ...b }));
@@ -68,7 +68,7 @@ async function runLoop({ model, system, tools, messages, maxTurns = 5, maxTokens
     const j = await claude(body);
     const u = j.usage || {}; U.in += u.input_tokens || 0; U.out += u.output_tokens || 0; U.cr += u.cache_read_input_tokens || 0; U.cw += u.cache_creation_input_tokens || 0;
     const blocks = j.content || [];
-    text = blocks.filter((b) => b.type === 'text').map((b) => b.text).join('\n').trim();
+    text = blocks.filter((b) => b.type === 'text').map((b) => b.text).join('\n').trim(); stop = j.stop_reason || '';
     const calls = blocks.filter((b) => b.type === 'tool_use');
     if (j.stop_reason !== 'tool_use' || !calls.length) break;
     msgs.push({ role: 'assistant', content: blocks });
@@ -81,7 +81,7 @@ async function runLoop({ model, system, tools, messages, maxTurns = 5, maxTokens
     }
     msgs.push({ role: 'user', content: results });
   }
-  return { text, used, U };
+  return { text, used, U, stop };
 }
 
 // ---------- who is asking (owner only) ----------

@@ -30,7 +30,7 @@ async function waitFor(ids, maxMin) {
   }
   if (process.env.DIAG) {
     const q = await db.collection('agentLog').orderBy('at', 'desc').limit(8).get();
-    q.docs.forEach((d) => { const x = d.data(); console.log('::notice title=log::' + JSON.stringify({ agent: x.agent, at: x.at, kind: x.kind, scope: x.scope, ok: x.ok, error: x.error ? String(x.error).slice(0, 200) : undefined })); });
+    q.docs.forEach((d) => { const x = d.data(); console.log('::notice title=log::' + JSON.stringify({ agent: x.agent, at: new Date(x.at).toISOString(), kind: x.kind, scope: x.scope, model: x.model, tools: x.tools, out: x.usage && x.usage.out, stop: x.stop, textLen: x.textLen, ok: x.ok, error: x.error ? String(x.error).slice(0, 200) : undefined })); });
     return;
   }
   const stamp = Date.now().toString(36), since = process.env.SINCE || '';

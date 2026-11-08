@@ -1010,10 +1010,11 @@ const D = &lt;?!= dJson ?&gt;, S = &lt;?!= sJson ?&gt;;
       if(sawOut){location.reload();return}
       if(started)return;started=true;ctx.user=u;
       const email=String(u.email||'').toLowerCase();
-      ctx.isOwner=!!(email&&u.emailVerified&&(email===String(CFG.ownerEmail||'').trim().toLowerCase()||email===String(window.SC_PLATFORM_OWNER||'').trim().toLowerCase()));
+      ctx.isOwner=false;
       let role=null;try{const r=await ctx.fdb.doc('roles/'+u.uid).get();if(r.exists)role=r.data()}catch(_){ }
       let ocd={};try{const oc0=await ctx.fdb.doc('orgcfg/main').get();if(oc0.exists)ocd=oc0.data()||{}}catch(_){ }
-      if(!ctx.isOwner&&email&&u.emailVerified&&email===String(ocd.ownerEmail||'').toLowerCase())ctx.isOwner=true;
+      // Nov 8: owner only where this e-mail is the chain's owner (not the system owner in other chains)
+      ctx.isOwner=!!(email&&u.emailVerified&&email===String(ocd.ownerEmail||CFG.ownerEmail||window.SC_PLATFORM_OWNER||'').trim().toLowerCase());
       const apps=role?(role.apps||{shifts:true}):{};
       // events.html#ceo is the CEO view (needs the ceo permission); events.html is the quotes app (needs events)
       const ceoMode=location.hash==='#ceo',canEv=ctx.isOwner||!!apps.events,canCeo=ctx.isOwner||!!apps.ceo;

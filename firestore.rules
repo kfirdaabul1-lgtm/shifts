@@ -45,7 +45,9 @@ service cloud.firestore {
       return signedIn()
         && request.auth.token.email != null
         && request.auth.token.email_verified == true
-        && (request.auth.token.email.lower() == platformEmail() || request.auth.token.email.lower() == ownerEmail());
+        // Nov 8 (owner): the system owner is an owner only where he is the chain's owner (Seven, his demo hotel). In other chains / hotels
+        // he keeps only the platform rights (isPlatform: orgcfg, registry) and sees no data, financial or other, unless they give him a role.
+        && request.auth.token.email.lower() == ownerEmail();
     }
 
     // ---------- הרשאות ----------

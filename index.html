@@ -5737,10 +5737,11 @@ async function start(u){
   S.plat=!!(S.email&&u.emailVerified&&S.email===String(window.SC_PLATFORM_OWNER||'').trim().toLowerCase());
   // the system owner's devices stay on the general address (not redirected to a chain's own domain)
   try{if(S.plat)localStorage.setItem('scPlat','1')}catch(_){}
-  S.isOwner=S.plat||!!(S.email&&u.emailVerified&&S.email===String(CFG.ownerEmail||'').trim().toLowerCase());
+  // Nov 8 (owner): the system owner is an owner only in chains he owns (orgcfg ownerEmail); elsewhere he gets only Kfir app (platform) pages
+  S.isOwner=false;
   try{await regLicLoad()}catch(_){ }
   try{const d=await db.doc('orgcfg/main').get();S.org=orgMerge(d.exists?d.data():{});applyOrg()}catch(_){S.org=orgMerge({})}
-  if(!S.isOwner&&u.emailVerified&&S.email&&S.email===String(S.org.ownerEmail||'').toLowerCase())S.isOwner=true;
+  S.isOwner=!!(u.emailVerified&&S.email&&S.email===String(S.org.ownerEmail||CFG.ownerEmail||window.SC_PLATFORM_OWNER||'').trim().toLowerCase());
   db.doc('orgcfg/main').onSnapshot(d=>{S.org=orgMerge(d.exists?d.data():{});applyOrg();applyMods();render()},()=>{});
   try{const d=await db.doc('shiftKinds/main').get();applyKinds(d.exists?d.data():{})}catch(_){ }
   db.doc('shiftKinds/main').onSnapshot(d=>{applyKinds(d.exists?d.data():{});render()},()=>{});
@@ -5769,6 +5770,7 @@ async function start(u){
   if(S.station){S.can={...S.can,hkchk:false,vch:false,vchr:false,cmp:false,spa:false,hr:false,front:true,brief:false,stock:false,events:false,perms:false,maint:false,fin:false};S.admin=false;S.deptOnly=false;S.myHotel=((S.role.hotels||[])[0])||'main';S.hotel=S.myHotel;S.meName=S.role.name||'קבלה';S.email=S.role.login||''}
   else if(!S.role&&S.email.endsWith('@'+STATION_DOMAIN)){S.stationOff=true;S.tab='front';S.ready=true;render();return}
   else if(!S.admin){let me=null;try{const m=await db.doc('employees/'+u.uid).get();if(m.exists)me=m.data()}catch(_){ }
+    if(!me&&S.plat){S.pmode=true;S.tab='pchains';S.ready=true;render();return}
     if(!me){S.registering=true;S.ready=true;render();return}
     S.myHotel=me.hotel||'main';S.myMgmt=!!MGMT[me.mgmt];S.hotel=S.myHotel;S.myHkDept=(me.depts||[]).includes('housekeeping')&&!['gm','ceo'].includes(me.mgmt);S.myPubDept=(me.depts||[]).includes('public')&&!['gm','ceo'].includes(me.mgmt);S.myBarDept=(me.depts||[]).includes('bar')}
   // housekeeping page: reception, managers, the hk app and housekeeping staff

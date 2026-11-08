@@ -1,0 +1,21 @@
+name: Groups import (one-off)
+on:
+  workflow_dispatch:
+    inputs:
+      step: { description: 'key | dry | apply', required: true, default: 'dry' }
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: cd functions && npm install --omit=dev
+      - env:
+          KEY: ${{ secrets.FIREBASE_DEPLOY_KEY }}
+          STEP: ${{ inputs.step }}
+        run: |
+          echo "$KEY" > "$RUNNER_TEMP/key.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/key.json"
+          export NODE_PATH="$PWD/functions/node_modules"; cd tools && node groups-import.js
+          rm -f "$RUNNER_TEMP/key.json"

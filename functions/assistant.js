@@ -58,7 +58,16 @@ async function isOwnerMail(em) {
 async function caller(req) {
   const m = String(req.get('authorization') || '').match(/^Bearer (.+)$/); if (!m) return null;
   let tok; try { tok = await admin.auth().verifyIdToken(m[1], true); } catch (e) { return null; }
-  const owner = tok.email_verified === true && (await isOwnerMail(tok.email));
+  return callerFrom(tok.uid, tok.email, tok.email_verified === true, tok.name);
+}
+// the same caller object from a uid (WhatsApp with Aliana: the person is found by the phone on their employee card)
+async function callerUid(uid) {
+  let u; try { u = await admin.auth().getUser(uid); } catch (e) { u = {}; }
+  return callerFrom(uid, u.email, u.emailVerified === true, u.displayName);
+}
+async function callerFrom(uid, email, verified, dname) {
+  const tok = { uid, email, name: dname };
+  const owner = verified && (await isOwnerMail(email));
   const r = await db.doc('roles/' + tok.uid).get(), role = r.exists ? r.data() || {} : null;
   if (!owner && (!role || role.station)) return { uid: tok.uid, denied: true };
   let hotels = owner ? [] : (Array.isArray(role.hotels) ? role.hotels : []);
@@ -414,4 +423,4 @@ exports.assistant = functions.region(REGION).runWith({ timeoutSeconds: 120, memo
 });
 
 // exported for the tests only
-exports._t = { P, roomsParse, weekOf, TOOLS, caller };
+exports._t = { P, roomsParse, weekOf, TOOLS, caller, callerUid };

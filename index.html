@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202611081430"></script>
+<script src="i18n.js?v=202611081940"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -2383,6 +2383,12 @@ function waCfgHTML(){waCfgSub();const c=S.wacfg;if(c===undefined)return '';const
     <label class="f">App secret (לא חובה, לאבטחה נוספת)<input type="password" autocomplete="off" dir="ltr" data-f="wac.appSecret" value="${esc(g('appSecret'))}"></label>
     <div class="f"><span>כתובת Webhook (מדביקים ב-Meta)</span><div class="actions" style="align-items:center"><code dir="ltr" style="font-size:.8rem;word-break:break-all">${waHook()}</code><button class="btn sm" data-act="wa-copy" data-v="${waHook()}">העתקה</button></div></div>
     <div class="f"><span>Verify token (מדביקים ב-Meta)</span><div class="actions" style="align-items:center"><code dir="ltr">${esc(c.verify||'נוצר בשמירה הראשונה')}</code>${c.verify?`<button class="btn sm" data-act="wa-copy" data-v="${esc(c.verify)}">העתקה</button>`:''}</div></div>`}
+    ${pv==='360dialog'?'':`<div class="card" style="background:var(--bg);margin:10px 0"><b>📣 המספר של אליאנה (סוכנת הקמפיינים)</b>
+      <p class="muted" style="font-size:.85rem">מספר שני באותו חשבון וואטסאפ. מנהלים עם הרשאה לקמפיינים כותבים לה בוואטסאפ ומקבלים תשובות, ואפשר לשלוח לה קובץ "ייצוא צ׳אט" מקבוצת הסושיאל כדי שתלמד ממנו.</p>
+      ${c.aliStatus&&c.aliStatus.at?`<div class="notice ${c.aliStatus.ok?'ok':'bad'}">${c.aliStatus.ok?'✓ מחובר':'לא מחובר'}${c.aliStatus.phone?' · <span dir="ltr">'+esc(c.aliStatus.phone)+'</span>':''}${c.aliStatus.ok?'':' · '+esc(c.aliStatus.msg||'')}</div>`:''}
+      <div class="row"><label class="f">Phone number ID של אליאנה<input type="text" dir="ltr" data-f="wac.aliPhoneId" value="${esc(g('aliPhoneId'))}"></label><label class="f">הטלפון שלך (כדי שתזהה אותך)<input type="tel" dir="ltr" data-f="wac.aliOwnerPhone" value="${esc(g('aliOwnerPhone'))}"></label></div>
+      <p class="muted" style="font-size:.8rem">מנהלים אחרים מזוהים לפי הטלפון שבכרטיס העובד שלהם.</p>
+      ${c.aliPhoneId?'<button class="btn sm" data-act="wacfg-alisync">רישום ובדיקה מחדש</button>':''}</div>`}
     <div class="actions"><button class="btn pri" data-act="wacfg-save">שמירה ובדיקת חיבור</button>${c.token?'<button class="btn" data-act="wacfg-sync">רענון תבניות ובדיקה</button>':''}</div>
     <details style="margin-top:8px"><summary>איך מחברים (צעד אחר צעד)</summary><ol style="font-size:.88rem;line-height:1.6;padding-inline-start:18px">
       ${pv==='360dialog'?`<li>נרשמים ב-hub.360dialog.com ומחברים את המספר. במסך החיבור בוחרים לחבר את חשבון ה-WhatsApp Business הקיים (סורקים QR באפליקציה בטלפון), כך המספר ממשיך לעבוד גם באפליקציה.</li><li>ב-360dialog: API Keys → יצירת מפתח למספר, ומדביקים אותו כאן.</li><li>לוחצים "שמירה ובדיקת חיבור". המערכת מגדירה לבד את ה-Webhook וטוענת את התבניות.</li>`:
@@ -5145,9 +5151,10 @@ const ACT={
     const o={cat:c.cat||(S.leadF&&S.leadF.cat)||'events',name:c.name||waLocalOf(id),phone:waLocalOf(id),email:'',company:'',type:'',date:'',guests:0,venue:'',source:'whatsapp',campaign:'',stage:'new',owner:'',ownerName:'',nextAt:todayISO(),value:0,notes:'',acts:[],createdAt:now,createdBy:S.uid,updatedAt:now};
     try{await fdb.doc('leads/'+lid).set(o,{merge:true});S.leads={...S.leads,[lid]:o};if(S.waChats[id])await fdb.doc('waChats/'+id).update({leadId:lid});S.sheet={type:'lead',id:lid};render();toast('נפתח ליד')}catch(e){toast('לא הצלחתי: '+errMsg(mapErr(e)))}},
   'wacfg-save':()=>{const c=S.wacfg||{},d=S.drafts.wac||{},v=k=>String((d[k]!==undefined?d[k]:c[k])||'').trim();
-    const o={provider:v('provider')||'meta',token:v('token'),phoneId:v('phoneId'),wabaId:v('wabaId'),appSecret:v('appSecret'),verify:c.verify||('v'+Array.from(crypto.getRandomValues(new Uint8Array(12)),b=>b.toString(16).padStart(2,'0')).join('')),syncReq:Date.now(),updatedAt:Date.now(),by:S.uid};
+    const o={provider:v('provider')||'meta',token:v('token'),phoneId:v('phoneId'),wabaId:v('wabaId'),appSecret:v('appSecret'),aliPhoneId:v('aliPhoneId'),aliOwnerPhone:v('aliOwnerPhone'),verify:c.verify||('v'+Array.from(crypto.getRandomValues(new Uint8Array(12)),b=>b.toString(16).padStart(2,'0')).join('')),syncReq:Date.now(),updatedAt:Date.now(),by:S.uid};
     if(!o.token){toast('צריך להדביק מפתח');return}
     fdb.doc('wacfg/main').set(o,{merge:true}).then(()=>{S.drafts.wac=null;toast('נשמר. בודק את החיבור…')},e=>toast('לא נשמר: '+errMsg(mapErr(e))))},
+  'wacfg-alisync':()=>{fdb.doc('wacfg/main').set({aliSync:Date.now()},{merge:true}).then(()=>toast('בודק את המספר של אליאנה…'),e=>toast('לא הצלחתי: '+errMsg(mapErr(e))))},
   'wacfg-sync':()=>{fdb.doc('wacfg/main').set({syncReq:Date.now()},{merge:true}).then(()=>toast('בודק ומרענן…'),e=>toast('לא הצלחתי: '+errMsg(mapErr(e))))},
   'lead-stage':D=>{(S.drafts.lead||(S.drafts.lead={})).stage=D.v;render()},
   'lead-save':()=>leadSave(),

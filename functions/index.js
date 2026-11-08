@@ -864,6 +864,8 @@ exports.waWebhook = functions.region(REGION).https.onRequest(async (req, res) =>
     const b = req.body || {}, biz = String((c.status && c.status.phoneDigits) || '');
     for (const en of b.entry || []) for (const ch of en.changes || []) {
       const v = ch.value || {}, f = ch.field;
+      // Aliana's own number (owner, Nov 8): her messages go to aliana-wa.js, never to the leads inbox
+      if (c.aliPhoneId && v.metadata && v.metadata.phone_number_id === c.aliPhoneId) { if (f === 'messages') await require('./aliana-wa.js').aliHook(v); continue; }
       // only events for OUR number (the phone id is not public); without the app secret this is what stops forged posts
       if (c.phoneId && (c.provider === '360dialog' ? (v.metadata && v.metadata.phone_number_id && v.metadata.phone_number_id !== c.phoneId) : (!v.metadata || v.metadata.phone_number_id !== c.phoneId))) continue;
       if (f === 'messages') {
@@ -1626,6 +1628,9 @@ exports.fxRunNow = functions.region(REGION).https.onRequest(async (req, res) => 
 });
 
 exports.adsAgent = ads.adsAgent;
+const ali = require('./aliana-wa.js');
+exports.onAliIn = ali.onAliIn;
+exports.onAliCfg = ali.onAliCfg;
 // Meta campaign structure for the ads agent (Nov 7, owner): read-only, once a day → metaStruct/{campaignId}
 async function metaStructAll() {
   const m = (await db.doc('metacfg/main').get()).data() || {}, out = [], S = require('./meta-struct.js');

@@ -126,7 +126,7 @@ function readTools(scope) {
 async function notesFor(scope) {
   const hs = scope.hotel ? [scope.hotel, ''] : [''];
   const q = await Promise.all(hs.map((h) => db.collection('adNotes').where('hotel', '==', h).get()));
-  return q.flatMap((x) => x.docs.map((d) => d.data())).sort((a, b) => (+b.at || 0) - (+a.at || 0)).slice(0, 15)
+  return q.flatMap((x) => x.docs.map((d) => d.data())).sort((a, b) => (+b.at || 0) - (+a.at || 0)).slice(0, 25)
     .map((n) => ({ date: C.ilDate(new Date(+n.at || Date.now())), by: clip(n.byName, 40), forWhole: n.hotel ? 'this hotel' : 'whole chain', text: clip(n.text, 400) }));
 }
 const notesTxt = (ns) => ns.length ? '\n\nMANAGERS\' DIRECTIONS (newest first). Follow them; when two conflict follow the newest and say so in caveats. In the report, say briefly how you took them into account:\n' + JSON.stringify(ns) : '';
@@ -249,6 +249,15 @@ exports.adsRunNow = http('adsRunNow', 540, async (req, res) => {
 // Works even while the scheduled reports are off (cfg.enabled); cfg.chat === false turns it off.
 const CHAT = 'claude-haiku-5-5';
 const chatOk = (c, h) => c.owner || c.apps.ceo === true || (h ? ((c.apps.gm === true || c.apps.mkt === true) && (c.hotels.length === 0 || c.hotels.includes(h))) : (c.apps.mkt === true && c.hotels.length === 0));
+async function chatCore(cfg, c, h, hist, extra) {
+    const scope = h ? (await scopeList(cfg)).find((x) => x.hotel === h) : { key: 'chain', hotel: '', name: 'כל הרשת', A: null };
+    if (!scope) return { error: 'scope' };
+    const model = cfg.chatModel || CHAT, ns = await notesFor(scope);
+    const sys = system(await C.loadKB('ads'), scope, 'daily').map((b) => ({ ...b, text: b.text.replace(/Finish by calling save_report ONCE[^\n]*/, `This is a CHAT, not a report: answer the question of ${clip(c.name, 60) || 'the manager'} directly, short (a few sentences or a short list), in Hebrew, with numbers from the tools. Use campaign_structure for questions about audiences, ads, texts or placements. Do not write a full report.`) + notesTxt(ns) + (extra ? '\n\n' + extra : '') }));
+    const out = await C.runLoop({ model, system: sys, tools: readTools(scope), messages: hist, maxTurns: 6, maxTokens: 1500 });
+    await C.logRun('ads', { uid: c.uid, kind: 'chat', scope: scope.key, model, usage: out.U, tools: out.used });
+    return { text: out.text || 'לא הצלחתי לענות על זה. אפשר לנסח אחרת?', scope: scope.name, used: out.used };
+}
 exports.adsAgent = functions.region(REGION).runWith({ timeoutSeconds: 120, memory: '512MB' }).https.onRequest(async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*'); res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization'); res.set('Access-Control-Allow-Methods', 'POST');
   if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
@@ -268,14 +277,9 @@ exports.adsAgent = functions.region(REGION).runWith({ timeoutSeconds: 120, memor
       .filter((m) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.text === 'string' && m.text.trim()).map((m) => ({ role: m.role, content: m.text.slice(0, 2000) }));
     while (hist.length && hist[0].role !== 'user') hist.shift();
     if (!hist.length || hist[hist.length - 1].role !== 'user') { res.status(400).json({ error: 'empty' }); return; }
-    const scope = h ? (await scopeList(cfg)).find((x) => x.hotel === h) : { key: 'chain', hotel: '', name: 'כל הרשת', A: null };
-    if (!scope) { res.status(400).json({ error: 'scope' }); return; }
-    const model = cfg.chatModel || CHAT, ns = await notesFor(scope);
-    const sys = system(await C.loadKB('ads'), scope, 'daily').map((b) => ({ ...b, text: b.text.replace(/Finish by calling save_report ONCE[^\n]*/, `This is a CHAT, not a report: answer the question of ${clip(c.name, 60) || 'the manager'} directly, short (a few sentences or a short list), in Hebrew, with numbers from the tools. Use campaign_structure for questions about audiences, ads, texts or placements. Do not write a full report.`) + notesTxt(ns) }));
-    const out = await C.runLoop({ model, system: sys, tools: readTools(scope), messages: hist, maxTurns: 6, maxTokens: 1500 });
-    await C.logRun('ads', { uid: c.uid, kind: 'chat', scope: scope.key, model, usage: out.U, tools: out.used });
-    res.json({ text: out.text || 'לא הצלחתי לענות על זה. אפשר לנסח אחרת?', scope: scope.name, tools: [...new Set(out.used)] });
+    const r = await chatCore(cfg, c, h, hist); if (r.error) { res.status(400).json({ error: r.error }); return; }
+    res.json({ text: r.text, scope: r.scope, tools: [...new Set(r.used)] });
   } catch (e) { console.error('adsAgent', e); res.status(500).json({ error: 'משהו השתבש. נסו שוב בעוד רגע.' }); }
 });
 
-exports._t = { readTools, metricsOf, scopeList, runScope, runAll, system, cleanReport, notesFor, notesTxt, chatOk };
+exports._t = { readTools, metricsOf, scopeList, runScope, runAll, system, cleanReport, notesFor, notesTxt, chatOk, chatCore, rateOk, DEFAULTS };

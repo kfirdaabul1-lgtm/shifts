@@ -393,7 +393,7 @@ exports.assistant = functions.region(REGION).runWith({ timeoutSeconds: 120, memo
       const lc = typeof last.content === 'string' ? [{ type: 'text', text: last.content }] : last.content.map((b) => ({ ...b }));
       lc[lc.length - 1] = { ...lc[lc.length - 1], cache_control: { type: 'ephemeral' } };
       send.push({ role: last.role, content: lc });
-      const j = await claude({ model: MODEL, max_tokens: 1000, system, tools, messages: send });
+      const j = await claude({ model: MODEL, max_tokens: 4000, system, tools, messages: send });
       const u = j.usage || {}; U.in += u.input_tokens || 0; U.out += u.output_tokens || 0; U.cr += u.cache_read_input_tokens || 0; U.cw += u.cache_creation_input_tokens || 0;
       const blocks = j.content || [];
       answer = blocks.filter((b) => b.type === 'text').map((b) => b.text).join('\n').trim();

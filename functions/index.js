@@ -895,8 +895,33 @@ exports.onWaOut = trig('waChats/{chat}/msgs/{id}').onCreate(async (snap, ctx) =>
     await snap.ref.update({ status: 'sent', wamid: wamid || '', sentAt: Date.now() });
     if (wamid) await db.doc('waIds/' + wamid).set({ chat, msg: snap.id });
     await db.doc('waChats/' + chat).set({ waId: chat, phone: waLocal(chat), lastAt: m.at || Date.now(), lastText: String(m.text || '').slice(0, 200), lastDir: 'out' }, { merge: true });
+    await waClaim(chat, m).catch((e) => console.error('waClaim', e.message));
   } catch (e) { await snap.ref.update({ status: 'failed', error: waErr({ code: e.code, message: e.message }) }); }
 });
+// the first employee who writes to a customer takes the chat and the lead (owner, Nov 8): from then on only they (and the owner) see the chat.
+// Not for automatic messages, guide chats or the owner (the owner sees every chat anyway).
+async function waClaim(chat, m) {
+  const by = String(m.by || '');
+  if (!/^[A-Za-z0-9]{20,40}$/.test(by)) return;
+  const role = await db.doc('roles/' + by).get();
+  if (!role.exists) return;
+  try { const u = await admin.auth().getUser(by); if (u.emailVerified && (await pwIsOwnerMail(u.email))) return; } catch (e) {}
+  const ref = db.doc('waChats/' + chat);
+  const res = await db.runTransaction(async (t) => {
+    const d = await t.get(ref); if (!d.exists) return null;
+    const c = d.data() || {}; if (c.guide || c.agent) return null;
+    const name = String(m.byName || (role.data() || {}).name || '');
+    t.update(ref, { agent: by, agentName: name, agentAt: Date.now() });
+    return { leadId: c.leadId || '', name };
+  });
+  if (!res || !res.leadId) return;
+  const lr = db.doc('leads/' + res.leadId), ld = await lr.get();
+  if (!ld.exists) return;
+  const l = ld.data() || {};
+  if (l.owner === by) return;
+  await lr.update({ owner: by, ownerName: res.name, updatedAt: Date.now(),
+    acts: admin.firestore.FieldValue.arrayUnion({ at: Date.now(), by, byName: res.name, kind: 'note', text: 'לקח/ה אחריות על הליד (כתב/ה ללקוח בוואטסאפ)' }) });
+}
 // settings saved → check the connection, subscribe the app to the account, refresh the approved templates
 async function waSync() {
   const ref = db.doc('wacfg/main'), c = await waCfg(), st = { at: Date.now() };
@@ -1550,6 +1575,8 @@ async function leadVenue(id) { if (!id) return null; try { const d = await db.do
 exports.waChatVenue = trig('waChats/{id}').onWrite(async (ch) => {
   if (!ch.after.exists) return;
   const a = ch.after.data() || {}, b = ch.before.exists ? ch.before.data() || {} : {};
+  // every chat carries `agent` ('' = nobody took it yet), so employees can query agent in ['', me] (Nov 8)
+  if (a.agent === undefined) await ch.after.ref.set({ agent: '' }, { merge: true });
   if (ch.before.exists && a.leadId === b.leadId && a.venue !== undefined) return;
   const v = await leadVenue(a.leadId);
   if (v === null) { if (a.venue === undefined) await ch.after.ref.set({ venue: '' }, { merge: true }); return; }

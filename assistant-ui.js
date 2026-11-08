@@ -54,7 +54,7 @@
   @media (prefers-color-scheme:dark){#asst{background:#1b1d21;color:#eee}#asst .a{background:#2a2d33}#asst header,#asst form{border-color:#333}
     #asst textarea,#asst .chips button,#asst .ag button,#asst .ag select{background:#24272c;color:#eee;border-color:#3a3d43}#asst .ag{border-color:#333}#asst .ag button.on{background:#B08D57;color:#fff}}`;
 
-  const SUGG = ['מי במשמרת היום?', 'אילו חדרים עדיין VD?', 'תקלות פתוחות', 'מה במינימום במלאי?', 'מה יש היום בספא?'];
+  const SUGG = ['מי במשמרת היום?', 'אילו חדרים עדיין VD?', 'תקלות פתוחות', 'סיכום החודש במלון', 'תשלחי לעובד האחזקה את התקלות הפתוחות', 'מה במינימום במלאי?'];
   const SUGG_ADS = ['איך הלכו הקמפיינים השבוע?', 'איזה קמפיין הכי משתלם?', 'איזו מודעה עובדת הכי טוב?', 'איזה קהל מביא את הלידים הכי זולים?'];
 
   function build() {
@@ -89,7 +89,7 @@
     root.querySelector('textarea').placeholder = ads ? 'לשאול על הקמפיינים, הקהלים, המודעות…' : 'לשאול על משמרות, חדרים, תקלות, מלאי…';
     let h = hist.map((m) => `<div class="m ${m.role === 'user' ? 'u' : 'a'}">${fmt(m.text)}</div>`).join('');
     if (!hist.length) h = ads ? `<div class="hint">אליאנה עונה על הקמפיינים, הקהלים והמודעות של ${esc((adsScopes.find((x) => x.id === adsH) || {}).name || '')}. היא רק קוראת, לא משנה קמפיינים.</div><div class="chips">${SUGG_ADS.map((s) => `<button type="button">${esc(s)}</button>`).join('')}</div>`
-      : `<div class="hint">אפשר לשאול את שרון על הנתונים של המלונות שבהרשאה שלך. היא רק קוראת, לא משנה כלום.</div><div class="chips">${SUGG.map((s) => `<button type="button">${esc(s)}</button>`).join('')}</div>`;
+      : `<div class="hint">אפשר לשאול את שרון על הנתונים של המלונות שבהרשאה שלך, לבקש סיכום, או לבקש שתשלח הודעה לעובדים. לפני כל שליחה היא מראה לך את ההודעה ומחכה לאישור.</div><div class="chips">${SUGG.map((s) => `<button type="button">${esc(s)}</button>`).join('')}</div>`;
     if (busy) h += '<div class="m a">…</div>';
     if (err) h += `<div class="e">${esc(err)}</div>`;
     log.innerHTML = h; log.scrollTop = log.scrollHeight;

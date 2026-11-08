@@ -9,9 +9,9 @@ const AG = { // code → [full name in the file, match keywords (lower case)]
   MY: ['מסע יהודי בעמ', ['מסע יהודי']], SK: ['Sk Tours In Nature', ['s.k', 'sk tours']], IM: ['Israel Maven', ['maven', 'מייבן']],
   RI: ['רמה ישראל', ['רמה']], IT: ['Immanuel Tours Agencies Ltd', ['immanuel', 'עמנואל']], VH: ['ורד השרון נסיעות ותיירות בעמ', ['ורד השרון', 'vered']],
   VHI: ['ורד השרון נסיעות ותיירות בעמ', ['ורד השרון', 'vered']], YH: ['יהודה הצעיר ישראל', ['יהודה הצעיר']], IE: ['החוויה הישראלית שרותי תיירות', ['החוויה הישראלית']],
-  AS: ['עמיאל טורס בעמ', ['עמיאל']], AD: ['עמיאל טורס בעמ', ['עמיאל']], GI: ['Get Israel', ['get israel']], DZ: ['דיזנהאוז-יוניתורס תיירות נכנסת 1998 בעמ', ['דיזנהאוז', 'unitours', 'יוניתורס']],
-  TM: ['Tailor Made Tours Ltd', ['tailor']], SE: ['Sar El Tours And Conferences Ltd', ['sar el', 'שר אל', 'sarel']], NZ: ['הסתדרות חלוצית עולמית הנוער הציוני', ['הנוער הציוני']],
-  NZD: ['הסתדרות חלוצית עולמית הנוער הציוני', ['הנוער הציוני']], AT: ['ידידי עתידים עמותה', ['עתידים']],
+  AS: ['עמיאל טורס בעמ', ['עמיאל']], AD: ['עמיאל טורס בעמ', ['עמיאל']], GI: ['Get Israel', ['get israel']], DZ: ['דיזנהאוז-יוניתורס תיירות נכנסת 1998 בעמ', ['דיזנהאוז', 'דיזנגהאוז', 'unitour', 'יוניתורס', 'יוניטורס', 'diesenhaus']],
+  TM: ['Tailor Made Tours Ltd', ['tailor', 'טיילור', 'טילור', 'טיילר']], SE: ['Sar El Tours And Conferences Ltd', ['sar el', 'שר אל', 'sarel']], NZ: ['הסתדרות חלוצית עולמית הנוער הציוני', ['הנוער הציוני']],
+  NZD: ['הסתדרות חלוצית עולמית הנוער הציוני', ['הנוער הציוני']], AT: ['ידידי עתידים עמותה', ['עתידים', 'atidim']],
 };
 const TRIP = new Set(['TD', 'T', 'MY', 'IE', 'TM']), CUR = { TD: 'usd', IE: 'usd', TM: 'usd', AD: 'usd', NZD: 'usd', AS: 'ils' };
 const clean = (s) => String(s || '').replace(/[‎‏‪-‮⁦-⁩]/g, '').trim();

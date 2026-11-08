@@ -2976,12 +2976,17 @@ function sheetCart(){const h=S.hotel,L=cartLines(h),grp={};L.forEach(r=>{const k
 function vStock(){const hs=modHs('stock',scopeHs());if(!hs.length)return wrap(emptyBox('אין מלונות בהרשאה',''));
   if(!hs.includes(S.hotel))S.hotel=hs[0];const h=S.hotel;stockSub(h);
   const ds=stockDepts(),f=S.stockF||(S.stockF={d:'all',low:false});if(f.d!=='all'&&!ds.includes(f.d))f.d='all';
-  const all=Object.entries((S.stockAll||{})[h]||{}),rows=all.filter(([,x])=>(f.d==='all'||x.dept===f.d)&&(!f.low||(isLow(x)))).sort(([,a],[,b])=>ds.indexOf(a.dept)-ds.indexOf(b.dept)||String(a.name).localeCompare(String(b.name),'he'));
+  const all=Object.entries((S.stockAll||{})[h]||{});
+  // supplier filter (owner, Nov 8): suppliers that appear on this hotel's items, '__none' = items without a supplier
+  const sups={};all.forEach(([,x])=>{if(x.supplier)sups[x.supplier]=x.supplierName||sups[x.supplier]||'ספק'});const supL=Object.entries(sups).sort((a,b)=>String(a[1]).localeCompare(String(b[1]),'he'));const noSup=all.some(([,x])=>!x.supplier);
+  if(!f.s||(f.s!=='all'&&f.s!=='__none'&&!sups[f.s]))f.s='all';
+  const rows=all.filter(([,x])=>(f.d==='all'||x.dept===f.d)&&(f.s==='all'||(f.s==='__none'?!x.supplier:x.supplier===f.s))&&(!f.low||(isLow(x)))).sort(([,a],[,b])=>ds.indexOf(a.dept)-ds.indexOf(b.dept)||String(a.name).localeCompare(String(b.name),'he'));
   const low=all.filter(([,x])=>isLow(x)),preqs=Object.entries((S.preqAll||{})[h]||{}).sort(([,a],[,b])=>(b.createdAt||0)-(a.createdAt||0)),pend=preqs.filter(([,r])=>r.status==='pending');
   const chips=hs.length>1?`<div class="chips" style="gap:6px">${hs.map(x=>`<button class="dchip ${x===h?'':'off'}" style="--h:var(--brass)" data-act="gm-hotel" data-h="${x}">${esc(hotelName(x))}</button>`).join('')}</div>`:'';
   const view=S.stockV||'list',vt=`<div class="seg" role="group" style="margin-top:6px"><button data-act="stock-v" data-v="list" aria-pressed="${view==='list'}">📋 מלאי</button><button data-act="stock-v" data-v="shop" aria-pressed="${view==='shop'}">🛒 הזמנת רכש${cartLines(h).length?' ('+cartLines(h).length+')':''}</button></div>`;
   const head=`<section class="head"><div class="head-t"><h1>מלאי · ${esc(hotelName(h))}</h1><span class="actions"><button class="btn" data-act="stkimp-open">ייבוא מאקסל</button><button class="btn pri" data-act="stock-new">+ פריט חדש</button></span></div>${chips}${vt}
     <div class="chips" style="gap:6px;margin-top:6px"><button class="dchip ${f.d==='all'?'':'off'}" data-act="stock-d" data-k="all">כל המחלקות</button>${ds.map(k=>`<button class="dchip ${f.d===k?'':'off'}" style="--h:${DMAP[k].h}" data-act="stock-d" data-k="${k}">${DMAP[k].n}</button>`).join('')}</div>
+    ${supL.length?`<div class="chips" style="gap:6px;margin-top:6px"><button class="dchip ${f.s==='all'?'':'off'}" data-act="stock-s" data-k="all">כל הספקים</button>${supL.map(([k,n])=>`<button class="dchip ${f.s===k?'':'off'}" data-act="stock-s" data-k="${esc(k)}">${esc(n)}</button>`).join('')}${noSup?`<button class="dchip ${f.s==='__none'?'':'off'}" data-act="stock-s" data-k="__none">בלי ספק</button>`:''}</div>`:''}
     <label class="check" style="margin-top:6px"><input type="checkbox" data-act="stock-low" ${f.low?'checked':''}> רק מה שמתחת למינימום</label>
     <div class="kpis">${kpi('פריטים',String(all.length))}${kpi('מתחת למינימום',String(low.length),low.length?'כדאי להזמין':'הכל מעל המינימום',low.length?'bad':'ok')}${kpi('דרישות רכש ממתינות',String(pend.length),stockBoss(h)?'מאשרים למטה':'ממתינות לאישור המנהל')}</div></section>`;
   if(S.stockErr&&!(S.stockAll||{})[h])return wrap(head+`<div class="notice">לא הצלחתי לטעון: ${esc(S.stockErr)}</div>`);
@@ -5220,6 +5225,7 @@ const ACT={
   'gm-hotel':D=>setHotel(D.h),
   'gm-month':D=>{S.gmM=monAdd(S.gmM||todayISO().slice(0,7),+D.d);render()},
   'stock-d':D=>{S.stockF.d=D.k;render()},
+  'stock-s':D=>{S.stockF.s=D.k;render()},
   'stock-v':D=>{S.stockV=D.v;render()},
   'shop-q':D=>{const h=S.hotel,x=((S.stockAll||{})[h]||{})[D.id];if(!x)return;const Q=S.shopQ||(S.shopQ={}),k=h+'|'+D.id;Q[k]=Math.max(1,(Q[k]??stkSug(x))+(+D.n));render()},
   'shop-add':D=>{const h=S.hotel,x=((S.stockAll||{})[h]||{})[D.id];if(!x)return;const Q=S.shopQ||(S.shopQ={}),k=h+'|'+D.id,q=Q[k]??stkSug(x),C=cartOf(h);C[D.id]=(+C[D.id]||0)+q;delete Q[k];cartSave(h);render();toast('נוסף לעגלה: '+x.name+' × '+q)},

@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202611081120"></script>
+<script src="i18n.js?v=202611081400"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -2010,7 +2010,7 @@ function adRepHTML(key,hs,W){if(!hs.length)return '';S.adSel=S.adSel||{};const s
   const dr=(r.directions||[]).map(d=>`<div style="padding:8px 0;border-top:1px solid var(--line)">${pl(...(AD_PR[d.priority]||AD_PR.medium))} <b data-i18n-skip>${esc(d.title)}</b><div data-i18n-skip style="margin-top:3px">${esc(d.action)}</div><div class="muted" data-i18n-skip style="font-size:.82rem">${esc(d.why)}</div></div>`).join('');
   const prev=list.filter(y=>y!==r).slice(0,20);
   return `<div class="card">${top}
-    <div class="muted" style="font-size:.82rem">${when} · <span>נכתב ע״י הסוכן</span>${r.backfill?' · <span>דוח השלמה</span>':''}</div>
+    <div class="muted" style="font-size:.82rem">${when} · <span>נכתב ע״י אליאנה</span>${r.backfill?' · <span>דוח השלמה</span>':''}</div>
     <p data-i18n-skip style="font-weight:600;font-size:1.02rem;margin:8px 0 4px">${esc(r.headline||'')}</p>
     <p data-i18n-skip style="margin:0 0 10px;line-height:1.7">${esc(r.summary||'')}</p>
     <div class="kpis">${kpi('הוצאה',ils(sp),r.kind==='daily'?'השבוע עד עכשיו':'')}${kpi('לידים',String(ld),cv?cv+' שיחות':'')}${kpi('עלות לליד',ld?ils(sp/ld):'—','')}</div>
@@ -5837,6 +5837,6 @@ async function start(u){
   window.addEventListener('focus',()=>setTimeout(tick,300));
 })();
 </script>
-<script src="assistant-ui.js?v=4" defer></script>
+<script src="assistant-ui.js?v=5" defer></script>
 </body>
 </html>

@@ -228,7 +228,7 @@ const TOOL_BY = Object.fromEntries(TOOLS.map((t) => [t.name, t]));
 
 function systemPrompt(c, hs) {
   const today = ilDate(new Date());
-  return `You are the managers' assistant inside the Seven Collection hotel management app. You speak with ${c.name || 'a manager'}.
+  return `Your name is Sharon (שרון). You are the managers' assistant inside the Seven Collection hotel management app; when asked who you are, say you are Sharon. You speak with ${c.name || 'a manager'}.
 Today is ${today} (יום ${DAYS[new Date(today + 'T12:00:00Z').getUTCDay()]}), Israel time.
 Hotels this person may ask about: ${hs.map((x) => x.name + ' (' + x.id + ')').join(', ') || 'none'}.
 

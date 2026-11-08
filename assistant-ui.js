@@ -59,10 +59,10 @@
 
   function build() {
     const st = document.createElement('style'); st.textContent = css; document.head.appendChild(st);
-    const b = document.createElement('button'); b.id = 'asst-btn'; b.type = 'button'; b.title = 'עוזר למנהלים'; b.textContent = '✦'; b.hidden = true;
+    const b = document.createElement('button'); b.id = 'asst-btn'; b.type = 'button'; b.title = 'שרון · העוזרת למנהלים'; b.textContent = '✦'; b.hidden = true;
     const w = document.createElement('div'); w.id = 'asst'; w.hidden = true;
-    w.innerHTML = `<header><span><span style="color:#D9B66C">✦</span> <span>עוזר למנהלים</span></span><span><button type="button" data-a="clear" title="שיחה חדשה">↺</button><button type="button" data-a="close" title="סגירה">✕</button></span></header>
-      <div class="ag" hidden><button type="button" data-ag="gen">עוזר כללי</button><button type="button" data-ag="ads">📣 סוכן קידום</button><select aria-label="איזה מלון" data-agh></select></div>
+    w.innerHTML = `<header><span><span style="color:#D9B66C">✦</span> <span>שרון</span></span><span><button type="button" data-a="clear" title="שיחה חדשה">↺</button><button type="button" data-a="close" title="סגירה">✕</button></span></header>
+      <div class="ag" hidden><button type="button" data-ag="gen">✦ שרון</button><button type="button" data-ag="ads">📣 אליאנה</button><select aria-label="איזה מלון" data-agh></select></div>
       <div class="log" aria-live="polite"></div>
       <form><textarea rows="1" placeholder="לשאול על משמרות, חדרים, תקלות, מלאי…" maxlength="1500"></textarea><button type="submit">שליחה</button></form>`;
     document.body.append(b, w);
@@ -85,11 +85,11 @@
     ag.querySelectorAll('[data-ag]').forEach((x) => x.classList.toggle('on', x.dataset.ag === agent));
     if (adsH === null || !adsScopes.some((x) => x.id === adsH)) adsH = adsScopes.length ? adsScopes[0].id : '';
     sel.hidden = !ads; sel.innerHTML = adsScopes.map((x) => `<option value="${esc(x.id)}" ${x.id === adsH ? 'selected' : ''}>${esc(x.name)}</option>`).join('');
-    root.querySelector('header span span:last-child').textContent = ads ? 'סוכן קידום' : 'עוזר למנהלים';
+    root.querySelector('header span span:last-child').textContent = ads ? 'אליאנה · קידום ממומן' : 'שרון · עוזרת למנהלים';
     root.querySelector('textarea').placeholder = ads ? 'לשאול על הקמפיינים, הקהלים, המודעות…' : 'לשאול על משמרות, חדרים, תקלות, מלאי…';
     let h = hist.map((m) => `<div class="m ${m.role === 'user' ? 'u' : 'a'}">${fmt(m.text)}</div>`).join('');
-    if (!hist.length) h = ads ? `<div class="hint">סוכן הקידום עונה על הקמפיינים, הקהלים והמודעות של ${esc((adsScopes.find((x) => x.id === adsH) || {}).name || '')}. הוא רק קורא, לא משנה קמפיינים.</div><div class="chips">${SUGG_ADS.map((s) => `<button type="button">${esc(s)}</button>`).join('')}</div>`
-      : `<div class="hint">אפשר לשאול על הנתונים של המלונות שבהרשאה שלך. העוזר רק קורא, לא משנה כלום.</div><div class="chips">${SUGG.map((s) => `<button type="button">${esc(s)}</button>`).join('')}</div>`;
+    if (!hist.length) h = ads ? `<div class="hint">אליאנה עונה על הקמפיינים, הקהלים והמודעות של ${esc((adsScopes.find((x) => x.id === adsH) || {}).name || '')}. היא רק קוראת, לא משנה קמפיינים.</div><div class="chips">${SUGG_ADS.map((s) => `<button type="button">${esc(s)}</button>`).join('')}</div>`
+      : `<div class="hint">אפשר לשאול את שרון על הנתונים של המלונות שבהרשאה שלך. היא רק קוראת, לא משנה כלום.</div><div class="chips">${SUGG.map((s) => `<button type="button">${esc(s)}</button>`).join('')}</div>`;
     if (busy) h += '<div class="m a">…</div>';
     if (err) h += `<div class="e">${esc(err)}</div>`;
     log.innerHTML = h; log.scrollTop = log.scrollHeight;
@@ -104,7 +104,7 @@
     try {
       const r = await fetch(URL_(), { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + (await u.getIdToken()) }, body: JSON.stringify(agent === 'ads' ? { messages: hist.slice(-8), hotel: adsH || '' } : { messages: hist.slice(-8) }) });
       const j = await r.json().catch(() => ({}));
-      if (!r.ok) err = j.error && j.error.length > 8 ? j.error : (agent === 'ads' ? 'סוכן הקידום' : 'העוזר') + ' לא זמין כרגע (' + r.status + ').';
+      if (!r.ok) err = j.error && j.error.length > 8 ? j.error : (agent === 'ads' ? 'אליאנה' : 'שרון') + ' לא זמינה כרגע (' + r.status + ').';
       else hist.push({ role: 'assistant', text: String(j.text || '') });
     } catch (e) { err = 'אין חיבור לשרת. נסו שוב.'; }
     if (err) hist.pop(); // the question was not answered: let the person send it again

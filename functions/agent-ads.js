@@ -267,10 +267,24 @@ exports.adsRunNow = http('adsRunNow', 540, async (req, res) => {
 // Works even while the scheduled reports are off (cfg.enabled); cfg.chat === false turns it off.
 const CHAT = 'claude-haiku-5-5';
 const chatOk = (c, h) => c.owner || c.apps.ceo === true || (h ? ((c.apps.gm === true || c.apps.mkt === true) && (c.hotels.length === 0 || c.hotels.includes(h))) : (c.apps.mkt === true && c.hotels.length === 0));
+// owner, Nov 8: analysis questions (audits, why / what to change, comparisons, judging the agency) go to Sonnet; short general questions stay on Haiku.
+// A clear analysis word decides at once; otherwise a tiny Haiku call classifies the question. Override: agentcfg/ads.chatModel (general) / analysisModel.
+const ANALYSIS = 'claude-sonnet-5-5';
+const ANA_RE = /נתח|ניתוח|תבדק|בדק[יו]?\b|בדיקה|למה|מדוע|האם .*(נכון|טוב|כדאי|משתלם)|עבודה טובה|תשווה|השווא|המלצ|מה כדאי|מה לשנות|אסטרטג|ביקורת|לשפר|שיפור|audit|analy|why|compare/i;
+async function chatModelFor(cfg, hist) {
+  const gen = cfg.chatModel || CHAT, ana = cfg.analysisModel || ANALYSIS;
+  const q = String((hist[hist.length - 1] || {}).content || '').slice(0, 600);
+  if (ANA_RE.test(q)) return ana;
+  try {
+    const j = await C.claude({ model: CHAT, max_tokens: 3, system: 'Classify the manager\'s question to a paid-ads analyst. Reply with one letter only: A = needs analysis or judgement (why, evaluate, recommend, compare, audit the agency, what to change); G = a simple factual or general question (a number, a list, a definition, small talk).', messages: [{ role: 'user', content: q }] });
+    const t = ((j.content || [])[0] || {}).text || '';
+    return /^\s*A/i.test(t) ? ana : gen;
+  } catch (e) { return gen; }
+}
 async function chatCore(cfg, c, h, hist, extra) {
     const scope = h ? (await scopeList(cfg)).find((x) => x.hotel === h) : { key: 'chain', hotel: '', name: 'כל הרשת', A: null };
     if (!scope) return { error: 'scope' };
-    const model = cfg.chatModel || CHAT, ns = await notesFor(scope);
+    const model = await chatModelFor(cfg, hist), ns = await notesFor(scope);
     const sys = system(await C.loadKB('ads'), scope, 'daily').map((b) => ({ ...b, text: b.text.replace(/Finish by calling save_report ONCE[^\n]*/, `This is a CHAT, not a report: answer the question of ${clip(c.name, 60) || 'the manager'} directly, short (a few sentences or a short list), in Hebrew, with numbers from the tools. Use campaign_structure for questions about audiences, ads, texts or placements, and agency_changes for what the agency did. When asked whether the agency is doing things right, audit: go over structure, targeting, creative, budgets, changes and results, and give a verdict per point. Do not write a full report.`) + notesTxt(ns) + (extra ? '\n\n' + extra : '') }));
     const out = await C.runLoop({ model, system: sys, tools: readTools(scope), messages: hist, maxTurns: 8, maxTokens: 2000, mustAnswer: true });
     await C.logRun('ads', { uid: c.uid, kind: 'chat', scope: scope.key, model, usage: out.U, tools: out.used });

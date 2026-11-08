@@ -53,7 +53,7 @@ async function claude(body) {
 
 // One conversation with tools. `system` = array of text blocks (put the big stable part FIRST with cache_control).
 // Tools: [{name, description, input_schema, run: async (input) => object}]. Returns {text, used, U}.
-async function runLoop({ model, system, tools, messages, maxTurns = 5, maxTokens = 900 }) {
+async function runLoop({ model, system, tools, messages, maxTurns = 5, maxTokens = 900, mustAnswer = false }) {
   const by = Object.fromEntries(tools.map((t) => [t.name, t]));
   const api = tools.map(({ name, description, input_schema }) => ({ name, description, input_schema }));
   if (api.length) api[api.length - 1].cache_control = { type: 'ephemeral' };
@@ -64,7 +64,7 @@ async function runLoop({ model, system, tools, messages, maxTurns = 5, maxTokens
     lc[lc.length - 1] = { ...lc[lc.length - 1], cache_control: { type: 'ephemeral' } };
     send.push({ role: last.role, content: lc });
     const body = { model, max_tokens: maxTokens, system, messages: send };
-    if (api.length) body.tools = api;
+    if (api.length) { body.tools = api; if (mustAnswer && turn === maxTurns - 1) body.tool_choice = { type: 'none' }; } // last turn: answer with what was read so far
     const j = await claude(body);
     const u = j.usage || {}; U.in += u.input_tokens || 0; U.out += u.output_tokens || 0; U.cr += u.cache_read_input_tokens || 0; U.cw += u.cache_creation_input_tokens || 0;
     const blocks = j.content || [];

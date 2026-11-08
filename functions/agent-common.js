@@ -81,6 +81,11 @@ async function runLoop({ model, system, tools, messages, maxTurns = 5, maxTokens
     }
     msgs.push({ role: 'user', content: results });
   }
+  // ran out of room before writing (thinking used the limit): one more call without tools and with more room
+  if (!text && stop === 'max_tokens' && mustAnswer) {
+    try { const j = await claude({ model, max_tokens: Math.min(16000, maxTokens * 2), system, ...(api.length ? { tools: api, tool_choice: { type: 'none' } } : {}), messages: msgs.concat(msgs[msgs.length - 1].role === 'user' ? [] : [{ role: 'user', content: 'Answer now with what you have.' }]) });
+      text = (j.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('\n').trim(); stop = j.stop_reason || stop; } catch (e) { }
+  }
   return { text, used, U, stop };
 }
 

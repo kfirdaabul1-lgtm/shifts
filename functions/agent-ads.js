@@ -286,7 +286,7 @@ async function chatCore(cfg, c, h, hist, extra) {
     if (!scope) return { error: 'scope' };
     const model = await chatModelFor(cfg, hist), ns = await notesFor(scope);
     const sys = system(await C.loadKB('ads'), scope, 'daily').map((b) => ({ ...b, text: b.text.replace(/Finish by calling save_report ONCE[^\n]*/, `This is a CHAT, not a report: answer the question of ${clip(c.name, 60) || 'the manager'} directly, short (a few sentences or a short list), in Hebrew, with numbers from the tools. Use campaign_structure for questions about audiences, ads, texts or placements, and agency_changes for what the agency did. When asked whether the agency is doing things right, audit: go over structure, targeting, creative, budgets, changes and results, and give a verdict per point. Do not write a full report.`) + notesTxt(ns) + (extra ? '\n\n' + extra : '') }));
-    const out = await C.runLoop({ model, system: sys, tools: readTools(scope), messages: hist, maxTurns: 8, maxTokens: 2000, mustAnswer: true });
+    const out = await C.runLoop({ model, system: sys, tools: readTools(scope), messages: hist, maxTurns: 8, maxTokens: 8000, mustAnswer: true }); // the newer models think before answering: a small limit was all used up by thinking, leaving no text
     await C.logRun('ads', { uid: c.uid, kind: 'chat', scope: scope.key, model, usage: out.U, tools: out.used, stop: out.stop, textLen: (out.text || '').length });
     return { text: out.text || 'לא הצלחתי לענות על זה. אפשר לנסח אחרת?', scope: scope.name, used: out.used };
 }

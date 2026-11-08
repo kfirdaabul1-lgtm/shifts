@@ -138,6 +138,12 @@ exports.onAliIn = functions.region(REGION).runWith({ timeoutSeconds: 300, memory
       await say(c, from, r.items.length
         ? `סיימתי ✓\n\n${r.summary}\n\nשמרתי ${r.items.length} דברים חשובים, ומעכשיו אתחשב בהם בדוחות ובתשובות:\n${r.items.map((x) => '• ' + x.text).join('\n')}\n\nאפשר לראות ולמחוק אותם באפליקציה, בכרטיס "דוח קידום" ← הנחיות לסוכן.`
         : `קראתי את הקובץ. ${r.summary || ''}\nלא מצאתי דברים חדשים לשמור.`);
+      // then an audit of the agency's work: the chat + the campaign structure, the change log and the numbers (owner, Nov 8)
+      try {
+        const q = 'קראתי עכשיו את קבוצת הוואטסאפ עם משרד הסושיאל. בדקי את העבודה שלהם: מה שהם אמרו ועשו בקבוצה (בהנחיות), איך הקמפיינים בנויים, מה שינו בחשבון המודעות ומה זה הביא בתוצאות. לכל נקודה: נכון / לא נכון / לא בטוח, למה, ומה לבקש מהם. קצר, עד 8 נקודות.';
+        const a2 = await ads.chatCore(cfg, who, h, [{ role: 'user', content: q }], 'You are answering on WhatsApp: plain text, *bold* with single asterisks, short lines and "•" lists, no markdown tables or headings.');
+        if (a2 && a2.text) await say(c, from, '*בדיקת עבודת הסושיאל:*\n' + a2.text);
+      } catch (e) { console.error('ali audit', e.message); }
       return;
     }
     if (m.type !== 'text' || !m.text) { await say(c, from, 'כרגע אני קוראת הודעות טקסט וקבצי ייצוא צ׳אט (‎.txt / ‎.zip).'); return; }

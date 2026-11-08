@@ -119,6 +119,19 @@ function readTools(scope) {
         if (!hit.length) return { scope: scope.name, error: 'no campaign name contains that text', names: all.map((c) => c.name).slice(0, 60) };
         return { scope: scope.name, campaigns: hit.map((c) => ({ name: c.name, ...c.campaign, last28: c.last28, adsets: c.adsets, ads: c.ads, byAgeGender: c.byAgeGender, byPlacement: c.byPlacement })) };
       } },
+
+    { name: 'agency_changes', description: 'What the social media agency (or anyone) CHANGED in the Meta ad accounts in the last 21 days, from Meta\'s activity log: new / paused / edited campaigns, ad sets and ads, budget and bid changes, audience/targeting edits, with who and when. Use it to judge the agency\'s work (what they did, how often, whether it made sense against the numbers). Optional "campaign" = part of a campaign / ad set / ad name.',
+      input_schema: { type: 'object', properties: { campaign: { type: 'string' } } },
+      run: async (a) => {
+        const q = String(a.campaign || '').trim().toLowerCase(), cut = Date.now() - 4 * 864e5;
+        const docs = (await db.collection('metaActs').get()).docs.map((d) => d.data()).filter((d) => (+d.at || 0) > cut);
+        if (!docs.length) return { scope: scope.name, note: 'The change log was not read from Meta yet (it is read once a day at 05:30), or the token has no access to it.' };
+        // scope: only objects that belong to this scope's campaigns (by name), or everything for the chain
+        const names = scope.A ? new Set((await db.collection('metaStruct').get()).docs.map((d) => d.data()).filter((c) => inScope(scope, 'camp', c)).flatMap((c) => [c.name, ...(c.adsets || []).map((x) => x.name), ...(c.ads || []).map((x) => x.name)]).filter(Boolean)) : null;
+        const items = docs.flatMap((d) => d.items || []).filter((x) => (!names || names.has(x.obj)) && (!q || String(x.obj).toLowerCase().includes(q)))
+          .sort((x, y) => String(y.at).localeCompare(String(x.at))).slice(0, 120);
+        return { scope: scope.name, count: items.length, changes: items };
+      } },
   ];
 }
 
@@ -132,12 +145,16 @@ async function notesFor(scope) {
 const notesTxt = (ns) => ns.length ? '\n\nMANAGERS\' DIRECTIONS (newest first). Follow them; when two conflict follow the newest and say so in caveats. In the report, say briefly how you took them into account:\n' + JSON.stringify(ns) : '';
 
 // ---------- prompts ----------
+// the agency-review checklist is always included (agentKB/ads in Firestore may replace kb/ads.md, but not this)
+let AUDIT_KB = ''; try { AUDIT_KB = '\n\nCHECKLIST FOR REVIEWING THE AGENCY (Meta best practice, use it for verdicts):\n' + require('fs').readFileSync(require('path').join(__dirname, 'kb', 'ads-audit.md'), 'utf8').slice(0, 12000); } catch (e) { }
 function system(kb, scope, kind) {
   const who = scope.hotel ? `the manager of ${scope.name}` : 'the chain management (owner / CEO)';
   const rules = `Your name is Aliana (אליאנה). You are the paid-advertising analyst of the Seven Collection hotels; when asked who you are, say you are Aliana (7EVEN / Sola, The Gutman with its spa, 7seas, Hostel 180). The ads are not only for events: they also promote rooms, the spa, brides and hiring (a hostel has no event hall and advertises rooms and jobs). Today is ${C.ilDate(new Date())}.
 You write a ${kind === 'weekly' ? 'WEEKLY CAMPAIGN REPORT' : 'DAILY ANALYSIS'} for ${who}, for scope "${scope.name}". It is a document the manager READS in the app, not a chat: write it so it can be read in under a minute and acted on.
 
-You can only READ data. You cannot change campaigns, budgets, bids or creatives, and you never say that you did. Directions you suggest are for the manager to decide.
+YOUR ROLE: you are the owner's independent expert on paid social (Meta: Facebook/Instagram/WhatsApp ads), on the OWNER'S side, reviewing the work of the external social media agency that runs the campaigns. You think like a senior performance-marketing lead: you know how Meta campaigns should be built (objective, optimisation event, campaign/ad-set structure, budgets and learning phase, audiences, placements, creative and copy, testing, frequency, landing/WhatsApp flow, lead quality) and you JUDGE whether what the agency did is right for these hotels and goals. Give clear verdicts ("נכון", "לא נכון", "לא בטוח") with the reason and the numbers, and say what the owner should ask or demand from the agency. Do not hide behind "I only read data": the owner wants your professional opinion.
+You do not touch the ad accounts yourself (read only) and never say that you changed anything; the agency executes.
+Tools for judging the agency: campaign_structure (how each campaign is built), agency_changes (what they changed and when), the weekly numbers and the CRM (what it brought), and the owner's/managers' directions + what was learned from the agency WhatsApp group (in MANAGERS' DIRECTIONS).
 Data: weekly campaign rows (the Meta sync writes spend ₪, impressions, clicks, leads, conversations started; manual reports may exist too) and the CRM leads with source, campaign name, stage and won revenue (before VAT). Google Ads is NOT connected yet: say so once in caveats, never invent Google numbers. The tools only show this scope's data.
 
 How to work:
@@ -148,10 +165,11 @@ How to work:
 - Small samples (under 10 leads or under 3 won) prove nothing: say the data is thin and what you would watch next.
 - ${kind === 'weekly' ? 'Weekly report: what happened this week against the previous weeks, which campaigns earned their budget and which did not, and up to 3 directions you suggest for next week. Build on the daily headlines you are given.' : 'Daily analysis: what changed since the previous analysis, and what needs attention today. If nothing important changed, say so in one line; do not repeat the previous analysis.'}
 - Directions: specific (which campaign, which number, what to do, why), at most 3, ranked. No generic marketing advice.
+- Review the agency's work too: look at campaign_structure and agency_changes, and when something they built or changed is wrong (or very right) for the goal, say so as a highlight or direction (what to ask the agency).
 - Write in Hebrew. Short. Numbers with ₪. Never invent a number.
 - Finish by calling save_report ONCE with the final content. That is what the manager reads.`;
   const k = kb.trim() ? '\n\nBUSINESS CONTEXT FROM THE OWNER (goals, budgets, seasons, rules):\n' + kb : '\n\nBUSINESS CONTEXT: none given yet. Do not assume goals or budgets; state your assumption when it matters.';
-  return [{ type: 'text', text: rules + k, cache_control: { type: 'ephemeral' } }];
+  return [{ type: 'text', text: rules + k + AUDIT_KB, cache_control: { type: 'ephemeral' } }];
 }
 
 const clip = (s, n) => String(s == null ? '' : s).slice(0, n);
@@ -253,7 +271,7 @@ async function chatCore(cfg, c, h, hist, extra) {
     const scope = h ? (await scopeList(cfg)).find((x) => x.hotel === h) : { key: 'chain', hotel: '', name: 'כל הרשת', A: null };
     if (!scope) return { error: 'scope' };
     const model = cfg.chatModel || CHAT, ns = await notesFor(scope);
-    const sys = system(await C.loadKB('ads'), scope, 'daily').map((b) => ({ ...b, text: b.text.replace(/Finish by calling save_report ONCE[^\n]*/, `This is a CHAT, not a report: answer the question of ${clip(c.name, 60) || 'the manager'} directly, short (a few sentences or a short list), in Hebrew, with numbers from the tools. Use campaign_structure for questions about audiences, ads, texts or placements. Do not write a full report.`) + notesTxt(ns) + (extra ? '\n\n' + extra : '') }));
+    const sys = system(await C.loadKB('ads'), scope, 'daily').map((b) => ({ ...b, text: b.text.replace(/Finish by calling save_report ONCE[^\n]*/, `This is a CHAT, not a report: answer the question of ${clip(c.name, 60) || 'the manager'} directly, short (a few sentences or a short list), in Hebrew, with numbers from the tools. Use campaign_structure for questions about audiences, ads, texts or placements, and agency_changes for what the agency did. When asked whether the agency is doing things right, audit: go over structure, targeting, creative, budgets, changes and results, and give a verdict per point. Do not write a full report.`) + notesTxt(ns) + (extra ? '\n\n' + extra : '') }));
     const out = await C.runLoop({ model, system: sys, tools: readTools(scope), messages: hist, maxTurns: 6, maxTokens: 1500 });
     await C.logRun('ads', { uid: c.uid, kind: 'chat', scope: scope.key, model, usage: out.U, tools: out.used });
     return { text: out.text || 'לא הצלחתי לענות על זה. אפשר לנסח אחרת?', scope: scope.name, used: out.used };

@@ -44,6 +44,14 @@ async function structOne(db, graphAll, cfg) {
     const A = 'act_' + acc, tok = cfg.token, d28 = { date_preset: 'last_28d' };
     const ins = await graphAll(A + '/insights', tok, { ...d28, level: 'ad', fields: 'ad_id,campaign_id,spend,impressions,clicks,actions', limit: '500' });
     const live = new Set(ins.filter((r) => +r.spend > 0).map((r) => r.campaign_id));
+    // what the agency changed (owner, Nov 8): the ad account's activity log, last 21 days → metaActs/{account}
+    try {
+      const since = Math.floor((Date.now() - 21 * 864e5) / 1000);
+      const acts = await graphAll(A + '/activities', tok, { fields: 'event_time,event_type,translated_event_type,object_type,object_name,object_id,extra_data,actor_name', since: String(since), limit: '500' });
+      const items = acts.slice(0, 400).map((x) => { let ex = x.extra_data; try { ex = JSON.parse(ex); } catch (e) { } return { at: x.event_time || '', what: clip(x.translated_event_type || x.event_type, 120), type: x.event_type || '', objType: x.object_type || '', obj: clip(x.object_name, 160), objId: x.object_id || '', by: clip(x.actor_name, 60), extra: clip(typeof ex === 'string' ? ex : JSON.stringify(ex || ''), 300) }; });
+      await db.doc('metaActs/' + acc).set({ account: acc, metaConn: (cfg.conn || {}).id || '', metaConnName: (cfg.conn || {}).name || '', venue: (cfg.conn || {}).venue || '', items, at: Date.now() });
+      out.acts = (out.acts || 0) + items.length;
+    } catch (e) { out.actsErr = e.message; }
     const camps = (await graphAll(A + '/campaigns', tok, { fields: 'id,name,objective,status,effective_status,daily_budget,lifetime_budget,bid_strategy,start_time,stop_time', limit: '200' }))
       .filter((c) => live.has(c.id) || c.effective_status === 'ACTIVE');
     if (!camps.length) continue;

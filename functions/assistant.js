@@ -69,23 +69,27 @@ async function callerFrom(uid, email, verified, dname, opt) {
   const tok = { uid, email, name: dname };
   const owner = verified && (await isOwnerMail(email));
   const r = await db.doc('roles/' + tok.uid).get(), role = r.exists ? r.data() || {} : null;
-  if (!owner && (!role || role.station)) {
-    // help-only (owner, Nov 9): employees without a role and reception desks may ask Sharon HOW to use the app.
-    // They get no data tools at all (only the written guide), so nothing about the hotels can leak.
-    if (!(opt && opt.help)) return { uid: tok.uid, denied: true };
-    let emp = null; try { const e = await db.doc('employees/' + tok.uid).get(); emp = e.exists ? e.data() || {} : null; } catch (e) { }
-    if (!emp && !(role && role.station)) return { uid: tok.uid, denied: true };
-    return { uid: tok.uid, helpOnly: true, owner: false, station: !!(role && role.station), apps: role && role.station ? { front: true } : {}, hotels: [],
+  let emp = null; try { const e = await db.doc('employees/' + tok.uid).get(); emp = e.exists ? e.data() || {} : null; } catch (e) { }
+  // AI agents are given per person on the employee card (owner, Nov 9): employees/{uid}.ai {help, sharon, aliana}; the owner has all.
+  // help = Sharon only explains how to use the app (default on, ai.help === false turns it off); sharon = Sharon with hotel data; aliana = the ads agent.
+  const ea = (emp && emp.ai) || {};
+  const ai = owner ? { help: true, sharon: true, aliana: true } : { help: ea.help !== false, sharon: ea.sharon === true, aliana: ea.aliana === true };
+  const station = !!(role && role.station);
+  const full = owner || (!station && !!emp && (opt && opt.help ? ai.sharon : (ai.sharon || ai.aliana)));
+  if (!full) {
+    // help-only (owner, Nov 9): may ask Sharon HOW to use the app — no data tools at all, so nothing about the hotels can leak
+    if (!(opt && opt.help)) return { uid: tok.uid, denied: true, ai };
+    if (!station && (!emp || !ai.help)) return { uid: tok.uid, denied: true, ai };
+    return { uid: tok.uid, helpOnly: true, owner: false, station, ai, apps: station ? { front: true } : {}, hotels: [],
       depts: (emp && Array.isArray(emp.depts)) ? emp.depts : [], name: (emp && emp.name) || (role && role.name) || tok.name || '' };
   }
-  let hotels = owner ? [] : (Array.isArray(role.hotels) ? role.hotels : []);
-  if (!owner) { // same narrowing as the app: the registered hotel (+ extraHotels); chain staff keep all hotels
-    try { const e = await db.doc('employees/' + tok.uid).get(); const hh = e.exists ? (e.data().hotel || 'main') : null;
-      if (hh) hotels = hh === CHAIN ? [] : [...new Set([hh, ...((role.extraHotels || []).filter((x) => x && x !== CHAIN))])]; } catch (e) { }
+  let hotels = owner ? [] : (role && Array.isArray(role.hotels) ? role.hotels : []);
+  if (!owner && emp) { // same narrowing as the app: the registered hotel (+ extraHotels); chain staff keep all hotels
+    const hh = emp.hotel || 'main';
+    hotels = hh === CHAIN ? [] : [...new Set([hh, ...(((role && role.extraHotels) || []).filter((x) => x && x !== CHAIN))])];
   }
-  const apps = owner ? {} : (role.apps || { shifts: true });
-  let name = ''; try { const e = await db.doc('employees/' + tok.uid).get(); name = (e.exists && e.data().name) || ''; } catch (e) { }
-  return { uid: tok.uid, owner, apps, hotels, depts: owner ? [] : (role.depts || []), name: name || tok.name || '' };
+  const apps = owner ? {} : (role ? (role.apps || { shifts: true }) : {});
+  return { uid: tok.uid, owner, ai, apps, hotels, depts: owner ? [] : ((role && role.depts) || []), name: (emp && emp.name) || tok.name || '' };
 }
 // permission helpers, mirroring firestore.rules
 const app = (c, a) => c.owner || c.apps[a] === true;
@@ -454,7 +458,7 @@ exports.assistant = functions.region(REGION).runWith({ timeoutSeconds: 120, memo
   try {
     const c = await caller(req, { help: true }); if (c) c.reqStart = Date.now();
     if (!c) { res.status(401).json({ error: 'auth' }); return; }
-    if (c.denied) { res.status(403).json({ error: 'העוזר זמין רק למנהלים עם הרשאות.' }); return; }
+    if (c.denied) { res.status(403).json({ error: 'אין לך גישה לשרון. ההרשאה ניתנת בכרטיס העובד בעמוד העובדים.' }); return; }
     if (!(await rateOk(c.uid))) { res.status(429).json({ error: 'הגעת למגבלת השאלות לשעה. אפשר לנסות שוב בעוד קצת.' }); return; }
     // the history comes from the client as plain text only (it cannot carry tool results or a system prompt)
     const hist = (Array.isArray((req.body || {}).messages) ? req.body.messages : []).slice(-MAX_HIST)

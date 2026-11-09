@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202611091100"></script>
+<script src="i18n.js?v=202611091130"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -4173,10 +4173,17 @@ function sheetEmp(){
   <p class="muted" style="font-size:.82rem;margin-top:-6px">הסכום יורד מהנטו של העובד, לא מהברוטו. עלות המעסיק והתוספות מחושבות על השכר המלא, וההורדה רק מקזזת את העלות שלך.</p>
   <label class="check"><input type="checkbox" id="e_active" data-f="emp.active" ${dv('emp','active',m.active!==false)?'checked':''}> עובד פעיל (נכלל בשיבוץ ובעלויות)</label>
   ${roleHTML(u,e,isNew)}
-  ${isNew||String(u).startsWith('m_')?'':pushReqHTML(u,e)+pwCardHTML(u)}
+  ${isNew||String(u).startsWith('m_')?'':aiCardHTML(u,e)+pushReqHTML(u,e)+pwCardHTML(u)}
   <div class="actions"><button class="btn pri" data-act="emp-save">שמירה</button>${isNew?'':`<button class="btn ${S.confirm==='del'?'danger':'ghost'}" data-act="emp-del">${S.confirm==='del'?'לחיצה נוספת תמחק את העובד':'מחיקת עובד'}</button>`}</div>
   ${manual&&!isNew?`<div class="sep"></div><h3>זמינות לשבוע ${weekLabel(S.week)}</h3>${slotsHTML(u,S.week,false,'av-t')}`:''}`;
 }
+// AI agents per person (owner, Nov 9): employees/{uid}.ai {sharon, aliana}; read by assistant-ui.js and the functions (assistant / Aliana chatOk)
+function aiCardHTML(u,e){const a=e.ai||{};return `<div class="sep"></div><h3>🤖 גישה לסוכני AI</h3><p class="muted" style="font-size:.82rem;margin-top:-4px">רק מי שמסומן כאן רואה את הכפתור ✦ ויכול לדבר עם הסוכן. כל סוכן רואה רק את המידע שמותר לעובד לפי ההרשאות שלו.</p>
+  <label class="check"><input type="checkbox" data-empai="help" data-u="${esc(u)}" ${a.help!==false?'checked':''}> ✦ שרון · הדרכה בשימוש באפליקציה בלבד (בלי נתונים של המלון)</label>
+  <label class="check"><input type="checkbox" data-empai="sharon" data-u="${esc(u)}" ${a.sharon?'checked':''}> ✦ שרון · עוזרת כללית (משמרות, חדרים, תקלות, מלאי, דוחות והודעות לעובדים)</label>
+  <label class="check"><input type="checkbox" data-empai="aliana" data-u="${esc(u)}" ${a.aliana?'checked':''}> 📣 אליאנה · קמפיינים (פרסום ממומן של ${e.hotel===CHAIN?'כל הרשת':'המלון של העובד'})</label>`}
+document.addEventListener('change',e=>{const t=e.target;if(!t.matches||!t.matches('[data-empai]'))return;if(!S.can.hr){toast('רק בעלי הרשאת עובדים');return}
+  const u=t.dataset.u,k=t.dataset.empai,on=!!t.checked;fdb.doc('employees/'+u).update(new firebase.firestore.FieldPath('ai',k),on).then(()=>{const em=(S.emps||{})[u];if(em){em.ai=Object.assign({},em.ai,{[k]:on})}toast(on?'הגישה ניתנה':'הגישה הוסרה')},er=>{t.checked=!on;toast('לא נשמר: '+errMsg(mapErr(er)))})});
 function appLink(){return (CFG.appUrl||'').trim()||(location.origin+location.pathname)}
 function composeMsg(){const c={...cfg(),joinCode:validCode()},dl=dv('send','deadline',c.deadline);
   return `שלום לכולם,\nהגשת הזמינות ב${hotelName(S.hotel)} לשבוע ${weekLabel(openWeek())} פתוחה.\nנא לסמן את כל המשמרות שאתם יכולים לעבוד${dl?` עד ${dl}`:''}.\n${appLink()}\nעובד חדש? נכנסים לקישור, מתחברים${c.joinCode?` ומקלידים את קוד ההצטרפות: ${c.joinCode}`:'.'}`}
@@ -5880,6 +5887,6 @@ async function start(u){
   window.addEventListener('focus',()=>setTimeout(tick,300));
 })();
 </script>
-<script src="assistant-ui.js?v=8" defer></script>
+<script src="assistant-ui.js?v=9" defer></script>
 </body>
 </html>

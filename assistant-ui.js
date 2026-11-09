@@ -7,7 +7,7 @@
   const URL_ = () => 'https://europe-west1-' + PID() + '.cloudfunctions.net/' + (agent === 'ads' ? 'adsAgent' : 'assistant');
   const KEY = 'scAsstHist';
   // two agents (owner, Nov 7): the general assistant and the ads agent (Haiku chat about campaigns, by hotel); each keeps its own conversation
-  let H = { gen: [], ads: [] }, agent = 'gen', adsH = null, adsScopes = [], busy = false, root = null, me = '', helpOnly = false;
+  let H = { gen: [], ads: [] }, genOk = false, agent = 'gen', adsH = null, adsScopes = [], busy = false, root = null, me = '', helpOnly = false;
   let hist = H.gen;
   // the conversation is kept per signed-in user for this tab only
   const load = (uid) => { me = uid || ''; H = { gen: [], ads: [] }; agent = 'gen'; adsH = null; try { const o = JSON.parse(sessionStorage.getItem(KEY) || '{}'); if (o.uid === me) { H.gen = (o.hist || o.gen || []).slice(-20); H.ads = (o.ads || []).slice(-20); if (o.agent === 'ads') agent = 'ads'; if (typeof o.adsH === 'string') adsH = o.adsH; } } catch (e) { } hist = H[agent]; };
@@ -96,7 +96,9 @@
   function draw(err) {
     const log = root.querySelector('.log');
     const ag = root.querySelector('.ag'), sel = root.querySelector('[data-agh]'), ads = agent === 'ads' && adsScopes.length;
+    if (!genOk && adsScopes.length && agent !== 'ads') { agent = 'ads'; hist = H.ads; }
     ag.hidden = !adsScopes.length; if (!adsScopes.length && agent === 'ads') { agent = 'gen'; hist = H.gen; }
+    const gb = ag.querySelector('[data-ag="gen"]'); if (gb) gb.hidden = !genOk;
     ag.querySelectorAll('[data-ag]').forEach((x) => x.classList.toggle('on', x.dataset.ag === agent));
     if (adsH === null || !adsScopes.some((x) => x.id === adsH)) adsH = adsScopes.length ? adsScopes[0].id : '';
     sel.hidden = !ads; sel.innerHTML = adsScopes.map((x) => `<option value="${esc(x.id)}" ${x.id === adsH ? 'selected' : ''}>${esc(x.name)}</option>`).join('');
@@ -195,21 +197,24 @@
       let ok = user.emailVerified && (em === 'kfirdaabul1@gmail.com' || em === String(cfg.ownerEmail || '').toLowerCase());
       const db = firebase.firestore();
       if (!ok) { try { const o = await db.doc('orgcfg/main').get(); ok = user.emailVerified && !!em && em === String((o.data() || {}).ownerEmail || '').toLowerCase(); } catch (e) { } }
-      const owner = ok; let role = null;
-      if (!ok) { const r = await db.doc('roles/' + user.uid).get(); role = r.exists ? r.data() : null; ok = !!role && !role.station; }
-      // help-only (owner, Nov 9): reception desks and employees without a role get Sharon for "how do I…" questions only
-      helpOnly = false;
-      if (!ok) { if (role && role.station) ok = helpOnly = true; else { try { const e = await db.doc('employees/' + user.uid).get(); if (e.exists) ok = helpOnly = true; } catch (e) { } } }
+      const owner = ok;
+      // agents are given per person on the employee card (employees/{uid}.ai {help, sharon, aliana}, owner Nov 9); the owner has all.
+      // help (default on) = Sharon only explains how to use the app; sharon = Sharon with hotel data; reception desks get help only
+      let ai = { help: owner, sharon: owner, aliana: owner }, eh = '';
+      if (!owner) {
+        let station = false; try { const r = await db.doc('roles/' + user.uid).get(); station = !!(r.exists && r.data().station); } catch (e) { }
+        if (station) ai = { help: true, sharon: false, aliana: false };
+        else { try { const e = await db.doc('employees/' + user.uid).get(); if (e.exists) { const d = e.data() || {}, a = d.ai || {}; ai = { help: a.help !== false, sharon: a.sharon === true, aliana: a.aliana === true }; eh = d.hotel || ''; } } catch (e) { } }
+      }
+      genOk = !!(ai.sharon || ai.help); helpOnly = !owner && !ai.sharon; ok = !!(genOk || ai.aliana);
       btn.hidden = !ok;
-      // ads agent scopes: owner / CEO / all-hotel social media = whole chain + every hotel; hotel managers and social media = their hotels
+      // Aliana's scopes: owner / chain staff = whole chain + every hotel; everyone else = their own hotel
       adsScopes = [];
-      if (ok) {
-        const ap = owner ? {} : ((role && role.apps) || {}), rh = owner ? [] : ((role && role.hotels) || []);
-        if (!helpOnly && (owner || ap.ceo || ap.gm || ap.mkt)) {
-          const hs = (await db.collection('hotels').get()).docs.map((d) => ({ id: d.id, name: (d.data() || {}).name || d.id }));
-          const chain = owner || ap.ceo || (ap.mkt && !rh.length);
-          adsScopes = [...(chain ? [{ id: '', name: 'כל הרשת' }] : []), ...hs.filter((x) => owner || ap.ceo || !rh.length || rh.includes(x.id))];
-        }
+      if (ai.aliana) {
+        const hs = (await db.collection('hotels').get()).docs.map((d) => ({ id: d.id, name: (d.data() || {}).name || d.id }));
+        const chain = owner || eh === 'chain';
+        let xh = []; if (!chain) { try { const r = await db.doc('roles/' + user.uid).get(); xh = (r.exists && r.data().extraHotels) || []; } catch (e) { } }
+        adsScopes = [...(chain ? [{ id: '', name: 'כל הרשת' }] : []), ...hs.filter((x) => chain || x.id === eh || xh.includes(x.id))];
       }
       if (root && !root.hidden) draw();
     } catch (e) { btn.hidden = true; }

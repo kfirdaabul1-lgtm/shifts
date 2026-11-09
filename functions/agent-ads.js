@@ -266,7 +266,8 @@ exports.adsRunNow = http('adsRunNow', 540, async (req, res) => {
 // Who: owner / CEO (any scope, incl. the chain), hotel managers (gm) and social media holders (mkt) for their hotels; mkt with all hotels also the chain.
 // Works even while the scheduled reports are off (cfg.enabled); cfg.chat === false turns it off.
 const CHAT = 'claude-haiku-5-5';
-const chatOk = (c, h) => c.owner || c.apps.ceo === true || (h ? ((c.apps.gm === true || c.apps.mkt === true) && (c.hotels.length === 0 || c.hotels.includes(h))) : (c.apps.mkt === true && c.hotels.length === 0));
+// Aliana is given per person on the employee card (employees/{uid}.ai.aliana, owner Nov 9): hotel scope = the person's hotel(s); chain staff = whole chain + every hotel
+const chatOk = (c, h) => !!c && !c.denied && (c.owner || (!!(c.ai && c.ai.aliana) && (h ? (c.hotels.length === 0 || c.hotels.includes(h)) : c.hotels.length === 0)));
 // owner, Nov 8: analysis questions (audits, why / what to change, comparisons, judging the agency) go to Sonnet; short general questions stay on Haiku.
 // A clear analysis word decides at once; otherwise a tiny Haiku call classifies the question. Override: agentcfg/ads.chatModel (general) / analysisModel.
 const ANALYSIS = 'claude-sonnet-5-5';

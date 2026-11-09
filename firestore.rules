@@ -248,6 +248,7 @@ service cloud.firestore {
       allow create: if (hrIn(hotelOf(request.resource.data)) && (hotelOf(request.resource.data) != 'chain' || allHotels())) || (
         signedIn() && request.auth.uid == uid
         && request.resource.data.get('depts', []).size() == 0
+        && !('ai' in request.resource.data)
         && request.resource.data.joinCode is string
         && exists(/databases/$(database)/documents/joinCodes/$(request.resource.data.joinCode))
         && get(/databases/$(database)/documents/joinCodes/$(request.resource.data.joinCode)).data.hotel == request.resource.data.hotel

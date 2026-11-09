@@ -1225,7 +1225,7 @@ function plListHTML(){const hs=grpHs(),gs=Object.values(S.grps||{}).filter(g=>g.
 function grpPayHTML(){const t=todayISO(),hs=grpHs(),F=S.payF||(S.payF={ag:'all'});
   let list=Object.entries(S.grps||{}).filter(([,g])=>(!g.hotel||hs.includes(g.hotel)||S.isOwner)&&(g.status==='confirmed'||g.status==='option')).map(([id,g])=>({id,g,c:grpCalc(g),due:grpDue(g)})).filter(x=>x.c.balance>0.5);
   const ags=[...new Set(list.map(x=>x.g.agentId||''))];if(F.ag!=='all')list=list.filter(x=>(x.g.agentId||'')===F.ag);
-  list.sort((a,b)=>String(a.due||'9').localeCompare(String(b.due||'9')));
+  list.sort((a,b)=>String(a.due||'9').localeCompare(String(b.due||'9'))||String((a.g||{}).ci||'9').localeCompare(String((b.g||{}).ci||'9')));
   const ils=x=>!x.g.cur||x.g.cur==='ils',sum=xs=>xs.filter(ils).reduce((a,x)=>a+x.c.balance,0),late=list.filter(x=>x.due&&x.due<t),soon=list.filter(x=>x.due>=t&&x.due<=addDays(t,30));
   const kpi=`<div class="kpis"><div class="kpi ${late.length?'bad':''}"><b>${grpMoney(sum(late),'ils')}</b><span>באיחור · ${late.length} קבוצות</span></div><div class="kpi"><b>${grpMoney(sum(soon),'ils')}</b><span>לתשלום ב-30 הימים הקרובים</span></div><div class="kpi"><b>${grpMoney(sum(list),'ils')}</b><span>סה״כ פתוח (₪)</span></div></div>`;
   const chip=(v,n)=>`<button class="dchip ${F.ag===v?'':'off'}" data-act="pay-ag" data-v="${esc(v)}">${n}</button>`;
@@ -1336,7 +1336,7 @@ function grpListHTML(){const F=S.grpF||(S.grpF={when:'up',st:'all',h:'all',pl:'a
   const kpi=`<div class="kpis"><div class="kpi"><b>${up.length}</b><span>קבוצות קרובות</span></div><div class="kpi"><b>${list.filter(([,g])=>inMonth(g)).reduce((a,[,g])=>a+grpCalc(g).roomNights,0)}</b><span>לילות חדר החודש</span></div><div class="kpi"><b>${grpMoney(conf.reduce((a,[,g])=>a+(g.cur&&g.cur!=='ils'?0:grpCalc(g).total),0),'ils')}</b><span>מאושר החודש (₪)</span></div><div class="kpi"><b>${list.filter(([,g])=>g.status==='option'&&g.optUntil&&g.optUntil<=addDays(t,3)&&g.optUntil>=t).length}</b><span>אופציות שנגמרות ב-3 ימים</span></div></div>`;
   if(F.when==='up')list=list.filter(([,g])=>(g.co||g.ci||'9')>=t);else if(F.when==='past')list=list.filter(([,g])=>(g.co||g.ci||'')<t);
   if(F.st!=='all')list=list.filter(([,g])=>(g.status||'offer')===F.st);if(F.h!=='all')list=list.filter(([,g])=>g.hotel===F.h);if(F.pl!=='all')list=list.filter(([,g])=>(g.plId||'')===F.pl);
-  list.sort(([,a],[,b])=>F.when==='past'?String(b.ci||'').localeCompare(String(a.ci||'')):String(a.ci||'9').localeCompare(String(b.ci||'9')));
+  list.sort(([,a],[,b])=>String(a.ci||'9').localeCompare(String(b.ci||'9'))||String(a.name||'').localeCompare(String(b.name||''),'he'));
   const chip=(k,v,n)=>`<button class="dchip ${F[k]===v?'':'off'}" data-act="grp-f" data-k="${k}" data-v="${v}">${n}</button>`;
   const filters=`<div class="chips" style="margin-bottom:6px">${chip('when','up','קרובות')}${chip('when','past','עברו')}${chip('when','all','הכול')}</div><div class="chips" style="margin-bottom:6px">${chip('st','all','כל הסטטוסים')}${GRP_ST.map(([k,n])=>chip('st',k,n)).join('')}</div>${hs.length>1?`<div class="chips" style="margin-bottom:6px">${chip('h','all','כל המלונות')}${hs.map(h=>chip('h',h,esc(hotelName(h)))).join('')}</div>`:''}${Object.keys(S.pls||{}).length?`<div class="chips" style="margin-bottom:10px">${chip('pl','all','כל המחירונים')}${Object.entries(S.pls||{}).map(([pid,l])=>chip('pl',pid,esc(l.name||'מחירון'))).join('')}</div>`:''}`;
   let lastM='';const rows=list.map(([id,g])=>{const c=grpCalc(g),st=GRP_STN[g.status||'offer']||GRP_ST[0],m=String(g.ci||'').slice(0,7);
@@ -1541,7 +1541,7 @@ function grpTotHTML(cur){const c=grpCalc(cur);return `<div><span>סה״כ ${c.ro
     ${c.comm?`<div><span>עמלת סוכן ${+cur.comm}%</span><span>-${grpMoney(c.comm,cur.cur)}</span></div><div><span>נטו למלון</span><span>${grpMoney(c.net,cur.cur)}</span></div>`:''}
     ${c.deposit?`<div><span>שולמה מקדמה</span><span>${grpMoney(c.deposit,cur.cur)}</span></div><div><span>יתרה</span><span>${grpMoney(c.balance,cur.cur)}</span></div>`:''}`}
 function sheetAgent(){const id=S.sheet.id,x=(S.agents||{})[id]||{},isNew=!(S.agents||{})[id],g=(k,d)=>dv('agent',k,x[k]??d);
-  const mine=Object.entries(S.grps||{}).filter(([,gr])=>gr.agentId===id).sort(([,a],[,b])=>String(b.ci||'').localeCompare(String(a.ci||'')));
+  const mine=Object.entries(S.grps||{}).filter(([,gr])=>gr.agentId===id).sort(([,a],[,b])=>String(a.ci||'9').localeCompare(String(b.ci||'9')));
   return sheetHead(isNew?'סוכן חדש':esc(x.name||'סוכן'),'')+`
   <div class="row"><label class="f">שם הסוכן / הסוכנות<input type="text" data-f="agent.name" value="${esc(g('name',''))}"></label><label class="f">חברה<input type="text" data-f="agent.company" value="${esc(g('company',''))}" placeholder="לא חובה"></label></div>
   <div class="row"><label class="f">איש קשר<input type="text" data-f="agent.contact" value="${esc(g('contact',''))}"></label><label class="f">טלפון<input type="tel" dir="ltr" data-f="agent.phone" value="${esc(g('phone',''))}"></label></div>

@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202611091340"></script>
+<script src="i18n.js?v=202611091400"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -607,7 +607,7 @@ document.addEventListener('change',e=>{const t=e.target;if(!t.matches)return;
   if(t.matches('[data-inv]')){const d=S.drafts.inv;if(!d)return;d[t.dataset.inv]=t.type==='checkbox'?t.checked:t.value;if(t.tagName==='SELECT'||t.type==='checkbox'||t.type==='date'){t.blur();render()}return}
   if(t.matches('[data-expf]')){S.expF[t.dataset.expf]=t.value;t.blur();render();return}
   if(t.matches('[data-fixf]')){(S.fixF||(S.fixF={}))[t.dataset.fixf]=t.value;t.blur();render();return}
-  if(t.id==='inv_img'&&t.files&&t.files[0]){const d=S.drafts.inv;toast('מעבד את הצילום…');compressImage(t.files[0]).then(u=>{S.invImg={id:d.id,data:u,changed:true};const empty=!(d.items||[]).some(i=>prodKey(i.name)||+i.price);if(empty)invScan();else render()}).catch(()=>toast('לא הצלחתי לקרוא את התמונה'))}});
+  if(t.id==='inv_img'&&t.files&&t.files[0]){const d=S.drafts.inv;toast('מעבד את הצילום…');compressImage(t.files[0]).then(u=>{const cur=S.invImg&&S.invImg.id===d.id?invPages():[];if(cur.length>=10){toast('אפשר עד 10 דפים לחשבונית');return}const pg=[...cur,u];S.invImg={id:d.id,data:pg[0],more:pg.slice(1),changed:true};if(pg.length>1){render();return}const empty=!(d.items||[]).some(i=>prodKey(i.name)||+i.price);if(empty)invScan();else render()}).catch(()=>toast('לא הצלחתי לקרוא את התמונה'))}});
 document.addEventListener('change',e=>{const t=e.target;if(t.matches('[data-task]')){const id=t.dataset.task,up={done:t.checked,doneAt:t.checked?Date.now():null};S.tasks[id]={...S.tasks[id],...up};fdb.doc('tasks/'+id).set(up,{merge:true}).catch(()=>{});render();return}
   if(t.matches('[data-leadf]')&&t.tagName==='SELECT'){S.leadF[t.dataset.leadf]=t.value;t.blur();render()}
   else if(t.matches('[data-leadq]')&&S.sheet&&S.sheet.type==='lead'&&t.value){const id=S.sheet.id,q=(S.lquotes||{})[t.value];const up={quoteId:t.value,quoteNum:(q&&q.num)||null,updatedAt:Date.now()};S.leads[id]={...S.leads[id],...up};fdb.doc('leads/'+id).set(up,{merge:true});t.blur();render();toast('ההצעה חוברה לליד')}});
@@ -2699,14 +2699,15 @@ function invDraft(){const id=S.sheet.id;if(!S.drafts.inv||S.drafts.inv.id!==id){
   return S.drafts.inv}
 function sheetInv(){const d=invDraft(),isNew=!(S.invs||{})[d.id],T=invTotals(d),sups=Object.keys(S.sups||{}).sort((a,b)=>supName(a).localeCompare(supName(b),'he'));
   const prods=[...new Set(Object.values(S.invs||{}).filter(v=>v.supplier===d.supplier).flatMap(v=>(v.items||[]).map(i=>prodKey(i.name))).filter(Boolean))];
-  const img=S.invImg&&S.invImg.id===d.id?S.invImg.data:'';
+  const pages=S.invImg&&S.invImg.id===d.id?invPages():[],img=pages[0]||'',loadingImg=d.hasImg&&!pages.length&&!(S.invImg&&S.invImg.id===d.id&&S.invImg.changed);
   return sheetHead(isNew?'חשבונית חדשה':'חשבונית',isNew?'מצלמים את החשבונית ומזינים את המוצרים':esc(supName(d.supplier)))+`
   <div class="row"><label class="f">ספק<select data-inv="supplier"><option value="">בחירת ספק…</option>${sups.map(s=>`<option value="${s}" ${d.supplier===s?'selected':''}>${esc(supName(s))}</option>`).join('')}<option value="__new">+ ספק חדש</option></select></label>
   <label class="f">מלון<select data-inv="hotel">${expHs().map(h=>`<option value="${h}" ${d.hotel===h?'selected':''}>${esc(hotelName(h))}</option>`).join('')}</select></label></div>
   ${d.supplier==='__new'?`<label class="f">שם הספק החדש<input type="text" data-inv="newSup" value="${esc(d.newSup||'')}"></label>`:''}
   <div class="row"><label class="f">תאריך החשבונית<input type="date" data-inv="date" value="${esc(d.date)}"></label><label class="f">מספר חשבונית<input type="text" data-inv="number" value="${esc(d.number||'')}" dir="ltr"></label></div>
-  <div class="f"><span>צילום החשבונית</span>${img?`<img src="${imgSrc(img)}" alt="צילום החשבונית" style="max-height:260px;border-radius:8px;border:1px solid var(--line);object-fit:contain;background:#fff">`:d.hasImg?'<span class="muted">טוען את הצילום…</span>':''}
-    <label class="btn" style="width:fit-content;cursor:pointer">${img||d.hasImg?'צילום מחדש':'צילום / בחירת תמונה'}<input type="file" accept="image/*" capture="environment" id="inv_img" hidden></label>
+  <div class="f"><span>צילום החשבונית${pages.length>1?` · ${pages.length} דפים`:''}</span>${pages.length?`<div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:4px">${pages.map((p,i)=>`<div style="position:relative;flex:0 0 auto;text-align:center"><img src="${imgSrc(p)}" alt="דף ${i+1}" style="height:${pages.length>1?200:260}px;max-width:80vw;border-radius:8px;border:1px solid var(--line);object-fit:contain;background:#fff;display:block"><small class="muted">דף ${i+1}</small> <button class="btn sm ghost" data-act="inv-pgdel" data-i="${i}" aria-label="מחיקת דף ${i+1}">✕</button></div>`).join('')}</div>`:loadingImg?'<span class="muted">טוען את הצילום…</span>':''}
+    <label class="btn${pages.length?'':' pri'}" style="width:fit-content;cursor:pointer">${pages.length?'📄 + הוספת דף נוסף':'📷 צילום / בחירת תמונה'}<input type="file" accept="image/*" capture="environment" id="inv_img" hidden></label>
+    ${pages.length===1?'<small class="muted">חשבונית של כמה דפים? מצלמים את הדף הבא עם "הוספת דף נוסף".</small>':''}
     ${img?(S.invScan&&S.invScan.inv===d.id&&S.invScan.busy?'<div class="notice">🤖 קורא את החשבונית ומזין את המוצרים… (עד חצי דקה)</div>':`<button class="btn sm" style="width:fit-content" data-act="inv-scan">🤖 מילוי אוטומטי מהצילום</button>`):''}
     ${S.invScan&&S.invScan.inv===d.id&&S.invScan.err?`<div class="notice">${esc(S.invScan.err)}</div>`:''}${S.invScan&&S.invScan.inv===d.id&&S.invScan.msg?`<p style="font-size:.85rem;margin:0">${S.invScan.msg}</p>`:''}</div>
   <h3 style="margin-top:6px">מוצרים</h3><datalist id="inv_prods">${prods.map(p=>`<option value="${esc(p)}">`).join('')}</datalist>
@@ -2728,9 +2729,10 @@ function sheetInv(){const d=invDraft(),isNew=!(S.invs||{})[d.id],T=invTotals(d),
   <div class="actions"><button class="btn pri" data-act="inv-save">שמירה</button>${isNew?'':`<button class="btn brass" data-act="inv-send">שליחה להנהלת חשבונות</button>${S.confirm==='inv-del'?'<button class="btn danger" data-act="inv-del">לחיצה נוספת תמחק</button>':'<button class="btn ghost" data-act="inv-del">מחיקה</button>'}`}</div>
   ${!isNew&&(S.invs[d.id]||{}).sentAt?`<p class="muted" style="font-size:.82rem">נשלח להנהלת חשבונות ב-${new Date(S.invs[d.id].sentAt).toLocaleDateString('he-IL')}</p>`:''}`}
 // ---- invoice scan: Gemini (Cloud Function onInvoiceScan) reads the photo and fills supplier, number, date and lines ----
-async function invScan(){const d=invDraft(),img=S.invImg&&S.invImg.id===d.id?S.invImg.data:'';if(!img){toast('קודם מצלמים את החשבונית');return}
+async function invScan(){const d=invDraft(),pg=S.invImg&&S.invImg.id===d.id?invPages():[],img=pg[0]||'';if(!img){toast('קודם מצלמים את החשבונית');return}
   const sid='sc'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);S.invScan={inv:d.id,id:sid,busy:true};render();
-  try{await fdb.doc('invoiceScans/'+sid).set({data:img,by:S.uid,at:Date.now(),status:'pending',sups:Object.values(S.sups||{}).map(v=>v.name).filter(Boolean).slice(0,200)})}
+  try{const parts=[];for(let i=1;i<pg.length;i++){const pid=sid+'_p'+(i+1);await fdb.doc('invoiceScans/'+pid).set({data:pg[i],by:S.uid,at:Date.now(),status:'pending',part:true});parts.push(pid)}
+    await fdb.doc('invoiceScans/'+sid).set({data:img,parts,by:S.uid,at:Date.now(),status:'pending',sups:Object.values(S.sups||{}).map(v=>v.name).filter(Boolean).slice(0,200)})}
   catch(e){S.invScan={inv:d.id,err:'לא הצלחתי לשלוח את הצילום לקריאה: '+errMsg(mapErr(e))};render();return}
   let off=null;const timer=setTimeout(()=>{off&&off();if(S.invScan&&S.invScan.id===sid){S.invScan={inv:d.id,err:'הקריאה לוקחת יותר מדי זמן. אפשר לנסות שוב או להזין ידנית.'};render()}},90000);
   off=fdb.doc('invoiceScans/'+sid).onSnapshot(sn=>{const v=sn.data();if(!v||v.status==='pending')return;off();clearTimeout(timer);fdb.doc('invoiceScans/'+sid).delete().catch(()=>{});
@@ -2754,7 +2756,11 @@ function compressImage(file){return new Promise((ok,bad)=>{const fr=new FileRead
   const c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(im,0,0,w,h);
   let q=0.7,u=c.toDataURL('image/jpeg',q);while(u.length>850000&&q>0.3){q-=0.1;u=c.toDataURL('image/jpeg',q)}
   if(u.length>850000){const c2=document.createElement('canvas');c2.width=Math.round(w*0.7);c2.height=Math.round(h*0.7);c2.getContext('2d').drawImage(c,0,0,c2.width,c2.height);u=c2.toDataURL('image/jpeg',0.6)}ok(u)};im.src=fr.result};fr.readAsDataURL(file)})}
-function loadInvImg(id){if(S.invImg&&S.invImg.id===id)return;S.invImg={id,data:''};S.db.doc('invoiceImgs/'+id).get().then(d=>{if(S.invImg&&S.invImg.id===id){S.invImg.data=d.exists?d.data().data:'';render()}}).catch(()=>{})}
+// multi-page invoices (Nov 9, owner): page 1 = invoiceImgs/{id} (as before), page k ≥ 2 = invoiceImgs/{id}__p{k}; invoice.imgPages = count
+function invPages(){const I=S.invImg||{};return [I.data,...(I.more||[])].filter(Boolean)}
+const invImgId=(id,k)=>k<=1?id:id+'__p'+k;
+function loadInvImg(id){if(S.invImg&&S.invImg.id===id)return;const n=Math.max(1,+((S.invs||{})[id]||{}).imgPages||1);S.invImg={id,data:'',more:[],loading:true};
+  Promise.all(Array.from({length:n},(_,i)=>S.db.doc('invoiceImgs/'+invImgId(id,i+1)).get().then(d=>d.exists?d.data().data:'').catch(()=>''))).then(pg=>{if(S.invImg&&S.invImg.id===id&&!S.invImg.changed){S.invImg={id,data:pg[0]||'',more:pg.slice(1).filter(Boolean),loading:false};render()}})}
 function invMailText(v){const T=invTotals(v);return `חשבונית מ${supName(v.supplier)}${v.number?` מס' ${v.number}`:''}\nתאריך: ${v.date?dm(v.date):''}\nמלון: ${hotelName(v.hotel)}\nסכום: ${ils(T.total)} כולל מע״מ (${ils(T.net)} לפני מע״מ)\n\n${(v.items||[]).map(i=>`${prodKey(i.name)} · ${i.qty} ${i.unit||''} × ${ils(i.price)}`).join('\n')}`}
 /* ---------- management staff (hotel manager / CEO): not part of the shift roster ---------- */
 const MGMT={noshift:'לא מגיש משמרות',gm:'מנהל מלון',ceo:'מנכ״ל'};
@@ -5531,6 +5537,7 @@ const ACT={
   'sup-hotel':D=>{const x=(S.sups||{})[S.sheet.id]||{},cur=dv('sup','hotels',x.hotels||[]);(S.drafts.sup||(S.drafts.sup={})).hotels=cur.includes(D.h)?cur.filter(h=>h!==D.h):[...cur,D.h];render()},
   'inv-status':D=>{const v=(S.invs||{})[D.id]||Object.values(S.gmData||{}).map(g=>g.invs||{}).find(m=>m[D.id])?.[D.id];if(!v)return;const doc={...v,status:D.st,updatedAt:Date.now(),updatedBy:S.uid};S.invs={...S.invs,[D.id]:doc};save('invoices/'+D.id,doc);render();toast('הסטטוס עודכן')},
   'inv-paid':D=>{const v=S.invs[D.id];if(!v)return;const doc={...v,status:'paid',paidAt:todayISO(),payMethod:v.payMethod||(S.sups||{})[v.supplier]?.payMethod||'transfer',updatedAt:Date.now(),updatedBy:S.uid};S.invs={...S.invs,[D.id]:doc};save('invoices/'+D.id,doc);if(S.drafts.inv&&S.drafts.inv.id===D.id)S.drafts.inv=null;render();toast(`סומנה כשולמה · ${supName(v.supplier)} · ${ils(invTotals(v).total)}`)},
+  'inv-pgdel':D=>{const pg=invPages();if(!S.invImg)return;pg.splice(+D.i,1);S.invImg={...S.invImg,data:pg[0]||'',more:pg.slice(1),changed:true};render()},
   'inv-new':()=>{S.drafts.inv=null;S.confirm=null;S.invImg=null;S.sheet={type:'inv',id:'i'+Date.now().toString(36)+Math.random().toString(36).slice(2,6)};render()},
   'inv-open':D=>{S.drafts.inv=null;S.confirm=null;S.invImg=null;S.sheet={type:'inv',id:D.id};if(S.invs[D.id]?.hasImg)loadInvImg(D.id);render()},
   'inv-add':()=>{const d=invDraft();d.items.push({name:'',qty:1,unit:'',price:''});render()},
@@ -5541,21 +5548,22 @@ const ACT={
     if(!sup){toast('צריך לבחור ספק');return}if(!d.date){toast('צריך תאריך');return}
     const items=d.items.filter(i=>prodKey(i.name)||+i.price).map(i=>({name:prodKey(i.name),qty:+i.qty||0,unit:String(i.unit||'').trim(),price:+i.price||0}));
     if(!items.length){toast('צריך להזין לפחות מוצר אחד');return}
-    const old=S.invs[d.id]||{},img=S.invImg&&S.invImg.id===d.id&&S.invImg.changed?S.invImg.data:null;
+    const old=S.invs[d.id]||{},chg=!!(S.invImg&&S.invImg.id===d.id&&S.invImg.changed),pages=chg?invPages():null,oldN=old.hasImg?Math.max(1,+old.imgPages||1):0;
     const st=d.status||'open',terms=(S.sups||{})[sup]?.terms;
-    const doc={status:st,dueDate:d.dueDate||dueFrom(d.date,terms),paidAt:st==='paid'?(d.paidAt||todayISO()):null,payMethod:st==='paid'?(d.payMethod||(S.sups||{})[sup]?.payMethod||'transfer'):null,payRef:st==='paid'?String(d.payRef||'').trim():'',supplier:sup,hotel:d.hotel,date:d.date,number:String(d.number||'').trim(),vatIncluded:!!d.vatIncluded,vat:+d.vat||18,items,notes:String(d.notes||'').trim(),hasImg:!!(img||old.hasImg),sentAt:old.sentAt||null,createdBy:old.createdBy||S.uid,createdAt:old.createdAt||Date.now(),updatedBy:S.uid,updatedAt:Date.now()};
+    const doc={status:st,dueDate:d.dueDate||dueFrom(d.date,terms),paidAt:st==='paid'?(d.paidAt||todayISO()):null,payMethod:st==='paid'?(d.payMethod||(S.sups||{})[sup]?.payMethod||'transfer'):null,payRef:st==='paid'?String(d.payRef||'').trim():'',supplier:sup,hotel:d.hotel,date:d.date,number:String(d.number||'').trim(),vatIncluded:!!d.vatIncluded,vat:+d.vat||18,items,notes:String(d.notes||'').trim(),hasImg:chg?pages.length>0:!!old.hasImg,imgPages:chg?pages.length:(old.hasImg?oldN:0),sentAt:old.sentAt||null,createdBy:old.createdBy||S.uid,createdAt:old.createdAt||Date.now(),updatedBy:S.uid,updatedAt:Date.now()};
     doc.net=r2(invTotals(doc).net);doc.total=r2(invTotals(doc).total);
     if(!expHs().includes(d.hotel)){toast('אין לך הרשאה להוצאות של המלון הזה');return}
-    if(img){try{await S.db.doc('invoiceImgs/'+d.id).set({data:img,hotel:d.hotel,at:Date.now()});S.invImg.changed=false}catch(e){toast('שמירת הצילום נכשלה: '+errMsg(mapErr(e)));return}}
+    if(chg){try{for(let k=1;k<=pages.length;k++)await S.db.doc('invoiceImgs/'+invImgId(d.id,k)).set({data:pages[k-1],hotel:d.hotel,page:k,at:Date.now()});
+      for(let k=pages.length+1;k<=oldN;k++)await S.db.doc('invoiceImgs/'+invImgId(d.id,k)).delete().catch(()=>{});S.invImg.changed=false}catch(e){toast('שמירת הצילום נכשלה: '+errMsg(mapErr(e)));return}}
     const ups=items.filter(i=>{const lp=lastPrice(sup,i.name,d.date,d.id);return lp&&pct(i.price,lp.price)>=0.5});S.invs={...S.invs,[d.id]:doc};save('invoices/'+d.id,doc);d.supplier=sup;render();toast(ups.length?`החשבונית נשמרה. שימו לב: ${ups.length} מוצרים התייקרו (${ups.slice(0,3).map(i=>i.name).join(', ')})`:'החשבונית נשמרה. אפשר לשלוח אותה להנהלת חשבונות.')},
   'inv-send':async()=>{const d=invDraft(),v=S.invs[d.id];if(!v){toast('קודם שומרים את החשבונית');return}const to=acctFor(v.hotel);
     const subj=`חשבונית ${supName(v.supplier)}${v.number?' '+v.number:''} · ${hotelName(v.hotel)}`,body=invMailText(v);
-    let shared=false;if(v.hasImg){loadInvImg(d.id);const data=S.invImg?.data;if(data&&navigator.canShare){try{const blob=await (await fetch(data)).blob();const file=new File([blob],subj.replace(/[\\/:*?"<>|]/g,'-')+'.jpg',{type:'image/jpeg'});
-      if(navigator.canShare({files:[file]})){await navigator.share({files:[file],title:subj,text:(to?`לשליחה ל: ${to}\n\n`:'')+body});shared=true}}catch(e){if(e&&e.name==='AbortError')return}}}
+    let shared=false;if(v.hasImg){loadInvImg(d.id);const pgs=S.invImg&&S.invImg.id===d.id?invPages():[];if(pgs.length&&navigator.canShare){try{const nm=subj.replace(/[\\/:*?"<>|]/g,'-'),files=await Promise.all(pgs.map(async(p,i)=>new File([await (await fetch(p)).blob()],nm+(pgs.length>1?' - '+(i+1):'')+'.jpg',{type:'image/jpeg'})));
+      if(navigator.canShare({files})){await navigator.share({files,title:subj,text:(to?`לשליחה ל: ${to}\n\n`:'')+body});shared=true}}catch(e){if(e&&e.name==='AbortError')return}}}
     if(!shared){if(!to){toast('אין מייל של הנהלת חשבונות למלון הזה. מוסיפים אותו בלשונית "הנהלת חשבונות".');S.sheet=null;S.expTab='acct';render();return}
       location.href=`mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subj)}&body=${encodeURIComponent(body+(v.hasImg?'\n\n(צילום החשבונית מצורף)':''))}`;if(v.hasImg)toast('במחשב: צרפו למייל את צילום החשבונית')}
     const doc={...v,sentAt:Date.now(),sentTo:to};S.invs={...S.invs,[d.id]:doc};save('invoices/'+d.id,doc);render()},
-  'inv-del':()=>{if(S.confirm!=='inv-del'){S.confirm='inv-del';render();return}const id=S.sheet.id;S.confirm=null;const c={...S.invs};const had=c[id]?.hasImg;delete c[id];S.invs=c;save('invoices/'+id,null);if(had)save('invoiceImgs/'+id,null);S.sheet=null;S.drafts.inv=null;render();toast('החשבונית נמחקה')},
+  'inv-del':()=>{if(S.confirm!=='inv-del'){S.confirm='inv-del';render();return}const id=S.sheet.id;S.confirm=null;const c={...S.invs};const had=c[id]?.hasImg,hn=Math.max(1,+(c[id]||{}).imgPages||1);delete c[id];S.invs=c;save('invoices/'+id,null);if(had)for(let k=1;k<=hn;k++)save('invoiceImgs/'+invImgId(id,k),null);S.sheet=null;S.drafts.inv=null;render();toast('החשבונית נמחקה')},
   'ceo-month':D=>{const C=S.ceo;if(!C)return;const m=monAdd(C.mon,+D.d);if(m.slice(0,4)===C.year){C.mon=m;render()}},
   'ceo-reload':()=>{if(S.ceo){S.ceo.data=null;ceoLoad(S.ceo.year)}},
   menu:()=>{S.menu=!S.menu;render()},

@@ -726,17 +726,31 @@ const INV_SCHEMA = { type: 'OBJECT', properties: {
   items: { type: 'ARRAY', items: { type: 'OBJECT', properties: { name: { type: 'STRING' }, qty: { type: 'NUMBER' }, unit: { type: 'STRING' }, price: { type: 'NUMBER', description: 'price per unit after line discount' } }, required: ['name', 'qty', 'price'] } },
   net: { type: 'NUMBER' }, vat: { type: 'NUMBER' }, total: { type: 'NUMBER' } }, required: ['items'] };
 exports.onInvoiceScan = functions.region('europe-west1').runWith({ timeoutSeconds: 120, memory: '512MB' }).firestore.document('invoiceScans/{id}').onCreate(async (snap) => {
-  const v = snap.data() || {}, m = /^data:(image\/[a-z]+);base64,(.+)$/.exec(v.data || '');
+  const v = snap.data() || {};
+  if (v.part) return null; // extra page of a multi-page invoice: read by the main scan doc
+  const m = /^data:(image\/[a-z]+);base64,(.+)$/.exec(v.data || '');
   if (!m) return snap.ref.update({ status: 'error', error: 'no image' });
+  // multi-page invoices (Nov 9): pages 2+ are separate invoiceScans docs listed in v.parts (same uid)
+  const imgs = [{ inlineData: { mimeType: m[1], data: m[2] } }], partRefs = [];
+  for (const pid of (Array.isArray(v.parts) ? v.parts.slice(0, 9) : [])) {
+    if (!/^[A-Za-z0-9_-]{1,60}$/.test(String(pid))) continue;
+    const ref = db.doc('invoiceScans/' + pid);partRefs.push(ref);
+    const ps = await ref.get().catch(() => null), pv = ps && ps.exists ? ps.data() : null;
+    const pm = pv && pv.by === v.by && /^data:(image\/[a-z]+);base64,(.+)$/.exec(pv.data || '');
+    if (pm) imgs.push({ inlineData: { mimeType: pm[1], data: pm[2] } });
+  }
+  const dropParts = () => Promise.all(partRefs.map((r) => r.delete().catch(() => {})));
   const known = Array.isArray(v.sups) ? v.sups.slice(0, 200).join(' | ') : '';
   const prompt = 'This is a photo of a supplier invoice / delivery note from Israel (usually Hebrew). Extract: supplier business name, company id (ח.פ / ע.מ), invoice number, invoice date (YYYY-MM-DD), and every product line with quantity, unit (as written, e.g. ק"ג, יח\', ארגז) and the price PER UNIT after any line discount. Keep product names exactly as written (Hebrew). Do not include totals, VAT, deposits or delivery lines as products unless they are charged as a line. Say whether the unit prices include VAT (מע"מ). If a value is missing leave it empty.' + (known ? ' Known suppliers (use the exact name if it matches): ' + known : '');
   try {
-    const { model, j } = await aiGenerate({ contents: [{ role: 'user', parts: [{ inlineData: { mimeType: m[1], data: m[2] } }, { text: prompt }] }], generationConfig: { temperature: 0, responseMimeType: 'application/json', responseSchema: INV_SCHEMA } });
+    const { model, j } = await aiGenerate({ contents: [{ role: 'user', parts: [...imgs, { text: imgs.length > 1 ? 'The ' + imgs.length + ' images are consecutive pages of ONE invoice; combine all product lines from every page (do not repeat lines). ' + prompt : prompt }] }], generationConfig: { temperature: 0, responseMimeType: 'application/json', responseSchema: INV_SCHEMA } });
     const txt = (((j.candidates || [])[0] || {}).content || {}).parts?.map((p) => p.text || '').join('') || '';
     const res = JSON.parse(txt);
+    await dropParts();
     return snap.ref.update({ status: 'done', result: res, model, data: admin.firestore.FieldValue.delete(), doneAt: Date.now() });
   } catch (e) {
     console.error('invoice scan', e);
+    await dropParts();
     return snap.ref.update({ status: 'error', error: String(e.message || e).slice(0, 500), data: admin.firestore.FieldValue.delete() });
   }
 });

@@ -1474,7 +1474,9 @@ exports.grpGuide = functions.region(REGION).https.onRequest(async (req, res) => 
       .map((x) => { const [v, a] = String(x.space || '').split('|'); return { place: a || vn[v] || v || '', past: x.date < today, date: x.date, start: x.start || '', end: x.end || '', guests: +x.guests || 0, note: String(x.note || '').slice(0, 200) }; });
     const msgs = (g.guideMsgs || []).filter((x) => x && x.text).sort((a, b) => (b.at || 0) - (a.at || 0)).slice(0, 50).map((x) => ({ at: x.at || 0, text: String(x.text).slice(0, 2000), by: String(x.byName || '').slice(0, 60) }));
     const meals = ['bf', 'ln', 'dn'].map((k) => { const x = (g.meals || {})[k] || {}; return x.f || x.t ? { k, f: String(x.f || '').slice(0, 5), t: String(x.t || '').slice(0, 5), place: String(x.place || '').slice(0, 60) } : null; }).filter(Boolean);
-    res.json({ name: g.name || '', hotel: await hotelName(h), chain: o.name, ci: g.ci || '', co: g.co || '', day, rooms, halls, msgs, meals, now: Date.now() });
+    // until the arrival day the pre-arrival form is also offered on the stay page (link sent late, owner Nov 9)
+    const M0 = g.meals || {}, pre = g.ci && today <= g.ci ? { meals: guideMealKeys(g).map((mk) => ({ k: mk, f: String((M0[mk] || {}).f || '').slice(0, 5), t: String((M0[mk] || {}).t || '').slice(0, 5) })), pref: g.guidePref || {}, note: String(g.guidePrefNote || '').slice(0, 500), prefAt: g.guidePrefAt || 0, guide: String(g.guideName || '').slice(0, 60) } : null;
+    res.json({ name: g.name || '', hotel: await hotelName(h), chain: o.name, ci: g.ci || '', co: g.co || '', day, rooms, halls, msgs, meals, pre, now: Date.now() });
   } catch (e) { res.status(500).json({ error: 'server' }); }
 });
 

@@ -78,7 +78,7 @@ const fT=ms=>{try{return new Intl.DateTimeFormat(LOC[lang],{hour:'2-digit',minut
 const fDT=ms=>{try{return new Intl.DateTimeFormat(LOC[lang],{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}).format(new Date(ms))}catch(e){return ''}};
 const k=new URLSearchParams(location.search).get('k')||'';
 const cfg=window.APP_CONFIG||{},pid=(cfg.firebase||{}).projectId||'hotel-shifts',API='https://europe-west1-'+pid+'.cloudfunctions.net/grpGuide';
-let D=null,E=null,seen=0,ED='',EDV=null,EDM='',OK='',PF=null,PDIRTY=false,PERR='',PBUSY=false;try{seen=+localStorage.getItem('guideSeen:'+k)||0}catch(e){}
+let D=null,E=null,seen=0,ED='',EDV=null,EDM='',OK='',PF=null,PDIRTY=false,PERR='',PBUSY=false,JUST=false;try{seen=+localStorage.getItem('guideSeen:'+k)||0}catch(e){}
 function draw(){
   document.documentElement.lang=lang;document.documentElement.dir=lang==='he'?'rtl':'ltr';
   const m=document.getElementById('main');
@@ -102,8 +102,10 @@ function draw(){
   let last='',hl='';(D.halls||[]).forEach(x=>{if(x.date!==last){hl+=`<div class="day">${esc(fD(x.date))}</div>`;last=x.date}
     hl+=`<div class="row"${x.past?' style="opacity:.55"':''}><b dir="auto">${esc(x.place)}${x.past?' <small>· '+esc(t('past'))+'</small>':''}</b><small>${esc(x.start)}–${esc(x.end)}${x.guests?' · '+x.guests+' '+esc(t('people')):''}${x.note?' · <span dir="auto">'+esc(x.note)+'</span>':''}</small></div>`});
   const halls=`<section class="card" aria-labelledby="hh"><h2 id="hh">${esc(t('halls'))}</h2>${hl?`<div class="list">${hl}</div>`:`<p class="muted">${esc(t('nohalls'))}</p>`}</section>`;
-  m.innerHTML=msgs+meals+rooms+halls+gst+`<p class="foot">${esc(t('upd'))} ${esc(fT(D.now||Date.now()))} · <button class="ref" id="rf">${esc(t('refresh'))}</button><br>${esc(D.chain||'')}</p>`;
+  let pc='';if(D.pre&&(!D.pre.prefAt||JUST)){if(PF===null||(!D.pre.prefAt&&!JUST))PF=!D.pre.prefAt;pc=preCard(D.pre,true)}
+  m.innerHTML=pc+msgs+meals+rooms+halls+gst+`<p class="foot">${esc(t('upd'))} ${esc(fT(D.now||Date.now()))} · <button class="ref" id="rf">${esc(t('refresh'))}</button><br>${esc(D.chain||'')}</p>`;
   document.getElementById('rf').onclick=load;
+  if(pc)preBind(m,D.pre);
   const wb=document.getElementById('wash');if(wb)wb.onclick=()=>{const L=(D.rooms||[]).map(x=>{const nm=(x.names||[]).filter(Boolean);return '• '+t('room')+' '+x.r+(x.cat?' ('+t('c_'+x.cat)+')':'')+(x.pax?' · 👤'+x.pax:'')+(nm.length?'\n   '+nm.join(', '):'')});
     const txt=(D.name||'')+(D.hotel?' · '+D.hotel:'')+'\n'+t('walist')+':\n'+L.join('\n');location.href='https://wa.me/?text='+encodeURIComponent(txt)};
   m.querySelectorAll('[data-ge]').forEach(b=>b.onclick=()=>{const x=(D.rooms||[]).find(y=>y.r===b.dataset.ge);ED=b.dataset.ge;EDV=((x&&x.names)||[]).slice();EDM='';OK='';draw();const i=m.querySelector('[data-gi]');if(i)i.focus()});
@@ -116,23 +118,17 @@ function draw(){
       if(!r.ok||!j.ok)throw 0;const x=(D.rooms||[]).find(y=>y.r===ED);if(x)x.names=j.names||[];OK=ED;ED='';EDV=null;EDM='';draw();setTimeout(()=>{if(OK){OK='';if(!ED)draw()}},4000)}
     catch(e){EDM=t('nsaved');b.disabled=false;draw()}});
 }
-function drawPre(m){
-  document.title=(D.name||t('pre_t'))+' · '+(D.hotel||'');
-  document.getElementById('t').textContent=D.name||t('pre_t');
-  document.getElementById('st').textContent=[D.hotel,D.ci&&D.co?t('stay')+': '+fD(D.ci,{day:'numeric',month:'short'})+' – '+fD(D.co,{day:'numeric',month:'short'}):''].filter(Boolean).join(' · ');
-  if(PF===null)PF=!D.prefAt;
-  const ML=D.meals||[],P=D.pref||{};
-  let html;
-  if(!PF){html=`<section class="card" aria-labelledby="hp"><h2 id="hp">✓ ${esc(t('pre_okt'))}</h2><p>${esc(t('pre_ok'))}</p>
-    ${ML.some(x=>P[x.k])?`<h3 style="font-size:16px;margin:12px 0 6px">${esc(t('pre_your'))}</h3><div class="list">${ML.filter(x=>P[x.k]).map(x=>`<div class="row"><b>${esc(t('m_'+x.k))}</b><small dir="ltr">${esc(P[x.k])}</small></div>`).join('')}</div>`:''}
-    ${D.note?`<p class="muted" dir="auto" style="white-space:pre-wrap">${esc(D.note)}</p>`:''}
-    <p class="muted">${esc(t('pre_eff'))}</p><button class="ref" id="pupd">${esc(t('pre_upd'))}</button></section>`}
-  else{html=`<section class="card" aria-labelledby="hp"><h2 id="hp">${esc(t('pre_t'))}</h2><p>${esc(t('pre_hi').replace('{g}',D.guide?' '+D.guide:''))}</p>
-    ${ML.length?`<h3 style="font-size:16px;margin:12px 0 4px">${esc(t('pre_m'))}</h3><p class="muted" style="margin:0 0 8px">${esc(t('pre_eff'))}</p><div class="list">${ML.map(x=>`<div class="row" style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><label for="pm_${x.k}"><b>${esc(t('m_'+x.k))}</b>${x.f?`<small>${esc(t('pre_htl'))} ${esc(x.f)}${x.t?'–'+esc(x.t):''}</small>`:''}</label><input id="pm_${x.k}" type="time" data-pm="${x.k}" value="${esc(P[x.k]||'')}" style="font:inherit;font-size:16px;padding:8px;border:1px solid var(--line);border-radius:6px;background:transparent;color:var(--ink);min-width:120px"></div>`).join('')}</div>`:`<p class="muted">${esc(t('pre_none'))}</p>`}
-    <label for="pnote" style="display:block;margin-top:12px;font-weight:600">${esc(t('pre_note'))}</label><textarea id="pnote" maxlength="500" rows="3" dir="auto" placeholder="${esc(t('pre_noteph'))}" style="width:100%;box-sizing:border-box;font:inherit;font-size:16px;padding:8px;border:1px solid var(--line);border-radius:6px;background:transparent;color:var(--ink);margin-top:4px">${esc(D.note||'')}</textarea>
+function preCard(P,stay){const ML=P.meals||[],PR=P.pref||{};
+  if(!PF)return `<section class="card" aria-labelledby="hp"><h2 id="hp">✓ ${esc(t('pre_okt'))}</h2><p>${esc(t('pre_ok'))}</p>
+    ${ML.some(x=>PR[x.k])?`<h3 style="font-size:16px;margin:12px 0 6px">${esc(t('pre_your'))}</h3><div class="list">${ML.filter(x=>PR[x.k]).map(x=>`<div class="row"><b>${esc(t('m_'+x.k))}</b><small dir="ltr">${esc(PR[x.k])}</small></div>`).join('')}</div>`:''}
+    ${P.note?`<p class="muted" dir="auto" style="white-space:pre-wrap">${esc(P.note)}</p>`:''}
+    <p class="muted">${esc(t('pre_eff'))}</p>${stay?'':`<button class="ref" id="pupd">${esc(t('pre_upd'))}</button>`}</section>`;
+  return `<section class="card" aria-labelledby="hp" style="border-top:3px solid var(--gold)"><h2 id="hp">${esc(t('pre_t'))}</h2><p>${esc(t('pre_hi').replace('{g}',P.guide?' '+P.guide:''))}</p>
+    ${ML.length?`<h3 style="font-size:16px;margin:12px 0 4px">${esc(t('pre_m'))}</h3><p class="muted" style="margin:0 0 8px">${esc(t('pre_eff'))}</p><div class="list">${ML.map(x=>`<div class="row" style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><label for="pm_${x.k}"><b>${esc(t('m_'+x.k))}</b>${x.f?`<small>${esc(t('pre_htl'))} ${esc(x.f)}${x.t?'–'+esc(x.t):''}</small>`:''}</label><input id="pm_${x.k}" type="time" data-pm="${x.k}" value="${esc(PR[x.k]||'')}" style="font:inherit;font-size:16px;padding:8px;border:1px solid var(--line);border-radius:6px;background:transparent;color:var(--ink);min-width:120px"></div>`).join('')}</div>`:`<p class="muted">${esc(t('pre_none'))}</p>`}
+    <label for="pnote" style="display:block;margin-top:12px;font-weight:600">${esc(t('pre_note'))}</label><textarea id="pnote" maxlength="500" rows="3" dir="auto" placeholder="${esc(t('pre_noteph'))}" style="width:100%;box-sizing:border-box;font:inherit;font-size:16px;padding:8px;border:1px solid var(--line);border-radius:6px;background:transparent;color:var(--ink);margin-top:4px">${esc(P.note||'')}</textarea>
     ${PERR?`<p style="color:var(--bad);font-weight:600" role="alert">${esc(PERR)}</p>`:''}
     <p style="margin:12px 0 0"><button class="ref wa" id="psend" ${PBUSY?'disabled':''}>${esc(t('send'))}</button></p></section>`}
-  m.innerHTML=html+`<p class="foot">${esc(D.chain||'')}</p>`;
+function preBind(m,P){const ML=P.meals||[];
   const u=document.getElementById('pupd');if(u)u.onclick=()=>{PF=true;PDIRTY=false;PERR='';draw()};
   m.querySelectorAll('[data-pm],#pnote').forEach(i=>i.addEventListener('input',()=>{PDIRTY=true}));
   const b=document.getElementById('psend');if(b)b.onclick=async()=>{
@@ -140,14 +136,21 @@ function drawPre(m){
     if(ML.length&&!Object.keys(pref).length){PERR=t('pre_need');draw();return}
     PBUSY=true;PERR='';b.disabled=true;
     try{const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({k,op:'pre',pref,note})});const j=await r.json().catch(()=>({}));
-      if(!r.ok||!j.ok)throw 0;D.pref=j.pref||pref;D.note=j.note||'';D.prefAt=Date.now();PF=false;PDIRTY=false}
+      if(!r.ok||!j.ok)throw 0;P.pref=j.pref||pref;P.note=j.note||'';P.prefAt=Date.now();PF=false;PDIRTY=false;JUST=true}
     catch(e){PERR=t('nsaved')}
     PBUSY=false;draw();window.scrollTo(0,0)};
+}
+function drawPre(m){
+  document.title=(D.name||t('pre_t'))+' · '+(D.hotel||'');
+  document.getElementById('t').textContent=D.name||t('pre_t');
+  document.getElementById('st').textContent=[D.hotel,D.ci&&D.co?t('stay')+': '+fD(D.ci,{day:'numeric',month:'short'})+' – '+fD(D.co,{day:'numeric',month:'short'}):''].filter(Boolean).join(' · ');
+  if(PF===null)PF=!D.prefAt;
+  m.innerHTML=preCard(D,false)+`<p class="foot">${esc(D.chain||'')}</p>`;preBind(m,D);
 }
 async function load(){
   if(!/^g[0-9a-f]{32}$/.test(k)){E='notfound';draw();return}
   try{const r=await fetch(API+'?k='+encodeURIComponent(k),{cache:'no-store'});const j=await r.json().catch(()=>({}));
-    if(!r.ok){E=j.error||'server';D=null}else{E=null;if(j.mode==='pre'&&D&&D.mode==='pre'&&(PDIRTY||PBUSY))return;D=j;const top=Math.max(0,...(j.msgs||[]).map(x=>x.at||0));if(!ED)draw();if(top){try{localStorage.setItem('guideSeen:'+k,String(top))}catch(e){}}return}}
+    if(!r.ok){E=j.error||'server';D=null}else{E=null;if(D&&(PDIRTY||PBUSY)&&(j.mode==='pre'||j.pre))return;if(JUST&&j.pre&&D&&D.pre)j.pre=Object.assign({},j.pre,{prefAt:j.pre.prefAt||D.pre.prefAt});D=j;const top=Math.max(0,...(j.msgs||[]).map(x=>x.at||0));if(!ED)draw();if(top){try{localStorage.setItem('guideSeen:'+k,String(top))}catch(e){}}return}}
   catch(e){if(!D)E='net'}
   draw()}
 load();setInterval(()=>{if(!document.hidden)load()},60000);

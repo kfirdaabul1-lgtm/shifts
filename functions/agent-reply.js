@@ -197,8 +197,9 @@ What you do in this chat:
 1. Learn: when he tells you facts (capacities, what is included, hours, tours, rules, tone, example answers), turn them into short clear sentences in the style of your knowledge and call propose_change. Then show him EXACTLY the text that will be added or changed and ask "לשמור?". Only when he confirms in his NEXT message call apply_change. Never write without his explicit confirmation. If he corrects the wording, propose again.
 2. Fix: to change or delete something that is already written, use propose_change with kind "replace" and the exact existing sentence in find (copy it from the knowledge below; it must appear exactly once).
 3. Rehearse: when he asks how you would answer a customer, or writes "לקוח שואל: …", call try_customer_message with the customer's words and show him the answer you would send, plus whether you would hand over to a person. Nothing is sent or saved.
+5. Data (read only, only for this chat with the owner, never for customers): events_board, menus_and_contracts, past_quotes, staff_chats. Use them to learn and to SUGGEST knowledge to add (e.g. capacities, what menus include, how the team phrases answers). What reaches customers is only your knowledge text, so anything learned from data goes there only through propose_change + the owner's confirmation. Prices from past quotes are internal: don't propose adding them unless the owner explicitly asks.
 4. Gaps: when asked what is missing, look for [חסר] and for topics customers usually ask about (capacity per space, what is included, prices policy, tours, hours, 7EVEN) and list them briefly.
-Rules: never invent facts; only the owner's words go into your knowledge. Do not paste the whole knowledge unless he asks. No prices unless he gives them. You have no access to customers' chats, leads, money or settings.
+Rules: never invent facts; only the owner's words go into your knowledge. Do not paste the whole knowledge unless he asks. No prices unless he gives them. Never repeat customers' personal details. You cannot change any data.
 
 YOUR CURRENT KNOWLEDGE (${kb.length} characters):
 ${kb || '(empty)'}`;
@@ -254,7 +255,56 @@ async function adamCore(cfg, c, hist) {
         return { reply_to_customer: got.out ? '(לא עונה: לא פנייה על אירוע · ' + got.out + ')' : String(o.text || '').trim(), hands_over_to_person: got.handoff || false, details_noted: got.details, model };
       } },
   ];
-  const out = await C.runLoop({ model: cfg.chatModel || SMART, system: [{ type: 'text', text: trainerPrompt(cfg, kb, c.name), cache_control: { type: 'ephemeral' } }], tools, messages: hist, maxTurns: 6, maxTokens: 8000, mustAnswer: true });
+  // READ-ONLY data for the trainer chat (owner, Nov 9: "give him access to read the data"; owner chose: only in the chat with him,
+  // never in answers to customers). Phone numbers are masked; nothing here is written anywhere.
+  const mask = (t) => String(t || '').replace(/(\+?\d[\d\s-]{6,}\d)/g, '[טלפון]').replace(/[\w.+-]+@[\w-]+\.[\w.]+/g, '[מייל]');
+  const cut = (v, n) => { const t = typeof v === 'string' ? v : JSON.stringify(v); return t.length > n ? t.slice(0, n) + '…' : t; };
+  const iso = (x) => /^\d{4}-\d{2}-\d{2}$/.test(String(x || '')) ? String(x) : '';
+  let QS = null; const allQuotes = async () => QS || (QS = (await db.collection('quotes').get()).docs.map((d) => ({ id: d.id, ...d.data() })));
+  const qNet = (q) => { const ev = q.event || {}, g = +ev.guests || 0; let sub = 0; for (const it of (q.items || [])) { const qty = it.unit === 'guest' ? g : (+it.qty || 0), dp = Math.min(100, Math.max(0, +it.disc || 0)); sub += qty * (+it.price || 0) * (1 - dp / 100); } const after = sub * (1 - (+q.discount || 0) / 100); return Math.round(q.vatIncluded ? after / 1.18 : after); };
+  tools.push(
+    { name: 'events_board', description: 'The events board: events and hotel-group bookings between two dates (default the next 60 days), per venue and space, with status. Use it to learn availability patterns; never promise availability.',
+      input_schema: { type: 'object', properties: { from: { type: 'string', description: 'YYYY-MM-DD' }, to: { type: 'string' }, venue: { type: 'string' } } },
+      run: async (a) => {
+        const t = C.ilDate(new Date()), from = iso(a.from) || t, to = iso(a.to) || C.addDays(t, 60), v = String(a.venue || '').toLowerCase();
+        const rows = (await allQuotes()).filter((q) => { const e = q.event || {}, d = e.date || '', end = e.endDate && e.endDate > d ? e.endDate : d; return d && end >= from && d <= to && q.status !== 'declined' && (!v || String(e.venue || '').toLowerCase().includes(v)); })
+          .sort((x, y) => String(x.event.date).localeCompare(String(y.event.date))).slice(0, 100)
+          .map((q) => { const e = q.event || {}; return { date: e.date, until: e.endDate || undefined, venue: e.venue, space: e.area || (e.areas || []).join(', ') || undefined, from: e.start, to: e.end, guests: +e.guests || undefined, type: e.type, kind: q.kind === 'group' ? 'hotel group' : 'event', status: q.status || 'draft' }; });
+        return { from, to, count: rows.length, events: rows };
+      } },
+    { name: 'menus_and_contracts', description: 'The event menus and the general contract texts (what is served, what is included, terms).', input_schema: { type: 'object', properties: { venue: { type: 'string' } } },
+      run: async (a) => {
+        const v = String(a.venue || '').toLowerCase();
+        const [ms, ks] = await Promise.all([db.collection('menus').get(), db.collection('contracts').get()]);
+        const menus = ms.docs.map((d) => ({ id: d.id, ...d.data() })).filter((m) => !v || String(m.venue || '').toLowerCase().includes(v)).slice(0, 30).map((m) => { const { updatedAt, createdAt, ...x } = m; return cut(x, 2500); });
+        const contracts = ks.docs.map((d) => ({ id: d.id, ...d.data() })).slice(0, 10).map((k) => { const { updatedAt, createdAt, ...x } = k; return cut(x, 4000); });
+        return { menus, contracts };
+      } },
+    { name: 'past_quotes', description: 'Past and current event quotes for learning: type, guests, venue, status and price before VAT (total and per guest), plus the item lines. Client names and phones are not included.',
+      input_schema: { type: 'object', properties: { venue: { type: 'string' }, status: { type: 'string', enum: ['approved', 'sent', 'draft', 'declined', 'any'] }, months: { type: 'number', description: 'how far back by event date, default 12' }, type: { type: 'string', description: 'words in the event type' } } },
+      run: async (a) => {
+        const v = String(a.venue || '').toLowerCase(), st = a.status && a.status !== 'any' ? a.status : '', ty = String(a.type || ''), since = C.addDays(C.ilDate(new Date()), -30 * Math.min(36, Math.max(1, +a.months || 12)));
+        const list = (await allQuotes()).filter((q) => q.kind !== 'group' && (q.event || {}).date >= since && (!v || String((q.event || {}).venue || '').toLowerCase().includes(v)) && (!st || (q.status || 'draft') === st) && (!ty || String((q.event || {}).type || '').includes(ty)));
+        const rows = list.sort((x, y) => String(y.event.date).localeCompare(String(x.event.date))).slice(0, 40).map((q) => { const e = q.event || {}, net = qNet(q), g = +e.guests || 0; return { date: e.date, venue: e.venue, space: e.area || undefined, type: e.type, guests: g || undefined, status: q.status || 'draft', net_before_vat: net, per_guest: g ? Math.round(net / g) : undefined, discount_pct: +q.discount || undefined, items: (q.items || []).slice(0, 15).map((it) => [it.name, it.unit, it.qty, it.price].filter((x) => x !== undefined && x !== '').join(' · ')) }; });
+        const by = {}; for (const q of list) { const k = (q.status || 'draft'); by[k] = (by[k] || 0) + 1; }
+        return { total: list.length, by_status: by, quotes: rows, note: 'Prices are internal: never put prices in your knowledge unless the owner says so.' };
+      } },
+    { name: 'staff_chats', description: 'Recent WhatsApp chats about events where a staff member answered, to learn how the team actually talks to customers (tone, common questions). Phone numbers are masked.',
+      input_schema: { type: 'object', properties: { chats: { type: 'number', description: 'how many chats, default 8, max 15' } } },
+      run: async (a) => {
+        const n = Math.min(15, Math.max(1, +a.chats || 8));
+        const cs = (await db.collection('waChats').orderBy('lastAt', 'desc').limit(80).get()).docs.filter((d) => { const x = d.data() || {}; return !x.guide && (!x.cat || x.cat === 'events'); });
+        const out = [];
+        for (const d of cs) {
+          if (out.length >= n) break;
+          const ms = (await d.ref.collection('msgs').orderBy('at', 'desc').limit(16).get()).docs.map((m) => m.data() || {}).reverse();
+          if (!ms.some((m) => isHuman(m))) continue;
+          out.push({ chat: out.length + 1, messages: ms.filter((m) => String(m.text || '').trim()).map((m) => ({ from: m.dir === 'in' ? 'customer' : (isHuman(m) ? 'staff' : 'automatic'), text: mask(m.text).slice(0, 500) })) });
+        }
+        return { chats: out };
+      } },
+  );
+  const out = await C.runLoop({ model: cfg.chatModel || SMART, system: [{ type: 'text', text: trainerPrompt(cfg, kb, c.name), cache_control: { type: 'ephemeral' } }], tools, messages: hist, maxTurns: 8, maxTokens: 8000, mustAnswer: true });
   return { text: String(out.text || '').trim(), used: out.used || used, usage: out.U, stop: out.stop };
 }
 exports.adamChat = functions.region(REGION).runWith({ timeoutSeconds: 180, memory: '512MB' }).https.onRequest(async (req, res) => {
@@ -277,3 +327,4 @@ exports.adamChat = functions.region(REGION).runWith({ timeoutSeconds: 180, memor
     res.json({ text: r.text || 'לא הצלחתי לענות על זה. אפשר לנסח אחרת?', tools: [...new Set(r.used || [])] });
   } catch (e) { console.error('adamChat', e); res.status(500).json({ error: 'משהו השתבש. נסו שוב בעוד רגע.' }); }
 });
+exports._t.adamCore = adamCore;

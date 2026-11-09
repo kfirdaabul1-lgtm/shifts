@@ -1381,6 +1381,24 @@ function guideMealKeys(g) {
   Object.keys(g.meals || {}).forEach((m) => { const x = g.meals[m] || {}; if (x.f || x.t) k.add(m); });
   return ['bf', 'ln', 'dn'].filter((m) => k.has(m));
 }
+// meals per day of the stay (owner, Nov 9: every day can have other times). Night d has board dayBoards[d] || board:
+// dinner on d (HB/FB), breakfast the next morning (BB/HB/FB), lunch the next day (FB). No board but meal times set → those meals on every relevant day.
+function guideDays(g) {
+  if (!g.ci) return [];
+  const co = g.co && g.co > g.ci ? g.co : addDaysIso(g.ci, 1), DB = {}, M = g.meals || {}, out = [];
+  (g.dayBoards || []).forEach((x) => { if (x && x.d && x.b) DB[x.d] = x.b; });
+  const anyB = !!g.board || Object.keys(DB).length, B = (d) => DB[d] || g.board || '';
+  const has = (m) => !!((M[m] || {}).f || (M[m] || {}).t);
+  for (let d = g.ci, i = 0; d <= co && i < 31; d = addDaysIso(d, 1), i++) {
+    const prev = addDaysIso(d, -1), L = [];
+    const bf = d > g.ci && (anyB ? ['bb', 'hb', 'fb'].includes(B(prev)) : has('bf'));
+    const ln = d > g.ci && d < co && (anyB ? B(prev) === 'fb' : has('ln'));
+    const dn = d < co && (anyB ? ['hb', 'fb'].includes(B(d)) : has('dn'));
+    if (bf) L.push('bf'); if (ln) L.push('ln'); if (dn) L.push('dn');
+    if (L.length) out.push({ d, meals: L.map((k) => ({ k, f: String((M[k] || {}).f || '').slice(0, 5), t: String((M[k] || {}).t || '').slice(0, 5) })) });
+  }
+  return out;
+}
 const GUIDE_PRE_DAYS = 14; // the pre-arrival form opens 14 days before arrival (or earlier once it was sent)
 const guidePreOpen = (g, today) => !!g.ci && today < addDaysIso(g.ci, -1) && (today >= addDaysIso(g.ci, -GUIDE_PRE_DAYS) || !!g.preSentAt);
 
@@ -1403,9 +1421,10 @@ exports.grpGuide = functions.region(REGION).https.onRequest(async (req, res) => 
         if (q.empty) { res.status(404).json({ error: 'notfound' }); return; }
         const g = q.docs[0].data(), today = ilDate(new Date());
         if (g.status === 'cancelled' || (!guidePreOpen(g, today) && !(g.ci && today >= addDaysIso(g.ci, -1) && today <= (g.co || g.ci)))) { res.status(410).json({ error: 'expired' }); return; }
-        const keys = guideMealKeys(g), pref = {}, tm = (x) => /^([01]\d|2[0-3]):[0-5]\d$/.test(String(x || '')) ? String(x) : '';
+        const days = guideDays(g), pref = {}, tm = (x) => /^([01]\d|2[0-3]):[0-5]\d$/.test(String(x || '')) ? String(x) : '';
         const P = bd.pref && typeof bd.pref === 'object' ? bd.pref : {};
-        keys.forEach((m) => { const v = tm(P[m]); if (v) pref[m] = v; });
+        days.forEach((x) => { const Q = P[x.d] && typeof P[x.d] === 'object' ? P[x.d] : {}; x.meals.forEach((m) => { const v = tm(Q[m.k]); if (v) (pref[x.d] = pref[x.d] || {})[m.k] = v; }); });
+        const keys = days.length ? ['x'] : [];
         const note = String(bd.note == null ? '' : bd.note).replace(/[\u0000-\u0009\u000b-\u001f<>]/g, ' ').trim().slice(0, 500);
         if (keys.length && !Object.keys(pref).length) { res.status(400).json({ error: 'empty' }); return; }
         const first = !g.guidePrefAt, now = Date.now(), up = { guidePref: pref, guidePrefNote: note, guidePrefAt: now };
@@ -1415,7 +1434,7 @@ exports.grpGuide = functions.region(REGION).https.onRequest(async (req, res) => 
           const h = g.hotel || '', NM = { bf: 'בוקר', ln: 'צהריים', dn: 'ערב' };
           const pick = ((((await db.doc('waauto/main').get()).data() || {}).guide || {}).notify || {})[h] || [];
           const to = pick.length ? pick : await roleHolders(h, ['gm', 'grp']); // specific people chosen by the owner, else gm + groups holders
-          const body = [g.name || '', keys.map((m) => NM[m] + ' ' + (pref[m] || '—')).join(' · '), note].filter(Boolean).join(' · ').slice(0, 180);
+          const body = [g.name || '', Object.keys(pref).sort().map((d) => d.slice(8, 10) + '/' + d.slice(5, 7) + ' ' + ['bf', 'ln', 'dn'].filter((k) => pref[d][k]).map((k) => NM[k] + ' ' + pref[d][k]).join(', ')).join(' · '), note].filter(Boolean).join(' · ').slice(0, 220);
           if (to.length) await sendTo(to, { title: (first ? '🧭 המדריך מילא את פרטי הקבוצה' : '🧭 המדריך עדכן את פרטי הקבוצה') + (g.ci ? ' · הגעה ' + g.ci.slice(8, 10) + '/' + g.ci.slice(5, 7) : ''), body, hash: '#grp', tag: 'gdpre-' + q.docs[0].id });
         } catch (e) { console.warn('guide pre push', e.message); }
         res.json({ ok: true, pref, note, first });
@@ -1444,7 +1463,7 @@ exports.grpGuide = functions.region(REGION).https.onRequest(async (req, res) => 
     if (g.ci && today < addDaysIso(g.ci, -1) && guidePreOpen(g, today)) { // before arrival: the pre-arrival form (owner, Nov 9)
       const o = await org(), M = g.meals || {};
       res.json({ mode: 'pre', name: g.name || '', hotel: await hotelName(g.hotel || ''), chain: o.name, ci: g.ci || '', co: g.co || '', guide: String(g.guideName || '').slice(0, 60),
-        meals: guideMealKeys(g).map((m) => ({ k: m, f: String((M[m] || {}).f || '').slice(0, 5), t: String((M[m] || {}).t || '').slice(0, 5) })),
+        days: guideDays(g),
         pref: g.guidePref || {}, note: String(g.guidePrefNote || '').slice(0, 500), prefAt: g.guidePrefAt || 0, now: Date.now() });
       return;
     }
@@ -1475,7 +1494,7 @@ exports.grpGuide = functions.region(REGION).https.onRequest(async (req, res) => 
     const msgs = (g.guideMsgs || []).filter((x) => x && x.text).sort((a, b) => (b.at || 0) - (a.at || 0)).slice(0, 50).map((x) => ({ at: x.at || 0, text: String(x.text).slice(0, 2000), by: String(x.byName || '').slice(0, 60) }));
     const meals = ['bf', 'ln', 'dn'].map((k) => { const x = (g.meals || {})[k] || {}; return x.f || x.t ? { k, f: String(x.f || '').slice(0, 5), t: String(x.t || '').slice(0, 5), place: String(x.place || '').slice(0, 60) } : null; }).filter(Boolean);
     // until the arrival day the pre-arrival form is also offered on the stay page (link sent late, owner Nov 9)
-    const M0 = g.meals || {}, pre = g.ci && today <= g.ci ? { meals: guideMealKeys(g).map((mk) => ({ k: mk, f: String((M0[mk] || {}).f || '').slice(0, 5), t: String((M0[mk] || {}).t || '').slice(0, 5) })), pref: g.guidePref || {}, note: String(g.guidePrefNote || '').slice(0, 500), prefAt: g.guidePrefAt || 0, guide: String(g.guideName || '').slice(0, 60) } : null;
+    const pre = g.ci && today <= g.ci ? { days: guideDays(g), pref: g.guidePref || {}, note: String(g.guidePrefNote || '').slice(0, 500), prefAt: g.guidePrefAt || 0, guide: String(g.guideName || '').slice(0, 60) } : null;
     res.json({ name: g.name || '', hotel: await hotelName(h), chain: o.name, ci: g.ci || '', co: g.co || '', day, rooms, halls, msgs, meals, pre, now: Date.now() });
   } catch (e) { res.status(500).json({ error: 'server' }); }
 });

@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202611091150"></script>
+<script src="i18n.js?v=202611091330"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1222,30 +1222,30 @@ function plListHTML(){const hs=grpHs(),gs=Object.values(S.grps||{}).filter(g=>g.
   if(!S.plsReady)return '<p class="muted">טוען…</p>';if(S.plsErr)return `<div class="notice bad">אין גישה למחירונים: ${esc(S.plsErr)}</div>`;
   return list.length?`<div class="plist">${list.map(([id,l])=>{const mine=gs.filter(g=>g.plId===id),rn=mine.reduce((a,g)=>a+grpCalc(g).roomNights,0);
     return `<button class="prow" style="width:100%;text-align:inherit;cursor:pointer;font:inherit;color:inherit" data-act="pl-open" data-id="${id}"><span class="who"><b>${esc(l.name||'מחירון')}</b><small>${plAgents(l).length?'🤝 '+esc(plAgNames(l))+' · ':''}${l.hotel?esc(hotelName(l.hotel)):'כל המלונות'}${plHasMonthly(l)?' · מחיר לפי חודש':''}${l.from||l.to?` · ${l.from?dm(l.from):''}–${l.to?dm(l.to):''}`:''} ${plHasGrid(l)?'':` · ${(l.rows||[]).length} סוגי חדרים`}</small><small>${plHasGrid(l)?PL_PPR.filter(([n])=>GRP_BOARD.some(([b])=>plGridV(l,n,b)!=null)).slice(0,4).map(([n,lab])=>{const b=GRP_BOARD.find(([b])=>plGridV(l,n,b)!=null)[0];return `${lab} ${b.toUpperCase()} ${grpMoney(plGridV(l,n,b),l.cur)}`}).join(' · '):(l.rows||[]).slice(0,4).map(r=>`${esc(r.type||'')} ${grpMoney(r.rate,l.cur)}`).join(' · ')}</small></span><span style="text-align:left"><b>${mine.length}</b> קבוצות<br><small class="muted">${rn} לילות חדר</small>${l.active===false?'<br><span class="pill">לא פעיל</span>':''}</span></button>`}).join('')}</div>`:emptyBox('אין עדיין מחירונים','לוחצים "+ מחירון חדש" ומגדירים מחיר לכל סוג חדר. כל קבוצה משויכת למחירון שלה.')}
-function grpPayHTML(){const t=todayISO(),hs=grpHs(),F=S.payF||(S.payF={ag:'all'});
-  let list=Object.entries(S.grps||{}).filter(([,g])=>(!g.hotel||hs.includes(g.hotel)||S.isOwner)&&(g.status==='confirmed'||g.status==='option')).map(([id,g])=>({id,g,c:grpCalc(g),due:grpDue(g)})).filter(x=>x.c.balance>0.5);
-  const ags=[...new Set(list.map(x=>x.g.agentId||''))];if(F.ag!=='all')list=list.filter(x=>(x.g.agentId||'')===F.ag);
-  list.sort((a,b)=>String(a.due||'9').localeCompare(String(b.due||'9'))||String((a.g||{}).ci||'9').localeCompare(String((b.g||{}).ci||'9')));
-  const ils=x=>!x.g.cur||x.g.cur==='ils',sum=xs=>xs.filter(ils).reduce((a,x)=>a+x.c.balance,0),late=list.filter(x=>x.due&&x.due<t),soon=list.filter(x=>x.due>=t&&x.due<=addDays(t,30));
-  const kpi=`<div class="kpis"><div class="kpi ${late.length?'bad':''}"><b>${grpMoney(sum(late),'ils')}</b><span>באיחור · ${late.length} קבוצות</span></div><div class="kpi"><b>${grpMoney(sum(soon),'ils')}</b><span>לתשלום ב-30 הימים הקרובים</span></div><div class="kpi"><b>${grpMoney(sum(list),'ils')}</b><span>סה״כ פתוח (₪)</span></div></div>`;
-  const chip=(v,n)=>`<button class="dchip ${F.ag===v?'':'off'}" data-act="pay-ag" data-v="${esc(v)}">${n}</button>`;
-  const chips=`<div class="chips" style="margin-bottom:10px">${chip('all','כל הסוכנים')}${ags.map(a=>chip(a,a?esc(((S.agents||{})[a]||{}).name||'סוכן'):'בלי סוכן')).join('')}</div>`;
-  // per-agent summary (owner, Nov 7): money per agent, click an agent for its groups
+function grpPayHTML(){const t=todayISO(),hs=grpHs(),F=S.payF||(S.payF={ag:'all'}),pm=F.m||(F.m=t.slice(0,7)),mOf=x=>String(x.due||'').slice(0,7);
+  const all=Object.entries(S.grps||{}).filter(([,g])=>(!g.hotel||hs.includes(g.hotel)||S.isOwner)&&(g.status==='confirmed'||g.status==='option')).map(([id,g])=>({id,g,c:grpCalc(g),due:grpDue(g)})).filter(x=>x.c.balance>0.5);
   const cm=m=>Object.entries(m).filter(([,v])=>Math.abs(v)>0.5).map(([c,v])=>grpMoney(v,c)).join(' · ')||grpMoney(0,'ils');
   const by=(xs,k)=>xs.reduce((m,x)=>{const c=x.g.cur||'ils';m[c]=(m[c]||0)+k(x);return m},{});
+  const ilsOf=x=>x.c.balance*fxRate(x.g.cur||'ils',x.due||t),sumI=xs=>xs.reduce((a,x)=>a+ilsOf(x),0),fx=xs=>xs.some(x=>x.g.cur&&x.g.cur!=='ils');
   const agName=a=>a?(((S.agents||{})[a]||{}).name||'סוכן'):'בלי סוכן';
-  if(S.grpsReady&&F.ag==='all'&&list.length){
+  const late=all.filter(x=>x.due&&x.due<t),noDue=all.filter(x=>!x.due).length;
+  let list=all.filter(x=>mOf(x)===pm);if(F.ag!=='all')list=list.filter(x=>(x.g.agentId||'')===F.ag);
+  list.sort((a,b)=>String(a.due||'9').localeCompare(String(b.due||'9'))||String(a.g.ci||'9').localeCompare(String(b.g.ci||'9')));
+  const nav=`<div class="card" style="padding-block:8px"><div class="actions" style="align-items:center;justify-content:space-between"><button class="btn sm ghost" data-act="pay-m" data-v="-1" aria-label="חודש קודם">→</button><b>${monLabel(pm)}</b><button class="btn sm ghost" data-act="pay-m" data-v="1" aria-label="חודש הבא">←</button></div>${pm!==t.slice(0,7)?`<div style="text-align:center"><button class="btn sm ghost" data-act="pay-m" data-v="0">חזרה לחודש הנוכחי</button></div>`:''}</div>`;
+  const kpi=nav+`<div class="kpis"><div class="kpi"><b>${grpMoney(sumI(list),'ils')}</b><span>לגבייה ב${monLabel(pm)} · ${list.length} קבוצות${fx(list)?'<br>'+cm(by(list,x=>x.c.balance)):''}</span></div><div class="kpi ${late.length?'bad':''}"><b>${grpMoney(sumI(late),'ils')}</b><span>באיחור עד היום · ${late.length} קבוצות${fx(late)?'<br>'+cm(by(late,x=>x.c.balance)):''}</span></div></div>`;
+  const foot=`<p class="muted" style="font-size:.85rem;margin-top:10px">החודש נקבע לפי מועד התשלום, שמחושב מתנאי התשלום של הסוכן (או מהתאריך שנרשם בקבוצה). דולר ואירו מומרים לשקלים לפי השער השבועי של בנק ישראל. מופיעות קבוצות מאושרות ובאופציה עם יתרה.${noDue?` ${noDue} קבוצות בלי תאריך תשלום לא נכללות.`:''}</p>`;
+  if(!S.grpsReady)return kpi+'<p class="muted">טוען…</p>';
+  if(F.ag==='all'){
+    if(!list.length)return kpi+emptyBox('אין תשלומים בחודש הזה','אפשר לעבור לחודש אחר עם החצים.')+foot;
     const g0={};list.forEach(x=>{(g0[x.g.agentId||'']=g0[x.g.agentId||'']||[]).push(x)});
-    const ar=Object.entries(g0).sort(([a],[b])=>agName(a).localeCompare(agName(b),'he')).map(([a,xs])=>{const lt=xs.filter(x=>x.due&&x.due<t);
-      return `<button class="prow" style="width:100%;text-align:inherit;cursor:pointer;font:inherit;color:inherit" data-act="pay-ag" data-v="${esc(a)}"><span class="who"><b>${esc(agName(a))}</b><small>${xs.length} קבוצות · סה״כ ${cm(by(xs,x=>x.c.total))}${xs.some(x=>x.c.deposit)?' · שולם '+cm(by(xs,x=>x.c.deposit||0)):''}</small>${lt.length?`<small style="color:var(--bad,#C0392B)">באיחור ${cm(by(lt,x=>x.c.balance))} · ${lt.length} קבוצות</small>`:''}</span><span style="text-align:left"><b>${cm(by(xs,x=>x.c.balance))}</b><br><small class="muted">יתרה לתשלום</small></span></button>`}).join('');
-    return kpi+`<div class="plist">${ar}</div><p class="muted" style="font-size:.85rem;margin-top:10px">לוחצים על סוכן כדי לראות כמה כל קבוצה שלו חייבת ומתי. מופיעות קבוצות מאושרות ובאופציה עם יתרה.</p>`}
-  const agHead=F.ag!=='all'&&list.length?`<div class="card" style="padding-block:10px"><div class="actions" style="align-items:center;justify-content:space-between"><button class="btn sm ghost" data-act="pay-ag" data-v="all">→ כל הסוכנים</button><b>${esc(agName(F.ag))}</b></div><p style="margin:8px 0 0"><b>יתרה לתשלום ${cm(by(list,x=>x.c.balance))}</b><br><small class="muted">${list.length} קבוצות · סה״כ ${cm(by(list,x=>x.c.total))}${list.some(x=>x.c.deposit)?' · שולם '+cm(by(list,x=>x.c.deposit||0)):''}</small></p></div>`:'';
-  let lastM='';const rows=list.map(x=>{const g=x.g,m=String(x.due||'').slice(0,7),lt=x.due&&x.due<t,a=(S.agents||{})[g.agentId]||{};
-    const mh=m!==lastM?(lastM=m,`<h3 style="margin:14px 0 6px">${m?monLabel(m):'בלי תאריך תשלום'}</h3>`):'';
-    return mh+`<div class="prow" style="flex-wrap:wrap"><span class="who"><b>${esc(g.agentName||'בלי סוכן')} · ${esc(g.name||'')}</b><small>${g.ci?dm(g.ci):''}–${g.co?dm(g.co):''} · ${esc(hotelName(g.hotel)||'')}${a.terms&&AG_TMAP[a.terms]?' · '+AG_TMAP[a.terms]:''}</small><small>סה״כ ${grpMoney(x.c.total,g.cur)}${x.c.deposit?' · שולם '+grpMoney(x.c.deposit,g.cur):''}</small></span>
-      <span style="text-align:left"><b>${grpMoney(x.c.balance,g.cur)}</b><br><span class="pill ${lt?'bad':'warn'}">${x.due?(lt?'באיחור מ-':'עד ')+dm(x.due):'בלי תאריך'}</span></span>
+    const ar=Object.entries(g0).sort(([,a],[,b])=>sumI(b)-sumI(a)).map(([a,xs])=>`<button class="prow" style="width:100%;text-align:inherit;cursor:pointer;font:inherit;color:inherit" data-act="pay-ag" data-v="${esc(a)}"><span class="who"><b>${esc(agName(a))}</b><small>${xs.length} קבוצות${fx(xs)?' · '+cm(by(xs,x=>x.c.balance)):''}</small></span><span style="text-align:left"><b>${grpMoney(sumI(xs),'ils')}</b><br><small class="muted">לגבייה בחודש</small></span></button>`).join('');
+    return kpi+`<div class="plist">${ar}</div>`+foot}
+  const agHead=`<div class="card" style="padding-block:10px"><div class="actions" style="align-items:center;justify-content:space-between"><button class="btn sm ghost" data-act="pay-ag" data-v="all">→ כל הסוכנים</button><b>${esc(agName(F.ag))}</b></div><p style="margin:8px 0 0"><b>לגבייה ב${monLabel(pm)}: ${grpMoney(sumI(list),'ils')}</b>${fx(list)?`<br><small class="muted">${cm(by(list,x=>x.c.balance))}</small>`:''}</p></div>`;
+  const rows=list.map(x=>{const g=x.g,lt=x.due&&x.due<t,a=(S.agents||{})[g.agentId]||{};
+    return `<div class="prow" style="flex-wrap:wrap"><span class="who"><b>${esc(g.name||'')}</b><small>${g.ci?dm(g.ci):''}–${g.co?dm(g.co):''} · ${esc(hotelName(g.hotel)||'')}${a.terms&&AG_TMAP[a.terms]?' · '+AG_TMAP[a.terms]:''}</small><small>סה״כ ${grpMoney(x.c.total,g.cur)}${x.c.deposit?' · שולם '+grpMoney(x.c.deposit,g.cur):''}</small></span>
+      <span style="text-align:left"><b>${grpMoney(x.c.balance,g.cur)}</b><br><span class="pill ${lt?'bad':'warn'}">${lt?'באיחור מ-':'עד '}${dm(x.due)}</span></span>
       <div class="actions" style="width:100%;justify-content:flex-end"><button class="btn sm ghost" data-act="grp-open" data-id="${x.id}">פתיחה</button><button class="btn sm" data-act="grp-paid" data-id="${x.id}">${S.confirm==='gp:'+x.id?'לחיצה נוספת תסמן ששולם הכול':'✓ שולם במלואו'}</button></div></div>`}).join('');
-  return kpi+agHead+chips+(S.grpsReady?(rows?`<div class="plist">${rows}</div>`:emptyBox('אין תשלומים פתוחים','קבוצות מאושרות או באופציה עם יתרה לתשלום יופיעו כאן לפי תאריך התשלום.')):'<p class="muted">טוען…</p>')+`<p class="muted" style="font-size:.85rem;margin-top:10px">תאריך התשלום מחושב מתנאי התשלום של הסוכן (או מהתאריך שנרשם בקבוצה). מופיעות קבוצות מאושרות ובאופציה.</p>`}
+  return kpi+agHead+(rows?`<div class="plist">${rows}</div>`:emptyBox('אין לסוכן הזה תשלומים בחודש הזה','אפשר לעבור לחודש אחר עם החצים.'))+foot}
 // months selected in the price-list sheet (several at once; owner, Nov 4)
 const plSelMs=ms=>(S.plMs||[]).filter(m=>ms.includes(m)).sort();
 function plSupHTML(x){const sup=dv('pl','wdSup',x.wdSup||{})||{},on=S.plSupOpen||plHasSup({wdSup:sup}),DN=['ראשון','שני','שלישי','רביעי','חמישי','שישי','שבת'];
@@ -4969,6 +4969,7 @@ const ACT={
   'grpd-del':D=>{const x=(S.grps||{})[S.sheet.id]||{},d=S.drafts.grp||(S.drafts.grp={}),L=JSON.parse(JSON.stringify((d.dayBoards??x.dayBoards)||[]));L.splice(+D.i,1);d.dayBoards=L;grpApplyPl('board');renderSheet()},
   'gl-add':D=>{const x=(S.grps||{})[S.sheet.id]||{},d=S.drafts.grp||(S.drafts.grp={}),L=JSON.parse(JSON.stringify(d.lines||grpLines(x)));const pl=plOf((d.plId??x.plId)||''),ppr=D.cat==='guest'?2:1,r0=pl?plRate(pl,{ppr},(d.board??x.board)||'',d.ci??x.ci,d.co??x.co,d.dayBoards??x.dayBoards):null;L.push({cat:D.cat,ppr,rooms:'',price:r0!=null?r0:(pl?0:(D.cat==='guest'?'':0))});d.lines=L;render()},
   'gl-del':D=>{const x=(S.grps||{})[S.sheet.id]||{},d=S.drafts.grp||(S.drafts.grp={}),L=JSON.parse(JSON.stringify(d.lines||grpLines(x)));L.splice(+D.i,1);d.lines=L;render()},
+  'pay-m':D=>{const F=S.payF||(S.payF={ag:'all'}),t=todayISO().slice(0,7);if(+D.v===0){F.m=t;render();return}const [y,m]=(F.m||t).split('-').map(Number);F.m=new Date(Date.UTC(y,m-1+(+D.v),1)).toISOString().slice(0,7);render()},
   'pay-ag':D=>{(S.payF||(S.payF={})).ag=D.v;render()},
   'grp-paid':D=>{const x=(S.grps||{})[D.id];if(!x)return;if(S.confirm!=='gp:'+D.id){S.confirm='gp:'+D.id;render();return}S.confirm=null;const tot=Math.round(grpCalc(x).total*100)/100,now=Date.now();
     S.grps={...S.grps,[D.id]:{...x,deposit:tot,paidAt:now}};render();fdb.doc('groups/'+D.id).set({deposit:tot,paidAt:now,updatedAt:now,updatedBy:S.uid},{merge:true}).then(()=>toast('סומן ששולם במלואו'),e=>toast('לא הצלחתי: '+errMsg(mapErr(e))))},

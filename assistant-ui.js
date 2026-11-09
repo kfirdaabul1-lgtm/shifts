@@ -4,14 +4,14 @@
    The server checks permissions again on every question, so hiding the button is only for comfort, not security. */
 (function () {
   const PID = () => ((window.APP_CONFIG || {}).firebase || {}).projectId || '';
-  const URL_ = () => 'https://europe-west1-' + PID() + '.cloudfunctions.net/' + (agent === 'ads' ? 'adsAgent' : 'assistant');
+  const URL_ = () => 'https://europe-west1-' + PID() + '.cloudfunctions.net/' + (agent === 'ads' ? 'adsAgent' : agent === 'adam' ? 'adamChat' : 'assistant');
   const KEY = 'scAsstHist';
   // two agents (owner, Nov 7): the general assistant and the ads agent (Haiku chat about campaigns, by hotel); each keeps its own conversation
-  let H = { gen: [], ads: [] }, genOk = false, agent = 'gen', adsH = null, adsScopes = [], busy = false, root = null, me = '', helpOnly = false;
+  let H = { gen: [], ads: [], adam: [] }, adamOk = false, adamSt = '', genOk = false, agent = 'gen', adsH = null, adsScopes = [], busy = false, root = null, me = '', helpOnly = false;
   let hist = H.gen;
   // the conversation is kept per signed-in user for this tab only
-  const load = (uid) => { me = uid || ''; H = { gen: [], ads: [] }; agent = 'gen'; adsH = null; try { const o = JSON.parse(sessionStorage.getItem(KEY) || '{}'); if (o.uid === me) { H.gen = (o.hist || o.gen || []).slice(-20); H.ads = (o.ads || []).slice(-20); if (o.agent === 'ads') agent = 'ads'; if (typeof o.adsH === 'string') adsH = o.adsH; } } catch (e) { } hist = H[agent]; };
-  const save = () => { try { sessionStorage.setItem(KEY, JSON.stringify({ uid: me, gen: H.gen.slice(-20), ads: H.ads.slice(-20), agent, adsH })); } catch (e) { } };
+  const load = (uid) => { me = uid || ''; H = { gen: [], ads: [], adam: [] }; agent = 'gen'; adsH = null; try { const o = JSON.parse(sessionStorage.getItem(KEY) || '{}'); if (o.uid === me) { H.gen = (o.hist || o.gen || []).slice(-20); H.ads = (o.ads || []).slice(-20); H.adam = (o.adam || []).slice(-20); if (o.agent === 'ads' || o.agent === 'adam') agent = o.agent; if (typeof o.adsH === 'string') adsH = o.adsH; } } catch (e) { } hist = H[agent]; };
+  const save = () => { try { sessionStorage.setItem(KEY, JSON.stringify({ uid: me, gen: H.gen.slice(-20), ads: H.ads.slice(-20), adam: H.adam.slice(-20), agent, adsH })); } catch (e) { } };
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   // light formatting: **bold**, "- " list lines, line breaks
   // numbered lines ("1. ...") become step rows (owner, Nov 9: how-to answers as steps)
@@ -70,6 +70,7 @@
 
   const SUGG = ['איך עושים…? (שרון תראה לך על המסך)', 'מי במשמרת היום?', 'אילו חדרים עדיין VD?', 'תקלות פתוחות', 'סיכום החודש במלון', 'תשלחי לעובד האחזקה את התקלות הפתוחות', 'מה במינימום במלאי?'];
   const SUGG_HELP = ['איך מגישים זמינות?', 'איך מבקשים החלפת משמרת?', 'איך מפעילים התראות?'];
+  const SUGG_ADAM = ['מה אתה יודע עכשיו?', 'מה חסר לך כדי לענות טוב ללקוחות?', 'לקוח שואל: אפשר לעשות יום הולדת ל-40 איש בגוטמן?', 'תלמד: סיורים במקום בימים א׳–ה׳ בין 10:00 ל-17:00'];
   const SUGG_ADS = ['איך הלכו הקמפיינים השבוע?', 'איזה קמפיין הכי משתלם?', 'איזו מודעה עובדת הכי טוב?', 'איזה קהל מביא את הלידים הכי זולים?'];
 
   function build() {
@@ -77,7 +78,7 @@
     const b = document.createElement('button'); b.id = 'asst-btn'; b.type = 'button'; b.title = 'שרון · עוזרת כללית'; b.textContent = '✦'; b.hidden = true;
     const w = document.createElement('div'); w.id = 'asst'; w.hidden = true;
     w.innerHTML = `<header><span><span style="color:#D9B66C">✦</span> <span>שרון · עוזרת כללית</span></span><span><button type="button" data-a="clear" title="שיחה חדשה">↺</button><button type="button" data-a="close" title="סגירה">✕</button></span></header>
-      <div class="ag" hidden><button type="button" data-ag="gen">✦ שרון · עוזרת כללית</button><button type="button" data-ag="ads">📣 אליאנה · קמפיינים</button><select aria-label="איזה מלון" data-agh></select></div>
+      <div class="ag" hidden><button type="button" data-ag="gen">✦ שרון · עוזרת כללית</button><button type="button" data-ag="ads">📣 אליאנה · קמפיינים</button><button type="button" data-ag="adam" hidden>🤵 אדם · אירועים</button><select aria-label="איזה מלון" data-agh></select></div>
       <div class="log" aria-live="polite"></div>
       <form><textarea rows="1" placeholder="לשאול על משמרות, חדרים, תקלות, מלאי…" maxlength="1500"></textarea><button type="submit">שליחה</button></form>`;
     document.body.append(b, w);
@@ -95,17 +96,22 @@
   }
   function draw(err) {
     const log = root.querySelector('.log');
-    const ag = root.querySelector('.ag'), sel = root.querySelector('[data-agh]'), ads = agent === 'ads' && adsScopes.length;
-    if (!genOk && adsScopes.length && agent !== 'ads') { agent = 'ads'; hist = H.ads; }
-    ag.hidden = !adsScopes.length; if (!adsScopes.length && agent === 'ads') { agent = 'gen'; hist = H.gen; }
-    const gb = ag.querySelector('[data-ag="gen"]'); if (gb) gb.hidden = !genOk;
+    const ag = root.querySelector('.ag'), sel = root.querySelector('[data-agh]');
+    // which agents this person has: Sharon (gen), Aliana (ads), Adam (adam, owner only, Nov 9)
+    const avail = { gen: genOk, ads: !!adsScopes.length, adam: adamOk };
+    if (!avail[agent]) { agent = ['gen', 'ads', 'adam'].find((k) => avail[k]) || 'gen'; hist = H[agent]; }
+    ag.hidden = Object.values(avail).filter(Boolean).length < 2;
+    ag.querySelectorAll('[data-ag]').forEach((x) => { x.hidden = !avail[x.dataset.ag]; });
+    const adam = agent === 'adam';
+    const ads = agent === 'ads' && adsScopes.length;
     ag.querySelectorAll('[data-ag]').forEach((x) => x.classList.toggle('on', x.dataset.ag === agent));
     if (adsH === null || !adsScopes.some((x) => x.id === adsH)) adsH = adsScopes.length ? adsScopes[0].id : '';
     sel.hidden = !ads; sel.innerHTML = adsScopes.map((x) => `<option value="${esc(x.id)}" ${x.id === adsH ? 'selected' : ''}>${esc(x.name)}</option>`).join('');
-    root.querySelector('header span span:last-child').textContent = ads ? 'אליאנה · קמפיינים' : 'שרון · עוזרת כללית';
-    root.querySelector('textarea').placeholder = ads ? 'לשאול על הקמפיינים, הקהלים, המודעות…' : helpOnly ? 'לשאול איך עושים משהו באפליקציה…' : 'לשאול על משמרות, חדרים, תקלות, מלאי, או איך עושים משהו…';
+    root.querySelector('header span span:last-child').textContent = adam ? 'אדם · סוכן מכירת אירועים' : ads ? 'אליאנה · קמפיינים' : 'שרון · עוזרת כללית';
+    root.querySelector('textarea').placeholder = adam ? 'ללמד את אדם משהו, או לכתוב "לקוח שואל: …"' : ads ? 'לשאול על הקמפיינים, הקהלים, המודעות…' : helpOnly ? 'לשאול איך עושים משהו באפליקציה…' : 'לשאול על משמרות, חדרים, תקלות, מלאי, או איך עושים משהו…';
     let h = hist.map((m, i) => `<div class="m ${m.role === 'user' ? 'u' : 'a'}">${fmt(m.text)}${m.show && m.show.steps ? `<div class="shw"><button type="button" data-show="${i}">👀 הראי לי על המסך</button>${m.show.page !== 'events' ? `<button type="button" class="g" data-open="${i}">פתיחת העמוד</button>` : ''}</div>` : ''}</div>`).join('');
-    if (!hist.length) h = ads ? `<div class="hint">אליאנה עונה על הקמפיינים, הקהלים והמודעות של ${esc((adsScopes.find((x) => x.id === adsH) || {}).name || '')}. היא רק קוראת, לא משנה קמפיינים.</div><div class="chips">${SUGG_ADS.map((s) => `<button type="button">${esc(s)}</button>`).join('')}</div>`
+    if (!hist.length) h = adam ? `<div class="hint">כאן מדברים עם אדם ומלמדים אותו. ספר לו עובדות על האירועים והוא יציע איך לכתוב אותן בידע שלו, וישמור רק אחרי שתאשר. כתוב "לקוח שואל: …" כדי לראות מה הוא היה עונה. שום דבר לא נשלח ללקוחות מכאן.${adamSt ? `<br><b>${esc(adamSt)}</b>` : ''}</div><div class="chips">${SUGG_ADAM.map((s) => `<button type="button">${esc(s)}</button>`).join('')}</div>`
+      : ads ? `<div class="hint">אליאנה עונה על הקמפיינים, הקהלים והמודעות של ${esc((adsScopes.find((x) => x.id === adsH) || {}).name || '')}. היא רק קוראת, לא משנה קמפיינים.</div><div class="chips">${SUGG_ADS.map((s) => `<button type="button">${esc(s)}</button>`).join('')}</div>`
       : helpOnly ? `<div class="hint">אפשר לשאול את שרון איך עושים דברים באפליקציה. היא מסבירה בשלבים ויכולה להראות לך על המסך על מה ללחוץ. את הלחיצות עושים בעצמך.</div><div class="chips">${SUGG_HELP.map((s) => `<button type="button">${esc(s)}</button>`).join('')}</div>`
       : `<div class="hint">אפשר לשאול את שרון איך עושים דברים באפליקציה (היא תראה לך על המסך), על הנתונים של המלונות שבהרשאה שלך, לבקש סיכום, או לבקש שתשלח הודעה לעובדים. לפני כל שליחה היא מראה לך את ההודעה ומחכה לאישור.</div><div class="chips">${SUGG.map((s) => `<button type="button">${esc(s)}</button>`).join('')}</div>`;
     if (busy) h += '<div class="m a">…</div>';
@@ -124,7 +130,7 @@
     try {
       const r = await fetch(URL_(), { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + (await u.getIdToken()) }, body: JSON.stringify(agent === 'ads' ? { messages: hist.slice(-8).map(({ role, text }) => ({ role, text })), hotel: adsH || '' } : { messages: hist.slice(-8).map(({ role, text }) => ({ role, text })) }) });
       const j = await r.json().catch(() => ({}));
-      if (!r.ok) err = j.error && j.error.length > 8 ? j.error : (agent === 'ads' ? 'אליאנה' : 'שרון') + ' לא זמינה כרגע (' + r.status + ').';
+      if (!r.ok) err = j.error && j.error.length > 8 ? j.error : (agent === 'ads' ? 'אליאנה לא זמינה' : agent === 'adam' ? 'אדם לא זמין' : 'שרון לא זמינה') + ' כרגע (' + r.status + ').';
       else hist.push({ role: 'assistant', text: String(j.text || ''), ...(j.show && j.show.page && Array.isArray(j.show.steps) ? { show: j.show } : {}) });
     } catch (e) { err = 'אין חיבור לשרת. נסו שוב.'; }
     if (err) hist.pop(); // the question was not answered: let the person send it again
@@ -234,6 +240,8 @@
         let xh = []; if (!chain) { try { const r = await db.doc('roles/' + user.uid).get(); xh = (r.exists && r.data().extraHotels) || []; } catch (e) { } }
         adsScopes = [...(chain ? [{ id: '', name: 'כל הרשת' }] : []), ...hs.filter((x) => chain || x.id === eh || xh.includes(x.id))];
       }
+      adamOk = owner; adamSt = '';
+      if (owner) { try { const a = await db.doc('agentcfg/reply').get(), d = a.exists ? a.data() || {} : {}; adamSt = 'מצב: ' + (d.enabled === true ? 'פעיל' : 'כבוי, לא עונה ללקוחות') + ' · ' + (d.mode === 'auto' ? 'אוטומטי' : 'טיוטה'); } catch (e) { } }
       if (root && !root.hidden) draw();
     } catch (e) { btn.hidden = true; }
   }

@@ -176,3 +176,104 @@ exports.agentReply = functions.region(REGION).runWith({ timeoutSeconds: 120, mem
 });
 
 exports._t = { isHuman, catOf, historyOf, systemBlocks, leadBrief, DEFAULTS };
+
+// ================= Talking with Adam (owner, Nov 9: "I want to talk with Adam like with Sharon and Aliana") =================
+// HTTP adamChat: OWNER ONLY (same check as the rules on agentKB). Adam here talks with the owner, not with customers: he reads his
+// knowledge (agentKB/reply), proposes additions/corrections and writes them only after the owner confirms in a LATER message
+// (same two-step as Sharon's notifications), and can rehearse an answer to a made-up customer message without sending or saving anything.
+// Every change keeps the previous text in agentKB/reply/versions/{time} (admin only; no client rule).
+const KB_MAX = 40000;
+const ddmm = () => { const p = C.ilDate(new Date()).split('-'); return p[2] + '/' + p[1]; };
+async function adamRate(uid) {
+  const ref = db.doc('agentRate/adam_' + uid), hour = new Date().toISOString().slice(0, 13);
+  return db.runTransaction(async (tx) => { const s = await tx.get(ref), d = s.exists ? s.data() : {}, n = d.hour === hour ? (+d.n || 0) : 0; if (n >= 40) return false; tx.set(ref, { hour, n: n + 1, total: (+d.total || 0) + 1, at: Date.now() }); return true; });
+}
+function trainerPrompt(cfg, kb, ownerName) {
+  const name = cfg.name || DEFAULTS.name, st = cfg.enabled === true ? 'ON' : 'OFF', mode = cfg.mode === 'auto' ? 'auto (sends to customers by itself)' : 'draft (a person approves each answer)';
+  return `Your name is ${name} (${name === 'אדם' ? 'Adam' : name}). You are the virtual events-sales assistant of the Seven Collection hotels, who answers event leads on WhatsApp.
+Right now you are NOT talking with a customer: you are talking with ${ownerName || 'the owner'}, the owner of the chain, who trains you. Speak Hebrew (unless he writes in another language), short and friendly, first person, as ${name}.
+Your status: ${st}, mode ${mode}, handles: ${(cfg.scope || ['events']).join(', ')}. You cannot change your status or mode yourself; the owner does that in the app (leads page → ⚡ אוטומציות).
+What you do in this chat:
+1. Learn: when he tells you facts (capacities, what is included, hours, tours, rules, tone, example answers), turn them into short clear sentences in the style of your knowledge and call propose_change. Then show him EXACTLY the text that will be added or changed and ask "לשמור?". Only when he confirms in his NEXT message call apply_change. Never write without his explicit confirmation. If he corrects the wording, propose again.
+2. Fix: to change or delete something that is already written, use propose_change with kind "replace" and the exact existing sentence in find (copy it from the knowledge below; it must appear exactly once).
+3. Rehearse: when he asks how you would answer a customer, or writes "לקוח שואל: …", call try_customer_message with the customer's words and show him the answer you would send, plus whether you would hand over to a person. Nothing is sent or saved.
+4. Gaps: when asked what is missing, look for [חסר] and for topics customers usually ask about (capacity per space, what is included, prices policy, tours, hours, 7EVEN) and list them briefly.
+Rules: never invent facts; only the owner's words go into your knowledge. Do not paste the whole knowledge unless he asks. No prices unless he gives them. You have no access to customers' chats, leads, money or settings.
+
+YOUR CURRENT KNOWLEDGE (${kb.length} characters):
+${kb || '(empty)'}`;
+}
+async function adamCore(cfg, c, hist) {
+  const kbRef = db.doc('agentKB/reply'), kbSnap = await kbRef.get(), kb = kbSnap.exists ? String((kbSnap.data() || {}).text || '') : '';
+  const used = [];
+  const tools = [
+    { name: 'propose_change', description: 'Prepare a change to your knowledge. kind "add" appends add_text at the end (dated); kind "replace" replaces the exact sentence find with replace_with (empty replace_with deletes it). Nothing is saved until apply_change after the owner confirms in his next message.',
+      input_schema: { type: 'object', properties: { kind: { type: 'string', enum: ['add', 'replace'] }, add_text: { type: 'string' }, find: { type: 'string' }, replace_with: { type: 'string' } }, required: ['kind'] },
+      run: async (a) => {
+        const kind = a.kind === 'replace' ? 'replace' : 'add', d = { uid: c.uid, kind, at: Date.now(), applied: false };
+        if (kind === 'add') { d.text = String(a.add_text || '').trim().slice(0, 3000); if (!d.text) return { error: 'empty add_text' }; }
+        else { d.find = String(a.find || '').trim(); d.repl = String(a.replace_with || '').trim().slice(0, 3000); if (!d.find) return { error: 'find is empty' }; const n = kb.split(d.find).length - 1; if (n !== 1) return { error: n ? 'the sentence appears ' + n + ' times; quote a longer unique part' : 'the sentence was not found in the knowledge; copy it exactly' }; }
+        await db.doc('agentKbDrafts/' + c.uid).set(d);
+        return { ok: true, preview: kind === 'add' ? '(' + ddmm() + ') ' + d.text : { before: d.find, after: d.repl || '(נמחק)' }, note: 'Show this to the owner and ask him to confirm. Save only with apply_change after he confirms in a later message.' };
+      } },
+    { name: 'apply_change', description: 'Save the change prepared by propose_change. Only after the owner explicitly confirmed it in a message AFTER the proposal.', input_schema: { type: 'object', properties: {} },
+      run: async () => {
+        const dref = db.doc('agentKbDrafts/' + c.uid);
+        const r = await db.runTransaction(async (tx) => {
+          const ds = await tx.get(dref), ks = await tx.get(kbRef); if (!ds.exists) return { error: 'nothing was proposed' };
+          const d = ds.data() || {}; if (d.applied) return { error: 'already saved' };
+          if (!(+d.at < c.reqStart)) return { error: 'the owner has not confirmed yet: ask him and wait for his answer' };
+          if (Date.now() - (+d.at || 0) > 30 * 60e3) return { error: 'the proposal is older than 30 minutes; propose again' };
+          const old = ks.exists ? String((ks.data() || {}).text || '') : ''; let nt;
+          if (d.kind === 'add') nt = (old.trim() ? old.replace(/\s+$/, '') + '\n\n' : '') + '(' + ddmm() + ') ' + d.text;
+          else { if (old.split(d.find).length - 1 !== 1) return { error: 'the knowledge changed meanwhile; propose again' }; nt = old.replace(d.find, d.repl).replace(/\n{3,}/g, '\n\n'); }
+          if (nt.length > KB_MAX) return { error: 'the knowledge would pass ' + KB_MAX + ' characters' };
+          const now = Date.now();
+          tx.set(kbRef.collection('versions').doc(String(now)), { text: old, at: now, by: c.uid, byName: c.name || '', via: 'adam-chat' });
+          tx.set(kbRef, { text: nt, updatedAt: now, updatedBy: c.uid, updatedByName: c.name || '', via: 'adam-chat' }, { merge: true });
+          tx.update(dref, { applied: true, appliedAt: now });
+          return { ok: true, chars: nt.length };
+        });
+        return r;
+      } },
+    { name: 'try_customer_message', description: 'Rehearsal: how you would answer a customer who writes this on WhatsApp, with your CURRENT knowledge. Nothing is sent or saved.',
+      input_schema: { type: 'object', properties: { customer_message: { type: 'string' }, earlier: { type: 'array', items: { type: 'object', properties: { from: { type: 'string', enum: ['customer', 'adam'] }, text: { type: 'string' } } }, description: 'optional earlier lines of the same made-up chat' } }, required: ['customer_message'] },
+      run: async (a) => {
+        const msgs = []; for (const x of (Array.isArray(a.earlier) ? a.earlier : []).slice(-6)) { const role = x.from === 'adam' ? 'assistant' : 'user', t = String(x.text || '').slice(0, 1000); if (!t) continue; if (msgs.length && msgs[msgs.length - 1].role === role) msgs[msgs.length - 1].content += '\n' + t; else msgs.push({ role, content: t }); }
+        while (msgs.length && msgs[0].role !== 'user') msgs.shift();
+        const cm = String(a.customer_message || '').slice(0, 1500); if (msgs.length && msgs[msgs.length - 1].role === 'user') msgs[msgs.length - 1].content += '\n' + cm; else msgs.push({ role: 'user', content: cm });
+        const got = { handoff: null, details: {}, out: '' };
+        const sim = [
+          { name: 'save_details', description: 'Record what the customer told you.', input_schema: { type: 'object', properties: { name: { type: 'string' }, interest: { type: 'string' }, event_type: { type: 'string' }, date: { type: 'string' }, guests: { type: 'number' }, hotel_or_venue: { type: 'string' }, notes: { type: 'string' } } }, run: async (x) => { Object.assign(got.details, x); return { saved: true }; } },
+          { name: 'not_in_scope', description: 'Not an event inquiry: write no text.', input_schema: { type: 'object', properties: { kind: { type: 'string' }, reason: { type: 'string' } }, required: ['kind'] }, run: async (x) => { got.out = String(x.kind || 'other'); return { ok: true }; } },
+          { name: 'handoff', description: 'Ask a person on the team to take over; then tell the customer a team member will get back.', input_schema: { type: 'object', properties: { reason: { type: 'string' }, urgency: { type: 'string' } }, required: ['reason'] }, run: async (x) => { got.handoff = String(x.reason || ''); return { ok: true }; } },
+        ];
+        const scope = (Array.isArray(cfg.scope) ? cfg.scope : DEFAULTS.scope).filter((k) => KINDS.includes(k));
+        const model = cfg.model || FAST;
+        const o = await C.runLoop({ model, system: systemBlocks(kb, cfg.mode, C.ilDate(new Date()), '', scope, cfg.name), tools: sim, messages: msgs, maxTurns: 4, maxTokens: 4000, mustAnswer: true });
+        return { reply_to_customer: got.out ? '(לא עונה: לא פנייה על אירוע · ' + got.out + ')' : String(o.text || '').trim(), hands_over_to_person: got.handoff || false, details_noted: got.details, model };
+      } },
+  ];
+  const out = await C.runLoop({ model: cfg.chatModel || SMART, system: [{ type: 'text', text: trainerPrompt(cfg, kb, c.name), cache_control: { type: 'ephemeral' } }], tools, messages: hist, maxTurns: 6, maxTokens: 8000, mustAnswer: true });
+  return { text: String(out.text || '').trim(), used: out.used || used, usage: out.U, stop: out.stop };
+}
+exports.adamChat = functions.region(REGION).runWith({ timeoutSeconds: 180, memory: '512MB' }).https.onRequest(async (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*'); res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization'); res.set('Access-Control-Allow-Methods', 'POST');
+  if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
+  if (req.method !== 'POST') { res.status(405).json({ error: 'method' }); return; }
+  try {
+    const c = await require('./assistant.js')._t.caller(req);
+    if (!c || c.denied || !c.owner) { res.status(403).json({ error: 'השיחה עם אדם פתוחה לבעלים בלבד.' }); return; }
+    c.reqStart = Date.now();
+    if (!(await adamRate(c.uid))) { res.status(429).json({ error: 'הגעת למגבלת ההודעות לשעה. נסו שוב מאוחר יותר.' }); return; }
+    const body = req.body || {};
+    const hist = (Array.isArray(body.messages) ? body.messages : []).slice(-10)
+      .filter((m) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.text === 'string' && m.text.trim()).map((m) => ({ role: m.role, content: m.text.slice(0, 4000) }));
+    while (hist.length && hist[0].role !== 'user') hist.shift();
+    if (!hist.length || hist[hist.length - 1].role !== 'user') { res.status(400).json({ error: 'empty' }); return; }
+    const cfg = { ...DEFAULTS, ...(await C.cfg('reply')) };
+    const r = await adamCore(cfg, c, hist);
+    await C.logRun('adam-chat', { uid: c.uid, model: cfg.chatModel || SMART, usage: r.usage, tools: r.used, stop: r.stop || '', textLen: r.text.length });
+    res.json({ text: r.text || 'לא הצלחתי לענות על זה. אפשר לנסח אחרת?', tools: [...new Set(r.used || [])] });
+  } catch (e) { console.error('adamChat', e); res.status(500).json({ error: 'משהו השתבש. נסו שוב בעוד רגע.' }); }
+});

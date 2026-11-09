@@ -1738,6 +1738,7 @@ exports.onAliIn = ali.onAliIn;
 exports.onAliCfg = ali.onAliCfg;
 // Adam, the events reply agent (Nov 9): deployed OFF; acts only when agentcfg/reply.enabled === true. Writes aiAgent, never waChats.agent.
 exports.agentReply = require('./agent-reply.js').agentReply;
+exports.adamChat = require('./agent-reply.js').adamChat; // owner talks with Adam (teach + rehearse), Nov 9
 // Meta campaign structure for the ads agent (Nov 7, owner): read-only, once a day → metaStruct/{campaignId}
 async function metaStructAll() {
   const m = (await db.doc('metacfg/main').get()).data() || {}, out = [], S = require('./meta-struct.js');

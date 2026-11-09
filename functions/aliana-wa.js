@@ -157,15 +157,15 @@ exports.onAliIn = functions.region(REGION).runWith({ timeoutSeconds: 300, memory
       if (/^(איפוס|שיחה חדשה|reset)$/i.test(tx0)) { await ref0.set({ adamMsgs: [] }, { merge: true }); await say(c, from, 'התחלנו שיחה חדשה עם אדם ✓'); return; }
       who.reqStart = Date.now();
       if (!(await R.adamRate(who.uid))) { await say(c, from, 'הגעת למגבלת ההודעות לשעה. נדבר שוב בעוד קצת 🙂'); return; }
-      const am = (Array.isArray(st0.adamMsgs) ? st0.adamMsgs : []).slice(-7).concat([{ role: 'user', text: clip(said, 2000) }]);
+      const am = (Array.isArray(st0.adamMsgs) ? st0.adamMsgs : []).slice(-39).concat([{ role: 'user', text: clip(said, 4000) }]); // longer memory (owner, Nov 9: facts dropped out before they were saved)
       const ah = am.map((x) => ({ role: x.role, content: x.text }));
       while (ah.length && ah[0].role !== 'user') ah.shift();
       if (fileBlocks) ah[ah.length - 1].content = [...fileBlocks, { type: 'text', text: m.doc.caption || 'מה יש בקובץ, ומה כדאי להוסיף לידע שלך?' }];
       const rcfg = { ...R.DEFAULTS, ...(await C.cfg('reply')) };
-      const ar = await R.adamCore(rcfg, who, ah, 'You are answering on WhatsApp: plain text, *bold* with single asterisks, short lines and "•" lists, no markdown tables or headings. To go back to Aliana the person writes "אליאנה".');
+      const ar = await R.adamCore(rcfg, who, ah, 'You are answering on WhatsApp: plain text, *bold* with single asterisks, short lines and "•" lists, no markdown tables or headings. To go back to Aliana the person writes "אליאנה". To start a new conversation with you he writes "איפוס" here (you cannot do it yourself, but you can tell him that).');
       const txt = ar.text || 'לא הצלחתי לענות על זה. אפשר לנסח אחרת?';
       await say(c, from, '🤵 ' + txt);
-      await ref0.set({ uid: who.uid, name: who.name || m.name || '', agent: 'adam', adamMsgs: am.concat([{ role: 'assistant', text: clip(txt, 2000) }]).slice(-8), at: Date.now() }, { merge: true });
+      await ref0.set({ uid: who.uid, name: who.name || m.name || '', agent: 'adam', adamMsgs: am.concat([{ role: 'assistant', text: clip(txt, 4000) }]).slice(-40), at: Date.now() }, { merge: true });
       await C.logRun('adam-chat', { uid: who.uid, via: 'wa', usage: ar.usage, tools: ar.used, stop: ar.stop || '', textLen: txt.length });
       return;
     }

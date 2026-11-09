@@ -11,7 +11,7 @@
   let hist = H.gen;
   // the conversation is kept per signed-in user for this tab only
   const load = (uid) => { me = uid || ''; H = { gen: [], ads: [], adam: [] }; agent = 'gen'; adsH = null; try { const o = JSON.parse(sessionStorage.getItem(KEY) || '{}'); if (o.uid === me) { H.gen = (o.hist || o.gen || []).slice(-20); H.ads = (o.ads || []).slice(-20); H.adam = (o.adam || []).slice(-20); if (o.agent === 'ads' || o.agent === 'adam') agent = o.agent; if (typeof o.adsH === 'string') adsH = o.adsH; } } catch (e) { } hist = H[agent]; };
-  const save = () => { try { sessionStorage.setItem(KEY, JSON.stringify({ uid: me, gen: H.gen.slice(-20), ads: H.ads.slice(-20), adam: H.adam.slice(-20), agent, adsH })); } catch (e) { } };
+  const save = () => { try { sessionStorage.setItem(KEY, JSON.stringify({ uid: me, gen: H.gen.slice(-20), ads: H.ads.slice(-20), adam: H.adam.slice(-60), agent, adsH })); } catch (e) { } };
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   // light formatting: **bold**, "- " list lines, line breaks
   // numbered lines ("1. ...") become step rows (owner, Nov 9: how-to answers as steps)
@@ -157,7 +157,7 @@
     hist.push({ role: 'user', text: file ? '📎 ' + file.name + '\n' + text : text }); busy = true; save(); draw();
     let err = '';
     try {
-      const r = await fetch(URL_(), { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + (await u.getIdToken()) }, body: JSON.stringify(agent === 'ads' ? { messages: hist.slice(-8).map(({ role, text }) => ({ role, text })), hotel: adsH || '' } : { messages: hist.slice(-8).map(({ role, text }) => ({ role, text })), ...(file ? { file } : {}) }) });
+      const r = await fetch(URL_(), { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + (await u.getIdToken()) }, body: JSON.stringify(agent === 'ads' ? { messages: hist.slice(-8).map(({ role, text }) => ({ role, text })), hotel: adsH || '' } : { messages: hist.slice(agent === 'adam' ? -40 : -8).map(({ role, text }) => ({ role, text })), ...(file ? { file } : {}) }) });
       const j = await r.json().catch(() => ({}));
       if (!r.ok) err = j.error && j.error.length > 8 ? j.error : (agent === 'ads' ? 'אליאנה לא זמינה' : agent === 'adam' ? 'אדם לא זמין' : 'שרון לא זמינה') + ' כרגע (' + r.status + ').';
       else hist.push({ role: 'assistant', text: String(j.text || ''), ...(j.show && j.show.page && Array.isArray(j.show.steps) ? { show: j.show } : {}) });

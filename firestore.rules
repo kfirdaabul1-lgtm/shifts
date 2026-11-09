@@ -634,6 +634,15 @@ service cloud.firestore {
       allow delete: if signedIn() && hkFullIn(resource.data.hotel);
     }
     // חדרים חסומים בלי תקלה (OOS): id = hotel__room
+    // DND door photo (worker must photograph the sign before marking DND)
+    match /hkDndImgs/{id} {
+      allow read: if signedIn() && (hkFullIn(resource.data.hotel) || hkWorkIn(resource.data.hotel));
+      allow create, update: if signedIn() && id == request.resource.data.hotel + '__' + request.resource.data.date + '__' + request.resource.data.room
+        && request.resource.data.by == request.auth.uid && request.resource.data.data is string && request.resource.data.data.size() < 900000
+        && request.resource.data.data.matches('^data:image/[a-z]+;base64,[A-Za-z0-9+/=]+$')
+        && (hkFullIn(request.resource.data.hotel) || hkWorkIn(request.resource.data.hotel));
+      allow delete: if signedIn() && hkFullIn(resource.data.hotel);
+    }
     match /hkBlocks/{id} {
       allow read: if signedIn() && (hkFullIn(resource.data.hotel) || hkWorkIn(resource.data.hotel) || maintIn(resource.data.hotel) || briefIn(resource.data.hotel));
       allow create, update: if signedIn() && id == request.resource.data.hotel + '__' + request.resource.data.room

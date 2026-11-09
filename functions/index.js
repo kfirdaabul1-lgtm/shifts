@@ -1374,6 +1374,16 @@ function roomsParse(spec) {
   return [...new Set(add)].filter((r) => !del.has(r)).slice(0, 400);
 }
 const addDaysIso = (d, n) => { const x = new Date(d + 'T12:00:00Z'); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); };
+// which meals a group has (same as the client gdMealKeys): board + days with another board; BB → breakfast, HB → + dinner, FB → + lunch, plus meals already set
+function guideMealKeys(g) {
+  const bs = new Set([g.board || ''].concat((g.dayBoards || []).map((x) => x && x.b))), k = new Set();
+  bs.forEach((b) => { if (['bb', 'hb', 'fb'].includes(b)) k.add('bf'); if (['hb', 'fb'].includes(b)) k.add('dn'); if (b === 'fb') k.add('ln'); });
+  Object.keys(g.meals || {}).forEach((m) => { const x = g.meals[m] || {}; if (x.f || x.t) k.add(m); });
+  return ['bf', 'ln', 'dn'].filter((m) => k.has(m));
+}
+const GUIDE_PRE_DAYS = 14; // the pre-arrival form opens 14 days before arrival (or earlier once it was sent)
+const guidePreOpen = (g, today) => !!g.ci && today < addDaysIso(g.ci, -1) && (today >= addDaysIso(g.ci, -GUIDE_PRE_DAYS) || !!g.preSentAt);
+
 exports.grpGuide = functions.region(REGION).https.onRequest(async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*'); res.set('Access-Control-Allow-Headers', 'Content-Type'); res.set('Access-Control-Allow-Methods', 'GET, POST');
   res.set('Cache-Control', 'no-store');
@@ -1381,12 +1391,34 @@ exports.grpGuide = functions.region(REGION).https.onRequest(async (req, res) => 
   if (req.method === 'POST') { // the guide types the guests' names of one room (owner, Nov 5) → groups/{id}.guideNames {room:[names]}
     try {
       let bd = req.body || {}; if (typeof bd === 'string') { try { bd = JSON.parse(bd); } catch (e) { bd = {}; } }
-      const k = String(bd.k || ''), room = String(bd.room || '').slice(0, 12);
-      if (!/^g[0-9a-f]{32}$/.test(k) || !room) { res.status(400).json({ error: 'bad' }); return; }
+      const k = String(bd.k || ''), room = String(bd.room || '').slice(0, 12), isPre = bd.op === 'pre';
+      if (!/^g[0-9a-f]{32}$/.test(k) || (!room && !isPre)) { res.status(400).json({ error: 'bad' }); return; }
       { // at most 120 saves per link per hour
         const rr = db.doc('guideRate/' + k), hour = new Date().toISOString().slice(0, 13);
         const over = await db.runTransaction(async (tx) => { const s = await tx.get(rr), d = s.exists ? s.data() : {}, n = d.hour === hour ? (+d.n || 0) : 0; if (n >= 120) return true; tx.set(rr, { hour, n: n + 1 }); return false; });
         if (over) { res.status(429).json({ error: 'rate' }); return; }
+      }
+      if (isPre) { // pre-arrival form: the guide's preferred meal times (owner, Nov 9) → groups.guidePref; first fill → WhatsApp to the guide + push gm/groups
+        const q = await db.collection('groups').where('guideKey', '==', k).limit(1).get();
+        if (q.empty) { res.status(404).json({ error: 'notfound' }); return; }
+        const g = q.docs[0].data(), today = ilDate(new Date());
+        if (g.status === 'cancelled' || (!guidePreOpen(g, today) && !(g.ci && today >= addDaysIso(g.ci, -1) && today <= (g.co || g.ci)))) { res.status(410).json({ error: 'expired' }); return; }
+        const keys = guideMealKeys(g), pref = {}, tm = (x) => /^([01]\d|2[0-3]):[0-5]\d$/.test(String(x || '')) ? String(x) : '';
+        const P = bd.pref && typeof bd.pref === 'object' ? bd.pref : {};
+        keys.forEach((m) => { const v = tm(P[m]); if (v) pref[m] = v; });
+        const note = String(bd.note == null ? '' : bd.note).replace(/[\u0000-\u0009\u000b-\u001f<>]/g, ' ').trim().slice(0, 500);
+        if (keys.length && !Object.keys(pref).length) { res.status(400).json({ error: 'empty' }); return; }
+        const first = !g.guidePrefAt, now = Date.now(), up = { guidePref: pref, guidePrefNote: note, guidePrefAt: now };
+        if (first) up.guideWaReq = { at: now, kind: 'done', msgId: '', by: '', byName: 'אוטומטי' };
+        await q.docs[0].ref.update(up);
+        try {
+          const h = g.hotel || '', NM = { bf: 'בוקר', ln: 'צהריים', dn: 'ערב' };
+          const to = await roleHolders(h, ['gm', 'grp']);
+          const body = [g.name || '', keys.map((m) => NM[m] + ' ' + (pref[m] || '—')).join(' · '), note].filter(Boolean).join(' · ').slice(0, 180);
+          if (to.length) await sendTo(to, { title: (first ? '🧭 המדריך מילא את פרטי הקבוצה' : '🧭 המדריך עדכן את פרטי הקבוצה') + (g.ci ? ' · הגעה ' + g.ci.slice(8, 10) + '/' + g.ci.slice(5, 7) : ''), body, hash: '#grp', tag: 'gdpre-' + q.docs[0].id });
+        } catch (e) { console.warn('guide pre push', e.message); }
+        res.json({ ok: true, pref, note, first });
+        return;
       }
       const names = (Array.isArray(bd.names) ? bd.names : []).slice(0, 12).map((x) => String(x == null ? '' : x).replace(/[\u0000-\u001f<>]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 60));
       const q = await db.collection('groups').where('guideKey', '==', k).limit(1).get();
@@ -1408,6 +1440,13 @@ exports.grpGuide = functions.region(REGION).https.onRequest(async (req, res) => 
     if (q.empty) { res.status(404).json({ error: 'notfound' }); return; }
     const g = q.docs[0].data(), today = ilDate(new Date());
     if (g.status === 'cancelled') { res.status(404).json({ error: 'notfound' }); return; }
+    if (g.ci && today < addDaysIso(g.ci, -1) && guidePreOpen(g, today)) { // before arrival: the pre-arrival form (owner, Nov 9)
+      const o = await org(), M = g.meals || {};
+      res.json({ mode: 'pre', name: g.name || '', hotel: await hotelName(g.hotel || ''), chain: o.name, ci: g.ci || '', co: g.co || '', guide: String(g.guideName || '').slice(0, 60),
+        meals: guideMealKeys(g).map((m) => ({ k: m, f: String((M[m] || {}).f || '').slice(0, 5), t: String((M[m] || {}).t || '').slice(0, 5) })),
+        pref: g.guidePref || {}, note: String(g.guidePrefNote || '').slice(0, 500), prefAt: g.guidePrefAt || 0, now: Date.now() });
+      return;
+    }
     if ((g.ci && today < addDaysIso(g.ci, -1)) || (g.co && today > addDaysIso(g.co, 1))) { res.status(410).json({ error: 'expired', ci: g.ci || '', co: g.co || '' }); return; }
     const h = g.hotel || '';
     let day = today; try { const hd = await db.doc('hkday/' + h).get(); if (hd.exists && hd.data().date) day = hd.data().date; } catch (e) { }
@@ -1454,7 +1493,7 @@ exports.onGuideWa = trig('groups/{id}').onUpdate(async (ch, ctx) => {
   const a = ch.after.data() || {}, b = ch.before.data() || {}, q = a.guideWaReq || {};
   if (!q.at || (b.guideWaReq && b.guideWaReq.at === q.at)) return;
   const id = ctx.params.id, ref = ch.after.ref, now = Date.now();
-  const done = (ok, msg, how) => ref.update({ guideWaLast: { at: now, req: q.at, kind: q.kind || '', ok, msg: String(msg || '').slice(0, 300), how: how || '' } });
+  const done = (ok, msg, how) => ref.update({ guideWaLast: { at: now, req: q.at, kind: q.kind || '', ok, msg: String(msg || '').slice(0, 300), how: how || '' }, ...(ok && q.kind === 'pre' ? { preSentAt: now } : {}) });
   try {
     if (q.by) { const r = await db.doc('roles/' + q.by).get(); const rd = r.exists ? r.data() : {}; const hs = rd.hotels || [], ap = rd.apps || {};
       let okRole = (ap.front || ap.gm || ap.shifts || ap.grp) && (!hs.length || hs.includes(a.hotel));
@@ -1464,8 +1503,11 @@ exports.onGuideWa = trig('groups/{id}').onUpdate(async (ch, ctx) => {
     const to = waIdFrom(a.guidePhone); if (!to) return done(false, 'אין מספר טלפון תקין למדריך');
     const O = await org(), hn = await hotelName(a.hotel), base = String(O.url || APP).replace(/[^/]*$/, '');
     const link = a.guideKey ? base + 'guide.html?k=' + a.guideKey : '';
-    let text = '', kind = q.kind === 'msg' ? 'msg' : 'invite';
-    if (kind === 'invite') { if (!link) return done(false, 'עוד אין קישור למדריך'); text = `שלום${a.guideName ? ' ' + a.guideName : ''},\nזה העמוד של הקבוצה "${a.name || ''}" ב${hn}: החדרים שלכם ומתי נוקו, האולמות והודעות מהקבלה.\nHello! This is your group's page at ${hn}: rooms and cleaning, halls and messages from reception.\n${link}`; }
+    let text = '', kind = ['msg', 'pre', 'done'].includes(q.kind) ? q.kind : 'invite';
+    const dd = (x) => x ? x.slice(8, 10) + '/' + x.slice(5, 7) : '';
+    if (kind === 'pre') { if (!link) return done(false, 'עוד אין קישור למדריך'); text = `היי${a.guideName ? ' ' + a.guideName : ''}, כאן ${hn}.\nאתם מגיעים אלינו עם הקבוצה "${a.name || ''}"${a.ci ? ' ב-' + dd(a.ci) : ''}. נשמח שתמלאו מספר פרטים על הקבוצה לפני ההגעה בקישור הבא:\n${link}\n\nHi! This is ${hn}. You are arriving with the group "${a.name || ''}"${a.ci ? ' on ' + dd(a.ci) : ''}. Please fill in a few details about the group before arrival:\n${link}`; }
+    else if (kind === 'done') { if (!link) return done(false, 'עוד אין קישור למדריך'); text = `תודה${a.guideName ? ' ' + a.guideName : ''}! קיבלנו את הפרטים ונעשה את מירב המאמצים להתאים את שעות הארוחות.\nהעמוד הזה ילווה אתכם לאורך כל השהות ב${hn}: החדרים, הארוחות, האולמות והודעות מהקבלה.\n\nThank you! We received the details. This page will serve you throughout your stay at ${hn}: rooms, meals, halls and messages from reception.\n${link}`; }
+    else if (kind === 'invite') { if (!link) return done(false, 'עוד אין קישור למדריך'); text = `שלום${a.guideName ? ' ' + a.guideName : ''},\nזה העמוד של הקבוצה "${a.name || ''}" ב${hn}: החדרים שלכם ומתי נוקו, האולמות והודעות מהקבלה.\nHello! This is your group's page at ${hn}: rooms and cleaning, halls and messages from reception.\n${link}`; }
     else { const m = (a.guideMsgs || []).find((x) => x.id === q.msgId); if (!m) return done(false, 'ההודעה לא נמצאה'); text = String(m.text || '') + (link ? '\n\n' + link : ''); }
     const cref = db.doc('waChats/' + to), cs = await cref.get(), cd = cs.exists ? cs.data() : {};
     const meta = { waId: to, phone: waLocal(to), guide: true, groupId: id, groupName: a.name || '', hotel: a.hotel || '', cat: cd.cat || 'events' };
@@ -1476,15 +1518,42 @@ exports.onGuideWa = trig('groups/{id}').onUpdate(async (ch, ctx) => {
       await cref.collection('msgs').add({ dir: 'out', type: 'text', text, status: 'queued', by: q.by || 'system', byName: q.byName || 'קבלה', at: now, src: 'guide' });
       return done(true, 'נשלח בוואטסאפ של המערכת', 'text');
     }
-    const cfg = ((await db.doc('waauto/main').get()).data() || {}).guide || {}, pick = cfg[kind === 'msg' ? 'msg' : 'inv'] || {};
+    const cfg = ((await db.doc('waauto/main').get()).data() || {}).guide || {}, pick = cfg[kind === 'invite' ? 'inv' : kind] || {};
     const pub = (await db.doc('wapub/main').get()).data() || {}, t = (pub.templates || []).find((x) => x.name === pick.tpl && (!pick.lang || x.lang === pick.lang));
     if (!t) return done(false, 'המדריך עוד לא כתב לנו ב-24 השעות האחרונות, ולכן וואטסאפ מאפשר לשלוח לו רק תבנית מאושרת. ' + (pick.tpl ? 'התבנית שנבחרה לא נמצאה ברשימת המאושרות.' : 'בעל המערכת צריך לבחור תבנית למדריכים.'));
-    const val = [a.guideName || 'מדריך', a.name || 'הקבוצה', hn || '', kind === 'invite' ? link : String(((a.guideMsgs || []).find((x) => x.id === q.msgId) || {}).text || '').replace(/\s*\n+\s*/g, ' · ').slice(0, 900)];
+    const val = [a.guideName || 'מדריך', a.name || 'הקבוצה', hn || '', kind !== 'msg' ? link : String(((a.guideMsgs || []).find((x) => x.id === q.msgId) || {}).text || '').replace(/\s*\n+\s*/g, ' · ').slice(0, 900)];
     const params = Array.from({ length: t.n || 0 }, (_, i) => String(val[i] || '-').trim() || '-');
     const body = tplText(t, params);
     await cref.collection('msgs').add({ dir: 'out', type: 'template', tpl: tplRef(t, params), text: body, status: 'queued', by: q.by || 'system', byName: q.byName || 'קבלה', at: now, src: 'guide' });
     return done(true, 'נשלח בוואטסאפ של המערכת (תבנית ' + t.name + ')', 'template');
   } catch (e) { return done(false, e.message); }
+});
+
+
+// pre-arrival form (owner, Nov 9): every morning, groups arriving in 1–4 days whose guide has a phone get the form link over the system WhatsApp
+// (onGuideWa kind 'pre'). Runs only when the owner turned it on (waauto/main.guide.preAuto). No guide phone → one push to gm/groups/reception.
+exports.guidePreArrival = functions.region(REGION).pubsub.schedule('0 10 * * *').timeZone('Asia/Jerusalem').onRun(async () => {
+  const G = ((await db.doc('waauto/main').get()).data() || {}).guide || {};
+  if (G.preAuto !== true) return null;
+  const today = ilDate(new Date()), from = addDaysIso(today, 1), to = addDaysIso(today, 4), now = Date.now();
+  const qs = await db.collection('groups').where('ci', '>=', from).where('ci', '<=', to).get();
+  for (const d of qs.docs) {
+    const g = d.data() || {};
+    if (!['confirmed', 'option'].includes(g.status) || g.preSentAt || g.preTried || g.guidePrefAt) continue;
+    try {
+      if (!waIdFrom(g.guidePhone)) {
+        if (g.prePhoneWarn) continue;
+        await d.ref.update({ prePhoneWarn: now });
+        const to2 = [...new Set([...(await roleHolders(g.hotel || '', ['gm', 'grp', 'front']))])];
+        if (to2.length) await sendTo(to2, { title: '🧭 חסר טלפון של מדריך · ' + (g.name || 'קבוצה'), body: 'הקבוצה מגיעה ב-' + g.ci.slice(8, 10) + '/' + g.ci.slice(5, 7) + '. בלי טלפון של המדריך אי אפשר לשלוח לו את טופס הפרטים לפני ההגעה.', hash: '#grp', tag: 'gdph-' + d.id });
+        continue;
+      }
+      const up = { preTried: now, guideWaReq: { at: now, kind: 'pre', msgId: '', by: '', byName: 'אוטומטי' } };
+      if (!/^g[0-9a-f]{32}$/.test(g.guideKey || '')) up.guideKey = 'g' + crypto.randomBytes(16).toString('hex');
+      await d.ref.update(up);
+    } catch (e) { console.warn('guide pre', d.id, e.message); }
+  }
+  return null;
 });
 
 

@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202611081940"></script>
+<script src="i18n.js?v=202611091200"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1387,13 +1387,22 @@ function gdDoc(id){if((S.grps||{})[id])return S.grps[id];for(const m of Object.v
 function gdPut(id,o){if((S.grps||{})[id])S.grps={...S.grps,[id]:{...S.grps[id],...o}};for(const h of Object.keys(S.grpFr||{}))if(S.grpFr[h]&&S.grpFr[h][id])S.grpFr[h]={...S.grpFr[h],[id]:{...S.grpFr[h][id],...o}}}
 const gdPhone=g=>String(g.guidePhone||'').replace(/\D/g,'').replace(/^0/,'972');
 const gdInvite=(g,url)=>`שלום${g.guideName?' '+g.guideName:''},\nזה העמוד של הקבוצה "${g.name||''}" ב${hotelName(g.hotel)}: החדרים שלכם ומתי נוקו, האולמות והודעות מהקבלה.\nHello! This is your group's page at ${hotelName(g.hotel)}: rooms and cleaning, halls and messages from reception.\n${url}`;
+const gdPreText=(g,url)=>`היי${g.guideName?' '+g.guideName:''}, כאן ${hotelName(g.hotel)}.\nאתם מגיעים אלינו עם הקבוצה "${g.name||''}"${g.ci?' ב-'+g.ci.slice(8,10)+'/'+g.ci.slice(5,7):''}. נשמח שתמלאו מספר פרטים על הקבוצה לפני ההגעה בקישור הבא:\n${url}\n\nHi! This is ${hotelName(g.hotel)}. You are arriving with the group "${g.name||''}". Please fill in a few details about the group before arrival:\n${url}`;
+// pre-arrival form (owner, Nov 9): the guide's preferred meal times (groups.guidePref {bf,ln,dn}, guidePrefNote, guidePrefAt) + whether the form was sent (preSentAt)
+function gdPrefHTML(g){const P=g.guidePref||{},N={bf:'ארוחת בוקר',ln:'ארוחת צהריים',dn:'ארוחת ערב'},fd=ms=>new Date(ms).toLocaleString('he-IL',{day:'numeric',month:'numeric',hour:'2-digit',minute:'2-digit'});
+  if(!g.guidePrefAt)return `<p class="muted" style="font-size:.85rem;margin:10px 0 0">📋 טופס לפני הגעה: ${g.preSentAt?'נשלח למדריך ב-'+fd(g.preSentAt)+' · עוד לא מילא':'עוד לא נשלח'}</p>`;
+  return `<div class="card" style="margin:10px 0 0;padding:10px 12px;border-inline-start:4px solid var(--gold)"><b>🧭 המדריך מילא את הטופס לפני ההגעה</b> <small class="muted">${fd(g.guidePrefAt)}</small>
+  <div style="margin-top:4px">${['bf','ln','dn'].filter(m=>P[m]).map(m=>`${N[m]}: <b dir="ltr">${esc(P[m])}</b>`).join(' · ')||'<span class="muted">בלי שעות</span>'}</div>${g.guidePrefNote?`<div class="muted" dir="auto" style="margin-top:4px;white-space:pre-wrap">${esc(g.guidePrefNote)}</div>`:''}<p class="muted" style="font-size:.8rem;margin:4px 0 0">אלה השעות שהמדריך ביקש. השעות שנקבעות בפועל נרשמות למטה ב"שעות ארוחות".</p></div>`}
 function gdWaLastHTML(g){const L=g.guideWaLast,q=g.guideWaReq;if(q&&q.at&&(!L||L.req!==q.at))return Date.now()-q.at<60000?'<p class="muted" style="font-size:.85rem">⏳ שולח בוואטסאפ של המערכת…</p>':'';if(!L)return '';
   return `<p class="${L.ok?'muted':'bad-t'}" style="font-size:.85rem;margin:4px 0">${L.ok?'✓ ':'⚠️ '}${esc(L.msg||'')} <small class="muted">(${new Date(L.at).toLocaleString('he-IL',{day:'numeric',month:'numeric',hour:'2-digit',minute:'2-digit'})})</small></p>`}
 // owner: approved templates for guides outside the 24h window → waauto/main.guide {inv:{tpl,lang}, msg:{tpl,lang}}; params {{1}} guide {{2}} group {{3}} hotel {{4}} link / message
 function gdTplHTML(){if(!S.live.wa&&!S.live.wapubG){S.live.wapubG=true;S.db.doc('wapub/main').onSnapshot(d=>{S.wapub=d.exists?d.data():{};render()},()=>{S.wapub={}})}waAutoSub();
   const T=(S.wapub||{}).templates||[],G=((S.waAuto||{}).guide)||{},sel=k=>{const c=G[k]||{};return `<select data-gdtpl="${k}"><option value="">— בלי תבנית —</option>${T.map((x,i)=>`<option value="${i}" ${x.name===c.tpl&&(!c.lang||x.lang===c.lang)?'selected':''}>${esc(x.name)} (${esc(x.lang)})</option>`).join('')}</select>`};
   return `<details class="gd-g"><summary><b>⚙ תבניות וואטסאפ למדריכים</b> <span class="muted">(רק לבעלים)</span></summary><p class="muted" style="font-size:.82rem">אם המדריך לא כתב לנו ב-24 השעות האחרונות, וואטסאפ מאפשר לשלוח לו רק תבנית מאושרת ממטא. בתבנית: {{1}} שם המדריך, {{2}} שם הקבוצה, {{3}} המלון, {{4}} הקישור (בהזמנה) או טקסט ההודעה (בעדכון).</p>
-  <label class="f">הזמנה עם הקישור${sel('inv')}</label><label class="f">עדכון / הודעה לקבוצה${sel('msg')}</label></details>`}
+  <label class="f">הזמנה עם הקישור${sel('inv')}</label><label class="f">עדכון / הודעה לקבוצה${sel('msg')}</label>
+  <label class="f">טופס פרטים לפני הגעה ("היי, כאן מלון…")${sel('pre')}</label><label class="f">אישור אחרי שהמדריך מילא ("העמוד ילווה אתכם בכל השהות")${sel('done')}</label>
+  <label class="chk" style="display:flex;gap:8px;align-items:center;margin-top:6px"><input type="checkbox" data-gdpreauto ${G.preAuto===true?'checked':''}> שליחה אוטומטית של הטופס 1–4 ימים לפני ההגעה (כל בוקר ב-10:00, לקבוצות מאושרות עם טלפון של מדריך)</label></details>`}
+document.addEventListener('change',e=>{const t=e.target;if(!t.matches||!t.matches('[data-gdpreauto]'))return;fdb.doc('waauto/main').set({guide:{preAuto:!!t.checked}},{merge:true}).then(()=>toast(t.checked?'שליחה אוטומטית הופעלה':'שליחה אוטומטית כובתה'),er=>toast('לא נשמר: '+errMsg(mapErr(er))))});
 document.addEventListener('change',e=>{const t=e.target;if(!t.matches||!t.matches('[data-gdtpl]'))return;const k=t.dataset.gdtpl,x=((S.wapub||{}).templates||[])[+t.value];
   fdb.doc('waauto/main').set({guide:{[k]:t.value===''||!x?{}:{tpl:x.name,lang:x.lang}}},{merge:true}).then(()=>toast('התבנית נשמרה'),er=>toast('לא נשמר: '+errMsg(mapErr(er))))});
 // meal times for the guide page (owner, Nov 5): which meals the group has comes from its board (+ days with other boards); groups.meals {bf|ln|dn:{f,t,place}}
@@ -1412,9 +1421,10 @@ function guideBoxHTML(id,g){const F='gd_'+id,v=(k,fb)=>dv(F,k,fb),h=g.hotel||'',
   <div class="row"><label class="f">שם המדריך<input type="text" data-f="${F}.name" value="${esc(v('name',g.guideName||''))}"></label><label class="f">טלפון המדריך<input type="tel" dir="ltr" data-f="${F}.phone" value="${esc(v('phone',g.guidePhone||''))}"></label></div>
   <div class="actions"><button class="btn sm" data-act="gd-save" data-id="${esc(id)}">שמירת פרטי המדריך</button></div>
   ${rooms.length?`<p class="muted" style="font-size:.85rem;margin:8px 0 4px">היום: ${done} מתוך ${rooms.length} חדרים נוקו</p><div class="gd-rooms">${rooms.map(r=>`<span class="hk-st hk-${cl[r]||'none'}">${esc(r)}${(g.roomCat||{})[r]==='il'?' · צוות ישראלי':(g.roomCat||{})[r]==='fo'?' · צוות זר':''}${(g.roomPax||{})[r]?' · 👤'+(+g.roomPax[r]):''}${cl[r]?' · '+HK_CN[cl[r]][1]:''}</span>`).join('')}</div>${rooms.some(r=>((g.guideNames||{})[r]||[]).length)?`<h4 style="margin:10px 0 4px">שמות האורחים (מהמדריך)</h4><div class="plist">${rooms.filter(r=>((g.guideNames||{})[r]||[]).length).map(r=>`<div class="prow"><span class="who"><b>${esc(r)}</b><small dir="auto">${g.guideNames[r].map(esc).join(' · ')}</small></span></div>`).join('')}</div>`:''}`:''}
+  ${gdPrefHTML(g)}
   ${gdMealsHTML(id,g)}
   <h4 style="margin:12px 0 4px">קישור למדריך</h4>
-  ${url?`<div class="actions"><button class="btn sm pri" data-act="gd-wa" data-id="${esc(id)}" data-k="invite">📲 שליחת הקישור מהוואטסאפ של המערכת</button><a class="btn sm ghost" href="https://wa.me/${ph}?text=${encodeURIComponent(gdInvite(g,url))}" target="_blank" rel="noopener">מהוואטסאפ שלי</a><button class="btn sm ghost" data-act="gd-copy" data-id="${esc(id)}">העתקת הקישור</button><a class="btn sm ghost" href="${esc(url)}" target="_blank" rel="noopener">תצוגה</a><button class="btn sm ghost" data-act="gd-rekey" data-id="${esc(id)}">${S.confirm==='gdk:'+id?'לחיצה נוספת: הקישור הישן יפסיק לעבוד':'קישור חדש'}</button></div><p class="muted" style="font-size:.8rem;margin:4px 0 0">הקישור עובד מיום לפני ההגעה ועד יום אחרי העזיבה, בלי הרשמה.</p>`
+  ${url?`<div class="actions"><button class="btn sm pri" data-act="gd-wa" data-id="${esc(id)}" data-k="invite">📲 שליחת הקישור מהוואטסאפ של המערכת</button><a class="btn sm ghost" href="https://wa.me/${ph}?text=${encodeURIComponent(gdInvite(g,url))}" target="_blank" rel="noopener">מהוואטסאפ שלי</a><button class="btn sm ghost" data-act="gd-copy" data-id="${esc(id)}">העתקת הקישור</button></div><div class="actions"><button class="btn sm" data-act="gd-wa" data-id="${esc(id)}" data-k="pre">📋 שליחת טופס הפרטים לפני הגעה</button><a class="btn sm ghost" href="https://wa.me/${ph}?text=${encodeURIComponent(gdPreText(g,url))}" target="_blank" rel="noopener">הטופס מהוואטסאפ שלי</a></div><div class="actions"><a class="btn sm ghost" href="${esc(url)}" target="_blank" rel="noopener">תצוגה</a><button class="btn sm ghost" data-act="gd-rekey" data-id="${esc(id)}">${S.confirm==='gdk:'+id?'לחיצה נוספת: הקישור הישן יפסיק לעבוד':'קישור חדש'}</button></div><p class="muted" style="font-size:.8rem;margin:4px 0 0">הקישור עובד מיום לפני ההגעה ועד יום אחרי העזיבה, בלי הרשמה.</p>`
     :`<div class="actions"><button class="btn sm pri" data-act="gd-key" data-id="${esc(id)}">יצירת קישור למדריך</button></div>`}
   ${gdWaLastHTML(g)}
   <h4 style="margin:12px 0 4px">הודעות לקבוצה · ${msgs.length}</h4>
@@ -5008,7 +5018,7 @@ const ACT={
     const o={guideRooms:list.join(' '),roomPax,roomCat,guideAt:Date.now(),guideBy:S.uid};
     try{await fdb.doc('groups/'+id).update(o);gdPut(id,o);S.sheet=S.sheet.back||null;S.gdSel=null;render();toast(`נשמרו ${list.length} חדרים לקבוצה · מסומנים גם במשק`)}catch(e){toast('השמירה נכשלה: '+errMsg(mapErr(e)))}},
   'gd-wa':async D=>{const id=D.id,g=gdDoc(id);if(!g)return;if(!String(g.guidePhone||'').replace(/\D/g,'')){toast('קודם רושמים ושומרים את הטלפון של המדריך');return}
-    const q={at:Date.now(),kind:D.k==='msg'?'msg':'invite',msgId:D.m||'',by:S.uid,byName:S.meName||''};
+    const q={at:Date.now(),kind:['msg','pre'].includes(D.k)?D.k:'invite',msgId:D.m||'',by:S.uid,byName:S.meName||''};
     try{await fdb.doc('groups/'+id).update({guideWaReq:q});gdPut(id,{guideWaReq:q});render();toast('נשלח לוואטסאפ של המערכת…');setTimeout(render,62000)}catch(e){toast('לא הצלחתי: '+errMsg(mapErr(e)))}},
   'gd-meals':async D=>{const id=D.id,g=gdDoc(id);if(!g)return;const F='gd_'+id,meals={};
     for(const [m] of GD_MEALS){const o={};for(const k of ['f','t','place']){const el=document.querySelector(`[data-f="${F}.m_${m}_${k}"]`),x=String(el?el.value:dv(F,'m_'+m+'_'+k,((g.meals||{})[m]||{})[k]||'')).trim().slice(0,60);if(x)o[k]=x}if(Object.keys(o).length)meals[m]=o}

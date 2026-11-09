@@ -71,11 +71,12 @@ async function callerFrom(uid, email, verified, dname, opt) {
   const r = await db.doc('roles/' + tok.uid).get(), role = r.exists ? r.data() || {} : null;
   let emp = null; try { const e = await db.doc('employees/' + tok.uid).get(); emp = e.exists ? e.data() || {} : null; } catch (e) { }
   // AI agents are given per person on the employee card (owner, Nov 9): employees/{uid}.ai {help, sharon, aliana}; the owner has all.
-  // help = Sharon only explains how to use the app (default on, ai.help === false turns it off); sharon = Sharon with hotel data; aliana = the ads agent.
+  // help = Sharon only explains how to use the app (default on, ai.help === false turns it off); sharon = Sharon with hotel data; aliana = the ads agent;
+  // adam = may train Adam, the events reply agent (adamChat / Adam on the agents' WhatsApp), with data limited to the person's hotels.
   const ea = (emp && emp.ai) || {};
-  const ai = owner ? { help: true, sharon: true, aliana: true } : { help: ea.help !== false, sharon: ea.sharon === true, aliana: ea.aliana === true };
+  const ai = owner ? { help: true, sharon: true, aliana: true, adam: true } : { help: ea.help !== false, sharon: ea.sharon === true, aliana: ea.aliana === true, adam: ea.adam === true };
   const station = !!(role && role.station);
-  const full = owner || (!station && !!emp && (opt && opt.help ? ai.sharon : (ai.sharon || ai.aliana)));
+  const full = owner || (!station && !!emp && (opt && opt.help ? ai.sharon : (ai.sharon || ai.aliana || ai.adam)));
   if (!full) {
     // help-only (owner, Nov 9): may ask Sharon HOW to use the app — no data tools at all, so nothing about the hotels can leak
     if (!(opt && opt.help)) return { uid: tok.uid, denied: true, ai };

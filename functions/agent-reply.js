@@ -178,7 +178,7 @@ exports.agentReply = functions.region(REGION).runWith({ timeoutSeconds: 120, mem
 exports._t = { isHuman, catOf, historyOf, systemBlocks, leadBrief, DEFAULTS };
 
 // ================= Talking with Adam (owner, Nov 9: "I want to talk with Adam like with Sharon and Aliana") =================
-// HTTP adamChat: OWNER ONLY (same check as the rules on agentKB). Adam here talks with the owner, not with customers: he reads his
+// HTTP adamChat: the owner, or people with employees/{uid}.ai.adam (owner, Nov 9: "more people will train him"; data limited to their hotels' venues). Adam here talks with the owner, not with customers: he reads his
 // knowledge (agentKB/reply), proposes additions/corrections and writes them only after the owner confirms in a LATER message
 // (same two-step as Sharon's notifications), and can rehearse an answer to a made-up customer message without sending or saving anything.
 // Every change keeps the previous text in agentKB/reply/versions/{time} (admin only; no client rule).
@@ -188,10 +188,10 @@ async function adamRate(uid) {
   const ref = db.doc('agentRate/adam_' + uid), hour = new Date().toISOString().slice(0, 13);
   return db.runTransaction(async (tx) => { const s = await tx.get(ref), d = s.exists ? s.data() : {}, n = d.hour === hour ? (+d.n || 0) : 0; if (n >= 40) return false; tx.set(ref, { hour, n: n + 1, total: (+d.total || 0) + 1, at: Date.now() }); return true; });
 }
-function trainerPrompt(cfg, kb, ownerName) {
+function trainerPrompt(cfg, kb, ownerName, isOwner, scopeTxt) {
   const name = cfg.name || DEFAULTS.name, st = cfg.enabled === true ? 'ON' : 'OFF', mode = cfg.mode === 'auto' ? 'auto (sends to customers by itself)' : 'draft (a person approves each answer)';
   return `Your name is ${name} (${name === 'אדם' ? 'Adam' : name}). You are the virtual events-sales assistant of the Seven Collection hotels, who answers event leads on WhatsApp.
-Right now you are NOT talking with a customer: you are talking with ${ownerName || 'the owner'}, the owner of the chain, who trains you. Speak Hebrew (unless he writes in another language), short and friendly, first person, as ${name}.
+Right now you are NOT talking with a customer: you are talking with ${isOwner ? (ownerName || 'the owner') + ', the owner of the chain,' : (ownerName || 'a team member') + ', a team member the owner allowed to train you,'} who trains you (below, "he" / "the owner" means this trainer).${scopeTxt ? ' The data tools show only ' + scopeTxt + '.' : ''} Speak Hebrew (unless he writes in another language), short and friendly, first person, as ${name}.
 Your status: ${st}, mode ${mode}, handles: ${(cfg.scope || ['events']).join(', ')}. You cannot change your status or mode yourself; the owner does that in the app (leads page → ⚡ אוטומציות).
 What you do in this chat:
 1. Learn: when he tells you facts (capacities, what is included, hours, tours, rules, tone, example answers), turn them into short clear sentences in the style of your knowledge and call propose_change. Then show him EXACTLY the text that will be added or changed and ask "לשמור?". Only when he confirms in his NEXT message call apply_change. Never write without his explicit confirmation. If he corrects the wording, propose again.
@@ -204,7 +204,15 @@ Rules: never invent facts; only the owner's words go into your knowledge. Do not
 YOUR CURRENT KNOWLEDGE (${kb.length} characters):
 ${kb || '(empty)'}`;
 }
-async function adamCore(cfg, c, hist) {
+// what a trainer may read (owner, Nov 9: other people train Adam too): owner / all-hotel staff = everything; others = the venues of their hotels
+async function adamVenues(c) {
+  if (c.owner || !c.hotels || !c.hotels.length) return null;
+  const vs = new Set();
+  for (const h of c.hotels) { try { const s = await db.doc('settings/' + h).get(); for (const v of ((s.exists && s.data().venues) || [])) vs.add(v); } catch (e) { } }
+  return vs;
+}
+async function adamCore(cfg, c, hist, extra) {
+  const VS = await adamVenues(c), vOk = (v) => !VS || VS.has(v || '');
   const kbRef = db.doc('agentKB/reply'), kbSnap = await kbRef.get(), kb = kbSnap.exists ? String((kbSnap.data() || {}).text || '') : '';
   const used = [];
   const tools = [
@@ -260,7 +268,7 @@ async function adamCore(cfg, c, hist) {
   const mask = (t) => String(t || '').replace(/(\+?\d[\d\s-]{6,}\d)/g, '[טלפון]').replace(/[\w.+-]+@[\w-]+\.[\w.]+/g, '[מייל]');
   const cut = (v, n) => { const t = typeof v === 'string' ? v : JSON.stringify(v); return t.length > n ? t.slice(0, n) + '…' : t; };
   const iso = (x) => /^\d{4}-\d{2}-\d{2}$/.test(String(x || '')) ? String(x) : '';
-  let QS = null; const allQuotes = async () => QS || (QS = (await db.collection('quotes').get()).docs.map((d) => ({ id: d.id, ...d.data() })));
+  let QS = null; const allQuotes = async () => QS || (QS = (await db.collection('quotes').get()).docs.map((d) => ({ id: d.id, ...d.data() })).filter((q) => vOk((q.event || {}).venue)));
   const qNet = (q) => { const ev = q.event || {}, g = +ev.guests || 0; let sub = 0; for (const it of (q.items || [])) { const qty = it.unit === 'guest' ? g : (+it.qty || 0), dp = Math.min(100, Math.max(0, +it.disc || 0)); sub += qty * (+it.price || 0) * (1 - dp / 100); } const after = sub * (1 - (+q.discount || 0) / 100); return Math.round(q.vatIncluded ? after / 1.18 : after); };
   tools.push(
     { name: 'events_board', description: 'The events board: events and hotel-group bookings between two dates (default the next 60 days), per venue and space, with status. Use it to learn availability patterns; never promise availability.',
@@ -276,7 +284,7 @@ async function adamCore(cfg, c, hist) {
       run: async (a) => {
         const v = String(a.venue || '').toLowerCase();
         const [ms, ks] = await Promise.all([db.collection('menus').get(), db.collection('contracts').get()]);
-        const menus = ms.docs.map((d) => ({ id: d.id, ...d.data() })).filter((m) => !v || String(m.venue || '').toLowerCase().includes(v)).slice(0, 30).map((m) => { const { updatedAt, createdAt, ...x } = m; return cut(x, 2500); });
+        const menus = ms.docs.map((d) => ({ id: d.id, ...d.data() })).filter((m) => (!m.venue || vOk(m.venue)) && (!v || String(m.venue || '').toLowerCase().includes(v))).slice(0, 30).map((m) => { const { updatedAt, createdAt, ...x } = m; return cut(x, 2500); });
         const contracts = ks.docs.map((d) => ({ id: d.id, ...d.data() })).slice(0, 10).map((k) => { const { updatedAt, createdAt, ...x } = k; return cut(x, 4000); });
         return { menus, contracts };
       } },
@@ -293,7 +301,7 @@ async function adamCore(cfg, c, hist) {
       input_schema: { type: 'object', properties: { chats: { type: 'number', description: 'how many chats, default 8, max 15' } } },
       run: async (a) => {
         const n = Math.min(15, Math.max(1, +a.chats || 8));
-        const cs = (await db.collection('waChats').orderBy('lastAt', 'desc').limit(80).get()).docs.filter((d) => { const x = d.data() || {}; return !x.guide && (!x.cat || x.cat === 'events'); });
+        const cs = (await db.collection('waChats').orderBy('lastAt', 'desc').limit(80).get()).docs.filter((d) => { const x = d.data() || {}; return !x.guide && (!x.cat || x.cat === 'events') && vOk(x.venue); });
         const out = [];
         for (const d of cs) {
           if (out.length >= n) break;
@@ -304,7 +312,7 @@ async function adamCore(cfg, c, hist) {
         return { chats: out };
       } },
   );
-  const out = await C.runLoop({ model: cfg.chatModel || SMART, system: [{ type: 'text', text: trainerPrompt(cfg, kb, c.name), cache_control: { type: 'ephemeral' } }], tools, messages: hist, maxTurns: 8, maxTokens: 8000, mustAnswer: true });
+  const out = await C.runLoop({ model: cfg.chatModel || SMART, system: [{ type: 'text', text: trainerPrompt(cfg, kb, c.name, !!c.owner, VS ? 'the events of their hotels (' + [...VS].join(', ') + ')' : '') + (extra ? '\n' + extra : ''), cache_control: { type: 'ephemeral' } }], tools, messages: hist, maxTurns: 8, maxTokens: 8000, mustAnswer: true });
   return { text: String(out.text || '').trim(), used: out.used || used, usage: out.U, stop: out.stop };
 }
 exports.adamChat = functions.region(REGION).runWith({ timeoutSeconds: 180, memory: '512MB' }).https.onRequest(async (req, res) => {
@@ -313,7 +321,7 @@ exports.adamChat = functions.region(REGION).runWith({ timeoutSeconds: 180, memor
   if (req.method !== 'POST') { res.status(405).json({ error: 'method' }); return; }
   try {
     const c = await require('./assistant.js')._t.caller(req);
-    if (!c || c.denied || !c.owner) { res.status(403).json({ error: 'השיחה עם אדם פתוחה לבעלים בלבד.' }); return; }
+    if (!c || c.denied || !(c.owner || (c.ai && c.ai.adam))) { res.status(403).json({ error: 'אין לך הרשאה לאמן את אדם. אפשר לבקש אותה בכרטיס העובד ← גישה לסוכני AI.' }); return; }
     c.reqStart = Date.now();
     if (!(await adamRate(c.uid))) { res.status(429).json({ error: 'הגעת למגבלת ההודעות לשעה. נסו שוב מאוחר יותר.' }); return; }
     const body = req.body || {};
@@ -328,3 +336,4 @@ exports.adamChat = functions.region(REGION).runWith({ timeoutSeconds: 180, memor
   } catch (e) { console.error('adamChat', e); res.status(500).json({ error: 'משהו השתבש. נסו שוב בעוד רגע.' }); }
 });
 exports._t.adamCore = adamCore;
+exports._t.adamRate = adamRate;

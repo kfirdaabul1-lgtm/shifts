@@ -116,12 +116,41 @@ exports.onAliIn = functions.region(REGION).runWith({ timeoutSeconds: 300, memory
     const who = uid ? await A.callerUid(uid) : null;
     const hs = (await db.collection('hotels').get()).docs.map((d) => ({ id: d.id, name: (d.data() || {}).name || d.id }));
     const allowed = who && !who.denied ? [''].concat(hs.map((h) => h.id)).filter((h) => ads.chatOk(who, h)) : [];
-    if (!allowed.length) {
+    // Adam (events reply agent) on the same WhatsApp for people allowed to train him (owner, Nov 9): "אדם" switches to him, "אליאנה" back
+    const adamOk = !!(who && !who.denied && (who.owner || (who.ai && who.ai.adam)));
+    if (!allowed.length && !adamOk) {
       const ref = db.doc('aliWa/' + from), s = await ref.get(), day = C.ilDate(new Date());
       if (!s.exists || s.data().strangerDay !== day) {
         await ref.set({ strangerDay: day, name: m.name || '' }, { merge: true });
         await say(c, from, 'שלום, כאן אליאנה, סוכנת הקמפיינים של המלונות. אני עונה רק למנהלים עם הרשאה לקמפיינים. אם זה את/ה, צריך שמספר הטלפון הזה יופיע בכרטיס העובד שלך באפליקציה.');
       }
+      return;
+    }
+    const ref0 = db.doc('aliWa/' + from), st0 = (await ref0.get()).data() || {};
+    const tx0 = m.type === 'text' ? String(m.text || '').trim() : '';
+    const toAdam = /^(אדם|עם אדם|לאדם|adam)[.!]?$/i.test(tx0), toAli = /^(אליאנה|עם אליאנה|לאליאנה|aliana)[.!]?$/i.test(tx0);
+    if (toAdam || toAli) {
+      if (toAdam && !adamOk) { await say(c, from, 'אין לך הרשאה לאמן את אדם. אפשר לבקש אותה מהמנהל (כרטיס העובד ← גישה לסוכני AI).'); return; }
+      if (toAli && !allowed.length) { await say(c, from, 'אין לך הרשאה לאליאנה (קמפיינים). כאן אפשר לדבר עם אדם.'); return; }
+      await ref0.set({ agent: toAdam ? 'adam' : 'ali' }, { merge: true });
+      await say(c, from, toAdam ? '🤵 היי, כאן אדם, סוכן מכירת האירועים. ספר/י לי עובדות על האירועים ואציע איך לכתוב אותן בידע שלי (אשמור רק אחרי אישור), או כתבו "לקוח שואל: …" ואראה מה הייתי עונה. כדי לחזור לאליאנה כתבו "אליאנה".' : '📣 חזרנו לאליאנה, סוכנת הקמפיינים. כדי לדבר עם אדם כתבו "אדם".');
+      return;
+    }
+    if (adamOk && (st0.agent === 'adam' || !allowed.length)) {
+      const R = require('./agent-reply.js')._t;
+      if (m.type !== 'text' || !tx0) { await say(c, from, 'אדם קורא כאן רק הודעות טקסט. קבצי ייצוא צ׳אט נשלחים לאליאנה (כתבו "אליאנה").'); return; }
+      if (/^(איפוס|שיחה חדשה|reset)$/i.test(tx0)) { await ref0.set({ adamMsgs: [] }, { merge: true }); await say(c, from, 'התחלנו שיחה חדשה עם אדם ✓'); return; }
+      who.reqStart = Date.now();
+      if (!(await R.adamRate(who.uid))) { await say(c, from, 'הגעת למגבלת ההודעות לשעה. נדבר שוב בעוד קצת 🙂'); return; }
+      const am = (Array.isArray(st0.adamMsgs) ? st0.adamMsgs : []).slice(-7).concat([{ role: 'user', text: clip(tx0, 2000) }]);
+      const ah = am.map((x) => ({ role: x.role, content: x.text }));
+      while (ah.length && ah[0].role !== 'user') ah.shift();
+      const rcfg = { ...R.DEFAULTS, ...(await C.cfg('reply')) };
+      const ar = await R.adamCore(rcfg, who, ah, 'You are answering on WhatsApp: plain text, *bold* with single asterisks, short lines and "•" lists, no markdown tables or headings. To go back to Aliana the person writes "אליאנה".');
+      const txt = ar.text || 'לא הצלחתי לענות על זה. אפשר לנסח אחרת?';
+      await say(c, from, '🤵 ' + txt);
+      await ref0.set({ uid: who.uid, name: who.name || m.name || '', agent: 'adam', adamMsgs: am.concat([{ role: 'assistant', text: clip(txt, 2000) }]).slice(-8), at: Date.now() }, { merge: true });
+      await C.logRun('adam-chat', { uid: who.uid, via: 'wa', usage: ar.usage, tools: ar.used, stop: ar.stop || '', textLen: txt.length });
       return;
     }
     const cfg = { ...ads.DEFAULTS, ...(await C.cfg('ads')) };

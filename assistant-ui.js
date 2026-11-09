@@ -97,7 +97,7 @@
   function draw(err) {
     const log = root.querySelector('.log');
     const ag = root.querySelector('.ag'), sel = root.querySelector('[data-agh]');
-    // which agents this person has: Sharon (gen), Aliana (ads), Adam (adam, owner only, Nov 9)
+    // which agents this person has: Sharon (gen), Aliana (ads), Adam (adam: owner or employees/{uid}.ai.adam, Nov 9)
     const avail = { gen: genOk, ads: !!adsScopes.length, adam: adamOk };
     if (!avail[agent]) { agent = ['gen', 'ads', 'adam'].find((k) => avail[k]) || 'gen'; hist = H[agent]; }
     ag.hidden = Object.values(avail).filter(Boolean).length < 2;
@@ -224,13 +224,13 @@
       const owner = ok;
       // agents are given per person on the employee card (employees/{uid}.ai {help, sharon, aliana}, owner Nov 9); the owner has all.
       // help (default on) = Sharon only explains how to use the app; sharon = Sharon with hotel data; reception desks get help only
-      let ai = { help: owner, sharon: owner, aliana: owner }, eh = '';
+      let ai = { help: owner, sharon: owner, aliana: owner, adam: owner }, eh = '';
       if (!owner) {
         let station = false; try { const r = await db.doc('roles/' + user.uid).get(); station = !!(r.exists && r.data().station); } catch (e) { }
-        if (station) ai = { help: true, sharon: false, aliana: false };
-        else { try { const e = await db.doc('employees/' + user.uid).get(); if (e.exists) { const d = e.data() || {}, a = d.ai || {}; ai = { help: a.help !== false, sharon: a.sharon === true, aliana: a.aliana === true }; eh = d.hotel || ''; } } catch (e) { } }
+        if (station) ai = { help: true, sharon: false, aliana: false, adam: false };
+        else { try { const e = await db.doc('employees/' + user.uid).get(); if (e.exists) { const d = e.data() || {}, a = d.ai || {}; ai = { help: a.help !== false, sharon: a.sharon === true, aliana: a.aliana === true, adam: a.adam === true }; eh = d.hotel || ''; } } catch (e) { } }
       }
-      genOk = !!(ai.sharon || ai.help); helpOnly = !owner && !ai.sharon; ok = !!(genOk || ai.aliana);
+      genOk = !!(ai.sharon || ai.help); helpOnly = !owner && !ai.sharon; ok = !!(genOk || ai.aliana || ai.adam);
       btn.hidden = !ok;
       // Aliana's scopes: owner / chain staff = whole chain + every hotel; everyone else = their own hotel
       adsScopes = [];
@@ -240,7 +240,7 @@
         let xh = []; if (!chain) { try { const r = await db.doc('roles/' + user.uid).get(); xh = (r.exists && r.data().extraHotels) || []; } catch (e) { } }
         adsScopes = [...(chain ? [{ id: '', name: 'כל הרשת' }] : []), ...hs.filter((x) => chain || x.id === eh || xh.includes(x.id))];
       }
-      adamOk = owner; adamSt = '';
+      adamOk = !!ai.adam; adamSt = '';
       if (owner) { try { const a = await db.doc('agentcfg/reply').get(), d = a.exists ? a.data() || {} : {}; adamSt = 'מצב: ' + (d.enabled === true ? 'פעיל' : 'כבוי, לא עונה ללקוחות') + ' · ' + (d.mode === 'auto' ? 'אוטומטי' : 'טיוטה'); } catch (e) { } }
       if (root && !root.hidden) draw();
     } catch (e) { btn.hidden = true; }

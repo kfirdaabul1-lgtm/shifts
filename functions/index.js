@@ -1413,7 +1413,8 @@ exports.grpGuide = functions.region(REGION).https.onRequest(async (req, res) => 
         await q.docs[0].ref.update(up);
         try {
           const h = g.hotel || '', NM = { bf: 'בוקר', ln: 'צהריים', dn: 'ערב' };
-          const to = await roleHolders(h, ['gm', 'grp']);
+          const pick = ((((await db.doc('waauto/main').get()).data() || {}).guide || {}).notify || {})[h] || [];
+          const to = pick.length ? pick : await roleHolders(h, ['gm', 'grp']); // specific people chosen by the owner, else gm + groups holders
           const body = [g.name || '', keys.map((m) => NM[m] + ' ' + (pref[m] || '—')).join(' · '), note].filter(Boolean).join(' · ').slice(0, 180);
           if (to.length) await sendTo(to, { title: (first ? '🧭 המדריך מילא את פרטי הקבוצה' : '🧭 המדריך עדכן את פרטי הקבוצה') + (g.ci ? ' · הגעה ' + g.ci.slice(8, 10) + '/' + g.ci.slice(5, 7) : ''), body, hash: '#grp', tag: 'gdpre-' + q.docs[0].id });
         } catch (e) { console.warn('guide pre push', e.message); }

@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202611091200"></script>
+<script src="i18n.js?v=202611090900"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1396,6 +1396,16 @@ function gdPrefHTML(g){const P=g.guidePref||{},N={bf:'ארוחת בוקר',ln:'�
 function gdWaLastHTML(g){const L=g.guideWaLast,q=g.guideWaReq;if(q&&q.at&&(!L||L.req!==q.at))return Date.now()-q.at<60000?'<p class="muted" style="font-size:.85rem">⏳ שולח בוואטסאפ של המערכת…</p>':'';if(!L)return '';
   return `<p class="${L.ok?'muted':'bad-t'}" style="font-size:.85rem;margin:4px 0">${L.ok?'✓ ':'⚠️ '}${esc(L.msg||'')} <small class="muted">(${new Date(L.at).toLocaleString('he-IL',{day:'numeric',month:'numeric',hour:'2-digit',minute:'2-digit'})})</small></p>`}
 // owner: approved templates for guides outside the 24h window → waauto/main.guide {inv:{tpl,lang}, msg:{tpl,lang}}; params {{1}} guide {{2}} group {{3}} hotel {{4}} link / message
+// who gets the "guide filled the pre-arrival form" notification (owner, Nov 9: specific people, not everyone with groups access) → waauto/main.guide.notify {hotel:[uid]}
+function gdNotifyHTML(h){waAutoSub();const L=((((S.waAuto||{}).guide||{}).notify||{})[h])||[],E=S.emps||{};
+  const cand=Object.keys(E).filter(u=>!L.includes(u)&&E[u]&&E[u].active!==false&&(E[u].hotel===h||E[u].hotel===CHAIN)).sort((a,b)=>empName(a).localeCompare(empName(b),'he'));
+  return `<details class="gd-g"><summary><b>🔔 מי מקבל התראה כשהמדריך ממלא את הטופס</b> <span class="muted">(${L.length?L.length+' אנשים':'עוד לא נבחרו'})</span></summary>
+  <p class="muted" style="font-size:.82rem">ההתראה נשלחת רק לאנשים שבוחרים כאן, לכל קבוצות ${esc(hotelName(h))}. כל עוד לא נבחר אף אחד, היא נשלחת למנהל המלון ולמי שיש לו הרשאת קבוצות.</p>
+  ${L.length?`<div class="plist">${L.map(u=>`<div class="prow"><span class="who"><b>${esc(empName(u))}</b>${E[u]&&E[u].hotel===CHAIN?'<small>הרשת</small>':''}</span><button class="btn sm ghost" data-act="gd-ntf" data-h="${esc(h)}" data-u="${esc(u)}" data-v="0">✕ הסרה</button></div>`).join('')}</div>`:''}
+  <label class="f">הוספת אדם<select data-gdntf="${esc(h)}"><option value="">בחירה…</option>${cand.map(u=>`<option value="${esc(u)}">${esc(empName(u))}${E[u].hotel===CHAIN?' · הרשת':''}</option>`).join('')}</select></label></details>`}
+async function gdNtfSet(h,u,on){const cur=((((S.waAuto||{}).guide||{}).notify||{})[h])||[],L=on?[...new Set(cur.concat([u]))]:cur.filter(x=>x!==u);
+  try{await fdb.doc('waauto/main').update(new firebase.firestore.FieldPath('guide','notify',h),L);toast(on?'נוסף':'הוסר')}catch(e){try{await fdb.doc('waauto/main').set({guide:{notify:{[h]:L}}},{merge:true});toast(on?'נוסף':'הוסר')}catch(er){toast('לא נשמר: '+errMsg(mapErr(er)))}}}
+document.addEventListener('change',e=>{const t=e.target;if(!t.matches||!t.matches('[data-gdntf]')||!t.value)return;gdNtfSet(t.dataset.gdntf,t.value,true)});
 function gdTplHTML(){if(!S.live.wa&&!S.live.wapubG){S.live.wapubG=true;S.db.doc('wapub/main').onSnapshot(d=>{S.wapub=d.exists?d.data():{};render()},()=>{S.wapub={}})}waAutoSub();
   const T=(S.wapub||{}).templates||[],G=((S.waAuto||{}).guide)||{},sel=k=>{const c=G[k]||{};return `<select data-gdtpl="${k}"><option value="">— בלי תבנית —</option>${T.map((x,i)=>`<option value="${i}" ${x.name===c.tpl&&(!c.lang||x.lang===c.lang)?'selected':''}>${esc(x.name)} (${esc(x.lang)})</option>`).join('')}</select>`};
   return `<details class="gd-g"><summary><b>⚙ תבניות וואטסאפ למדריכים</b> <span class="muted">(רק לבעלים)</span></summary><p class="muted" style="font-size:.82rem">אם המדריך לא כתב לנו ב-24 השעות האחרונות, וואטסאפ מאפשר לשלוח לו רק תבנית מאושרת ממטא. בתבנית: {{1}} שם המדריך, {{2}} שם הקבוצה, {{3}} המלון, {{4}} הקישור (בהזמנה) או טקסט ההודעה (בעדכון).</p>
@@ -1431,7 +1441,7 @@ function guideBoxHTML(id,g){const F='gd_'+id,v=(k,fb)=>dv(F,k,fb),h=g.hotel||'',
   <label class="f"><textarea rows="2" data-f="${F}.msg" placeholder="למשל: ארוחת בוקר מחר 07:00–09:30 בחדר האוכל">${esc(v('msg',''))}</textarea></label>
   <div class="actions"><button class="btn sm pri" data-act="gd-msg" data-id="${esc(id)}">פרסום ושליחה למדריך</button></div>
   ${(g.guideReplies||[]).length?`<h4 style="margin:12px 0 4px">תשובות מהמדריך · ${g.guideReplies.length}</h4><div class="plist">${g.guideReplies.slice().reverse().slice(0,10).map(r=>`<div class="prow"><span class="who"><b style="font-weight:500;white-space:pre-wrap" dir="auto">${esc(r.text)}</b><small>${new Date(r.at).toLocaleString('he-IL',{day:'numeric',month:'numeric',hour:'2-digit',minute:'2-digit'})}</small></span></div>`).join('')}</div>`:''}
-  ${S.isOwner?gdTplHTML():''}
+  ${S.isOwner?gdNotifyHTML(h)+gdTplHTML():''}
   ${msgs.length?`<div class="plist">${msgs.map(m=>`<div class="prow"><span class="who"><b style="font-weight:500;white-space:pre-wrap">${esc(m.text)}</b><small>${new Date(m.at).toLocaleString('he-IL',{day:'numeric',month:'numeric',hour:'2-digit',minute:'2-digit'})}${m.byName?' · '+esc(m.byName):''}</small></span><span class="actions" style="margin:0"><button class="btn sm ghost" data-act="gd-wa" data-id="${esc(id)}" data-k="msg" data-m="${esc(m.id)}">📲 שליחה למדריך</button><button class="btn sm ghost" data-act="gd-mdel" data-id="${esc(id)}" data-m="${esc(m.id)}">${S.confirm==='gdm:'+m.id?'למחוק?':'מחיקה'}</button></span></div>`).join('')}</div>`:''}
   </div>`}
 // room picker for the group (owner, Nov 5): tiles of the hotel's rooms by floor; rooms of other groups staying on overlapping dates are marked
@@ -5020,6 +5030,7 @@ const ACT={
   'gd-wa':async D=>{const id=D.id,g=gdDoc(id);if(!g)return;if(!String(g.guidePhone||'').replace(/\D/g,'')){toast('קודם רושמים ושומרים את הטלפון של המדריך');return}
     const q={at:Date.now(),kind:['msg','pre'].includes(D.k)?D.k:'invite',msgId:D.m||'',by:S.uid,byName:S.meName||''};
     try{await fdb.doc('groups/'+id).update({guideWaReq:q});gdPut(id,{guideWaReq:q});render();toast('נשלח לוואטסאפ של המערכת…');setTimeout(render,62000)}catch(e){toast('לא הצלחתי: '+errMsg(mapErr(e)))}},
+  'gd-ntf':D=>gdNtfSet(D.h,D.u,D.v==='1'),
   'gd-meals':async D=>{const id=D.id,g=gdDoc(id);if(!g)return;const F='gd_'+id,meals={};
     for(const [m] of GD_MEALS){const o={};for(const k of ['f','t','place']){const el=document.querySelector(`[data-f="${F}.m_${m}_${k}"]`),x=String(el?el.value:dv(F,'m_'+m+'_'+k,((g.meals||{})[m]||{})[k]||'')).trim().slice(0,60);if(x)o[k]=x}if(Object.keys(o).length)meals[m]=o}
     if(!Object.keys(meals).length&&!Object.keys(g.meals||{}).length){toast('לא נבחרה אף שעה. בוחרים שעה ולוחצים שוב על השמירה');return}

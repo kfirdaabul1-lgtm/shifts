@@ -5,6 +5,13 @@ admin.initializeApp({ projectId: 'hotel-shifts' });
 const db = admin.firestore();
 const KEYS = ['hotel', 'month', 'date', 'shift', 'name', 'empUid', 'ooo', 'faults', 'lost', 'cmp', 'booking', 'ciLeft', 'coLeft', 'ci', 'co', 'cid', 'unusual', 'details', 'createdAt', 'by'];
 (async () => {
+  // Adam, the events reply agent (Nov 9, owner): create its settings OFF and its first knowledge text, ONLY when missing (never overwrites)
+  try {
+    const cr = db.doc('agentcfg/reply');
+    if (!(await cr.get()).exists) { await cr.set({ enabled: false, name: 'אדם', mode: 'draft', scope: ['events'], createdAt: Date.now(), createdBy: 'setup' }); console.log('::notice title=Adam::agentcfg/reply created (off, draft)'); }
+    const kr = db.doc('agentKB/reply');
+    if (!(await kr.get()).exists) { const t = require('fs').readFileSync(require('path').join(__dirname, 'kb', 'reply-seed.md'), 'utf8').trim(); await kr.set({ text: t, updatedAt: Date.now(), updatedBy: 'setup', updatedByName: 'הזנה ראשונה' }); console.log('::notice title=Adam::agentKB/reply created, ' + t.length + ' chars'); }
+  } catch (e) { console.log('::warning title=Adam seed::' + String(e.message || e).slice(0, 200)); }
   const [all, pub] = await Promise.all([db.collection('shiftReports').get(), db.collection('shiftReportsPub').get()]);
   const have = new Set(pub.docs.map((d) => d.id));
   let n = 0, b = db.batch();

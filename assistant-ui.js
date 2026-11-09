@@ -65,6 +65,9 @@
   #asst textarea{flex:1;resize:none;border:1px solid #ddd;border-radius:10px;padding:8px 10px;font:inherit;height:42px;max-height:120px}
   #asst form button{border:0;background:#14213D;color:#fff;border-radius:10px;padding:0 14px;font:inherit;cursor:pointer}
   #asst form button:disabled{opacity:.5}
+  #asst form label.att{display:flex;align-items:center;justify-content:center;width:38px;border:1px solid #ddd;border-radius:10px;cursor:pointer;font-size:18px}
+  #asst .fchip{display:flex;gap:8px;align-items:center;margin:0 10px;padding:6px 10px;border:1px dashed #B08D57;border-radius:10px;font-size:13px}
+  #asst .fchip button{border:0;background:none;cursor:pointer;font-size:15px;color:inherit;margin-inline-start:auto}
   @media (prefers-color-scheme:dark){#asst{background:#1b1d21;color:#eee}#asst .a{background:#2a2d33}#asst header,#asst form{border-color:#333}
     #asst textarea,#asst .chips button,#asst .ag button,#asst .ag select{background:#24272c;color:#eee;border-color:#3a3d43}#asst .ag{border-color:#333}#asst .ag button.on{background:#B08D57;color:#fff}}`;
 
@@ -80,7 +83,8 @@
     w.innerHTML = `<header><span><span style="color:#D9B66C">✦</span> <span>שרון · עוזרת כללית</span></span><span><button type="button" data-a="clear" title="שיחה חדשה">↺</button><button type="button" data-a="close" title="סגירה">✕</button></span></header>
       <div class="ag" hidden><button type="button" data-ag="gen">✦ שרון · עוזרת כללית</button><button type="button" data-ag="ads">📣 אליאנה · קמפיינים</button><button type="button" data-ag="adam" hidden>🤵 אדם · אירועים</button><select aria-label="איזה מלון" data-agh></select></div>
       <div class="log" aria-live="polite"></div>
-      <form><textarea rows="1" placeholder="לשאול על משמרות, חדרים, תקלות, מלאי…" maxlength="1500"></textarea><button type="submit">שליחה</button></form>`;
+      <div class="fchip" hidden></div>
+      <form><label class="att" hidden title="צירוף קובץ וורד, PDF או תמונה">📎<input type="file" accept=".docx,.pdf,.txt,image/*" hidden></label><textarea rows="1" placeholder="לשאול על משמרות, חדרים, תקלות, מלאי…" maxlength="1500"></textarea><button type="submit">שליחה</button></form>`;
     document.body.append(b, w);
     b.onclick = () => { w.hidden = false; b.hidden = true; document.documentElement.classList.add('asst-open'); draw(); if (!matchMedia('(max-width:720px)').matches) w.querySelector('textarea').focus(); };
     const vv = window.visualViewport;
@@ -91,8 +95,30 @@
     w.querySelector('[data-agh]').onchange = (e) => { adsH = e.target.value; hist = H.ads = []; save(); draw(); };
     const ta = w.querySelector('textarea');
     ta.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); w.querySelector('form').requestSubmit(); } });
-    w.querySelector('form').onsubmit = (e) => { e.preventDefault(); const t = ta.value.trim(); if (t) { ta.value = ''; ask(t); } };
+    w.querySelector('form').onsubmit = (e) => { e.preventDefault(); const t = ta.value.trim(); if (t || pend) { ta.value = ''; ask(t || 'מה יש בקובץ, ומה כדאי להוסיף לידע שלך?'); } };
+    // a file for Adam (owner, Nov 9): Word / PDF / text as is (up to 6MB), pictures shrunk to JPEG ≤1600px
+    w.querySelector('.att input').onchange = async (e) => {
+      const f = e.target.files && e.target.files[0]; e.target.value = ''; if (!f) return;
+      try { pend = /^image\//.test(f.type) ? await shrink(f) : await asB64(f); } catch (er) { pend = null; draw(er.message || 'לא הצלחתי לקרוא את הקובץ.'); return; }
+      draw();
+    };
+    w.querySelector('.fchip').onclick = (e) => { if (e.target.closest('button')) { pend = null; draw(); } };
     root = w; return b;
+  }
+  let pend = null; // {name, mime, data} waiting to go with the next message to Adam
+  function asB64(f) {
+    return new Promise((ok, no) => {
+      if (f.size > 6e6) { no(new Error('הקובץ גדול מדי (עד 6MB).')); return; }
+      if (!/\.(docx|pdf|txt)$/i.test(f.name)) { no(new Error('אפשר לצרף קובץ וורד (‎.docx), PDF, תמונה או קובץ טקסט.')); return; }
+      const r = new FileReader(); r.onload = () => ok({ name: f.name, mime: f.type || '', data: String(r.result).split(',')[1] || '' }); r.onerror = () => no(new Error('')); r.readAsDataURL(f);
+    });
+  }
+  function shrink(f) {
+    return new Promise((ok, no) => {
+      const u = URL.createObjectURL(f), im = new Image();
+      im.onload = () => { const k = Math.min(1, 1600 / Math.max(im.width, im.height)), c = document.createElement('canvas'); c.width = Math.round(im.width * k); c.height = Math.round(im.height * k); c.getContext('2d').drawImage(im, 0, 0, c.width, c.height); URL.revokeObjectURL(u); ok({ name: f.name.replace(/\.[^.]+$/, '') + '.jpg', mime: 'image/jpeg', data: c.toDataURL('image/jpeg', 0.82).split(',')[1] }); };
+      im.onerror = () => { URL.revokeObjectURL(u); no(new Error('לא הצלחתי לפתוח את התמונה.')); }; im.src = u;
+    });
   }
   function draw(err) {
     const log = root.querySelector('.log');
@@ -108,7 +134,7 @@
     if (adsH === null || !adsScopes.some((x) => x.id === adsH)) adsH = adsScopes.length ? adsScopes[0].id : '';
     sel.hidden = !ads; sel.innerHTML = adsScopes.map((x) => `<option value="${esc(x.id)}" ${x.id === adsH ? 'selected' : ''}>${esc(x.name)}</option>`).join('');
     root.querySelector('header span span:last-child').textContent = adam ? 'אדם · סוכן מכירת אירועים' : ads ? 'אליאנה · קמפיינים' : 'שרון · עוזרת כללית';
-    root.querySelector('textarea').placeholder = adam ? 'ללמד את אדם משהו, או לכתוב "לקוח שואל: …"' : ads ? 'לשאול על הקמפיינים, הקהלים, המודעות…' : helpOnly ? 'לשאול איך עושים משהו באפליקציה…' : 'לשאול על משמרות, חדרים, תקלות, מלאי, או איך עושים משהו…';
+    root.querySelector('textarea').placeholder = adam ? 'ללמד את אדם משהו, לצרף קובץ 📎, או לכתוב "לקוח שואל: …"' : ads ? 'לשאול על הקמפיינים, הקהלים, המודעות…' : helpOnly ? 'לשאול איך עושים משהו באפליקציה…' : 'לשאול על משמרות, חדרים, תקלות, מלאי, או איך עושים משהו…';
     let h = hist.map((m, i) => `<div class="m ${m.role === 'user' ? 'u' : 'a'}">${fmt(m.text)}${m.show && m.show.steps ? `<div class="shw"><button type="button" data-show="${i}">👀 הראי לי על המסך</button>${m.show.page !== 'events' ? `<button type="button" class="g" data-open="${i}">פתיחת העמוד</button>` : ''}</div>` : ''}</div>`).join('');
     if (!hist.length) h = adam ? `<div class="hint">כאן מדברים עם אדם ומלמדים אותו. ספר לו עובדות על האירועים והוא יציע איך לכתוב אותן בידע שלו, וישמור רק אחרי שתאשר. כתוב "לקוח שואל: …" כדי לראות מה הוא היה עונה. שום דבר לא נשלח ללקוחות מכאן.${adamSt ? `<br><b>${esc(adamSt)}</b>` : ''}</div><div class="chips">${SUGG_ADAM.map((s) => `<button type="button">${esc(s)}</button>`).join('')}</div>`
       : ads ? `<div class="hint">אליאנה עונה על הקמפיינים, הקהלים והמודעות של ${esc((adsScopes.find((x) => x.id === adsH) || {}).name || '')}. היא רק קוראת, לא משנה קמפיינים.</div><div class="chips">${SUGG_ADS.map((s) => `<button type="button">${esc(s)}</button>`).join('')}</div>`
@@ -121,19 +147,22 @@
     log.querySelectorAll('[data-show]').forEach((x) => { x.onclick = () => tour((hist[+x.dataset.show] || {}).show, true); });
     log.querySelectorAll('[data-open]').forEach((x) => { x.onclick = () => tour((hist[+x.dataset.open] || {}).show, false); });
     root.querySelector('form button').disabled = busy;
+    root.querySelector('.att').hidden = !adam; if (!adam) pend = null;
+    const fc = root.querySelector('.fchip'); fc.hidden = !pend; fc.innerHTML = pend ? `📎 <span>${esc(pend.name)}</span><button type="button" title="הסרה">✕</button>` : '';
   }
   async function ask(text) {
     if (busy) return;
     const u = window.firebase && firebase.auth().currentUser; if (!u) { draw('צריך להתחבר קודם.'); return; }
-    hist.push({ role: 'user', text }); busy = true; save(); draw();
+    const file = agent === 'adam' ? pend : null; pend = null;
+    hist.push({ role: 'user', text: file ? '📎 ' + file.name + '\n' + text : text }); busy = true; save(); draw();
     let err = '';
     try {
-      const r = await fetch(URL_(), { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + (await u.getIdToken()) }, body: JSON.stringify(agent === 'ads' ? { messages: hist.slice(-8).map(({ role, text }) => ({ role, text })), hotel: adsH || '' } : { messages: hist.slice(-8).map(({ role, text }) => ({ role, text })) }) });
+      const r = await fetch(URL_(), { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + (await u.getIdToken()) }, body: JSON.stringify(agent === 'ads' ? { messages: hist.slice(-8).map(({ role, text }) => ({ role, text })), hotel: adsH || '' } : { messages: hist.slice(-8).map(({ role, text }) => ({ role, text })), ...(file ? { file } : {}) }) });
       const j = await r.json().catch(() => ({}));
       if (!r.ok) err = j.error && j.error.length > 8 ? j.error : (agent === 'ads' ? 'אליאנה לא זמינה' : agent === 'adam' ? 'אדם לא זמין' : 'שרון לא זמינה') + ' כרגע (' + r.status + ').';
       else hist.push({ role: 'assistant', text: String(j.text || ''), ...(j.show && j.show.page && Array.isArray(j.show.steps) ? { show: j.show } : {}) });
     } catch (e) { err = 'אין חיבור לשרת. נסו שוב.'; }
-    if (err) hist.pop(); // the question was not answered: let the person send it again
+    if (err) { hist.pop(); if (file) pend = file; } // the question was not answered: let the person send it again (with the file)
     busy = false; save(); draw(err);
   }
   // ---------- on-screen guide (owner, Nov 9) ----------

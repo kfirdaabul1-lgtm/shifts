@@ -39,6 +39,7 @@ async function aliHook(v) {
     if (!/^\d{6,20}$/.test(String(m.from || '')) || !/^[A-Za-z0-9._=:+\-]{8,200}$/.test(String(m.id || ''))) continue;
     const doc = { from: m.from, name: clip(names[m.from], 80), type: m.type || '', at: (+m.timestamp || 0) * 1000 || Date.now() };
     if (m.type === 'text') doc.text = clip(m.text && m.text.body, 4000);
+    else if (m.type === 'image') doc.doc = { id: clip(m.image && m.image.id, 80), mime: clip(m.image && m.image.mime_type, 80), file: 'תמונה.jpg', caption: clip(m.image && m.image.caption, 500) };
     else if (m.type === 'document') doc.doc = { id: clip(m.document && m.document.id, 80), mime: clip(m.document && m.document.mime_type, 80), file: clip(m.document && m.document.filename, 200), caption: clip(m.document && m.document.caption, 500) };
     await db.doc('aliIn/' + m.id.replace(/[^A-Za-z0-9._=:+\-]/g, '')).create(doc).catch(() => {}); // create = Meta retries are ignored
   }
@@ -138,13 +139,28 @@ exports.onAliIn = functions.region(REGION).runWith({ timeoutSeconds: 300, memory
     }
     if (adamOk && (st0.agent === 'adam' || !allowed.length)) {
       const R = require('./agent-reply.js')._t;
-      if (m.type !== 'text' || !tx0) { await say(c, from, 'אדם קורא כאן רק הודעות טקסט. קבצי ייצוא צ׳אט נשלחים לאליאנה (כתבו "אליאנה").'); return; }
+      // a Word file / PDF / picture for Adam (owner, Nov 9); a WhatsApp chat export (.txt/.zip) still goes to Aliana
+      let fileBlocks = null, fileLabel = '';
+      if ((m.type === 'document' || m.type === 'image') && m.doc && m.doc.id) {
+        const At = require('./attach.js');
+        if (/zip/i.test(m.doc.mime) || /\.zip$/i.test(m.doc.file)) { await say(c, from, 'קבצי ייצוא צ׳אט הולכים לאליאנה. כתבו "אליאנה" ושלחו שוב.'); return; }
+        try {
+          const meta = await graph(c, 'GET', m.doc.id);
+          if (+meta.file_size > 7e6) throw new Error('big');
+          const rr = await fetch(meta.url, { headers: { Authorization: 'Bearer ' + c.token } }); if (!rr.ok) throw new Error('download');
+          const a = At.toBlocks({ name: m.doc.file, mime: m.doc.mime || meta.mime_type, buf: Buffer.from(await rr.arrayBuffer()) });
+          fileBlocks = a.blocks; fileLabel = a.label;
+        } catch (e) { await say(c, from, At.ERR[e.message] || 'לא הצלחתי להוריד את הקובץ. נסו לשלוח שוב.'); return; }
+        await say(c, from, '🤵 קיבלתי, קורא…');
+      } else if (m.type !== 'text' || !tx0) { await say(c, from, 'אדם קורא כאן טקסט, קבצי וורד, PDF ותמונות.'); return; }
+      const said = fileBlocks ? (fileLabel + (m.doc.caption ? '\n' + m.doc.caption : '')) : tx0;
       if (/^(איפוס|שיחה חדשה|reset)$/i.test(tx0)) { await ref0.set({ adamMsgs: [] }, { merge: true }); await say(c, from, 'התחלנו שיחה חדשה עם אדם ✓'); return; }
       who.reqStart = Date.now();
       if (!(await R.adamRate(who.uid))) { await say(c, from, 'הגעת למגבלת ההודעות לשעה. נדבר שוב בעוד קצת 🙂'); return; }
-      const am = (Array.isArray(st0.adamMsgs) ? st0.adamMsgs : []).slice(-7).concat([{ role: 'user', text: clip(tx0, 2000) }]);
+      const am = (Array.isArray(st0.adamMsgs) ? st0.adamMsgs : []).slice(-7).concat([{ role: 'user', text: clip(said, 2000) }]);
       const ah = am.map((x) => ({ role: x.role, content: x.text }));
       while (ah.length && ah[0].role !== 'user') ah.shift();
+      if (fileBlocks) ah[ah.length - 1].content = [...fileBlocks, { type: 'text', text: m.doc.caption || 'מה יש בקובץ, ומה כדאי להוסיף לידע שלך?' }];
       const rcfg = { ...R.DEFAULTS, ...(await C.cfg('reply')) };
       const ar = await R.adamCore(rcfg, who, ah, 'You are answering on WhatsApp: plain text, *bold* with single asterisks, short lines and "•" lists, no markdown tables or headings. To go back to Aliana the person writes "אליאנה".');
       const txt = ar.text || 'לא הצלחתי לענות על זה. אפשר לנסח אחרת?';

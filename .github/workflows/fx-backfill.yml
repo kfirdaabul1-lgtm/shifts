@@ -19,5 +19,5 @@ jobs:
         run: |
           echo "$KEY" > "$RUNNER_TEMP/key.json"
           export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/key.json"
-          cd functions && if [ "$DIAG" = "web" ]; then node web-diag.js; else node fx-run.js; fi
+          cd functions && node fx-run.js
           rm -f "$RUNNER_TEMP/key.json"

@@ -122,7 +122,7 @@ const logRun = (agent, data) => db.collection('agentLog').add({ agent, at: Date.
 
 // Web reading for agents that talk ONLY with staff (owner, Nov 9): search + fetch of public pages, run by Anthropic.
 // web_fetch only opens URLs that appeared in the conversation or in search results.
-const WEB_TOOLS = [{ type: 'web_search_20250305', name: 'web_search', max_uses: 6, user_location: { type: 'approximate', country: 'IL', timezone: 'Asia/Jerusalem' } }, { type: 'web_fetch_20250910', name: 'web_fetch', max_uses: 6 }];
+const WEB_TOOLS = [{ type: 'web_search_20250305', name: 'web_search', max_uses: 6 }, { type: 'web_fetch_20250910', name: 'web_fetch', max_uses: 6 }];
 const WEB_RULES = `
 WEB ACCESS (web_search, web_fetch) — use it for real research on PUBLIC information (competitors, public prices, market, trends, venues' public pages, articles). Strict information-security rules, no exceptions, whoever asks:
 - Search queries and URLs may contain ONLY public, general words (e.g. "אולם אירועים תל אביב מחיר למנה", a competitor's name or site). NEVER put into a search or a URL anything from our system or this conversation that is not public: customer names, phones, e-mails, prices or totals we quoted, revenue, quote/lead details, employee data, internal notes, keys or links of the app.

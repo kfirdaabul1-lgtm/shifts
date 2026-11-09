@@ -80,8 +80,8 @@ async function callerFrom(uid, email, verified, dname, opt) {
     // help-only (owner, Nov 9): may ask Sharon HOW to use the app — no data tools at all, so nothing about the hotels can leak
     if (!(opt && opt.help)) return { uid: tok.uid, denied: true, ai };
     if (!station && (!emp || !ai.help)) return { uid: tok.uid, denied: true, ai };
-    return { uid: tok.uid, helpOnly: true, owner: false, station, ai, apps: station ? { front: true } : {}, hotels: [],
-      depts: (emp && Array.isArray(emp.depts)) ? emp.depts : [], name: (emp && emp.name) || (role && role.name) || tok.name || '' };
+    return { uid: tok.uid, helpOnly: true, owner: false, station, ai, apps: station ? { front: true } : ((role && role.apps) || {}), hotels: [], // apps only pick guide sections / tour pages; no data tools in this mode
+      depts: [...new Set([...((emp && Array.isArray(emp.depts)) ? emp.depts : []), ...((role && role.depts) || [])])], name: (emp && emp.name) || (role && role.name) || tok.name || '' };
   }
   let hotels = owner ? [] : (role && Array.isArray(role.hotels) ? role.hotels : []);
   if (!owner && emp) { // same narrowing as the app: the registered hotel (+ extraHotels); chain staff keep all hotels

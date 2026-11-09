@@ -326,7 +326,7 @@ async function adamCore(cfg, c, hist, extra) {
         return fit({ chats: out }, 'chats');
       } },
   );
-  const out = await C.runLoop({ model: cfg.chatModel || SMART, system: [{ type: 'text', text: trainerPrompt(cfg, kb, c.name, !!c.owner, VS ? 'the events of their hotels (' + [...VS].join(', ') + ')' : '') + (extra ? '\n' + extra : ''), cache_control: { type: 'ephemeral' } }], tools, messages: hist, maxTurns: 14, maxTokens: 8000, mustAnswer: true });
+  const out = await C.runLoop({ model: cfg.chatModel || SMART, system: [{ type: 'text', text: trainerPrompt(cfg, kb, c.name, !!c.owner, VS ? 'the events of their hotels (' + [...VS].join(', ') + ')' : '') + C.WEB_RULES + (extra ? '\n' + extra : ''), cache_control: { type: 'ephemeral' } }], tools, messages: hist, maxTurns: 14, maxTokens: 8000, mustAnswer: true, server: cfg.web === false ? [] : C.WEB_TOOLS });
   return { text: String(out.text || '').trim(), used: out.used || used, usage: out.U, stop: out.stop };
 }
 exports.adamChat = functions.region(REGION).runWith({ timeoutSeconds: 300, memory: '1GB' }).https.onRequest(async (req, res) => {

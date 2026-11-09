@@ -373,7 +373,7 @@ const HELP_TOOLS = [
       const hits = words.length ? mine.filter((x) => score(x) > 0).sort((a, b) => score(b) - score(a)).slice(0, 4) : [];
       return { sections: (hits.length ? hits : mine).map((x) => ({ title: x.title, page: x.page, text: x.body })), otherTopics: hits.length ? mine.filter((x) => !hits.includes(x)).map((x) => x.title) : undefined };
     } },
-  { name: 'show_on_screen', description: 'Offer the person a guided tour on the real screen: the app opens the page and draws a ring around each button with your short line. Use it after explaining steps from app_help. "find" must come from the guide: "act:<name>" for {act:…} or "text:<label>" for {text:…} / a visible button label. It never clicks or changes anything.', input_schema: { type: 'object', properties: {
+  { name: 'show_on_screen', description: 'Offer the person a guided tour on the real screen: the app opens the page and draws a ring around each button with your short line. Use it after explaining steps from app_help. "find" must come from the guide: "act:<name>" for {act:…}, "id:<name>" for {id:…}, or "text:<label>" for {text:…} / a visible button label. It never clicks or changes anything.', input_schema: { type: 'object', properties: {
       page: { type: 'string', description: 'the guide section page, e.g. hk, front, avail' },
       steps: { type: 'array', items: { type: 'object', properties: { find: { type: 'string' }, say: { type: 'string', description: 'one short line in the person\'s language' } }, required: ['say'] }, description: '1-6 steps' } }, required: ['page', 'steps'] },
     run: async (c, { page, steps }) => {
@@ -382,7 +382,7 @@ const HELP_TOOLS = [
       if (!c.owner && !PAGE_OK[page](c)) return { error: 'לאדם הזה אין גישה לעמוד הזה.' };
       const st = (Array.isArray(steps) ? steps : []).slice(0, 6).map((x) => {
         let f = String((x && x.find) || '').trim();
-        if (!/^act:[a-z0-9-]{1,40}$/.test(f) && !/^text:[^<>"`]{1,50}$/.test(f)) f = '';
+        if (!/^act:[a-z0-9-]{1,40}$/.test(f) && !/^id:[A-Za-z0-9_-]{1,40}$/.test(f) && !/^text:[^<>"`]{1,50}$/.test(f)) f = '';
         return { find: f, say: String((x && x.say) || '').replace(/[<>]/g, '').slice(0, 200) };
       }).filter((x) => x.say);
       if (!st.length) return { error: 'צריך לפחות שלב אחד.' };

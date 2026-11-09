@@ -136,8 +136,15 @@
   const NAV = { avail: ['tab', 'avail'], mine: ['tab', 'mine'], profile: ['tab', 'profile'], sched: ['tab', 'sched'], shifts: ['tab', 'shifts'], costs: ['tab', 'costs'] };
   ['hr', 'org', 'cfg', 'front', 'brief', 'gm', 'ceo', 'fin', 'exp', 'mkt', 'rates', 'hk', 'pub', 'bar', 'maint', 'stock', 'cmp', 'vch', 'spa', 'grp', 'leads'].forEach((p) => { NAV[p] = ['app-' + p]; });
   const fire = (act, t) => { const b = document.createElement('button'); b.type = 'button'; b.hidden = true; b.dataset.act = act; if (t) b.dataset.t = t; document.body.appendChild(b); try { b.click(); } finally { b.remove(); } };
-  function goPage(page) {
-    if (page === 'events') { location.href = 'events.html'; return false; }
+  // the events app is a separate page (events.html): a tour that needs the other page is saved and resumed there after it loads
+  const onEv = () => /events\.html$/.test(location.pathname);
+  const TKEY = 'scAsstTour';
+  function goPage(page, show, steps) {
+    if (page === 'events' ? !onEv() : onEv()) {
+      try { sessionStorage.setItem(TKEY, JSON.stringify({ at: Date.now(), steps: !!steps, show })); } catch (e) { }
+      location.href = page === 'events' ? 'events.html' : 'index.html'; return false;
+    }
+    if (page === 'events') return true;
     const n = NAV[page]; if (!n) return false;
     if (n[0] === 'tab') { fire('app-shifts'); setTimeout(() => fire('tab', n[1]), 60); } else fire(n[0]);
     return true;
@@ -145,10 +152,11 @@
   const vis = (el) => { if (!el || el.closest('#asst,#asst-tip,#asst-btn')) return false; const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0 && getComputedStyle(el).visibility !== 'hidden'; };
   function findEl(f) {
     f = String(f || '');
+    if (f.startsWith('id:')) { const e = document.getElementById(f.slice(3).replace(/[^A-Za-z0-9_-]/g, '')); return vis(e) ? e : null; }
     if (f.startsWith('act:')) { const a = f.slice(4); return [...document.querySelectorAll('[data-act="' + a.replace(/[^a-z0-9-]/g, '') + '"]')].find(vis) || null; }
     if (f.startsWith('text:')) {
       const he = f.slice(5).trim(); if (!he) return null; const tr = window.i18n ? window.i18n(he) : he;
-      const c = [...document.querySelectorAll('button,a,summary,label,[data-act],h2,h3,.item,.dchip,th')].filter((x) => { const t = (x.textContent || '').trim(); return t && (t.includes(he) || (tr && t.includes(tr))) && vis(x); });
+      const c = [...document.querySelectorAll('button,a,summary,label,[data-act],[data-tab],h2,h3,.item,.dchip,th')].filter((x) => { const t = (x.textContent || '').trim(); return t && (t.includes(he) || (tr && t.includes(tr))) && vis(x); });
       c.sort((a, b) => a.textContent.length - b.textContent.length); return c[0] || null;
     }
     return null;
@@ -160,7 +168,7 @@
     if (!show || !show.page) return;
     tourEnd();
     root.hidden = true; document.documentElement.classList.remove('asst-open'); document.getElementById('asst-btn').hidden = false;
-    if (!goPage(show.page) || !steps) return;
+    if (!goPage(show.page, show, steps) || !steps) return;
     T = { s: show.steps || [], i: 0, el: null, iv: 0 };
     const ring = document.createElement('div'); ring.id = 'asst-ring';
     const tip = document.createElement('div'); tip.id = 'asst-tip'; tip.setAttribute('role', 'dialog'); tip.setAttribute('aria-live', 'polite');
@@ -188,6 +196,16 @@
     window.addEventListener('resize', T.pos); window.addEventListener('scroll', T.pos, true);
     T.iv = setInterval(() => T && T.pos(), 600); // the app re-renders: keep the ring on the button
     setTimeout(() => T && step(), 450);
+  }
+  // a tour saved before moving between index.html and events.html continues once the page is ready
+  let resumed = false;
+  function resume() {
+    if (resumed) return; resumed = true;
+    let p = null; try { p = JSON.parse(sessionStorage.getItem(TKEY) || 'null'); sessionStorage.removeItem(TKEY); } catch (e) { }
+    if (!p || !p.show || Date.now() - (+p.at || 0) > 60e3) return;
+    const t0 = Date.now(), ready = () => onEv() ? document.querySelector('[data-tab="board"]') : document.querySelector('[data-act="menu"]');
+    const wait = () => { if (ready() || Date.now() - t0 > 15e3) setTimeout(() => tour(p.show, p.steps), 500); else setTimeout(wait, 300); };
+    wait();
   }
   // show the button only for the owner / role holders (not reception desks)
   async function gate(btn, user) {
@@ -222,7 +240,7 @@
   function start() {
     if (!window.firebase || !firebase.apps || !firebase.apps.length) { setTimeout(start, 500); return; }
     const btn = build();
-    firebase.auth().onAuthStateChanged((u) => { load(u && u.uid); if (root && !root.hidden) draw(); gate(btn, u); });
+    firebase.auth().onAuthStateChanged((u) => { load(u && u.uid); if (root && !root.hidden) draw(); gate(btn, u); if (u) resume(); });
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
 })();

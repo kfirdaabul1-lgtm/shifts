@@ -194,7 +194,7 @@ function trainerPrompt(cfg, kb, ownerName, isOwner, scopeTxt) {
 Right now you are NOT talking with a customer: you are talking with ${isOwner ? (ownerName || 'the owner') + ', the owner of the chain,' : (ownerName || 'a team member') + ', a team member the owner allowed to train you,'} who trains you (below, "he" / "the owner" means this trainer).${scopeTxt ? ' The data tools show only ' + scopeTxt + '.' : ''} Speak Hebrew (unless he writes in another language), short and friendly, first person, as ${name}.
 Your status: ${st}, mode ${mode}, handles: ${(cfg.scope || ['events']).join(', ')}. You cannot change your status or mode yourself; the owner does that in the app (leads page → ⚡ אוטומציות).
 What you do in this chat:
-1. Learn: when he tells you facts (capacities, what is included, hours, tours, rules, tone, example answers), turn them into short clear sentences in the style of your knowledge and call propose_change. Then show him EXACTLY the text that will be added or changed and ask "לשמור?". Only when he confirms in his NEXT message call apply_change. Never write without his explicit confirmation. If he corrects the wording, propose again.
+1. Learn: when he tells you facts (capacities, what is included, hours, tours, rules, tone, example answers), turn them into short clear sentences in the style of your knowledge and call propose_change. Then show him EXACTLY the text that will be added or changed and ask "לשמור?". IMPORTANT: call propose_change in the SAME answer in which you ask "לשמור?" — never ask before calling it. Only when he confirms in his NEXT message call apply_change. Never write without his explicit confirmation. If he corrects the wording, propose again.
 2. Fix: to change or delete something that is already written, use propose_change with kind "replace" and the exact existing sentence in find (copy it from the knowledge below; it must appear exactly once).
 3. Rehearse: when he asks how you would answer a customer, or writes "לקוח שואל: …", call try_customer_message with the customer's words and show him the answer you would send, plus whether you would hand over to a person. Nothing is sent or saved.
 5. Data (read only, only for this chat with the owner, never for customers): events_board, menus_and_contracts (first the list, then each id in full, all its parts), past_quotes, staff_chats. If a result says not everything fitted, ask again with a narrower filter instead of guessing. Use them to learn and to SUGGEST knowledge to add (e.g. capacities, what menus include, how the team phrases answers). What reaches customers is only your knowledge text, so anything learned from data goes there only through propose_change + the owner's confirmation. Prices from past quotes are internal: don't propose adding them unless the owner explicitly asks.
@@ -227,14 +227,33 @@ async function adamCore(cfg, c, hist, extra) {
         await db.doc('agentKbDrafts/' + c.uid).set(d);
         return { ok: true, preview: kind === 'add' ? '(' + ddmm() + ') ' + d.text : { before: d.find, after: d.repl || '(נמחק)' }, note: 'Show this to the owner and ask him to confirm. Save only with apply_change after he confirms in a later message.' };
       } },
-    { name: 'apply_change', description: 'Save the change prepared by propose_change. Only after the owner explicitly confirmed it in a message AFTER the proposal.', input_schema: { type: 'object', properties: {} },
-      run: async () => {
+    { name: 'apply_change', description: 'Save the change prepared by propose_change, only after the owner explicitly confirmed it in a message AFTER the proposal. If propose_change was not called but your PREVIOUS message showed the exact text and asked to save, and the owner just confirmed, pass that same change here (kind + add_text, or find + replace_with) exactly as you showed it.',
+      input_schema: { type: 'object', properties: { kind: { type: 'string', enum: ['add', 'replace'] }, add_text: { type: 'string' }, find: { type: 'string' }, replace_with: { type: 'string' } } },
+      run: async (a) => {
         const dref = db.doc('agentKbDrafts/' + c.uid);
+        // fallback (owner, Nov 9: Adam showed a text, asked "לשמור?", the owner said yes, but no proposal had been recorded):
+        // accept the change only when it appears word for word in Adam's previous message and the owner's last message confirms
+        const norm = (t) => String(t || '').replace(/[\u200e\u200f"״“”'׳*_]/g, '').replace(/\s+/g, ' ').trim();
+        const lastU = hist[hist.length - 1] || {}, prevA = [...hist].reverse().find((m) => m.role === 'assistant') || {};
+        const txt = (m) => typeof m.content === 'string' ? m.content : (m.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('\n');
+        const confirmed = /^(כן|כן[, ]|לשמור|שמור|תשמור|מאשר|מאושר|אישור|יאללה|סבבה|אוקיי?|ok|yes|בטח|נכון|👍)/i.test(norm(txt(lastU)));
+        const inPrev = (t) => t && norm(t).length >= 4 && norm(txt(prevA)).includes(norm(t));
+        let direct = null;
+        if (a && (a.add_text || a.find) && confirmed) {
+          if (a.kind !== 'replace' && inPrev(a.add_text)) direct = { kind: 'add', text: String(a.add_text).trim().slice(0, 3000) };
+          else if (a.kind === 'replace' && inPrev(a.find) && (!a.replace_with || inPrev(a.replace_with))) direct = { kind: 'replace', find: String(a.find).trim(), repl: String(a.replace_with || '').trim().slice(0, 3000) };
+        }
         const r = await db.runTransaction(async (tx) => {
-          const ds = await tx.get(dref), ks = await tx.get(kbRef); if (!ds.exists) return { error: 'nothing was proposed' };
-          const d = ds.data() || {}; if (d.applied) return { error: 'already saved' };
-          if (!(+d.at < c.reqStart)) return { error: 'the owner has not confirmed yet: ask him and wait for his answer' };
-          if (Date.now() - (+d.at || 0) > 30 * 60e3) return { error: 'the proposal is older than 30 minutes; propose again' };
+          const ds = await tx.get(dref), ks = await tx.get(kbRef);
+          let d = ds.exists ? ds.data() || {} : null;
+          const draftOk = d && !d.applied && +d.at < c.reqStart && Date.now() - (+d.at || 0) <= 30 * 60e3;
+          if (!draftOk && direct) d = direct;
+          else {
+            if (!d) return { error: 'nothing was proposed' };
+            if (d.applied) return { error: 'already saved' };
+            if (!(+d.at < c.reqStart)) return { error: 'the owner has not confirmed yet: ask him and wait for his answer' };
+            if (Date.now() - (+d.at || 0) > 30 * 60e3) return { error: 'the proposal is older than 30 minutes; propose again' };
+          }
           const old = ks.exists ? String((ks.data() || {}).text || '') : ''; let nt;
           if (d.kind === 'add') nt = (old.trim() ? old.replace(/\s+$/, '') + '\n\n' : '') + '(' + ddmm() + ') ' + d.text;
           else { if (old.split(d.find).length - 1 !== 1) return { error: 'the knowledge changed meanwhile; propose again' }; nt = old.replace(d.find, d.repl).replace(/\n{3,}/g, '\n\n'); }
@@ -242,7 +261,7 @@ async function adamCore(cfg, c, hist, extra) {
           const now = Date.now();
           tx.set(kbRef.collection('versions').doc(String(now)), { text: old, at: now, by: c.uid, byName: c.name || '', via: 'adam-chat' });
           tx.set(kbRef, { text: nt, updatedAt: now, updatedBy: c.uid, updatedByName: c.name || '', via: 'adam-chat' }, { merge: true });
-          tx.update(dref, { applied: true, appliedAt: now });
+          if (draftOk || !direct) tx.update(dref, { applied: true, appliedAt: now }); else tx.set(dref, { uid: c.uid, ...d, at: now, applied: true, appliedAt: now, direct: true });
           return { ok: true, chars: nt.length };
         });
         return r;

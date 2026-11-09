@@ -394,7 +394,7 @@ body.nx .card,body.nx .kpi,body.nx .prow{background:rgba(10,20,40,.82)}body.nx .
 .nx-sub{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:10px}.nx-k{border:1px solid rgba(34,211,238,.2);border-radius:10px;padding:8px 10px}.nx-k b{font-size:1.2rem;display:block}.nx-k span{font-size:.72rem;color:#7FA3B3}
 .nx-note{font-size:.75rem;color:#7FA3B3;margin:4px 2px 0}
 .nx-ev{display:flex;justify-content:space-between;gap:8px;font-size:.85rem;padding:6px 0;border-top:1px solid rgba(34,211,238,.12)}.nx-ev:first-child{border-top:0}.nx-ev small{color:#7FA3B3}
-.rt-wrap{overflow:auto;max-height:75vh;border:1px solid var(--line);border-radius:10px}.rt{border-collapse:collapse;font-size:.82rem;min-width:100%}.rt th,.rt td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:center;vertical-align:top;white-space:nowrap}.rt thead th{position:sticky;top:0;background:var(--surface);z-index:2;font-weight:600}.rt .rt-d{position:sticky;right:0;background:var(--surface);z-index:1;text-align:start}[dir=ltr] .rt .rt-d{right:auto;left:0}.rt .rt-d small{display:block;color:var(--muted);font-weight:400}
+.rt-wrap{overflow:auto;max-height:calc(100dvh - var(--toph,140px) - 12px);min-height:260px;overscroll-behavior:contain;border:1px solid var(--line);border-radius:10px}.rt{border-collapse:collapse;font-size:.82rem;min-width:100%}.rt th,.rt td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:center;vertical-align:top;white-space:nowrap}.rt thead th{position:sticky;top:0;background:var(--surface);z-index:2;font-weight:600;box-shadow:0 1px 0 var(--line)}.rt thead th.rt-d{z-index:3}.rt .rt-d{box-shadow:-1px 0 0 var(--line)}.rt .rt-d{position:sticky;right:0;background:var(--surface);z-index:1;text-align:start}[dir=ltr] .rt .rt-d{right:auto;left:0}.rt .rt-d small{display:block;color:var(--muted);font-weight:400}
 .rtcal-w{display:grid;grid-template-columns:minmax(0,1fr) 270px;gap:14px;align-items:stretch}@media(max-width:820px){.rtcal-w{grid-template-columns:1fr}}
 .rtcal{min-width:0;display:flex;flex-direction:column}.rtcal .rtcal-g{flex:1;grid-auto-rows:minmax(96px,1fr)}.rtcal-dw,.rtcal-g{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px}.rtcal-dw{font-size:.72rem;color:var(--muted);margin-bottom:4px;text-align:center}
 .rtc{border:1px solid var(--line);border-radius:6px;padding:8px;min-height:96px;display:flex;flex-direction:column;gap:2px;background:var(--surface);font:inherit;color:inherit;text-align:start;cursor:pointer;min-width:0}.rtc-h{display:flex;justify-content:space-between;gap:2px;font-size:.74rem}.rtc-h small{color:var(--muted)}.rtc-g{font-weight:700;font-size:.85rem;font-variant-numeric:tabular-nums}
@@ -696,7 +696,10 @@ function sheetIosPush(){return sheetHead('התראות באייפון','')+`<p>�
   <ol style="padding-inline-start:20px;line-height:1.9"><li>פותחים את האתר ב-<b>Safari</b>.</li><li>לוחצים על כפתור השיתוף <b>⎙</b> (ריבוע עם חץ למעלה) בתחתית המסך.</li><li>בוחרים <b>"הוסף למסך הבית"</b> ולוחצים "הוסף".</li><li>פותחים את <b>${esc(appName())}</b> מהאייקון החדש במסך הבית.</li><li>בתפריט לוחצים <b>"הפעלת התראות"</b> ומאשרים.</li></ol>
   <p class="muted" style="font-size:.85rem">צריך iOS 16.4 ומעלה. אחרי ההתקנה האתר נפתח כמו אפליקציה, בלי שורת הכתובת.</p>
   <div class="actions"><button class="btn pri" data-act="close">הבנתי</button></div>`}
-function render(){if(S.deep)deepOpen();if(isTyping()){S.pending=true;return}S.pending=false;renderTop();renderDrawer();document.body.classList.toggle('nx',(S.tab==='ceo'||S.tab==='gm')&&!S.pmode);$('#main').innerHTML=bcBannerHTML()+callsBannerHTML()+viewHTML();try{chipSelects($('#main'))}catch(e){}renderSheet()}
+function render(){if(S.deep)deepOpen();if(isTyping()){S.pending=true;return}S.pending=false;renderTop();renderDrawer();document.body.classList.toggle('nx',(S.tab==='ceo'||S.tab==='gm')&&!S.pmode);$('#main').innerHTML=bcBannerHTML()+callsBannerHTML()+viewHTML();try{chipSelects($('#main'))}catch(e){}renderSheet();setTopH()}
+// height of the sticky top bar → --toph, so inner scroll boxes (price comparison table) fit under it and keep their sticky header row/date column (owner, Nov 9)
+function setTopH(){const t=document.querySelector('.top');if(t)document.documentElement.style.setProperty('--toph',t.offsetHeight+'px')}
+window.addEventListener('resize',()=>setTopH());
 // filter chip rows → one compact "filter topic" button with a drop-down (owner, Nov 3). Only single-choice rows on the page (not in sheets):
 // every child a button.dchip, exactly one active, at least 3 options, and not a view switch or a multi-select row.
 const FSEL_SKIP=/-view$|^exp-tab$|^call-t$|^pcall-t$|^kc-dept$|^job-dept$|^perm-|^emp-dept$|^pf-dept$|^vchn-vh$|^pl-ag$|^pl-m$|^lead-catset$|^spa-mins$|^lead-stage$/;
@@ -3283,7 +3286,7 @@ function vRates(){const hs=ratesHs();if(!hs.length)return wrap(emptyBox('אין 
   if(view==='room'){
     const table=`<div class="card">${top}
     <p class="muted" style="font-size:.8rem"><span>לילה אחד, 2 מבוגרים. ירוק = אתר הבית זול מ-Booking Genius, אדום = Booking Genius זול מאתר הבית. ☕ = כולל ארוחת בוקר (ב-Booking Genius יש ארוחת בוקר ובאתר הבית לא, ולכן ההשוואה לא שווה לגמרי).</span></p>
-    <div class="rt-wrap"><table class="rt"><thead><tr><th>תאריך</th><th>הכי זול</th>${rooms.map(r=>`<th>${esc(r)}</th>`).join('')}</tr></thead><tbody>
+    <div class="rt-wrap"><table class="rt"><thead><tr><th class="rt-d">תאריך</th><th>הכי זול</th>${rooms.map(r=>`<th>${esc(r)}</th>`).join('')}</tr></thead><tbody>
     ${dates.map(d=>`<tr><th class="rt-d">${esc(fmtDM(d).slice(0,5))}<small>${dw(d)}</small></th>${ratesCell(minOf('booking',d),minOf('site',d))}${rooms.map(rm=>ratesCell(pick('booking',d,rm),pick('site',d,rm))).join('')}</tr>`).join('')}
     </tbody></table></div></div>`;
     return wrap(head+tabs+table)}

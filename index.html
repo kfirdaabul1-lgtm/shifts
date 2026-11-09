@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202611090900"></script>
+<script src="i18n.js?v=202611090905"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1397,12 +1397,14 @@ function gdWaLastHTML(g){const L=g.guideWaLast,q=g.guideWaReq;if(q&&q.at&&(!L||L
   return `<p class="${L.ok?'muted':'bad-t'}" style="font-size:.85rem;margin:4px 0">${L.ok?'✓ ':'⚠️ '}${esc(L.msg||'')} <small class="muted">(${new Date(L.at).toLocaleString('he-IL',{day:'numeric',month:'numeric',hour:'2-digit',minute:'2-digit'})})</small></p>`}
 // owner: approved templates for guides outside the 24h window → waauto/main.guide {inv:{tpl,lang}, msg:{tpl,lang}}; params {{1}} guide {{2}} group {{3}} hotel {{4}} link / message
 // who gets the "guide filled the pre-arrival form" notification (owner, Nov 9: specific people, not everyone with groups access) → waauto/main.guide.notify {hotel:[uid]}
+// hotel settings page card (owner, Nov 9: decided per hotel in the hotel settings, not per group)
+function grpNotifyCardHTML(){if(!S.isOwner)return '';const hs=visibleHotels();if(!hs.length)return '';
+  return `<section class="card"><h2>🔔 התראות קבוצות · מי מקבל התראה כשמדריך ממלא את הטופס לפני ההגעה</h2><p class="muted" style="font-size:.85rem">ההתראה נשלחת רק לאנשים שבוחרים כאן. במלון שלא נבחר בו אף אחד, היא נשלחת למנהל המלון ולמי שיש לו הרשאת קבוצות.</p>${hs.map(h=>gdNotifyHTML(h)).join('')}</section>`}
 function gdNotifyHTML(h){waAutoSub();const L=((((S.waAuto||{}).guide||{}).notify||{})[h])||[],E=S.emps||{};
   const cand=Object.keys(E).filter(u=>!L.includes(u)&&E[u]&&E[u].active!==false&&(E[u].hotel===h||E[u].hotel===CHAIN)).sort((a,b)=>empName(a).localeCompare(empName(b),'he'));
-  return `<details class="gd-g"><summary><b>🔔 מי מקבל התראה כשהמדריך ממלא את הטופס</b> <span class="muted">(${L.length?L.length+' אנשים':'עוד לא נבחרו'})</span></summary>
-  <p class="muted" style="font-size:.82rem">ההתראה נשלחת רק לאנשים שבוחרים כאן, לכל קבוצות ${esc(hotelName(h))}. כל עוד לא נבחר אף אחד, היא נשלחת למנהל המלון ולמי שיש לו הרשאת קבוצות.</p>
+  return `<div style="border-top:1px solid var(--line);padding-top:10px;margin-top:10px"><h3 style="margin:0 0 6px">${esc(hotelName(h))} <small class="muted">(${L.length?L.length+' אנשים':'עוד לא נבחרו'})</small></h3>
   ${L.length?`<div class="plist">${L.map(u=>`<div class="prow"><span class="who"><b>${esc(empName(u))}</b>${E[u]&&E[u].hotel===CHAIN?'<small>הרשת</small>':''}</span><button class="btn sm ghost" data-act="gd-ntf" data-h="${esc(h)}" data-u="${esc(u)}" data-v="0">✕ הסרה</button></div>`).join('')}</div>`:''}
-  <label class="f">הוספת אדם<select data-gdntf="${esc(h)}"><option value="">בחירה…</option>${cand.map(u=>`<option value="${esc(u)}">${esc(empName(u))}${E[u].hotel===CHAIN?' · הרשת':''}</option>`).join('')}</select></label></details>`}
+  <label class="f">הוספת אדם<select data-gdntf="${esc(h)}"><option value="">בחירה…</option>${cand.map(u=>`<option value="${esc(u)}">${esc(empName(u))}${E[u].hotel===CHAIN?' · הרשת':''}</option>`).join('')}</select></label></div>`}
 async function gdNtfSet(h,u,on){const cur=((((S.waAuto||{}).guide||{}).notify||{})[h])||[],L=on?[...new Set(cur.concat([u]))]:cur.filter(x=>x!==u);
   try{await fdb.doc('waauto/main').update(new firebase.firestore.FieldPath('guide','notify',h),L);toast(on?'נוסף':'הוסר')}catch(e){try{await fdb.doc('waauto/main').set({guide:{notify:{[h]:L}}},{merge:true});toast(on?'נוסף':'הוסר')}catch(er){toast('לא נשמר: '+errMsg(mapErr(er)))}}}
 document.addEventListener('change',e=>{const t=e.target;if(!t.matches||!t.matches('[data-gdntf]')||!t.value)return;gdNtfSet(t.dataset.gdntf,t.value,true)});
@@ -1441,7 +1443,7 @@ function guideBoxHTML(id,g){const F='gd_'+id,v=(k,fb)=>dv(F,k,fb),h=g.hotel||'',
   <label class="f"><textarea rows="2" data-f="${F}.msg" placeholder="למשל: ארוחת בוקר מחר 07:00–09:30 בחדר האוכל">${esc(v('msg',''))}</textarea></label>
   <div class="actions"><button class="btn sm pri" data-act="gd-msg" data-id="${esc(id)}">פרסום ושליחה למדריך</button></div>
   ${(g.guideReplies||[]).length?`<h4 style="margin:12px 0 4px">תשובות מהמדריך · ${g.guideReplies.length}</h4><div class="plist">${g.guideReplies.slice().reverse().slice(0,10).map(r=>`<div class="prow"><span class="who"><b style="font-weight:500;white-space:pre-wrap" dir="auto">${esc(r.text)}</b><small>${new Date(r.at).toLocaleString('he-IL',{day:'numeric',month:'numeric',hour:'2-digit',minute:'2-digit'})}</small></span></div>`).join('')}</div>`:''}
-  ${S.isOwner?gdNotifyHTML(h)+gdTplHTML():''}
+  ${S.isOwner?gdTplHTML():''}
   ${msgs.length?`<div class="plist">${msgs.map(m=>`<div class="prow"><span class="who"><b style="font-weight:500;white-space:pre-wrap">${esc(m.text)}</b><small>${new Date(m.at).toLocaleString('he-IL',{day:'numeric',month:'numeric',hour:'2-digit',minute:'2-digit'})}${m.byName?' · '+esc(m.byName):''}</small></span><span class="actions" style="margin:0"><button class="btn sm ghost" data-act="gd-wa" data-id="${esc(id)}" data-k="msg" data-m="${esc(m.id)}">📲 שליחה למדריך</button><button class="btn sm ghost" data-act="gd-mdel" data-id="${esc(id)}" data-m="${esc(m.id)}">${S.confirm==='gdm:'+m.id?'למחוק?':'מחיקה'}</button></span></div>`).join('')}</div>`:''}
   </div>`}
 // room picker for the group (owner, Nov 5): tiles of the hotel's rooms by floor; rooms of other groups staying on overlapping dates are marked
@@ -4461,7 +4463,7 @@ async function jobApply(id){let ok=0,bad=0;for(const [u,r] of Object.entries(S.r
     if(!Object.keys(m.apps).length)continue;try{await fdb.doc('roles/'+u).set(doc);S.roles[u]=doc;ok++}catch(_){bad++}}
   return {ok,bad}}
 // hotel settings page (owner's wish): hotels + event spaces, housekeeping rooms, backup (manual + automatic), import, Meta connection
-function vCfg(){return wrap(`<section class="head"><div class="head-t"><h1>הגדרות מלון</h1></div><p class="lede">שמות המלונות, החדרים במשק, השטחים הציבוריים ובודקי החדרים. הרשאות נמצאות בעמוד הגדרות רשת, וקודי ההצטרפות בעמוד עובדים.</p></section>`+hotelsCardHTML()+hkCfgHTML()+hkChkPermHTML())}
+function vCfg(){return wrap(`<section class="head"><div class="head-t"><h1>הגדרות מלון</h1></div><p class="lede">שמות המלונות, החדרים במשק, השטחים הציבוריים ובודקי החדרים. הרשאות נמצאות בעמוד הגדרות רשת, וקודי ההצטרפות בעמוד עובדים.</p></section>`+hotelsCardHTML()+grpNotifyCardHTML()+hkCfgHTML()+hkChkPermHTML())}
 function vOrg(){return vPerms()}
 // ---------- system owner area (tap the name at the top): its own menu, chains and chain permissions ----------
 // every chain is its own Firebase project (config.js SC_CHAINS); other chains are reached through a second Firebase app + one Google sign-in

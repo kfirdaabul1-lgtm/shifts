@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202611101500"></script>
+<script src="i18n.js?v=202611101545"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -206,7 +206,7 @@ table.plain.plg{width:100%;table-layout:fixed;min-width:0}.plg th,table.plain.pl
 .lbx-steps{list-style:none;margin:0;padding:0;display:flex;gap:4px}.lbx-steps li{flex:1}.lbx-steps button{all:unset;box-sizing:border-box;cursor:pointer;display:block;width:100%;text-align:center;padding:7px 4px;border-radius:6px;background:var(--sunk);font-size:.82rem}.lbx-steps button.done{background:var(--brass-bg);color:var(--brass)}.lbx-steps button.on{background:var(--navy);color:#fff;font-weight:700}
 .lbx-st2{display:flex;gap:6px;justify-content:flex-end;margin-top:-4px}.lbx-acts{display:flex;gap:8px;flex-wrap:wrap}.lbx-acts .btn.ok{background:#1F7A45;color:#fff;border-color:#1F7A45}
 .lbx-chat .wac.pane{height:calc(100vh - 360px);min-height:420px}.lbx-empty{display:grid;place-items:center;text-align:center;min-height:420px}
-.lbx-note{display:flex;gap:6px;margin-bottom:10px}.lbx-note select{width:auto}.lbx-note input{flex:1}
+.lbx-note{display:flex;gap:6px;margin-bottom:10px}.lbx-side .lbx-note{flex-wrap:wrap}.lbx-side .lbx-note input{min-width:0;flex-basis:100%}.lbx-note select{width:auto}.lbx-note input{flex:1}
 .lbx-hist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;font-size:.9rem}
 .lbx-side{position:sticky;top:70px;display:flex;flex-direction:column;gap:8px;max-height:calc(100vh - 90px);overflow:auto}.lbx-side h3{margin:8px 0 0;font-size:.82rem;color:var(--brass)}.lbx-side h3:first-child{margin-top:0}.lbx-side .lbx-feed{border:0;padding:0;box-shadow:none;background:none}
 .lbx-dl{margin:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.lbx-dl dt{font-size:.75rem;color:var(--muted)}.lbx-dl dd{margin:0;font-weight:700}
@@ -2233,17 +2233,17 @@ function leadBoxHTML(all,f){const bx=f.bx||'act',F=LBX_F.find(x=>x[0]===bx)||LBX
   if(!wide)return `<div class="lbx one">${list}</div>`;
   const l=sel&&(S.leads||{})[sel];if(!l)return `<div class="lbx">${list}<div class="card lbx-empty"><b>בוחרים ליד מהרשימה</b><p class="muted">כאן יופיעו השיחה, הפעולות והפרטים שלו.</p></div></div>`;
   return `<div class="lbx">${list}${lbxMain(sel,l)}${lbxSide(sel,l)}</div>`}
-function lbxMain(id,l){const st=l.stage||'new',tel=leadTel(l.phone),W=S.wapub||{},ch=lbxChat(id,l),lq=leadQuote(id,l),q=lq&&lq[1],isEv=leadCat(l)==='events';
+function lbxMain(id,l){const st=l.stage||'new',tel=leadTel(l.phone),W=S.wapub||{},ch0=lbxChat(id,l),ch=ch0||(W.on&&tel.length>=9?waIdOf(l.phone):''),lq=leadQuote(id,l),q=lq&&lq[1],isEv=leadCat(l)==='events';
   const steps=['new','contacted','meeting','quote','won'],si=steps.indexOf(st);
   const stepper=`<ol class="lbx-steps">${steps.map((s,i)=>`<li><button class="${s===st?'on':si>i&&si>=0?'done':''}" data-act="lbx-stage" data-id="${id}" data-v="${s}">${LSTG[s]}</button></li>`).join('')}</ol>`;
-  const acts=`<div class="lbx-acts">${tel.length>=9?(W.on?(ch?'':`<button class="btn ok" data-act="wa-lead" data-id="${id}">💬 וואטסאפ</button>`):`<a class="btn ok" href="https://wa.me/972${tel}" target="_blank" rel="noopener">💬 וואטסאפ</a>`)+`<a class="btn pri" href="tel:${esc(l.phone)}">📞 התקשרות</a>`:''}${isEv?`<button class="btn" data-act="lbx-quote" data-id="${id}">${q?'📄 הצעה #'+esc(q.num||''):'📄 יצירת הצעת מחיר'}</button>`:''}<button class="btn" data-act="lead-open" data-id="${id}">🗓 סיור, משימות ועריכה</button></div>`;
-  if(ch){const c=(S.waChats||{})[ch]||{};S.waSel=ch;if(+c.unread>0&&document.visibilityState==='visible'&&S.waReadT!==ch+c.lastAt){S.waReadT=ch+c.lastAt;fdb.doc('waChats/'+ch).update({unread:0,readAt:Date.now(),readBy:S.uid}).catch(()=>{})}}
+  const acts=`<div class="lbx-acts">${tel.length>=9?(W.on?`<button class="btn ok" data-act="lbx-wa">💬 וואטסאפ</button>`:`<a class="btn ok" href="https://wa.me/972${tel}" target="_blank" rel="noopener">💬 וואטסאפ</a>`)+`<a class="btn pri" href="tel:${esc(l.phone)}">📞 התקשרות</a>`:''}${isEv?`<button class="btn" data-act="lbx-quote" data-id="${id}">${q?'📄 הצעה #'+esc(q.num||''):'📄 יצירת הצעת מחיר'}</button>`:''}<button class="btn" data-act="lead-open" data-id="${id}">🗓 סיור, משימות ועריכה</button></div>`;
+  if(ch){const c=(S.waChats||{})[ch]||{};if(S.waSel!==ch){S.drafts.wa=null;S.waAtBottom=true}S.waSel=ch;S.waSelX={leadId:id};if(+c.unread>0&&document.visibilityState==='visible'&&S.waReadT!==ch+c.lastAt){S.waReadT=ch+c.lastAt;fdb.doc('waChats/'+ch).update({unread:0,readAt:Date.now(),readBy:S.uid}).catch(()=>{})}}
   const lead=`<div class="lbx-mh card"><div class="lbx-t"><h2>${esc(l.name||l.phone||'ליד')}</h2><span class="pill ${st==='new'?'bad':''}">${esc(LSTG[st]||'')}</span><small class="muted">${l.phone?`<span dir="ltr">${esc(l.phone)}</span>`:''}${l.source?' · '+esc(LSRC[l.source]||l.source):''}${l.campaign?' · '+esc(l.campaign):''}</small></div>${stepper}
     <div class="lbx-st2"><button class="btn sm ghost" data-act="lbx-stage" data-id="${id}" data-v="lost">לא נסגר</button><button class="btn sm ghost" data-act="lead-junk" data-id="${id}"${ch?` data-chat="${esc(ch)}"`:''}>🚫 לא רלוונטי</button></div>${acts}</div>`;
-  const body=ch?`<div class="lbx-chat">${waChatBody(ch,true,true)}</div>`:lbxActsHTML(id,l,true);
+  const body=ch?`<div class="lbx-chat">${ch0?'':'<div class="notice" style="margin:0 0 8px">עוד אין שיחת וואטסאפ עם הלקוח. שולחים תבנית מאושרת, וכשהלקוח יענה אפשר לכתוב חופשי.</div>'}${waChatBody(ch,true,true)}</div>`:lbxActsHTML(id,l,true);
   return `<main class="lbx-main">${lead}${body}</main>`}
-function lbxActsHTML(id,l,big){const acts=(l.acts||[]).slice().sort((a,b)=>(b.at||0)-(a.at||0));
-  return `<div class="card lbx-feed"><h3>${big?'שיחה ופעילות':'היסטוריה'}</h3>${big?`<div class="lbx-note"><select id="lbx_kind" aria-label="סוג">${LEAD_ACTS.map(([k,n])=>`<option value="${k}">${n}</option>`).join('')}</select><input type="text" id="lbx_text" placeholder="מה היה? למשל: דיברנו, שולחת תפריט" aria-label="מה היה"><button class="btn pri" data-act="lbx-act" data-id="${id}">רישום</button></div>${(S.wapub||{}).on?'':'<p class="muted" style="font-size:.85rem;margin:6px 0">כשוואטסאפ מחובר למערכת, השיחה עם הלקוח תופיע כאן.</p>'}`:''}
+function lbxActsHTML(id,l,big,note){const acts=(l.acts||[]).slice().sort((a,b)=>(b.at||0)-(a.at||0));
+  return `<div class="card lbx-feed"><h3>${big?'שיחה ופעילות':'פעילות'}</h3>${big||note?`<div class="lbx-note"><select id="lbx_kind" aria-label="סוג">${LEAD_ACTS.map(([k,n])=>`<option value="${k}">${n}</option>`).join('')}</select><input type="text" id="lbx_text" placeholder="מה היה? למשל: דיברנו, שולחת תפריט" aria-label="מה היה"><button class="btn pri" data-act="lbx-act" data-id="${id}">רישום</button></div>${!big||(S.wapub||{}).on?'':'<p class="muted" style="font-size:.85rem;margin:6px 0">כשוואטסאפ מחובר למערכת, השיחה עם הלקוח תופיע כאן.</p>'}`:''}
   ${acts.length?`<ul class="lbx-hist">${acts.slice(0,big?40:6).map(a=>`<li><small class="muted">${new Date(a.at).toLocaleString('he-IL',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}${a.byName?' · '+esc(a.byName):''}</small> <b>${esc(LACT[a.kind]||'')}</b> ${esc(a.text||'')}</li>`).join('')}</ul>`:'<p class="muted" style="margin:0">עוד אין פעילות.</p>'}</div>`}
 function lbxSide(id,l){const lq=leadQuote(id,l),q=lq&&lq[1],busy=lbxBusy(l),t0=todayISO(),ch=lbxChat(id,l),gst=l.guestsTxt||(+l.guests?String(l.guests):'');
   const kv=(k,v)=>`<div><dt>${k}</dt><dd>${v||'<span class="muted">—</span>'}</dd></div>`;
@@ -2256,7 +2256,7 @@ function lbxSide(id,l){const lq=leadQuote(id,l),q=lq&&lq[1],busy=lbxBusy(l),t0=t
     ${leadCat(l)==='events'?`<h3>הצעת מחיר</h3><div>${q?`<b>#${esc(q.num||'')}</b> · ${esc({draft:'טיוטה',sent:'נשלחה',approved:'אושרה',declined:'נדחתה'}[q.status]||'')} · ${ils(quoteVal(q))}`:'<span class="muted">עוד אין הצעה</span>'}</div>`:''}
     ${l.tourAt&&l.tourAt>=t0?`<h3>סיור</h3><div><b>${DAYS[dow(l.tourAt)]} ${dm(l.tourAt)}${l.tourTime?' · '+esc(l.tourTime):''}</b></div>`:''}
     ${l.notes?`<h3>הערות</h3><div class="lbx-notes">${esc(l.notes)}</div>`:''}
-    ${ch?lbxActsHTML(id,l,false):''}</aside>`}
+    ${(S.wapub||{}).on&&leadTel(l.phone).length>=9?lbxActsHTML(id,l,false,true):''}</aside>`}
 // counts only the lead kinds the person sees (owner, Nov 8: a spa-only employee saw "(4)" from events leads)
 const myCatOk=l=>!l||myLeadCats().includes(leadCat(l));
 const myTasksDue=()=>Object.values(S.tasks||{}).filter(t=>!t.done&&t.owner===S.uid&&t.due&&t.due<=todayISO()&&myCatOk(t.leadId&&(S.leads||{})[t.leadId])).length;
@@ -5255,6 +5255,7 @@ const ACT={
   'wa-info':()=>{S.waInfo=!S.waInfo;render()},
   'lead-openall':()=>{S.leadOpenAll=!S.leadOpenAll;render()},
   'lbx-sel':D=>{S.lbxSel=D.id;S.drafts.wa=null;S.waAtBottom=true;render()},
+  'lbx-wa':()=>{const b=document.querySelector('.lbx-chat');if(!b)return;b.scrollIntoView({behavior:'smooth',block:'start'});const t=b.querySelector('.wac-in textarea,select[data-f="wa.tpl"]');if(t)setTimeout(()=>t.focus({preventScroll:true}),300)},
   'lbx-f':D=>{S.leadF.bx=D.v;S.lbxSel='';render()},
   'lbx-stage':D=>{if(D.v==='lost'){const l=(S.leads||{})[D.id];if(!l)return;S.drafts.lead={stage:'lost'};S.sheet={type:'lead',id:D.id};render();return}leadMove(D.id,D.v)},
   'lbx-quote':D=>{S.sheet={type:'lead',id:D.id};ACT['lead-quote']()},

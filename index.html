@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202611101410"></script>
+<script src="i18n.js?v=202611101500"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -194,6 +194,24 @@ table.plain th.num{text-align:end}
 @media (min-width:720px){.sheet{align-items:center}.panel{border-radius:16px}}
 body:has(.sheet:not([hidden])) .lang-toggle{display:none!important}
 table.plain.plg{width:100%;table-layout:fixed;min-width:0}.plg th,table.plain.plg td{padding:3px 2px;text-align:center}.plg th:first-child{width:62px}.plg tbody th{text-align:start;white-space:nowrap;font-weight:600;font-size:.85rem}.plg input{width:100%;min-width:0;padding:6px 2px;text-align:center}.totals>div{display:flex;justify-content:space-between;gap:10px;padding:3px 0;font-size:.9rem}.totals>div>span:last-child{white-space:nowrap;font-variant-numeric:tabular-nums}.totals>.grand{border-top:1px solid var(--line);margin-top:4px;padding-top:6px;font-weight:700;font-size:1rem}.lead-det{border:1px solid var(--line);border-radius:12px;padding:6px 12px;margin:6px 0 10px}.lead-det>summary{cursor:pointer;font-weight:600;padding:6px 0;font-size:.92rem}.lead-det[open]>summary{margin-bottom:6px}.crm-row{display:grid;grid-template-columns:120px minmax(0,1fr) 90px;gap:10px;align-items:center;font-size:.9rem;margin:4px 0}.crm-track{height:14px;background:var(--sunk);border-radius:7px;overflow:hidden}.crm-track i{display:block;height:100%;background:var(--accent,#1f5f6b);border-radius:7px}.lead-bar-won{background:var(--ok)!important}.lead-bar-lost{background:var(--bad)!important}.prow.late{border-color:var(--warn)}
+.lbx{display:grid;grid-template-columns:minmax(280px,340px) minmax(0,1fr) 280px;gap:12px;align-items:start}.lbx.one{display:block}.lbx .card{margin:0}
+@media (max-width:1250px){.lbx{grid-template-columns:minmax(260px,320px) minmax(0,1fr)}.lbx-side{grid-column:2}}
+.lbx-list{padding:0;overflow:hidden;position:sticky;top:70px}.lbx.one .lbx-list{position:static}
+.lbx-fl{display:flex;gap:6px;padding:10px;border-bottom:1px solid var(--line);flex-wrap:wrap}.lbx-fc{all:unset;cursor:pointer;border:1px solid var(--line);border-radius:999px;padding:5px 11px;font-size:.85rem;font-weight:600;background:var(--surface)}.lbx-fc.on{background:var(--navy);color:#fff;border-color:var(--navy)}
+.lbx-rows{max-height:calc(100vh - 250px);overflow:auto}.lbx.one .lbx-rows{max-height:none}
+.lbx-gh{font-size:.78rem;font-weight:700;padding:12px 14px 4px}
+.lbx-row{all:unset;box-sizing:border-box;cursor:pointer;display:flex;gap:10px;width:100%;padding:10px 14px;border-bottom:1px solid var(--line)}.lbx-row:hover{background:var(--sunk)}.lbx-row.sel{background:var(--brass-bg);box-shadow:inset -3px 0 0 var(--gold)}
+.lbx-row .wa-av{width:38px;height:38px;flex:none}.lbx-rm{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}.lbx-r1{display:flex;justify-content:space-between;gap:8px}.lbx-r1 b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.lbx-rm small{font-size:.8rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.lbx-wa{color:var(--ok);font-weight:600}
+.lbx-main{display:flex;flex-direction:column;gap:12px;min-width:0}.lbx-mh{display:flex;flex-direction:column;gap:10px}.lbx-t{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.lbx-t h2{margin:0;font-family:var(--f-display);font-size:1.5rem}
+.lbx-steps{list-style:none;margin:0;padding:0;display:flex;gap:4px}.lbx-steps li{flex:1}.lbx-steps button{all:unset;box-sizing:border-box;cursor:pointer;display:block;width:100%;text-align:center;padding:7px 4px;border-radius:6px;background:var(--sunk);font-size:.82rem}.lbx-steps button.done{background:var(--brass-bg);color:var(--brass)}.lbx-steps button.on{background:var(--navy);color:#fff;font-weight:700}
+.lbx-st2{display:flex;gap:6px;justify-content:flex-end;margin-top:-4px}.lbx-acts{display:flex;gap:8px;flex-wrap:wrap}.lbx-acts .btn.ok{background:#1F7A45;color:#fff;border-color:#1F7A45}
+.lbx-chat .wac.pane{height:calc(100vh - 360px);min-height:420px}.lbx-empty{display:grid;place-items:center;text-align:center;min-height:420px}
+.lbx-note{display:flex;gap:6px;margin-bottom:10px}.lbx-note select{width:auto}.lbx-note input{flex:1}
+.lbx-hist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;font-size:.9rem}
+.lbx-side{position:sticky;top:70px;display:flex;flex-direction:column;gap:8px;max-height:calc(100vh - 90px);overflow:auto}.lbx-side h3{margin:8px 0 0;font-size:.82rem;color:var(--brass)}.lbx-side h3:first-child{margin-top:0}.lbx-side .lbx-feed{border:0;padding:0;box-shadow:none;background:none}
+.lbx-dl{margin:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.lbx-dl dt{font-size:.75rem;color:var(--muted)}.lbx-dl dd{margin:0;font-weight:700}
+.lbx-ok{background:var(--ok-bg);color:var(--ok);border-radius:6px;padding:6px 10px;font-size:.85rem;font-weight:600}.lbx-busy{background:var(--warn-bg);color:var(--warn);border-radius:6px;padding:6px 10px;font-size:.85rem}
+.lbx-box{background:var(--sunk);border-radius:8px;padding:10px;display:flex;flex-direction:column;gap:6px}.lbx-nx{display:flex;gap:4px;flex-wrap:wrap}.lbx-notes{white-space:pre-wrap;font-size:.9rem}
 .lead-pipe{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(220px,1fr);gap:10px;overflow-x:auto;padding-bottom:8px}
 .lead-col{background:var(--sunk);border-radius:12px;padding:8px;display:flex;flex-direction:column;gap:8px;min-height:120px}.lead-col-h{display:flex;justify-content:space-between;align-items:center;padding:2px 4px}
 .lead-col.drop{outline:2px dashed var(--accent,#2563eb);outline-offset:-2px}.lead-card.dragging{opacity:.4}
@@ -2182,15 +2200,72 @@ function leadCard(id,l){const late=leadLate(l),lq=leadQuote(id,l),q=lq&&lq[1];
     <span class="lead-tags">${l.venue&&EV_VENUE[l.venue]?`<span class="pill" style="background:var(--ink,#111);color:#fff">📍 ${esc(EV_VENUE[l.venue])}</span>`:''}${l.source?`<span class="pill">${esc(LSRC[l.source]||l.source)}</span>`:''}${l.campaign?`<span class="pill">${esc(l.campaign)}</span>`:''}${q?`<span class="pill ${q.status==='approved'?'ok':''}">הצעה #${esc(q.num||'')}</span>`:''}${l.tourAt&&l.tourAt>=todayISO()?`<span class="pill" style="background:#7C3AED;color:#fff">🗓 סיור ${l.tourAt===todayISO()?'היום':dm(l.tourAt)}${l.tourTime?' '+esc(l.tourTime):''}</span>`:''}${(()=>{const c=Object.values(S.waChats||{}).find(x=>x.leadId===id&&+x.unread>0);return c?`<span class="pill" style="background:#25D366;color:#fff">💬 ${+c.unread}</span>`:''})()}</span>
     <small class="${late?'bad-t':'muted'}">${l.nextAt&&leadOpen(l)?`${late?'⚠ ':''}לחזור: ${dm(l.nextAt)}`:''}${l.ownerName?` · ${esc(l.ownerName)}`:(leadOpen(l)?' · <span class="bad-t">ללא מטפל</span>':'')}</small>
     ${l.stage==='won'&&l.wonValue?`<small><b>${ils(l.wonValue)}</b></small>`:+l.value?`<small class="muted">${ils(l.value)} צפוי</small>`:''}</button>`}
+/* ---------- leads work inbox (owner, Nov 10: sketch א׳ "תיבת עבודה") ----------
+   wide screens: list grouped by what to do (answer now / call back today / tour / quote sent / in contact) | the chosen lead (stage steps, big actions,
+   its WhatsApp chat or activity) | details, next step, owner, quote, history. Phones: the grouped list, a tap opens the lead card. */
+const lbxWide=()=>window.innerWidth>=900;
+function lbxChat(id,l){const C=S.waChats||{};let e=Object.entries(C).find(([,c])=>c.leadId===id);if(e)return e[0];const w=waIdOf(l.phone);return w&&C[w]?w:''}
+function lbxAgo(t){if(!t)return '';const m=Math.round((Date.now()-t)/6e4);if(m<1)return 'עכשיו';if(m<60)return 'לפני '+m+' דק׳';const h=Math.round(m/60);if(h<24)return 'לפני '+h+' שע׳';const d=Math.round(h/24);return d===1?'אתמול':'לפני '+d+' ימים'}
+function lbxGroup(id,l){const ch=lbxChat(id,l),c=ch&&(S.waChats||{})[ch],st=l.stage||'new';
+  if(st==='new'||(c&&(+c.unread>0||waWait(c))))return 'now';if(leadLate(l))return 'today';if(st==='meeting')return 'tour';if(st==='quote')return 'quote';return 'rest'}
+const LBX_G=[['now','לענות עכשיו','var(--bad)'],['today','לחזור היום','var(--warn)'],['tour','סיור / פגישה','#6D4BA8'],['quote','הצעה נשלחה · מחכים לתשובה','var(--muted)'],['rest','בקשר','var(--muted)']];
+const LBX_F=[['act','לטפל עכשיו',['now','today']],['wait','מחכים ללקוח',['tour','quote','rest']],['all','כל הפתוחים',['now','today','tour','quote','rest']]];
+function lbxBusy(l){if(!l.date)return null;const Q=S.lquotes||{},out=[];
+  for(const q of Object.values(Q)){const e=q.event||{};if(!e.date||q.status==='declined')continue;if(l.venue&&e.venue!==l.venue)continue;if(!(e.date<=l.date&&evEndD(e)>=l.date))continue;
+    out.push({sp:quoteSpaces(q).map(x=>x.split('|')[1]).filter(Boolean).join(' + ')||(EV_VENUE[e.venue]||''),ok:q.status==='approved',grp:q.kind==='group'})}
+  return out}
+function leadBoxHTML(all,f){const bx=f.bx||'act',F=LBX_F.find(x=>x[0]===bx)||LBX_F[0],wide=lbxWide();
+  const open=all.filter(([,l])=>leadOpen(l)).map(([id,l])=>[id,l,lbxGroup(id,l)]);
+  const cnt=k=>open.filter(x=>(LBX_F.find(y=>y[0]===k)||[])[2].includes(x[2])).length;
+  const rows=open.filter(x=>F[2].includes(x[2]));
+  const tAt=(id,l,g)=>{if(g==='now'){const ch=lbxChat(id,l),c=ch&&(S.waChats||{})[ch];return (c&&c.lastInAt)||l.createdAt||0}return 0};
+  const sortG=(g,L)=>L.sort(([ia,a],[ib,b])=>g==='now'?(tAt(ia,a,g)-tAt(ib,b,g)):g==='today'?String(a.nextAt||'').localeCompare(String(b.nextAt||'')):((b.updatedAt||b.createdAt||0)-(a.updatedAt||a.createdAt||0)));
+  let sel=S.lbxSel&&rows.some(x=>x[0]===S.lbxSel)?S.lbxSel:(S.lbxSel&&(S.leads||{})[S.lbxSel]&&wide?S.lbxSel:'');
+  const groups=LBX_G.map(([g,n,col])=>{const L=sortG(g,rows.filter(x=>x[2]===g));return L.length?[g,n,col,L]:null}).filter(Boolean);
+  if(!sel&&wide&&groups.length)sel=groups[0][3][0][0];S.lbxSel=sel;
+  const row=([id,l,g])=>{const ch=lbxChat(id,l),c=ch&&(S.waChats||{})[ch],un=c&&+c.unread>0,late=g==='today',nm=l.name||l.phone||'ללא שם';
+    const when=g==='now'?lbxAgo(tAt(id,l,g)):late?(l.nextAt<todayISO()?'באיחור · '+dm(l.nextAt):'היום'):l.tourAt&&g==='tour'?'סיור '+dm(l.tourAt)+(l.tourTime?' '+esc(l.tourTime):''):lbxAgo(l.updatedAt||l.createdAt);
+    const sub=[String(l.type||'').replace(/_+/g,' ').trim(),l.guestsTxt?'⁦'+l.guestsTxt+'⁩':+l.guests?String(l.guests):'',l.date?dm(l.date):''].filter(Boolean).join(' · ');
+    const last=(l.acts||[]).slice(-1)[0],line3=un?`<span class="lbx-wa">💬 ${+c.unread} הודעות חדשות</span>`:c&&waWait(c)?'<span class="lbx-wa">💬 מחכה לתשובה</span>':last&&last.text?esc(String(last.text).slice(0,60)):esc(LSRC[l.source]||'');
+    return `<button class="lbx-row${id===sel?' sel':''}" data-act="${wide?'lbx-sel':'lead-open'}" data-id="${id}"><span class="wa-av" style="background:${waColor(id)}">${esc(waInit(nm))}</span><span class="lbx-rm"><span class="lbx-r1"><b>${esc(nm)}</b><small class="${g==='now'||late?'bad-t':'muted'}">${when}</small></span>${sub?`<small>${esc(sub)}</small>`:''}<small class="muted">${line3}${!l.owner?' · <span class="bad-t">ללא מטפל</span>':''}</small></span></button>`};
+  const list=`<aside class="lbx-list card"><div class="lbx-fl">${LBX_F.map(([k,n])=>`<button class="lbx-fc ${bx===k?'on':''}" data-act="lbx-f" data-v="${k}">${n} · ${cnt(k)}</button>`).join('')}</div>
+    <div class="lbx-rows">${groups.length?groups.map(([g,n,col,L])=>`<div class="lbx-gh" style="color:${col}">${n} · ${L.length}</div>${L.map(row).join('')}`).join(''):`<p class="muted" style="padding:14px">${bx==='act'?'אין כרגע לידים שמחכים לטיפול. 👏':'אין לידים כאן.'}</p>`}</div></aside>`;
+  if(!wide)return `<div class="lbx one">${list}</div>`;
+  const l=sel&&(S.leads||{})[sel];if(!l)return `<div class="lbx">${list}<div class="card lbx-empty"><b>בוחרים ליד מהרשימה</b><p class="muted">כאן יופיעו השיחה, הפעולות והפרטים שלו.</p></div></div>`;
+  return `<div class="lbx">${list}${lbxMain(sel,l)}${lbxSide(sel,l)}</div>`}
+function lbxMain(id,l){const st=l.stage||'new',tel=leadTel(l.phone),W=S.wapub||{},ch=lbxChat(id,l),lq=leadQuote(id,l),q=lq&&lq[1],isEv=leadCat(l)==='events';
+  const steps=['new','contacted','meeting','quote','won'],si=steps.indexOf(st);
+  const stepper=`<ol class="lbx-steps">${steps.map((s,i)=>`<li><button class="${s===st?'on':si>i&&si>=0?'done':''}" data-act="lbx-stage" data-id="${id}" data-v="${s}">${LSTG[s]}</button></li>`).join('')}</ol>`;
+  const acts=`<div class="lbx-acts">${tel.length>=9?(W.on?(ch?'':`<button class="btn ok" data-act="wa-lead" data-id="${id}">💬 וואטסאפ</button>`):`<a class="btn ok" href="https://wa.me/972${tel}" target="_blank" rel="noopener">💬 וואטסאפ</a>`)+`<a class="btn pri" href="tel:${esc(l.phone)}">📞 התקשרות</a>`:''}${isEv?`<button class="btn" data-act="lbx-quote" data-id="${id}">${q?'📄 הצעה #'+esc(q.num||''):'📄 יצירת הצעת מחיר'}</button>`:''}<button class="btn" data-act="lead-open" data-id="${id}">🗓 סיור, משימות ועריכה</button></div>`;
+  if(ch){const c=(S.waChats||{})[ch]||{};S.waSel=ch;if(+c.unread>0&&document.visibilityState==='visible'&&S.waReadT!==ch+c.lastAt){S.waReadT=ch+c.lastAt;fdb.doc('waChats/'+ch).update({unread:0,readAt:Date.now(),readBy:S.uid}).catch(()=>{})}}
+  const lead=`<div class="lbx-mh card"><div class="lbx-t"><h2>${esc(l.name||l.phone||'ליד')}</h2><span class="pill ${st==='new'?'bad':''}">${esc(LSTG[st]||'')}</span><small class="muted">${l.phone?`<span dir="ltr">${esc(l.phone)}</span>`:''}${l.source?' · '+esc(LSRC[l.source]||l.source):''}${l.campaign?' · '+esc(l.campaign):''}</small></div>${stepper}
+    <div class="lbx-st2"><button class="btn sm ghost" data-act="lbx-stage" data-id="${id}" data-v="lost">לא נסגר</button><button class="btn sm ghost" data-act="lead-junk" data-id="${id}"${ch?` data-chat="${esc(ch)}"`:''}>🚫 לא רלוונטי</button></div>${acts}</div>`;
+  const body=ch?`<div class="lbx-chat">${waChatBody(ch,true,true)}</div>`:lbxActsHTML(id,l,true);
+  return `<main class="lbx-main">${lead}${body}</main>`}
+function lbxActsHTML(id,l,big){const acts=(l.acts||[]).slice().sort((a,b)=>(b.at||0)-(a.at||0));
+  return `<div class="card lbx-feed"><h3>${big?'שיחה ופעילות':'היסטוריה'}</h3>${big?`<div class="lbx-note"><select id="lbx_kind" aria-label="סוג">${LEAD_ACTS.map(([k,n])=>`<option value="${k}">${n}</option>`).join('')}</select><input type="text" id="lbx_text" placeholder="מה היה? למשל: דיברנו, שולחת תפריט" aria-label="מה היה"><button class="btn pri" data-act="lbx-act" data-id="${id}">רישום</button></div>${(S.wapub||{}).on?'':'<p class="muted" style="font-size:.85rem;margin:6px 0">כשוואטסאפ מחובר למערכת, השיחה עם הלקוח תופיע כאן.</p>'}`:''}
+  ${acts.length?`<ul class="lbx-hist">${acts.slice(0,big?40:6).map(a=>`<li><small class="muted">${new Date(a.at).toLocaleString('he-IL',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}${a.byName?' · '+esc(a.byName):''}</small> <b>${esc(LACT[a.kind]||'')}</b> ${esc(a.text||'')}</li>`).join('')}</ul>`:'<p class="muted" style="margin:0">עוד אין פעילות.</p>'}</div>`}
+function lbxSide(id,l){const lq=leadQuote(id,l),q=lq&&lq[1],busy=lbxBusy(l),t0=todayISO(),ch=lbxChat(id,l),gst=l.guestsTxt||(+l.guests?String(l.guests):'');
+  const kv=(k,v)=>`<div><dt>${k}</dt><dd>${v||'<span class="muted">—</span>'}</dd></div>`;
+  const nx=l.nextAt?(l.nextAt<t0?`<b class="bad-t">באיחור · ${dm(l.nextAt)}</b>`:l.nextAt===t0?'<b class="bad-t">היום</b>':`<b>${DAYS[dow(l.nextAt)]} ${dm(l.nextAt)}</b>`):'<span class="muted">לא נקבע</span>';
+  const own=l.owner?`<b>${esc(l.ownerName||empName(l.owner)||'')}</b>${l.owner===S.uid?' <span class="muted">(אני)</span>':''}`:`<button class="btn sm pri" data-act="lbx-take" data-id="${id}">עוד לא נבחר · לקחת אותי</button>`;
+  const bz=busy===null?'':!busy.length?`<div class="lbx-ok">✓ אין אירועים בלוח ב-${dm(l.date)}${l.venue?' ב'+esc(EV_VENUE[l.venue]||''):''}</div>`:`<div class="lbx-busy"><b>בלוח ב-${dm(l.date)}:</b> ${busy.map(b=>esc(b.sp)+' · '+(b.grp?'קבוצת מלון':b.ok?'סגור':'בהצעה')).join(' · ')}</div>`;
+  return `<aside class="lbx-side card"><h3>פרטי ${leadCat(l)==='events'?'האירוע':'הפנייה'}</h3><dl class="lbx-dl">${kv('סוג',esc(String(l.type||'').replace(/_+/g,' ')))}${kv('תאריך',l.date?esc(dm(l.date)):'')}${kv('אורחים',gst?'⁦'+esc(gst)+'⁩':'')}${kv('מקום',esc(EV_VENUE[l.venue]||''))}${kv('סכום צפוי',+l.value?ils(l.value):'')}${kv('חברה',esc(l.company||''))}</dl>${bz}
+    <div class="lbx-box"><h3>הצעד הבא</h3><div>לחזור ללקוח: ${nx}</div><div class="lbx-nx">${[[0,'היום'],[1,'מחר'],[3,'בעוד 3 ימים'],[7,'בעוד שבוע']].map(([d,n])=>`<button class="btn sm ghost" data-act="lbx-next" data-id="${id}" data-v="${d}">${n}</button>`).join('')}</div></div>
+    <h3>מי מטפל</h3><div>${own}</div>
+    ${leadCat(l)==='events'?`<h3>הצעת מחיר</h3><div>${q?`<b>#${esc(q.num||'')}</b> · ${esc({draft:'טיוטה',sent:'נשלחה',approved:'אושרה',declined:'נדחתה'}[q.status]||'')} · ${ils(quoteVal(q))}`:'<span class="muted">עוד אין הצעה</span>'}</div>`:''}
+    ${l.tourAt&&l.tourAt>=t0?`<h3>סיור</h3><div><b>${DAYS[dow(l.tourAt)]} ${dm(l.tourAt)}${l.tourTime?' · '+esc(l.tourTime):''}</b></div>`:''}
+    ${l.notes?`<h3>הערות</h3><div class="lbx-notes">${esc(l.notes)}</div>`:''}
+    ${ch?lbxActsHTML(id,l,false):''}</aside>`}
 // counts only the lead kinds the person sees (owner, Nov 8: a spa-only employee saw "(4)" from events leads)
 const myCatOk=l=>!l||myLeadCats().includes(leadCat(l));
 const myTasksDue=()=>Object.values(S.tasks||{}).filter(t=>!t.done&&t.owner===S.uid&&t.due&&t.due<=todayISO()&&myCatOk(t.leadId&&(S.leads||{})[t.leadId])).length;
 const myLateLeads=()=>Object.values(S.leads||{}).filter(l=>l.owner===S.uid&&leadLate(l)&&myCatOk(l)).length;
-function vLeads(){leadsSub();tasksSub();waSub();leadCatsLive();leadsSync();const f=S.leadF||(S.leadF={view:'pipe',own:'all',src:'all',q:''});const mlc=myLeadCats();if(!mlc.includes(f.cat))f.cat=mlc[0];const cat=f.cat;
+function vLeads(){leadsSub();tasksSub();waSub();leadCatsLive();leadsSync();const f=S.leadF||(S.leadF={view:'box',own:'all',src:'all',q:''});const mlc=myLeadCats();if(!mlc.includes(f.cat))f.cat=mlc[0];const cat=f.cat;
   const catN=k=>Object.values(S.leads||{}).filter(l=>leadCat(l)===k&&leadOpen(l)).length,catNew=k=>Object.values(S.leads||{}).filter(l=>leadCat(l)===k&&(l.stage||'new')==='new').length;
   const catBar=`<div class="lead-cats">${LEAD_CAT.filter(([k])=>mlc.includes(k)).map(([k,n,i])=>`<button class="lead-cat ${cat===k?'on':''}" data-act="lead-catv" data-v="${k}"><span>${i}</span><b>${n}</b><small>${f.view==='wa'?`💬 ${waUnreadCat(k)?`<i>${waUnreadCat(k)} לא נקראו</i>`:'אין חדשות'}`:`${catN(k)} פתוחים${catNew(k)?` · <i>${catNew(k)} חדשים</i>`:''}`}</small></button>`).join('')}</div>`;
   const head=`<section class="head"><div class="head-t"><h1>לידים ומכירות</h1><span class="row" style="gap:6px;flex-wrap:wrap"><button class="btn" data-act="qlead-new">⚡ ליד מהיר מוואטסאפ</button><button class="btn pri" data-act="lead-new">+ ליד חדש · ${LCAT[cat]}</button></span></div>${catBar}
-    <div class="chips" style="gap:6px;margin-top:8px"><button class="dchip ${f.view==='pipe'?'':'off'}" data-act="lead-view" data-v="pipe">פייפליין</button><button class="dchip ${f.view==='list'?'':'off'}" data-act="lead-view" data-v="list">רשימה</button>${cat==='events'?`<button class="dchip ${f.view==='clients'?'':'off'}" data-act="lead-view" data-v="clients">לקוחות</button>`:''}<button class="dchip ${f.view==='tasks'?'':'off'}" data-act="lead-view" data-v="tasks">משימות${myTasksDue()?` (${myTasksDue()})`:''}</button><button class="dchip ${f.view==='sales'?'':'off'}" data-act="lead-view" data-v="sales">דשבורד מכירות</button><button class="dchip ${f.view==='wa'?'':'off'}" data-act="lead-view" data-v="wa">💬 וואטסאפ${waUnread()?` (${waUnread()})`:''}</button><button class="dchip ${f.view==='auto'?'':'off'}" data-act="lead-view" data-v="auto">⚡ אוטומציות</button>
+    <div class="chips" style="gap:6px;margin-top:8px"><button class="dchip ${f.view==='box'?'':'off'}" data-act="lead-view" data-v="box">תיבת עבודה</button><button class="dchip ${f.view==='pipe'?'':'off'}" data-act="lead-view" data-v="pipe">פייפליין</button><button class="dchip ${f.view==='list'?'':'off'}" data-act="lead-view" data-v="list">רשימה</button>${cat==='events'?`<button class="dchip ${f.view==='clients'?'':'off'}" data-act="lead-view" data-v="clients">לקוחות</button>`:''}<button class="dchip ${f.view==='tasks'?'':'off'}" data-act="lead-view" data-v="tasks">משימות${myTasksDue()?` (${myTasksDue()})`:''}</button><button class="dchip ${f.view==='sales'?'':'off'}" data-act="lead-view" data-v="sales">דשבורד מכירות</button><button class="dchip ${f.view==='wa'?'':'off'}" data-act="lead-view" data-v="wa">💬 וואטסאפ${waUnread()?` (${waUnread()})`:''}</button><button class="dchip ${f.view==='auto'?'':'off'}" data-act="lead-view" data-v="auto">⚡ אוטומציות</button>
     ${f.view==='wa'||f.view==='auto'?'':`    <select data-leadf="own" style="width:auto"><option value="all">כל המטפלים</option><option value="me" ${f.own==='me'?'selected':''}>רק שלי</option><option value="none" ${f.own==='none'?'selected':''}>ללא מטפל</option></select>
     <select data-leadf="ven" style="width:auto"><option value="all">כל המקומות</option>${leadVenueOpts().map(([k,n])=>`<option value="${k}" ${f.ven===k?'selected':''}>${esc(n)}</option>`).join('')}${leadScope()?'':`<option value="none" ${f.ven==='none'?'selected':''}>מקום לא ידוע</option>`}</select>
     <select data-leadf="src" style="width:auto"><option value="all">כל המקורות</option>${LEAD_SRC.map(([k,n])=>`<option value="${k}" ${f.src===k?'selected':''}>${n}</option>`).join('')}</select>
@@ -2216,6 +2291,7 @@ function vLeads(){leadsSub();tasksSub();waSub();leadCatsLive();leadsSync();const
   if(f.view==='clients')return wrap(head+clientsHTML(f));
   if(f.view==='tasks')return wrap(head+k+tasksHTML(f));
   if(f.view==='sales')return wrap(head+salesHTML(f)+leadCatCardHTML());
+  if(f.view==='box')return wrap(head+leadBoxHTML(all,f));
   const junkChip=junkN||f.junk?`<div class="actions" style="margin:-4px 0 8px"><button class="btn sm ${f.junk?'':'ghost'}" data-act="lead-junkf">${f.junk?'הסתרת הלא רלוונטיים':`🚫 הצגת לא רלוונטיים (${junkN})`}</button></div>`:'';
   if(f.view==='list')body=junkChip+`<div class="card"><div class="scroll-x"><table class="plain"><thead><tr><th>ליד</th><th>שלב</th><th>מקור</th><th>אירוע</th><th>לחזור</th><th>מטפל</th><th class="num">סכום</th></tr></thead><tbody>${all.map(([id,l])=>`<tr data-act="lead-open" data-id="${id}" style="cursor:pointer"><td><b>${esc(l.name||'')}</b>${l.company?`<div class="muted" style="font-size:.8rem">${esc(l.company)}</div>`:''}</td><td><span class="pill ${l.stage==='won'?'ok':l.stage==='lost'?'bad':l.stage==='junk'?'muted':''}">${LSTG[l.stage]||''}</span></td><td>${esc(LSRC[l.source]||'')}${l.campaign?`<div class="muted" style="font-size:.8rem">${esc(l.campaign)}</div>`:''}</td><td>${esc([l.type,l.date?dm(l.date):''].filter(Boolean).join(' · '))}</td><td class="${leadLate(l)?'bad-t':''}">${l.nextAt&&leadOpen(l)?dm(l.nextAt):''}</td><td>${l.ownerName?esc(l.ownerName):(leadOpen(l)?'<span class="bad-t">ללא מטפל</span>':'')}</td><td class="num">${l.stage==='won'?ils(l.wonValue||0):+l.value?ils(l.value):''}</td></tr>`).join('')}</tbody></table></div></div>`;
   else body=junkChip+`<div class="lead-pipe">${LEAD_STAGES.map(([s,n])=>{const L=(s==='junk'?allJ:all).filter(([,l])=>(l.stage||'new')===s),sum=L.reduce((a,[,l])=>a+(s==='won'?(+l.wonValue||0):(+l.value||0)),0);
@@ -2467,7 +2543,7 @@ function waListHTML(f){waSub();leadCatsLive();const W=S.wapub||{},q=String(S.waQ
   const pane=sel?`<div class="wa-pane card">${waChatBody(sel,true)}</div>`:`<div class="wa-pane card wa-empty"><div><div style="font-size:2.4rem">💬</div><b>בחירת שיחה</b><p class="muted">בוחרים שיחה מהרשימה כדי לראות את ההודעות ולענות.</p></div></div>`;
   return head+`<div class="wa-inbox">${list}${pane}</div>`}
 function sheetWaChat(){return waChatBody(S.sheet.id,false)}
-function waChatBody(id,inPane){const c=(S.waChats||{})[id]||{},L=waLeadOf(id,c),l=L&&L[1],W=S.wapub||{},open=waOpenWin(c);waMsgsSub(id);
+function waChatBody(id,inPane,embed){const c=(S.waChats||{})[id]||{},L=waLeadOf(id,c),l=L&&L[1],W=S.wapub||{},open=waOpenWin(c);waMsgsSub(id);
   const M=S.waMsgs,name=c.name||(l&&l.name)||waLocalOf(id);
   const tick=m=>m.status==='queued'?'🕓':m.status==='failed'?'⚠':m.status==='read'?'<b style="color:#34B7F1">✓✓</b>':m.status==='delivered'?'✓✓':'✓';
   let lastDay='';const bubbles=!M?'<p class="muted">טוען…</p>':!M.length?'<p class="muted" style="text-align:center">עוד אין הודעות בשיחה הזו.</p>':M.map(m=>{const d=new Date(m.at||0).toLocaleDateString('en-CA'),sep=d!==lastDay?`<div class="wa-day">${d===todayISO()?'היום':dm(d)+'.'+d.slice(0,4)}</div>`:'';lastDay=d;
@@ -2490,6 +2566,7 @@ function waChatBody(id,inPane){const c=(S.waChats||{})[id]||{},L=waLeadOf(id,c),
   const ag=c.agent||'',agOpts=S.isOwner?Object.entries(leadOwners()).filter(([u])=>u!==ag&&u!==S.uid):[];
   const agRow=`<div class="wac-ag">${ag?`<small>🔒 השיחה אצל <b>${esc(c.agentName||'עובד')}</b>${ag===S.uid?' (אצלך)':''} · ${ag===S.uid?'רק את/ה והבעלים רואים אותה':'רק הוא/היא והבעלים רואים אותה'}</small>`:'<small class="muted">השיחה פנויה. מי שכותב ללקוח ראשון לוקח אחריות על הליד, ומאותו רגע רק הוא רואה את השיחה.</small>'}${agOpts.length?`<select data-waag="${esc(id)}" style="width:auto"><option value="">העברה ל…</option>${agOpts.map(([u,n])=>`<option value="${u}">${esc(n)}</option>`).join('')}</select>`:''}${ag&&(S.isOwner||ag===S.uid)?`<button class="btn sm ghost" data-act="wa-agent" data-id="${esc(id)}">שחרור לכולם</button>`:''}</div>`;
   const acts=agRow+catChips+`<div class="wac-acts">${doneBtn}${spaActs}${L?`<button class="btn sm" data-act="lead-open" data-id="${L[0]}">כרטיס הליד · ${esc(LSTG[l.stage]||'')}</button><button class="btn sm ${l.stage==='junk'?'':'ghost'}" data-act="lead-junk" data-id="${L[0]}" data-chat="${esc(id)}">${l.stage==='junk'?'↺ החזרה ללידים':'🚫 לא רלוונטי'}</button>`:`<button class="btn sm" data-act="wa-mklead">+ יצירת ליד</button>`}</div>`;
+  if(embed)return `<div class="wac pane lbx-wac">${agRow}<div class="wac-acts">${doneBtn}${spaActs}</div><div class="wa-msgs">${bubbles}</div><div class="wac-comp">${comp}</div></div>`;
   return `<div class="wac${inPane?' pane':''}"><div class="wac-h">${inPane?'':'<button class="wac-back" data-act="close" aria-label="חזרה לרשימה">→</button>'}<span class="wa-av" style="background:${waColor(id)}" data-act="wa-info">${esc(waInit(name))}</span><div class="wac-t" data-act="wa-info"><b>${esc(name)}</b><small>${sub}</small></div><a class="wac-ic lt" href="tel:${esc(waLocalOf(id))}" aria-label="חיוג">📞</a></div>
   ${acts}${info}<div class="wa-msgs">${bubbles}</div><div class="wac-comp">${comp}</div></div>`}
 
@@ -5177,6 +5254,17 @@ const ACT={
     try{await fdb.doc('waauto/main').set({on:!!D.on,metaOnly:!!D.metaOnly,rules:D.rules,updatedAt:Date.now(),by:S.uid});S.waaD=null;toast(D.on?'נשמר. כל ליד חדש יקבל הודעה אוטומטית':'נשמר (כבוי)')}catch(e){toast('לא הצלחתי: '+errMsg(mapErr(e)))}},
   'wa-info':()=>{S.waInfo=!S.waInfo;render()},
   'lead-openall':()=>{S.leadOpenAll=!S.leadOpenAll;render()},
+  'lbx-sel':D=>{S.lbxSel=D.id;S.drafts.wa=null;S.waAtBottom=true;render()},
+  'lbx-f':D=>{S.leadF.bx=D.v;S.lbxSel='';render()},
+  'lbx-stage':D=>{if(D.v==='lost'){const l=(S.leads||{})[D.id];if(!l)return;S.drafts.lead={stage:'lost'};S.sheet={type:'lead',id:D.id};render();return}leadMove(D.id,D.v)},
+  'lbx-quote':D=>{S.sheet={type:'lead',id:D.id};ACT['lead-quote']()},
+  'lbx-take':D=>{const l=(S.leads||{})[D.id];if(!l)return;const now=Date.now(),nm=S.meName||empName(S.uid)||'';const up={owner:S.uid,ownerName:nm,updatedAt:now,acts:[...(l.acts||[]),{at:now,by:S.uid,byName:nm,kind:'note',text:'לקחתי את הליד'}]};
+    S.leads[D.id]={...l,...up};render();fdb.doc('leads/'+D.id).set(up,{merge:true}).then(()=>toast('הליד אצלך'),e=>toast('לא נשמר: '+errMsg(mapErr(e))))},
+  'lbx-next':D=>{const l=(S.leads||{})[D.id];if(!l)return;const d=addDays(todayISO(),+D.v||0),up={nextAt:d,updatedAt:Date.now()};S.leads[D.id]={...l,...up};render();
+    fdb.doc('leads/'+D.id).set(up,{merge:true}).then(()=>toast('לחזור ללקוח: '+(+D.v?dm(d):'היום')),e=>toast('לא נשמר: '+errMsg(mapErr(e))))},
+  'lbx-act':D=>{const l=(S.leads||{})[D.id];if(!l)return;const t=String(($('#lbx_text')||{}).value||'').trim();if(!t){toast('צריך לכתוב מה היה');return}
+    const a={at:Date.now(),by:S.uid,byName:S.meName||'',kind:($('#lbx_kind')||{}).value||'note',text:t},up={acts:[...(l.acts||[]),a],updatedAt:Date.now()};
+    if((l.stage||'new')==='new'&&a.kind!=='note')up.stage='contacted';S.leads[D.id]={...l,...up};render();fdb.doc('leads/'+D.id).set(up,{merge:true}).then(()=>toast('נרשם'),e=>toast('השמירה נכשלה: '+errMsg(mapErr(e))))},
   'lead-junkf':()=>{S.leadF={...S.leadF,junk:!S.leadF.junk};render()},
   'lead-junk':async D=>{const l=(S.leads||{})[D.id];if(!l)return;const back=l.stage==='junk';leadMove(D.id,back?'new':'junk');
     const c=D.chat&&(S.waChats||{})[D.chat];if(!back&&c&&c.status!=='done')fdb.doc('waChats/'+D.chat).set({status:'done',doneAt:Date.now(),doneBy:S.uid},{merge:true}).catch(()=>{})},

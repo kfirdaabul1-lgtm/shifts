@@ -84,7 +84,7 @@
       <div class="ag" hidden><button type="button" data-ag="gen">✦ שרון · עוזרת כללית</button><button type="button" data-ag="ads">📣 אליאנה · קמפיינים</button><button type="button" data-ag="adam" hidden>🤵 אדם · אירועים</button><select aria-label="איזה מלון" data-agh></select></div>
       <div class="log" aria-live="polite"></div>
       <div class="fchip" hidden></div>
-      <form><label class="att" hidden title="צירוף קובץ וורד, PDF או תמונה">📎<input type="file" accept=".docx,.pdf,.txt,image/*" hidden></label><textarea rows="1" placeholder="לשאול על משמרות, חדרים, תקלות, מלאי…" maxlength="1500"></textarea><button type="submit">שליחה</button></form>`;
+      <form><label class="att" hidden title="צירוף קובץ וורד, PDF, תמונה או ייצוא צ׳אט מוואטסאפ">📎<input type="file" accept=".docx,.pdf,.txt,.zip,image/*" hidden></label><textarea rows="1" placeholder="לשאול על משמרות, חדרים, תקלות, מלאי…" maxlength="1500"></textarea><button type="submit">שליחה</button></form>`;
     document.body.append(b, w);
     b.onclick = () => { w.hidden = false; b.hidden = true; document.documentElement.classList.add('asst-open'); draw(); if (!matchMedia('(max-width:720px)').matches) w.querySelector('textarea').focus(); };
     const vv = window.visualViewport;
@@ -108,10 +108,34 @@
   let pend = null; // {name, mime, data} waiting to go with the next message to Adam
   function asB64(f) {
     return new Promise((ok, no) => {
+      if (/\.zip$/i.test(f.name)) { unzipTxt(f).then(ok, no); return; }
       if (f.size > 6e6) { no(new Error('הקובץ גדול מדי (עד 6MB).')); return; }
-      if (!/\.(docx|pdf|txt)$/i.test(f.name)) { no(new Error('אפשר לצרף קובץ וורד (‎.docx), PDF, תמונה או קובץ טקסט.')); return; }
+      if (!/\.(docx|pdf|txt)$/i.test(f.name)) { no(new Error('אפשר לצרף קובץ וורד (‎.docx), PDF, תמונה, קובץ טקסט או ייצוא צ׳אט מוואטסאפ (‎.zip).')); return; }
       const r = new FileReader(); r.onload = () => ok({ name: f.name, mime: f.type || '', data: String(r.result).split(',')[1] || '' }); r.onerror = () => no(new Error('')); r.readAsDataURL(f);
     });
+  }
+  // WhatsApp "Export chat" .zip (owner, Nov 10): take only the chat .txt in the browser (the zip may carry media), send it as text
+  async function unzipTxt(f) {
+    const bad = () => new Error('לא הצלחתי לפתוח את קובץ ה-zip. בוואטסאפ: ייצוא צ׳אט ← בלי מדיה, ושלחו את הקובץ שנוצר.');
+    if (f.size > 120e6) throw new Error('הקובץ גדול מדי. בוואטסאפ בחרו "ייצוא צ׳אט" ← "בלי מדיה".');
+    const buf = new Uint8Array(await f.arrayBuffer()), dv = new DataView(buf.buffer);
+    let e = -1; for (let i = buf.length - 22; i >= Math.max(0, buf.length - 70000); i--) if (dv.getUint32(i, true) === 0x06054b50) { e = i; break; }
+    if (e < 0) throw bad();
+    const n = dv.getUint16(e + 10, true); let p = dv.getUint32(e + 16, true);
+    for (let k = 0; k < n; k++) {
+      if (dv.getUint32(p, true) !== 0x02014b50) break;
+      const method = dv.getUint16(p + 10, true), csize = dv.getUint32(p + 20, true), fl = dv.getUint16(p + 28, true), xl = dv.getUint16(p + 30, true), cl = dv.getUint16(p + 32, true), off = dv.getUint32(p + 42, true);
+      const name = new TextDecoder().decode(buf.subarray(p + 46, p + 46 + fl)); p += 46 + fl + xl + cl;
+      if (!/\.txt$/i.test(name)) continue;
+      const ds = off + 30 + dv.getUint16(off + 26, true) + dv.getUint16(off + 28, true), data = buf.subarray(ds, ds + csize);
+      let out = data;
+      if (method === 8) { if (!window.DecompressionStream) throw bad(); out = new Uint8Array(await new Response(new Blob([data]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer()); }
+      else if (method !== 0) throw bad();
+      if (out.length > 6e6) out = out.subarray(out.length - 6e6);
+      let bin = ''; for (let i = 0; i < out.length; i += 0x8000) bin += String.fromCharCode.apply(null, out.subarray(i, i + 0x8000));
+      return { name: f.name.replace(/\.zip$/i, '') + '.txt', mime: 'text/plain', data: btoa(bin) };
+    }
+    throw bad();
   }
   function shrink(f) {
     return new Promise((ok, no) => {
@@ -134,7 +158,7 @@
     if (adsH === null || !adsScopes.some((x) => x.id === adsH)) adsH = adsScopes.length ? adsScopes[0].id : '';
     sel.hidden = !ads; sel.innerHTML = adsScopes.map((x) => `<option value="${esc(x.id)}" ${x.id === adsH ? 'selected' : ''}>${esc(x.name)}</option>`).join('');
     root.querySelector('header span span:last-child').textContent = adam ? 'אדם · סוכן מכירת אירועים' : ads ? 'אליאנה · קמפיינים' : 'שרון · עוזרת כללית';
-    root.querySelector('textarea').placeholder = adam ? 'ללמד את אדם משהו, לצרף קובץ 📎, או לכתוב "לקוח שואל: …"' : ads ? 'לשאול על הקמפיינים, הקהלים, המודעות…' : helpOnly ? 'לשאול איך עושים משהו באפליקציה…' : 'לשאול על משמרות, חדרים, תקלות, מלאי, או איך עושים משהו…';
+    root.querySelector('textarea').placeholder = adam ? 'ללמד את אדם משהו, לצרף קובץ או ייצוא צ׳אט 📎, או לכתוב "לקוח שואל: …"' : ads ? 'לשאול על הקמפיינים, הקהלים, המודעות…' : helpOnly ? 'לשאול איך עושים משהו באפליקציה…' : 'לשאול על משמרות, חדרים, תקלות, מלאי, או איך עושים משהו…';
     let h = hist.map((m, i) => `<div class="m ${m.role === 'user' ? 'u' : 'a'}">${fmt(m.text)}${m.show && m.show.steps ? `<div class="shw"><button type="button" data-show="${i}">👀 הראי לי על המסך</button>${m.show.page !== 'events' ? `<button type="button" class="g" data-open="${i}">פתיחת העמוד</button>` : ''}</div>` : ''}</div>`).join('');
     if (!hist.length) h = adam ? `<div class="hint">כאן מדברים עם אדם ומלמדים אותו. ספר לו עובדות על האירועים והוא יציע איך לכתוב אותן בידע שלו, וישמור רק אחרי שתאשר. כתוב "לקוח שואל: …" כדי לראות מה הוא היה עונה. שום דבר לא נשלח ללקוחות מכאן.${adamSt ? `<br><b>${esc(adamSt)}</b>` : ''}</div><div class="chips">${SUGG_ADAM.map((s) => `<button type="button">${esc(s)}</button>`).join('')}</div>`
       : ads ? `<div class="hint">אליאנה עונה על הקמפיינים, הקהלים והמודעות של ${esc((adsScopes.find((x) => x.id === adsH) || {}).name || '')}. היא רק קוראת, לא משנה קמפיינים.</div><div class="chips">${SUGG_ADS.map((s) => `<button type="button">${esc(s)}</button>`).join('')}</div>`

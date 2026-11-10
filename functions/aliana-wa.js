@@ -143,13 +143,14 @@ exports.onAliIn = functions.region(REGION).runWith({ timeoutSeconds: 300, memory
       let fileBlocks = null, fileLabel = '';
       if ((m.type === 'document' || m.type === 'image') && m.doc && m.doc.id) {
         const At = require('./attach.js');
-        if (/zip/i.test(m.doc.mime) || /\.zip$/i.test(m.doc.file)) { await say(c, from, 'קבצי ייצוא צ׳אט הולכים לאליאנה. כתבו "אליאנה" ושלחו שוב.'); return; }
         try {
           const meta = await graph(c, 'GET', m.doc.id);
-          if (+meta.file_size > 7e6) throw new Error('big');
+          const isZip = /zip/i.test(m.doc.mime || meta.mime_type || '') || /\.zip$/i.test(m.doc.file || '');
+          if (+meta.file_size > (isZip ? 60e6 : 7e6)) throw new Error('big');
           const rr = await fetch(meta.url, { headers: { Authorization: 'Bearer ' + c.token } }); if (!rr.ok) throw new Error('download');
           const a = At.toBlocks({ name: m.doc.file, mime: m.doc.mime || meta.mime_type, buf: Buffer.from(await rr.arrayBuffer()) });
           fileBlocks = a.blocks; fileLabel = a.label;
+          if (/^💬/.test(a.label)) fileLabel += ' (ייצוא צ׳אט)';
         } catch (e) { await say(c, from, At.ERR[e.message] || 'לא הצלחתי להוריד את הקובץ. נסו לשלוח שוב.'); return; }
         await say(c, from, '🤵 קיבלתי, קורא…');
       } else if (m.type !== 'text' || !tx0) { await say(c, from, 'אדם קורא כאן טקסט, קבצי וורד, PDF ותמונות.'); return; }

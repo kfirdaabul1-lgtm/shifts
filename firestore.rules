@@ -846,6 +846,10 @@ service cloud.firestore {
       allow update: if isPlatform() || (isOwner() && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['lic', 'ownerEmail']));
       allow delete: if isPlatform();
     }
+    // Google Ads connection (Nov 11): OAuth client + refresh token, owner only; the functions read it and write status
+    match /gadscfg/{id} {
+      allow read, write: if isOwner();
+    }
     match /metacfg/{id} {
       allow read, write: if isOwner();
     }

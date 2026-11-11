@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202611101545"></script>
+<script src="i18n.js?v=202611111400"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -2080,13 +2080,14 @@ function vMkt(){liveColl('camps','campaigns');leadsSub();
   const sum=list=>{const sp=list.reduce((a,[,c])=>a+(+c.spend||0),0),ld=list.reduce((a,[,c])=>a+campLeads(c),0),rv=list.reduce((a,[,c])=>a+campRev(c),0);return {sp,ld,rv,n:list.length}};
   const wk=all.filter(([,c])=>campWeek(c)===W),pw=all.filter(([,c])=>campWeek(c)===addDays(W,-7)),A=sum(wk),P=sum(pw);
   const chg=(a,b)=>b?` · ${a>=b?'▲':'▼'} ${Math.abs(Math.round((a-b)/b*100))}% משבוע קודם`:'';
-  const tabs=`<div class="chips" style="gap:6px;margin-top:8px"><button class="dchip ${f.view==='week'?'':'off'}" data-act="mkt-view" data-v="week">דוח שבועי</button><button class="dchip ${f.view==='year'?'':'off'}" data-act="mkt-view" data-v="year">סיכום לפי שבועות</button><button class="dchip ${f.view==='dash'?'':'off'}" data-act="mkt-view" data-v="dash">דשבורד שיווק</button><button class="dchip ${f.view==='leads'?'':'off'}" data-act="mkt-view" data-v="leads">מהקמפיין לאירוע</button>${S.isOwner?`<button class="dchip ${f.view==='meta'?'':'off'}" data-act="mkt-view" data-v="meta">חיבור Meta</button>`:''}
+  const tabs=`<div class="chips" style="gap:6px;margin-top:8px"><button class="dchip ${f.view==='week'?'':'off'}" data-act="mkt-view" data-v="week">דוח שבועי</button><button class="dchip ${f.view==='year'?'':'off'}" data-act="mkt-view" data-v="year">סיכום לפי שבועות</button><button class="dchip ${f.view==='dash'?'':'off'}" data-act="mkt-view" data-v="dash">דשבורד שיווק</button><button class="dchip ${f.view==='leads'?'':'off'}" data-act="mkt-view" data-v="leads">מהקמפיין לאירוע</button>${S.isOwner?`<button class="dchip ${f.view==='meta'?'':'off'}" data-act="mkt-view" data-v="meta">חיבור Meta</button><button class="dchip ${f.view==='gads'?'':'off'}" data-act="mkt-view" data-v="gads">חיבור Google</button>`:''}
     <select data-mktf="pl" style="width:auto"><option value="all">כל הפלטפורמות</option>${PLATFORMS.map(([k,n])=>`<option value="${k}" ${f.pl===k?'selected':''}>${n}</option>`).join('')}</select></div>`;
   const nav=`<div class="actions" style="align-items:center"><button class="btn sm" data-act="mkt-week" data-d="-7" aria-label="שבוע קודם">›</button><b class="mono">${weekLabel(W)}</b><button class="btn sm" data-act="mkt-week" data-d="7" aria-label="שבוע הבא">‹</button></div>`;
   const head=`<section class="head"><div class="head-t"><h1>סושיאל מדיה · דוחות שבועיים</h1><button class="btn pri" data-act="camp-new">+ דוח שבועי</button></div>${tabs}</section>`;
   if(S.campsErr)return wrap(head+`<div class="notice">לא הצלחתי לטעון: ${esc(S.campsErr)}</div>`);
   if(!S.campsReady)return wrap(head+'<p class="muted">טוען…</p>');
   if(f.view==='meta'&&S.isOwner)return wrap(head+metaCfgHTML());
+  if(f.view==='gads'&&S.isOwner)return wrap(head+gadsCfgHTML());
   if(f.view==='leads')return wrap(head+mktLeadsHTML());
   if(f.view==='dash')return wrap(head+mktDashHTML());
   if(f.view==='year'){const weeks=[...new Set(all.map(([,c])=>campWeek(c)))].sort().reverse();
@@ -2094,7 +2095,7 @@ function vMkt(){liveColl('camps','campaigns');leadsSub();
       ${weeks.map(w=>{const x=sum(all.filter(([,c])=>campWeek(c)===w));return `<tr><td class="mono">${weekLabel(w)}</td><td class="num">${x.n}</td><td class="num">${ils(x.sp)}</td><td class="num">${x.ld}</td><td class="num">${x.ld?ils(x.sp/x.ld):'—'}</td><td class="num">${ils(x.rv)}</td><td class="num">${x.sp?'×'+(x.rv/x.sp).toFixed(1):'—'}</td><td><button class="btn sm" data-act="mkt-go" data-w="${w}">פתיחה</button></td></tr>`}).join('')}</tbody></table></div></div>`:emptyBox('עוד אין דוחות','לוחצים "דוח שבועי" ומזינים את נתוני השבוע.')))}
   const k=`<div class="kpis">${kpi('הושקע השבוע',ils(A.sp),`${A.n} דוחות${chg(A.sp,P.sp)}`)}${kpi('לידים',String(A.ld),(A.ld?`${ils(A.sp/A.ld)} לליד`:'')+chg(A.ld,P.ld))}${kpi('הכנסות ממרכז ההזמנות',ils(A.rv),(A.sp?`החזר ×${(A.rv/A.sp).toFixed(1)}`:'')+chg(A.rv,P.rv))}${kpi('רווח השבוע',ils(A.rv-A.sp),'הכנסות פחות השקעה',A.rv-A.sp<0?'bad':'')}</div>`;
   const list=wk.length?`<div class="card"><h3>דוחות השבוע</h3><div class="scroll-x"><table class="plain"><thead><tr><th>קמפיין</th><th>פלטפורמה</th><th>מופנה ל</th><th class="num">הושקע</th><th class="num">לידים</th><th class="num">עלות לליד</th><th class="num">הכנסות</th><th class="num">החזר</th><th></th></tr></thead><tbody>
-    ${wk.sort(([,a],[,b])=>String(a.name).localeCompare(String(b.name),'he')).map(([id,c])=>`<tr><td><b>${esc(c.name||'')}</b>${campHotel(c)?` <span class="pill" style="background:var(--ink);color:#fff">🏨 ${esc(campHotel(c))}</span>`:''}${c.auto==='meta'?` <span class="pill" title="נכנס אוטומטית מ-Meta">Meta אוטומטי</span><div class="muted" style="font-size:.8rem">${(+c.impressions||0).toLocaleString('he-IL')} חשיפות · ${(+c.clicks||0).toLocaleString('he-IL')} קליקים${+c.msgs?` · ${c.msgs} שיחות`:''}</div>`:''}${c.notes?`<div class="muted" style="font-size:.8rem">${esc(c.notes)}</div>`:''}</td><td>${PLMAP[c.platform]||esc(c.platform||'')}</td><td>${esc(c.target||'')}</td><td class="num">${ils(c.spend)}</td><td class="num">${campLeads(c)}</td><td class="num">${cplOver(c)?`<span class="pill bad" title="מעל ${ils(cplLim(c))} לליד">${campLeads(c)?ils(c.spend/campLeads(c)):'אין לידים'}</span>`:(campLeads(c)?ils(c.spend/campLeads(c)):'—')}</td><td class="num">${ils(campRev(c))}</td><td class="num">${+c.spend?'×'+(campRev(c)/c.spend).toFixed(1):'—'}</td><td><button class="btn sm" data-act="camp-open" data-id="${id}">עריכה</button></td></tr>`).join('')}</tbody></table></div></div>`
+    ${wk.sort(([,a],[,b])=>String(a.name).localeCompare(String(b.name),'he')).map(([id,c])=>`<tr><td><b>${esc(c.name||'')}</b>${campHotel(c)?` <span class="pill" style="background:var(--ink);color:#fff">🏨 ${esc(campHotel(c))}</span>`:''}${c.auto==='google'?` <span class="pill" title="נכנס אוטומטית מ-Google Ads">Google אוטומטי</span><div class="muted" style="font-size:.8rem">${(+c.impressions||0).toLocaleString('he-IL')} חשיפות · ${(+c.clicks||0).toLocaleString('he-IL')} קליקים · ${+c.conv||0} המרות</div>`:''}${c.auto==='meta'?` <span class="pill" title="נכנס אוטומטית מ-Meta">Meta אוטומטי</span><div class="muted" style="font-size:.8rem">${(+c.impressions||0).toLocaleString('he-IL')} חשיפות · ${(+c.clicks||0).toLocaleString('he-IL')} קליקים${+c.msgs?` · ${c.msgs} שיחות`:''}</div>`:''}${c.notes?`<div class="muted" style="font-size:.8rem">${esc(c.notes)}</div>`:''}</td><td>${PLMAP[c.platform]||esc(c.platform||'')}</td><td>${esc(c.target||'')}</td><td class="num">${ils(c.spend)}</td><td class="num">${campLeads(c)}</td><td class="num">${cplOver(c)?`<span class="pill bad" title="מעל ${ils(cplLim(c))} לליד">${campLeads(c)?ils(c.spend/campLeads(c)):'אין לידים'}</span>`:(campLeads(c)?ils(c.spend/campLeads(c)):'—')}</td><td class="num">${ils(campRev(c))}</td><td class="num">${+c.spend?'×'+(campRev(c)/c.spend).toFixed(1):'—'}</td><td><button class="btn sm" data-act="camp-open" data-id="${id}">עריכה</button></td></tr>`).join('')}</tbody></table></div></div>`
     :emptyBox('אין דוחות לשבוע הזה','לוחצים "דוח שבועי" ומזינים לכל קמפיין או פלטפורמה כמה הושקע, כמה לידים נכנסו וכמה הכנסות הגיעו השבוע.');
   mktCfgSub();return wrap(head+`<div class="card" style="padding-block:10px">${nav}</div>`+k+list+adRepHTML('mkt',adMktScopes(),W)+cplCardHTML());
 }
@@ -4420,6 +4421,23 @@ function metaCfgLoad(){if(!S.isOwner||S.metaLive)return;S.metaLive=true;
 // (an older single connection lives in the top-level token/adAccount/status and shows as connection 'main')
 function metaConns(c){c=c||{};const out={...(c.conns||{})};if(c.token&&!out.main)out.main={name:'חיבור 1',token:c.token,adAccount:c.adAccount||''};return out}
 const metaStat=(c,id)=>((c&&c.cst&&c.cst[id]&&c.cst[id].status)||(id==='main'&&c&&c.status)||{});
+/* ---------- Google Ads connection (owner, Nov 11): gadscfg/main {loginId, clientId, clientSecret, refreshToken, customers, syncReq, status} → functions/gads.js ---------- */
+function gadsCfgLoad(){if(!S.isOwner||S.gadsLive)return;S.gadsLive=true;
+  fdb.doc('gadscfg/main').onSnapshot(d=>{S.gadsCfg=d.exists?d.data():null;render()},()=>{S.gadsCfg=null;render()})}
+function gadsCfgHTML(){gadsCfgLoad();const c=S.gadsCfg;if(c===undefined)return `<div class="card"><h3>חיבור Google Ads</h3><p class="muted">טוען…</p></div>`;
+  const when=t=>t?new Date(t).toLocaleString('he-IL',{dateStyle:'short',timeStyle:'short'}):'';
+  const x=c||{},st=x.status||{},has=!!x.refreshToken,g=(k,d='')=>dv('gads',k,d);
+  const stat=!has?'':!st.at?'<div class="notice">נשמר. בודק את החיבור… (עד דקה)</div>'
+    :st.ok?`<p style="font-size:.88rem;line-height:1.8;margin:6px 0">✅ מחובר · בדיקה אחרונה ${when(st.at)}<br>חשבונות: ${esc((st.accounts||[]).join(', ')||'—')} · קמפיינים ב-35 הימים האחרונים: <b>${+st.campaigns||0}</b></p>`
+    :`<div class="notice bad">${(st.accounts||[]).length?'חלק מהחשבונות נכשלו':'החיבור נכשל'}: ${esc(st.err||'')}</div>`;
+  return `<div class="card"><h3>חיבור Google Ads</h3><p class="muted" style="font-size:.85rem">הוצאה, חשיפות, קליקים והמרות של קמפייני גוגל נכנסים לבד לדוחות השבועיים, כל 3 שעות. קריאה בלבד: המערכת לא משנה שום דבר בגוגל. "המרות" נספרות כלידים, לפי מה שהוגדר כיעד בחשבון המודעות.</p>${stat}
+  <label class="f">מספר חשבון המנהל (MCC)<input type="text" dir="ltr" data-f="gads.loginId" value="${esc(g('loginId',x.loginId||''))}" placeholder="809-150-6574"></label>
+  <label class="f">Client ID<input type="text" dir="ltr" data-f="gads.clientId" value="${esc(g('clientId',x.clientId||''))}" placeholder="….apps.googleusercontent.com"></label>
+  <label class="f">Client secret<input type="password" dir="ltr" autocomplete="off" data-f="gads.clientSecret" value="${esc(g('clientSecret',''))}" placeholder="${x.clientSecret?'שמור. מדביקים רק כדי להחליף':'GOCSPX-…'}"></label>
+  <label class="f">Refresh token<input type="password" dir="ltr" autocomplete="off" data-f="gads.refreshToken" value="${esc(g('refreshToken',''))}" placeholder="${has?'שמור. מדביקים רק כדי להחליף':'1//…'}"></label>
+  <label class="f">חשבונות מודעות (לא חובה, מפרידים בפסיק. ריק = כל החשבונות שמקושרים לחשבון המנהל)<input type="text" dir="ltr" data-f="gads.customers" value="${esc(g('customers',x.customers||''))}" placeholder="409-962-3431"></label>
+  <div class="actions"><button class="btn pri" data-act="gads-save">${has?'שמירה':'שמירה וחיבור'}</button>${has?'<button class="btn" data-act="gads-sync">סנכרון עכשיו</button>':''}</div>
+  <p class="muted" style="font-size:.82rem">המפתחות נשמרים רק אצלך (רק בעל המערכת רואה אותם). לא שולחים אותם לאף אחד.</p></div>`}
 function metaCfgHTML(){metaCfgLoad();const c=S.metaCfg;if(c===undefined)return `<div class="card"><h3>חיבור Meta (פייסבוק ואינסטגרם)</h3><p class="muted">טוען…</p></div>`;
   const when=t=>t?new Date(t).toLocaleString('he-IL',{dateStyle:'short',timeStyle:'short'}):'',C=metaConns(c),ids=Object.keys(C).sort();if(S.metaNew&&!ids.includes(S.metaNew))ids.push(S.metaNew);
   const block=id=>{const x=C[id]||{},st=metaStat(c,id),has=!!x.token,g=(k,dflt)=>dv('mc_'+id,k,dflt);
@@ -5448,6 +5466,15 @@ const ACT={
   'backup-now':()=>backupNow(),
   'meta-help':()=>{S.sheet={type:'metahelp'};render()},
   'meta-new':()=>{S.metaNew='c'+Date.now().toString(36);render()},
+  'gads-save':async()=>{const d=S.drafts.gads||{},x=S.gadsCfg||{},v=k=>String(d[k]??'').trim(),dig=s=>String(s||'').replace(/\D/g,'');
+    const o={loginId:dig(v('loginId')||x.loginId),clientId:v('clientId')||x.clientId||'',clientSecret:v('clientSecret')||x.clientSecret||'',refreshToken:v('refreshToken')||x.refreshToken||'',
+      customers:String(d.customers??x.customers??'').split(/[,;\s]+/).map(dig).filter(s=>s.length===10).join(','),syncReq:Date.now(),by:S.uid};
+    if(o.loginId.length!==10){toast('מספר חשבון המנהל צריך 10 ספרות');return}
+    if(!/\.apps\.googleusercontent\.com$/.test(o.clientId)){toast('ה-Client ID אמור להסתיים ב-.apps.googleusercontent.com');return}
+    if(!/^GOCSPX-/.test(o.clientSecret)){toast('ה-Client secret אמור להתחיל ב-GOCSPX-');return}
+    if(!/^1\/\//.test(o.refreshToken)){toast('ה-Refresh token אמור להתחיל ב-1//');return}
+    try{await fdb.doc('gadscfg/main').set(o,{merge:true});S.drafts.gads=null;toast('נשמר. החיבור נבדק עכשיו');render()}catch(e){toast('לא הצלחתי: '+errMsg(mapErr(e)))}},
+  'gads-sync':async()=>{try{await fdb.doc('gadscfg/main').set({syncReq:Date.now()},{merge:true});toast('הסנכרון התחיל, עד דקה')}catch(e){toast('לא הצלחתי: '+errMsg(mapErr(e)))}},
   'meta-save':async D=>{const id=D.id,d=S.drafts['mc_'+id]||{},c=S.metaCfg||{},C=metaConns(c),x=C[id]||{},token=String(d.token??'').trim()||x.token||'',acc=String(d.adAccount??x.adAccount??'').replace(/act_/gi,'').split(/[^0-9]+/).filter(Boolean).join(','),name=String(d.name??x.name??'').trim(),venue=String(d.venue??x.venue??'');
     if(!token){toast('צריך להדביק את המפתח');return}if(!/^EA/.test(token)&&!x.token){toast('המפתח אמור להתחיל ב-EAA');return}
     const FV=firebase.firestore.FieldValue,conns={...C,[id]:{name,token,adAccount:acc,venue}},up={conns,syncReq:Date.now(),by:S.uid};

@@ -6054,15 +6054,20 @@ async function start(u){
 (function(){
   const day0=new Date().toDateString();
   function busy(){const a=document.activeElement;
-    return !!((a&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName))||document.querySelector('.sheet:not([hidden]),dialog[open]')||window.__sigDrawing)}
+    return !!((a&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)&&(!force||(a.tagName!=='SELECT'&&a.value)))||document.querySelector('.sheet:not([hidden]),dialog[open]')||window.__sigDrawing)}
   // Kfir app "refresh everyone" button (Nov 4): orgcfg/main.refreshAt newer than the last one this device saw → reload once
-  let force=false,att=false;const SEEN='appRefreshSeen';
+  // Nov 12 fix: each open page compares with the value it saw itself (several tabs share localStorage, so the first tab
+  // used to "use up" the refresh), and the reload adds ?_r= so the browser/CDN can't hand back the old cached page.
+  let force=0,att=false,base=null;const SEEN='appRefreshSeen';
+  try{const u=new URL(location.href);if(u.searchParams.has('_r')){u.searchParams.delete('_r');history.replaceState(history.state,'',u.toString())}}catch(e){}
   function seen(){try{return +localStorage.getItem(SEEN)||0}catch(e){return 0}}
-  function onRa(ra){ra=+ra||0;if(!ra)return;const s0=seen();if(!s0){try{localStorage.setItem(SEEN,String(ra))}catch(e){}return}
-    if(ra>s0){try{localStorage.setItem(SEEN,String(ra))}catch(e){}force=true;tick()}}
+  function onRa(ra){ra=+ra||0;if(!ra)return;const s0=seen();if(ra>s0){try{localStorage.setItem(SEEN,String(ra))}catch(e){}}
+    if(base===null){base=ra;if(s0&&ra>s0){force=ra;tick()}return}
+    if(ra>base){base=ra;force=ra;tick()}}
   function attach(){if(att)return;try{if(window.firebase&&firebase.apps&&firebase.apps.length&&firebase.auth().currentUser&&firebase.firestore){att=true;
     firebase.firestore().doc('orgcfg/main').onSnapshot(d=>onRa(d.exists&&d.data().refreshAt),()=>{att=false})}}catch(e){}}
-  function tick(){attach();if((force||new Date().toDateString()!==day0)&&!busy())location.reload()}
+  function go(){if(!force){location.reload();return}try{const u=new URL(location.href);u.searchParams.set('_r',String(force));location.replace(u.toString())}catch(e){location.reload()}}
+  function tick(){attach();if((force||new Date().toDateString()!==day0)&&!busy())go()}
   setInterval(tick,20000);setInterval(()=>{if(force)tick()},5000);
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)setTimeout(tick,300)});
   window.addEventListener('focus',()=>setTimeout(tick,300));

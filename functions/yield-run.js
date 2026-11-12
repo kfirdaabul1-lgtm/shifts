@@ -19,6 +19,8 @@ const note = (t, m) => console.log(`::notice title=${t}::${String(m).replace(/\n
   }
   const c = (await db.doc('agentcfg/yield').get()).data();
   note('Config', c ? 'agentcfg/yield enabled=' + (c.enabled === true) : 'agentcfg/yield missing');
+  const lg = await db.collection('agentLog').where('agent', '==', 'yield').get();
+  for (const d of lg.docs.map((x) => x.data()).sort((a, b) => b.at - a.at).slice(0, 6)) note('Log ' + d.scope, `${new Date(d.at).toISOString()} stop=${d.stop || '-'} in=${(d.usage || {}).in} out=${(d.usage || {}).out} tools=${(d.tools || []).join('|')} ${d.error ? 'error=' + d.error : d.report ? 'report' : ''}`);
   const kind = process.env.KIND; if (!kind) return;
   const ref = await db.collection('yieldJobs').add({ kind: kind === 'weekly' ? 'weekly' : 'daily', at: Date.now(), by: 'workflow' });
   note('Job', ref.id + ' created, waiting');

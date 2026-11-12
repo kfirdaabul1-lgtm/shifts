@@ -273,15 +273,15 @@ async function runScope(scope, kind, cfg, today, force) {
   const prev = await previous(scope, prevIds);
   let saved = null; const tools = [...readTools(scope, today), { ...SAVE_REPORT, run: async (a) => { saved = a || {}; return { saved: true }; } }];
   const model = cfg.model || SMART;
-  const out = await C.runLoop({ model, system: system(await C.loadKB('yield'), scope, kind), tools, messages: [{ role: 'user', content: `${kind === 'weekly' ? 'Weekly report' : 'Daily check'} for ${today}. Previous reports (latest first): ${JSON.stringify(prev)}\n\nMETRICS (computed by the system; one block per hotel):\n${JSON.stringify(per.map(compact))}` }], maxTurns: 8, maxTokens: 4000, mustAnswer: true });
+  const out = await C.runLoop({ model, system: system(await C.loadKB('yield'), scope, kind), tools, messages: [{ role: 'user', content: `${kind === 'weekly' ? 'Weekly report' : 'Daily check'} for ${today}. Previous reports (latest first): ${JSON.stringify(prev)}\n\nMETRICS (computed by the system; one block per hotel):\n${JSON.stringify(per.map(compact))}` }], maxTurns: 8, maxTokens: 12000, mustAnswer: true });
   const marketOk = per.some((m) => m.market && m.market.available);
   let rep = saved ? cleanReport(saved, marketOk) : null;
-  if (!rep) { const t = String(out.text || '').trim(); if (!t) { await C.logRun('yield', { scope: scope.key, kind, model, usage: out.U, error: 'no report produced' }); return { scope: scope.key, skipped: 'no report' }; } rep = cleanReport({ headline: t.split('\n')[0], summary: t, pageStatus: 'warn' }, marketOk); }
+  if (!rep) { const t = String(out.text || '').trim(); if (!t) { await C.logRun('yield', { scope: scope.key, kind, model, usage: out.U, tools: out.used, stop: out.stop, error: 'no report produced' }); return { scope: scope.key, skipped: 'no report' }; } rep = cleanReport({ headline: t.split('\n')[0], summary: t, pageStatus: 'warn' }, marketOk); }
   const id = kind + '_' + scope.key + '_' + (kind === 'weekly' ? week : today);
   const health = per.map((m) => ({ hotel: m.hotel, name: m.name, status: m.noData ? 'nodata' : m.pageCheck.status, runDate: m.noData ? '' : m.pageCheck.runDate }));
   await db.doc('yieldReports/' + id).set({ kind, hotel: scope.hotel, scopeKey: scope.key, scopeName: scope.name, date: today, week, ...rep, health, market: marketOk, at: Date.now(), model, by: 'ai' });
   await sref.set({ digest, at: Date.now() });
-  await C.logRun('yield', { scope: scope.key, kind, model, usage: out.U, tools: out.used, report: id });
+  await C.logRun('yield', { scope: scope.key, kind, model, usage: out.U, tools: out.used, stop: out.stop, report: id });
   return { scope: scope.key, report: id };
 }
 async function cleanupDaily(cfg) { try { const cut = Date.now() - cfg.keepDailyDays * 864e5, q = await db.collection('yieldReports').where('at', '<', cut).limit(200).get(); for (const d of q.docs) if ((d.data() || {}).kind === 'daily') await d.ref.delete(); } catch (e) { console.error('yield cleanup', e); } }

@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202611121340"></script>
+<script src="i18n.js?v=202611121410"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -421,6 +421,8 @@ body.nx .card,body.nx .kpi,body.nx .prow{background:rgba(10,20,40,.82)}body.nx .
 .rtd-w{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:14px}@media(max-width:720px){.rtd-w{grid-template-columns:1fr}}.rtd-room{font-weight:700;font-size:.95rem}
 .rtc-good{background:var(--ok-bg)}.rtc-good .rtc-g{color:var(--ok)}.rtc-bad{background:var(--bad-bg)}.rtc-bad .rtc-g{color:var(--bad)}.rtc-out,.rtc-none{background:var(--sunk);color:var(--muted)}.rtc-none{cursor:default;opacity:.55}.rtc.on{outline:3px solid var(--navy,var(--ink));outline-offset:-1px}
 .rtc.rtc-cw{border:2px solid #EA580C;box-shadow:inset 0 0 0 1px #EA580C}.rtc-cwb{font-style:normal;color:#fff;background:#EA580C;border-radius:999px;padding:0 6px;font-size:.72rem;line-height:1.5}.rtc-cw .rtc-c b{color:#C2410C}.rtd-pill.cw{background:#FFEDD5;color:#9A3412;border:1px solid #FDBA74}
+.rtc-m,.rtc-lg{display:none}.rtc-dot{width:8px;height:8px;border-radius:50%;display:inline-block;flex:none}.rtc-dot.win{background:#1F7A45}.rtc-dot.cw{background:#C2410C}.rtc-dot.near{background:#B9AF9A}
+@media(max-width:640px){.rtcal .rtcal-g{grid-auto-rows:58px;gap:4px}.rtc{min-height:58px;padding:4px 2px;background:var(--surface);border-radius:8px}.rtc>:not(.rtc-m){display:none}.rtc-m{display:flex;flex-direction:column;align-items:center;justify-content:space-between;height:100%;width:100%;font-variant-numeric:tabular-nums}.rtc-m small{font-size:.7rem;color:var(--muted)}.rtc-m b{font-size:.9rem}.rtc-none,.rtc-out{opacity:.45}.rtc.rtc-cw{border:2px solid #C2410C;box-shadow:none}.rtc.on{outline:3px solid var(--navy,var(--ink));outline-offset:1px}.rtc-lg{display:flex;flex-wrap:wrap;gap:12px;font-size:.78rem;margin:0 0 8px}.rtc-lg span{display:flex;align-items:center;gap:6px}}
 .rtd{border:1px solid var(--line);border-radius:8px;padding:12px;background:var(--surface);display:flex;flex-direction:column;gap:6px;min-width:0}.rtd-r{display:flex;justify-content:space-between;gap:8px;font-size:.86rem;padding:3px 0;border-bottom:1px solid var(--line)}.rtd-r.me{font-weight:700}.rtd-r b.bad{color:var(--bad)}.rtd-r s{color:var(--muted);font-size:.75rem}.rtd-t{font-size:.76rem;color:var(--muted);margin-top:6px}.rtd-pill{padding:5px 10px;border-radius:6px;font-weight:700;font-size:.85rem;background:var(--sunk)}.rtd-pill.good{background:var(--ok-bg);color:var(--ok)}.rtd-pill.bad{background:var(--bad-bg);color:var(--bad)}.rtd-pill.mid{background:var(--warn-bg);color:var(--warn)}
 .rt-c{min-width:118px}.rt-c .rt-l{display:grid;grid-template-columns:52px auto 1fr;gap:4px;align-items:baseline;text-align:start}.rt-c .rt-l small{white-space:nowrap}.rt-c .rt-l small{color:var(--muted);font-size:.68rem}.rt-c s{color:var(--muted);font-size:.7rem}.rt-c i{font-style:normal;font-size:.75rem}.rt-gap{font-weight:700;margin-top:2px}.rt-good{background:var(--ok-bg)}.rt-good .rt-gap{color:var(--ok)}.rt-bad{background:var(--bad-bg)}.rt-bad .rt-gap{color:var(--bad)}.rt-out{color:var(--muted);background:var(--sunk)}.rt-left{font-size:.68rem;color:var(--warn)}
 </style>
@@ -3353,6 +3355,7 @@ POST ${RATES_URL}
 גוף:
 {"hotel":"Gutman","rows":[{"src":"booking","checkin":"YYYY-MM-DD","room":"שם החדר","orig":0,"price":0,"bf":true,"left":null,"note":""},{"src":"site","checkin":"YYYY-MM-DD","room":"שם החדר","price":0,"bf":false},{"src":"comp","comp":"שם המתחרה","checkin":"YYYY-MM-DD","price":0,"bf":false}]}
 src = booking (מחיר Genius ב-price, המחיר המקורי ב-orig) או site (אתר הבית) או comp (מתחרה: שם המלון המתחרה ב-comp, המחיר הכי זול שלו ב-Booking ב-price, room לא חובה). מחיר ריק = אזל. עד 1500 שורות. התשובה {"ok":true} מאשרת שנשמר.`}
+const RT_CW_MIN=10;
 function vRates(){const hs=ratesHs();if(!hs.length)return wrap(emptyBox('אין מלון','אין לך מלון בהרשאות.'));
   if(!S.ratesH||!hs.includes(S.ratesH))S.ratesH=hs.includes(S.hotel)?S.hotel:hs[0];const h=S.ratesH,R=ratesSub(h);
   const chips=hs.length>1?`<div class="chips">${hs.map(x=>`<button class="dchip ${x===h?'':'off'}" data-act="rates-h" data-h="${x}">${esc(hotelName(x))}</button>`).join('')}</div>`:'';
@@ -3378,13 +3381,15 @@ function vRates(){const hs=ratesHs();if(!hs.length)return wrap(emptyBox('אין 
     const comps=Object.entries(cm).sort((x,y)=>x[1]-y[1]),ours=[bp,sp].filter(x=>x!=null),best=ours.length?Math.min(...ours):null;
     const rank=best!=null&&comps.length?1+comps.filter(([,v])=>v<best).length:null;
     // owner, Nov 12: flag days a competitor is cheaper than our cheapest price
-    const cw=best!=null&&comps.length&&comps[0][1]<best?{n:comps[0][0],v:comps[0][1],d:best-comps[0][1]}:null;return {rm,b,sv,bp,sp,gap,comps,best,rank,cw,n:comps.length+1}};
+    // owner, Nov 12 (sketch ב׳): only a gap above ₪10 counts as 'competitor cheaper'; a smaller one is 'almost the same'
+    const cd=best!=null&&comps.length&&comps[0][1]<best?{n:comps[0][0],v:comps[0][1],d:best-comps[0][1]}:null,cw=cd&&cd.d>RT_CW_MIN?cd:null,near=cd&&!cw?cd:null;
+    const st=best==null||!comps.length?'':cw?'cw':near?'near':'win';return {rm,b,sv,bp,sp,gap,comps,best,rank,cw,near,st,n:comps.length+1}};
   let cheaper=0,dearer=0,first=0,cwN=0;dates.forEach(d=>{const x=day(d);if(x.gap!=null){if(x.gap<0)cheaper++;else if(x.gap>0)dearer++}if(x.rank===1)first++;if(x.cw)cwN++});
   const hasComp=comp.length>0;
   const runSel=R.runs.length>1?`<select data-ratesrun style="width:auto">${R.runs.slice(0,12).map(r=>`<option value="${esc(r.id)}" ${r.id===run.id?'selected':''}>${esc(fmtDM(r.runDate||''))}</option>`).join('')}</select>`:'';
   const tabs=`<div class="chips" style="gap:6px"><button class="dchip ${view==='cal'?'':'off'}" data-act="rates-v" data-v="cal">לוח שנה</button><button class="dchip ${view==='room'?'':'off'}" data-act="rates-v" data-v="room">לפי סוג חדר</button></div>`;
   const top=`<div class="row" style="justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center"><h3 style="margin:0"><span>ריצה אחרונה</span>: ${at?esc(fmtDM(run.runDate))+' · '+at.toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'}):''}</h3>${runSel}</div>
-    <div class="kpis" style="margin:10px 0"><div class="kpi"><b>${dates.length}</b><span>תאריכים</span></div><div class="kpi"><b style="color:var(--ok)">${dearer}</b><span>ימים שאתר הבית זול</span></div><div class="kpi"><b style="color:var(--bad)">${cheaper}</b><span>ימים ש-Booking זול</span></div>${hasComp?`<div class="kpi"><b>${first}</b><span>ימים שאנחנו הכי זולים באזור</span></div><div class="kpi"><b style="color:#EA580C">${cwN}</b><span>ימים שמתחרה זול מאיתנו</span></div>`:''}</div>`;
+    <div class="kpis" style="margin:10px 0"><div class="kpi"><b>${dates.length}</b><span>תאריכים</span></div><div class="kpi"><b style="color:var(--ok)">${dearer}</b><span>ימים שאתר הבית זול</span></div><div class="kpi"><b style="color:var(--bad)">${cheaper}</b><span>ימים ש-Booking זול</span></div>${hasComp?`<div class="kpi"><b>${first}</b><span>ימים שאנחנו הכי זולים באזור</span></div><div class="kpi"><b style="color:#EA580C">${cwN}</b><span>ימים שמתחרה זול ביותר מ-₪10</span></div>`:''}</div>`;
   if(view==='room'){
     const table=`<div class="card">${top}
     <p class="muted" style="font-size:.8rem"><span>לילה אחד, 2 מבוגרים. ירוק = אתר הבית זול מ-Booking Genius, אדום = Booking Genius זול מאתר הבית. ☕ = כולל ארוחת בוקר (ב-Booking Genius יש ארוחת בוקר ובאתר הבית לא, ולכן ההשוואה לא שווה לגמרי).</span></p>
@@ -3398,7 +3403,7 @@ function vRates(){const hs=ratesHs();if(!hs.length)return wrap(emptyBox('אין 
   while(d<=last||new Date(d+'T12:00').getDay()!==0){
     if(!dset.has(d))cells+=`<div class="rtc rtc-none"><b>${esc(fmtDM(d).slice(0,5))}</b></div>`;
     else{const x=day(d),cls=x.gap==null?(x.bp==null&&x.sp==null?'rtc-out':''):x.gap>0?'rtc-good':x.gap<0?'rtc-bad':'rtc-eq';
-      cells+=`<button class="rtc ${cls} ${x.cw?'rtc-cw':''} ${d===sel?'on':''}" data-act="rates-day" data-d="${d}" aria-pressed="${d===sel}"><span class="rtc-h"><b>${esc(fmtDM(d).slice(0,5))}</b>${x.cw?`<i class="rtc-cwb" title="מתחרה זול מאיתנו">⚠</i>`:''}${x.rank?`<small title="המיקום שלנו מול המתחרים">#${x.rank}</small>`:''}</span>${x.bp==null&&x.sp==null?'<span class="rtc-g">אזל</span>':`<span class="rtc-p"><small>Booking</small><b>${x.bp!=null?rP(x.bp):'—'}</b></span><span class="rtc-p"><small>אתר</small><b>${x.sp!=null?rP(x.sp):'—'}</b></span><span class="rtc-g">${x.gap==null?'':x.gap?`<span dir="ltr">${x.gap>0?'+':'−'}${rP(Math.abs(x.gap))}</span>`:'שווה'}</span>`}${x.comps.length?`<span class="rtc-p rtc-c"><small>מתחרה</small><b>${x.cw?'▼ ':''}${rP(x.comps[0][1])}</b></span>`:''}</button>`}
+      cells+=`<button class="rtc ${cls} ${x.cw?'rtc-cw':''} ${d===sel?'on':''}" data-act="rates-day" data-d="${d}" aria-pressed="${d===sel}"><span class="rtc-m"><small>${+d.slice(8)}</small><b>${x.best!=null?Math.round(x.best):'אזל'}</b><i class="rtc-dot ${x.st}"></i></span><span class="rtc-h"><b>${esc(fmtDM(d).slice(0,5))}</b>${x.cw?`<i class="rtc-cwb" title="מתחרה זול מאיתנו">⚠</i>`:''}${x.rank?`<small title="המיקום שלנו מול המתחרים">#${x.rank}</small>`:''}</span>${x.bp==null&&x.sp==null?'<span class="rtc-g">אזל</span>':`<span class="rtc-p"><small>Booking</small><b>${x.bp!=null?rP(x.bp):'—'}</b></span><span class="rtc-p"><small>אתר</small><b>${x.sp!=null?rP(x.sp):'—'}</b></span><span class="rtc-g">${x.gap==null?'':x.gap?`<span dir="ltr">${x.gap>0?'+':'−'}${rP(Math.abs(x.gap))}</span>`:'שווה'}</span>`}${x.comps.length?`<span class="rtc-p rtc-c"><small>מתחרה</small><b>${x.cw?'▼ ':''}${rP(x.comps[0][1])}</b></span>`:''}</button>`}
     d=addDays(d,1);if(cells.length>200000)break}
   const x=day(sel),pill=(t,c)=>`<div class="rtd-pill ${c}">${t}</div>`;
   const cl=x.best!=null?[...x.comps.map(([n,v])=>({n,v})),{n:'אנחנו',v:x.best,me:1}].sort((a,b)=>a.v-b.v||(b.me||0)-(a.me||0)):[];
@@ -3408,13 +3413,13 @@ function vRates(){const hs=ratesHs();if(!hs.length)return wrap(emptyBox('אין 
     <div class="rtd-r"><span>אתר הבית</span><span><b>${x.sp!=null?rP(x.sp):'אזל'}</b>${x.sv&&x.sv.bf?' ☕':''}</span></div>
     ${x.gap==null?'':x.gap>0?pill(`<span>אתר הבית זול ב-</span>${rP(x.gap)}`,'good'):x.gap<0?pill(`<span>Booking זול ב-</span>${rP(-x.gap)}`,'bad'):pill('אותו מחיר','')}
     <div class="rtd-t"><span>מתחרים</span> · <span>החדר הכי זול</span></div>
-    ${x.cw?`<div class="rtd-pill cw">⚠ ${esc(x.cw.n)} <span>זול מאיתנו ב-</span>${rP(x.cw.d)}</div>`:''}
+    ${x.cw?`<div class="rtd-pill cw">⚠ ${esc(x.cw.n)} <span>זול מאיתנו ב-</span>${rP(x.cw.d)}</div>`:x.near?`<div class="rtd-pill"><span>כמעט שווה למתחרה</span> (${rP(x.near.d)})</div>`:''}
     ${cl.length>1?cl.map(c=>`<div class="rtd-r ${c.me?'me':''}"><span>${c.me?'<b>אנחנו</b>':esc(c.n)}</span><b class="${!c.me&&c.v<x.best?'bad':''}">${rP(c.v)}</b></div>`).join('')+pill(`<span>אנחנו במקום</span> ${x.rank} <span>מתוך</span> ${x.n}`,x.rank===1?'good':x.rank===x.n?'bad':'mid')
       :'<p class="muted" style="font-size:.82rem;margin:0">עוד אין מחירי מתחרים. אחרי שסוכן המחירים יתחיל לשלוח אותם הם יופיעו כאן.</p>'}
     <button class="btn sm" style="margin-top:8px;align-self:flex-start" data-act="rates-v" data-v="room">כל סוגי החדרים ←</button></div>`;
   const cal=`<div class="card">${top}
-    <p class="muted" style="font-size:.8rem"><span>בכל יום: החדר הכי זול שלנו, Booking מול אתר הבית.</span> <span>ירוק = אתר הבית זול מ-Booking Genius, אדום = Booking Genius זול מאתר הבית.</span>${hasComp?' <span>#n = המיקום שלנו מול המתחרים (1 = הכי זולים).</span> <span>⚠ ומסגרת כתומה = יש מתחרה זול מאיתנו באותו יום.</span>':''} <span>לחיצה על יום מציגה את כל המחירים.</span></p>
-    <div class="rtcal-w"><div class="rtcal"><div class="rtcal-dw">${['א׳','ב׳','ג׳','ד׳','ה׳','ו׳','ש׳'].map(x=>`<span>${x}</span>`).join('')}</div><div class="rtcal-g">${cells}</div></div>${detail}</div></div>`;
+    <p class="muted" style="font-size:.8rem"><span>בכל יום: החדר הכי זול שלנו, Booking מול אתר הבית.</span> <span>ירוק = אתר הבית זול מ-Booking Genius, אדום = Booking Genius זול מאתר הבית.</span>${hasComp?' <span>#n = המיקום שלנו מול המתחרים (1 = הכי זולים).</span> <span>⚠ ומסגרת כתומה = מתחרה זול מאיתנו ביותר מ-₪10 באותו יום.</span>':''} <span>לחיצה על יום מציגה את כל המחירים.</span></p>
+    ${hasComp?`<div class="rtc-lg"><span><i class="rtc-dot win"></i>אנחנו הכי זולים</span><span><i class="rtc-dot cw"></i>מתחרה זול (מעל ₪10)</span><span><i class="rtc-dot near"></i>כמעט שווה</span></div>`:''}<div class="rtcal-w"><div class="rtcal"><div class="rtcal-dw">${['א׳','ב׳','ג׳','ד׳','ה׳','ו׳','ש׳'].map(x=>`<span>${x}</span>`).join('')}</div><div class="rtcal-g">${cells}</div></div>${detail}</div></div>`;
   return wrap(head+tabs+cal)}
 function vBar(){const hs=modHs('bar',barHs());if(!hs.length)return wrap(emptyBox('אין מלון','צריך להיות רשום במלון ובמחלקת בר.'));
   if(!hs.includes(S.barH))S.barH=hs.includes(S.myHotel)?S.myHotel:hs[0];const h=S.barH,boss=barBoss(h),M=S.barM||(S.barM=todayISO().slice(0,7));

@@ -1728,6 +1728,13 @@ const ads = require('./agent-ads.js');
 exports.adsDaily = ads.adsDaily;
 exports.adsWeekly = ads.adsWeekly;
 exports.adsRunNow = ads.adsRunNow;
+// yield (revenue management) agent "Guy / גיא" (Nov 12, owner): READ ONLY audit of the price page + the revenue manager's pricing.
+// Does nothing until agentcfg/yield.enabled === true. yieldJob = admin-started run (yieldJobs/{id}, functions/yield-run.js).
+const yld = require('./agent-yield.js');
+exports.yieldDaily = yld.yieldDaily;
+exports.yieldWeekly = yld.yieldWeekly;
+exports.yieldRunNow = yld.yieldRunNow;
+exports.yieldJob = yld.yieldJob;
 // weekly FX rates for foreign-currency groups (owner, Nov 7): Sunday 16:45 Israel; fxRunNow (owner only) fills past weeks: POST {from:'YYYY-MM-DD'}
 const fx = require('./fx.js');
 exports.fxWeekly = functions.region(REGION).pubsub.schedule('45 16 * * 0').timeZone('Asia/Jerusalem').onRun(async () => { try { await fx.fxSync(); } catch (e) { console.error('fxWeekly', e); } return null; });

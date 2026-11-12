@@ -11,6 +11,9 @@ const KEYS = ['hotel', 'month', 'date', 'shift', 'name', 'empUid', 'ooo', 'fault
     if (!(await cr.get()).exists) { await cr.set({ enabled: false, name: 'אדם', mode: 'draft', scope: ['events'], createdAt: Date.now(), createdBy: 'setup' }); console.log('::notice title=Adam::agentcfg/reply created (off, draft)'); }
     const kr = db.doc('agentKB/reply');
     if (!(await kr.get()).exists) { const t = require('fs').readFileSync(require('path').join(__dirname, 'kb', 'reply-seed.md'), 'utf8').trim(); await kr.set({ text: t, updatedAt: Date.now(), updatedBy: 'setup', updatedByName: 'הזנה ראשונה' }); console.log('::notice title=Adam::agentKB/reply created, ' + t.length + ' chars'); }
+    // Guy, the yield agent (Nov 12, owner asked to turn it on): create agentcfg/yield enabled, ONLY when missing
+    const yr = db.doc('agentcfg/yield');
+    if (!(await yr.get()).exists) { await yr.set({ enabled: true, name: 'גיא', createdAt: Date.now(), createdBy: 'setup' }); console.log('::notice title=Guy::agentcfg/yield created (on)'); }
   } catch (e) { console.log('::warning title=Adam seed::' + String(e.message || e).slice(0, 200)); }
   const [all, pub] = await Promise.all([db.collection('shiftReports').get(), db.collection('shiftReportsPub').get()]);
   const have = new Set(pub.docs.map((d) => d.id));

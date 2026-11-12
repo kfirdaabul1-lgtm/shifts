@@ -1,0 +1,22 @@
+name: Yield agent run
+on:
+  workflow_dispatch:
+    inputs:
+      kind: { description: 'daily / weekly / empty = only indexes + config check', required: false, default: 'daily' }
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: cd functions && npm install --omit=dev
+      - env:
+          KEY: ${{ secrets.FIREBASE_DEPLOY_KEY }}
+          KIND: ${{ inputs.kind }}
+        run: |
+          echo "$KEY" > "$RUNNER_TEMP/key.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/key.json"
+          cd functions && node yield-run.js
+          rm -f "$RUNNER_TEMP/key.json"

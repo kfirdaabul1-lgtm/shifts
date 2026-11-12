@@ -476,6 +476,11 @@ service cloud.firestore {
         || (resource.data.hotel == '' && canMkt() && roleHotels().size() == 0);
       allow write: if false;
     }
+    // yield agent "Guy" reports (Nov 12): server-only writes; hotel report → that hotel's manager; chain report ('') → owner / CEO
+    match /yieldReports/{id} {
+      allow read: if isOwner() || canCeo() || (resource.data.hotel != '' && gmIn(resource.data.hotel));
+      allow write: if false;
+    }
     // managers' directions for the ads agent (Nov 7): same readers as adReports; writers = the same people, own text only; author or owner deletes
     match /adNotes/{id} {
       allow read: if isOwner() || canCeo()

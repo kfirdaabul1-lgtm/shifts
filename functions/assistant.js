@@ -74,9 +74,9 @@ async function callerFrom(uid, email, verified, dname, opt) {
   // help = Sharon only explains how to use the app (default on, ai.help === false turns it off); sharon = Sharon with hotel data; aliana = the ads agent;
   // adam = may train Adam, the events reply agent (adamChat / Adam on the agents' WhatsApp), with data limited to the person's hotels.
   const ea = (emp && emp.ai) || {};
-  const ai = owner ? { help: true, sharon: true, aliana: true, adam: true } : { help: ea.help !== false, sharon: ea.sharon === true, aliana: ea.aliana === true, adam: ea.adam === true };
+  const ai = owner ? { help: true, sharon: true, aliana: true, adam: true, guy: true } : { help: ea.help !== false, sharon: ea.sharon === true, aliana: ea.aliana === true, adam: ea.adam === true, guy: ea.guy === true };
   const station = !!(role && role.station);
-  const full = owner || (!station && !!emp && (opt && opt.help ? ai.sharon : (ai.sharon || ai.aliana || ai.adam)));
+  const full = owner || (!station && !!emp && (opt && opt.help ? ai.sharon : (ai.sharon || ai.aliana || ai.adam || ai.guy)));
   if (!full) {
     // help-only (owner, Nov 9): may ask Sharon HOW to use the app — no data tools at all, so nothing about the hotels can leak
     if (!(opt && opt.help)) return { uid: tok.uid, denied: true, ai };

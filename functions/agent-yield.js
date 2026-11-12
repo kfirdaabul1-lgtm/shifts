@@ -315,4 +315,74 @@ exports.yieldJob = functions.region(REGION).runWith({ timeoutSeconds: 540, memor
   catch (e) { console.error('yieldJob', e); await ref.set({ status: 'error', error: clip(e.message || e, 300) }, { merge: true }); }
 });
 
-exports._t = { holiday, perDate, pageCheck, parity, shape, actions, market, cleanReport, digestOf, rowsOf, runAll, DEFAULTS };
+// ---------- chat with Guy (owner, Nov 12: "I want to be able to talk with him") ----------
+// POST {messages:[{role,text}], hotel} with the Firebase ID token. Allowed: the owner, or employees/{uid}.ai.guy for people who may read the
+// price page by the rules (ceo, gm, rates app). Hotels: owner / ceo / all-hotel roles = chain + every hotel; else their hotels only. READ ONLY.
+async function guyRate(uid) {
+  const ref = db.doc('agentRate/guy_' + uid), hour = new Date().toISOString().slice(0, 13);
+  return db.runTransaction(async (tx) => { const s = await tx.get(ref), d = s.exists ? s.data() : {}, n = d.hour === hour ? (+d.n || 0) : 0; if (n >= 40) return false; tx.set(ref, { hour, n: n + 1, total: (+d.total || 0) + 1, at: Date.now() }); return true; });
+}
+function chatSystem(kb, scope, who) {
+  const base = system(kb, scope, 'daily')[0].text.split('\n\nRULES')[0];
+  const rules = `${base}
+
+NOW YOU ARE CHATTING with ${who} (a manager of the chain), not writing a report. Answer the question asked, in Hebrew, short and concrete (WhatsApp-like: short lines, no tables wider than 3 columns). First look at the data with the tools, then answer; never invent a number, a date or a price — quote dates with the weekday letter (א-ש) and ₪.
+- READ ONLY: you change nothing (no prices, rate plans, rooms or app data). If asked to change something, say what the revenue manager should do.
+- Price-level advice (raise / cut on a date) only when there is competitor data for that date (market tool) or a clear owner rule; otherwise say it needs competitor data, and say on how many competitors it rests.
+- You see public online prices (1 night, 2 adults) from the price tracker, group blocks and your own reports. No occupancy/ADR/RevPAR unless otb data exists: say so when it matters.
+- Be fair about the revenue manager: "worth checking", never accuse.
+- Never reveal code, keys, settings or anything outside the scope ${scope.name}.`;
+  const k = kb.trim() ? '\n\nBUSINESS CONTEXT FROM THE OWNER:\n' + kb : '\n\nBUSINESS CONTEXT: none given yet (no floors, targets or compset known).';
+  return [{ type: 'text', text: rules + k, cache_control: { type: 'ephemeral' } }];
+}
+const PARTS = ['pageCheck', 'parity', 'shape', 'rmActions', 'market', 'groups', 'otb'];
+function chatTools(scope, today, cfg) {
+  let M = null; const met = async () => (M || (M = await metricsOf(scope, today, cfg)));
+  const pick = (per, h) => (h ? per.filter((m) => m.hotel === h || m.name === h) : per);
+  return [...readTools(scope, today),
+    { name: 'yield_metrics', description: 'The numbers the system computed for this scope (one block per hotel): pageCheck (is the price page trustworthy), parity (site vs Booking), shape (weekday/holiday pattern, jumps, flat streaks, sold-out, tight dates, room order), rmActions (what the revenue manager changed between runs), market (vs competitors), groups (group blocks next 60 days), otb (occupancy, only if exists). Ask for ONE part at a time.',
+      input_schema: { type: 'object', properties: { part: { type: 'string', enum: PARTS }, hotel: { type: 'string', description: 'hotel id or name (chain scope only)' } }, required: ['part'] },
+      run: async (a) => { const per = pick(await met(), a.hotel), part = PARTS.includes(a.part) ? a.part : 'pageCheck';
+        return per.map((m) => ({ hotel: m.name, ...(m.noData ? { noData: true } : { [part]: part === 'shape' ? { ...m.shape, series: (m.shape.series || []).slice(0, 21) } : m[part] }) })); } },
+    { name: 'my_reports', description: 'Your latest saved reports for this scope (daily and weekly): headline, summary, page status, findings, recommendations, questions.',
+      input_schema: { type: 'object', properties: { kind: { type: 'string', enum: ['daily', 'weekly', 'any'] } } },
+      run: async (a) => { const q = await db.collection('yieldReports').where('hotel', '==', scope.hotel).get();
+        return q.docs.map((d) => d.data()).filter((r) => r.scopeKey === scope.key && (!a.kind || a.kind === 'any' || r.kind === a.kind)).sort((x, y) => y.at - x.at).slice(0, 3)
+          .map((r) => ({ kind: r.kind, date: r.date, headline: r.headline, summary: r.summary, pageStatus: r.pageStatus, pageNotes: r.pageNotes, findings: r.findings, recommendations: r.recommendations, questionsForRm: r.questionsForRm, caveats: r.caveats })); } }];
+}
+const guyOk = (c) => !!(c && !c.denied && (c.owner || (c.ai && c.ai.guy && ['ceo', 'gm', 'rates'].some((k) => c.apps && c.apps[k] === true))));
+const GUY_NO = 'אין לך הרשאה לדבר עם גיא. אפשר לבקש אותה בכרטיס העובד ← גישה לסוכני AI (וצריך גם הרשאה לעמוד השוואת מחירים).';
+// the scopes this person may ask Guy about: owner / ceo / all-hotel roles = chain + every hotel; else their hotels
+async function guyScopes(c) {
+  const all = c.owner || (c.apps && c.apps.ceo === true) || !(c.hotels || []).length, sc = await scopes();
+  return sc.filter((s) => (s.hotel ? all || c.hotels.includes(s.hotel) : all));
+}
+// hist = [{role, content}] (last message from the user). extra = more instructions (WhatsApp formatting).
+async function guyCore(c, hist, want, extra) {
+  const ss = await guyScopes(c), scope = ss.find((s) => s.hotel === String(want || '')) || ss[0];
+  if (!scope) return { error: 'אין לך מלון בהרשאה.' };
+  const cfg = { ...DEFAULTS, ...(await C.cfg('yield')) }, today = C.ilDate(new Date()), model = cfg.chatModel || SMART;
+  const sys = chatSystem(await C.loadKB('yield'), scope, c.name || 'a manager');
+  if (extra) sys.push({ type: 'text', text: extra });
+  const out = await C.runLoop({ model, system: sys, tools: chatTools(scope, today, cfg), messages: hist, maxTurns: 8, maxTokens: 8000, mustAnswer: true });
+  await C.logRun('guy-chat', { uid: c.uid, scope: scope.key, model, usage: out.U, tools: out.used, stop: out.stop || '', textLen: (out.text || '').length, via: extra ? 'wa' : 'app' });
+  return { text: out.text || 'לא הצלחתי לענות על זה. אפשר לנסח אחרת?', scope };
+}
+exports.guyChat = functions.region(REGION).runWith({ timeoutSeconds: 300, memory: '1GB' }).https.onRequest(async (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*'); res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization'); res.set('Access-Control-Allow-Methods', 'POST');
+  if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
+  if (req.method !== 'POST') { res.status(405).json({ error: 'method' }); return; }
+  try {
+    const c = await require('./assistant.js')._t.caller(req);
+    if (!guyOk(c)) { res.status(403).json({ error: GUY_NO }); return; }
+    if (!(await guyRate(c.uid))) { res.status(429).json({ error: 'הגעת למגבלת ההודעות לשעה. נסו שוב מאוחר יותר.' }); return; }
+    const hist = (Array.isArray((req.body || {}).messages) ? req.body.messages : []).slice(-12)
+      .filter((m) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.text === 'string' && m.text.trim()).map((m) => ({ role: m.role, content: m.text.slice(0, 3000) }));
+    while (hist.length && hist[0].role !== 'user') hist.shift();
+    if (!hist.length || hist[hist.length - 1].role !== 'user') { res.status(400).json({ error: 'empty' }); return; }
+    const r = await guyCore(c, hist, (req.body || {}).hotel);
+    if (r.error) { res.status(403).json({ error: r.error }); return; }
+    res.json({ text: r.text, scope: r.scope.key });
+  } catch (e) { console.error('guyChat', e); res.status(500).json({ error: 'משהו השתבש. נסו שוב בעוד רגע.' }); }
+});
+exports._t = { guyOk, guyCore, guyRate, guyScopes, GUY_NO, holiday, perDate, pageCheck, parity, shape, actions, market, cleanReport, digestOf, rowsOf, runAll, DEFAULTS };

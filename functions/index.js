@@ -1735,6 +1735,7 @@ exports.yieldDaily = yld.yieldDaily;
 exports.yieldWeekly = yld.yieldWeekly;
 exports.yieldRunNow = yld.yieldRunNow;
 exports.yieldJob = yld.yieldJob;
+exports.guyChat = yld.guyChat;
 // weekly FX rates for foreign-currency groups (owner, Nov 7): Sunday 16:45 Israel; fxRunNow (owner only) fills past weeks: POST {from:'YYYY-MM-DD'}
 const fx = require('./fx.js');
 exports.fxWeekly = functions.region(REGION).pubsub.schedule('45 16 * * 0').timeZone('Asia/Jerusalem').onRun(async () => { try { await fx.fxSync(); } catch (e) { console.error('fxWeekly', e); } return null; });

@@ -119,7 +119,9 @@ exports.onAliIn = functions.region(REGION).runWith({ timeoutSeconds: 300, memory
     const allowed = who && !who.denied ? [''].concat(hs.map((h) => h.id)).filter((h) => ads.chatOk(who, h)) : [];
     // Adam (events reply agent) on the same WhatsApp for people allowed to train him (owner, Nov 9): "אדם" switches to him, "אליאנה" back
     const adamOk = !!(who && !who.denied && (who.owner || (who.ai && who.ai.adam)));
-    if (!allowed.length && !adamOk) {
+    // Guy (yield agent) too (owner, Nov 12): "גיא" switches to him
+    const Y = require('./agent-yield.js')._t, guyOk = Y.guyOk(who);
+    if (!allowed.length && !adamOk && !guyOk) {
       const ref = db.doc('aliWa/' + from), s = await ref.get(), day = C.ilDate(new Date());
       if (!s.exists || s.data().strangerDay !== day) {
         await ref.set({ strangerDay: day, name: m.name || '' }, { merge: true });
@@ -129,12 +131,34 @@ exports.onAliIn = functions.region(REGION).runWith({ timeoutSeconds: 300, memory
     }
     const ref0 = db.doc('aliWa/' + from), st0 = (await ref0.get()).data() || {};
     const tx0 = m.type === 'text' ? String(m.text || '').trim() : '';
-    const toAdam = /^(אדם|עם אדם|לאדם|adam)[.!]?$/i.test(tx0), toAli = /^(אליאנה|עם אליאנה|לאליאנה|aliana)[.!]?$/i.test(tx0);
+    const toAdam = /^(אדם|עם אדם|לאדם|adam)[.!]?$/i.test(tx0), toAli = /^(אליאנה|עם אליאנה|לאליאנה|aliana)[.!]?$/i.test(tx0), toGuy = /^(גיא|עם גיא|לגיא|guy)[.!]?$/i.test(tx0);
+    if (toGuy) {
+      if (!guyOk) { await say(c, from, Y.GUY_NO); return; }
+      const gs = await Y.guyScopes(who);
+      await ref0.set({ agent: 'guy' }, { merge: true });
+      await say(c, from, '📈 היי, כאן גיא, סוכן התשואה. אני בודק את המחירים, את עמוד השוואת המחירים ומה מנהל התשואה שינה. אני רק קורא נתונים, לא משנה מחירים.\nאפשר לשאול למשל "מה המצב השבוע?" או "למה 20/11 יקר?".' + (gs.length > 1 ? '\nכדי לעבור מלון כתבו את שם המלון' + (gs.some((x) => !x.hotel) ? ' או "כל הרשת"' : '') + '.' : '') + '\nכדי לחזור לאליאנה כתבו "אליאנה".');
+      return;
+    }
     if (toAdam || toAli) {
       if (toAdam && !adamOk) { await say(c, from, 'אין לך הרשאה לאמן את אדם. אפשר לבקש אותה מהמנהל (כרטיס העובד ← גישה לסוכני AI).'); return; }
-      if (toAli && !allowed.length) { await say(c, from, 'אין לך הרשאה לאליאנה (קמפיינים). כאן אפשר לדבר עם אדם.'); return; }
+      if (toAli && !allowed.length) { await say(c, from, 'אין לך הרשאה לאליאנה (קמפיינים).' + (adamOk ? ' כאן אפשר לדבר עם אדם.' : '') + (guyOk ? ' כתבו "גיא" כדי לדבר עם גיא.' : '')); return; }
       await ref0.set({ agent: toAdam ? 'adam' : 'ali' }, { merge: true });
       await say(c, from, toAdam ? '🤵 היי, כאן אדם, סוכן מכירת האירועים. ספר/י לי עובדות על האירועים ואציע איך לכתוב אותן בידע שלי (אשמור רק אחרי אישור), או כתבו "לקוח שואל: …" ואראה מה הייתי עונה. כדי לחזור לאליאנה כתבו "אליאנה".' : '📣 חזרנו לאליאנה, סוכנת הקמפיינים. כדי לדבר עם אדם כתבו "אדם".');
+      return;
+    }
+    if (guyOk && (st0.agent === 'guy' || (!allowed.length && !adamOk))) {
+      if (m.type !== 'text' || !tx0) { await say(c, from, 'גיא קורא כאן רק טקסט.'); return; }
+      if (/^(איפוס|שיחה חדשה|reset)$/i.test(tx0)) { await ref0.set({ guyMsgs: [] }, { merge: true }); await say(c, from, 'התחלנו שיחה חדשה עם גיא ✓'); return; }
+      const gs = await Y.guyScopes(who);
+      const nm = tx0.replace(/[.!?]$/, '').trim(), pickS = /^(כל הרשת|הרשת|רשת)$/.test(nm) ? gs.find((x) => !x.hotel) : gs.find((x) => x.hotel && String(x.name).trim() === nm);
+      if (pickS) { await ref0.set({ agent: 'guy', guyH: pickS.hotel, guyMsgs: [] }, { merge: true }); await say(c, from, '📈 עברנו ל' + pickS.name + ' ✓'); return; }
+      if (!(await Y.guyRate(who.uid))) { await say(c, from, 'הגעת למגבלת ההודעות לשעה. נדבר שוב בעוד קצת 🙂'); return; }
+      const gm = (Array.isArray(st0.guyMsgs) ? st0.guyMsgs : []).slice(-11).concat([{ role: 'user', text: clip(tx0, 3000) }]);
+      const gh = gm.map((x) => ({ role: x.role, content: x.text })); while (gh.length && gh[0].role !== 'user') gh.shift();
+      const gr = await Y.guyCore(who, gh, typeof st0.guyH === 'string' ? st0.guyH : '', 'You are answering on WhatsApp: plain text, *bold* with single asterisks, short lines and "•" lists, no markdown tables or headings. To switch hotel the person writes the hotel name (or "כל הרשת"); to go back to Aliana he writes "אליאנה"; "איפוס" starts a new conversation.');
+      const gt = gr.error || gr.text;
+      await say(c, from, '📈 ' + (gr.scope && gs.length > 1 ? '[' + gr.scope.name + '] ' : '') + gt);
+      await ref0.set({ uid: who.uid, name: who.name || m.name || '', agent: 'guy', guyMsgs: gm.concat([{ role: 'assistant', text: clip(gt, 3000) }]).slice(-12), at: Date.now() }, { merge: true });
       return;
     }
     if (adamOk && (st0.agent === 'adam' || !allowed.length)) {

@@ -36,7 +36,7 @@ const note = (t, m) => console.log(`::notice title=${t}::${String(m).replace(/\n
   }
   // HTTP functions whose own code checks the caller (Firebase ID token): Google must let the request reach them.
   // assistant (managers' assistant), adsRunNow / adsAgent (paid-ads agent, owner only, Nov 7). Probe: GET → our 405 {"error":"method"}.
-  for (const fn of ['assistant', 'adsRunNow', 'adsAgent', 'fxRunNow', 'adamChat', 'yieldRunNow']) {
+  for (const fn of ['assistant', 'adsRunNow', 'adsAgent', 'fxRunNow', 'adamChat', 'yieldRunNow', 'guyChat']) {
     const url = 'https://europe-west1-hotel-shifts.cloudfunctions.net/' + fn;
     const probe = () => fetch(url).then(async (x) => ({ s: x.status, b: (await x.text()).slice(0, 60) })).catch((e) => ({ s: 0, b: e.message }));
     let p = await probe(); note('Invoker ' + fn, 'probe status ' + p.s + ' · ' + p.b);

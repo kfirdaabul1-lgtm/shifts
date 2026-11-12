@@ -461,11 +461,20 @@ exports.quoteExpiry = functions.region(REGION).pubsub.schedule('0 9 * * *').time
 });
 // events users; with a venue, only those who may see that venue's leads (owner, Nov 1: leads separated per hotel):
 // roles with no hotels = all, otherwise one of their hotels' settings.venues must include it (a lead with no venue goes to everyone)
-async function eventsPeople(venue, lead) {
+// lead kind (events / rooms / spa / bride), same as the client's leadCat: own cat, else the campaign's mapping, else words, else events
+const leadKindRe = (x) => /כלה|כלות|התארגנות|bride|bridal/i.test(x) ? 'bride' : /ספא|spa|עיסוי|massage|טיפולי|טיפול זוגי|wellness/i.test(x) ? 'spa' : /חדר|חדרים|room|לינה|נופש|חופש|stay|night|לילה|לילות|סוויט|suite|booking|הזמנת מלון/i.test(x) ? 'rooms' : '';
+async function leadKind(l) {
+  let cat = (l && l.cat) || ''; if (!l) return 'events';
+  if (!cat) { try { const m = ((await db.doc('leadcats/main').get()).data() || {}).campCat || {}; cat = m[String(l.campaign || '').trim()] || ''; } catch (e) {} }
+  return cat || leadKindRe(String(l.campaign || '')) || leadKindRe([l.type, l.notes].join(' ')) || 'events';
+}
+// cat (owner, Nov 12): only people whose roles/{uid}.leadCats is empty (= all kinds) or includes it
+async function eventsPeople(venue, lead, cat) {
   const out = new Set(), rs = await db.collection('roles').get(), vc = {};
   const vOf = async (h) => { if (!(h in vc)) { try { const d = await db.doc('settings/' + h).get(); vc[h] = (d.exists && d.data().venues) || []; } catch (e) { vc[h] = []; } } return vc[h]; };
   for (const d of rs.docs) {
     const r = d.data() || {}; if (r.station || !(r.apps && r.apps.events)) continue;
+    if (cat && Array.isArray(r.leadCats) && r.leadCats.length && !r.leadCats.includes(cat)) continue;
     const hs = r.hotels || []; if (!hs.length) { out.add(d.id); continue; } if (!venue) { if (!lead) out.add(d.id); continue; } // lead with no place → chain staff only
     for (const h of hs) if ((await vOf(h)).includes(venue)) { out.add(d.id); break; }
   }
@@ -509,10 +518,10 @@ async function metaLeads(cfg) {
       }
     }
   }
-  const byV = {}; for (const l of fresh) (byV[l.venue || ''] = byV[l.venue || ''] || []).push(l);
-  for (const [v, fl] of Object.entries(byV)) {
-    const who = await eventsPeople(v, true);
-    await sendTo(who, { title: fl.length === 1 ? 'ליד חדש מ-Meta' : `${fl.length} לידים חדשים מ-Meta`, body: fl.slice(0, 3).map((l) => l.name + (l.campaign ? ' · ' + l.campaign : '')).join(' | '), hash: '#leads', tag: 'meta-leads-' + v });
+  const byV = {}; for (const l of fresh) { const k = (l.venue || '') + '|' + (await leadKind(l)); (byV[k] = byV[k] || []).push(l); }
+  for (const [vk, fl] of Object.entries(byV)) {
+    const [v, kc] = vk.split('|'), who = await eventsPeople(v, true, kc);
+    await sendTo(who, { title: fl.length === 1 ? 'ליד חדש מ-Meta' : `${fl.length} לידים חדשים מ-Meta`, body: fl.slice(0, 3).map((l) => l.name + (l.campaign ? ' · ' + l.campaign : '')).join(' | '), hash: '#leads', tag: 'meta-leads-' + vk });
   }
   return { pages: pages.map((p) => p.name), forms, newLeads: fresh.length, leadsAt: started };
 }
@@ -832,10 +841,11 @@ async function waIncoming(m, name, push) {
   if (name && !c.name) up.name = name;
   if (!(await waSave(chat, m.id, { dir: 'in', type: m.type, text, at, src: 'customer', media: (m[m.type] && m[m.type].id) || '', mime: (m[m.type] && m[m.type].mime_type) || '', replyTo: (m.context && m.context.id) || '' }, up))) return;
   if (c.guide && c.groupId) { await guideReply(c, text, at); return; }
-  let leadId = c.leadId, owner = '', venue = '';
+  let leadId = c.leadId, owner = '', venue = '', ld = null;
   if (!leadId) { try { const L = await waLead(chat, name || c.name); leadId = L.id; owner = L.owner; venue = L.venue || ''; await cref.set({ leadId }, { merge: true }); } catch (e) { console.warn('wa lead', e.message); } }
-  else { try { const l = await db.doc('leads/' + leadId).get(); owner = (l.exists && l.data().owner) || ''; venue = (l.exists && l.data().venue) || ''; } catch (e) { } }
-  if (push) await sendTo(owner ? [owner] : await eventsPeople(venue, true), { title: '💬 ' + (name || c.name || waLocal(chat)), body: text.slice(0, 140), hash: '#leads?wa=' + chat, tag: 'wa-' + chat });
+  else { try { const l = await db.doc('leads/' + leadId).get(); ld = l.exists ? l.data() : null; owner = (ld && ld.owner) || ''; venue = (ld && ld.venue) || ''; } catch (e) { } }
+  const kc = c.cat || (ld ? await leadKind(ld) : 'events'); // the chat's inbox kind (unsorted chats live in the events inbox)
+  if (push) await sendTo(owner ? [owner] : await eventsPeople(venue, true, kc), { title: '💬 ' + (name || c.name || waLocal(chat)), body: text.slice(0, 140), hash: '#leads?wa=' + chat, tag: 'wa-' + chat });
 }
 async function waOutgoing(chat, m, src) {
   const at = (+m.timestamp || Date.now() / 1000) * 1000, text = waText(m);
@@ -1038,9 +1048,7 @@ exports.onLeadAuto = trig('leads/{id}').onCreate(async (snap) => {
   const a = (await db.doc('waauto/main').get()).data() || {}; if (!a.on) return;
   if (a.metaOnly && !/^meta_/.test(id)) return;
   // lead kind (events / rooms / spa), same as the client's leadCat: own cat, else the campaign's mapping, else words, else events
-  let cat = l.cat || '';
-  if (!cat) { try { const m = ((await db.doc('leadcats/main').get()).data() || {}).campCat || {}; cat = m[String(l.campaign || '').trim()] || ''; } catch (e) {} }
-  if (!cat) { const g = (x) => /כלה|כלות|התארגנות|bride|bridal/i.test(x) ? 'bride' : /ספא|spa|עיסוי|massage|טיפולי|טיפול זוגי|wellness/i.test(x) ? 'spa' : /חדר|חדרים|room|לינה|נופש|חופש|stay|night|לילה|לילות|סוויט|suite|booking|הזמנת מלון/i.test(x) ? 'rooms' : ''; cat = g(String(l.campaign || '')) || g([l.type, l.notes].join(' ')) || 'events'; }
+  const cat = await leadKind(l);
   const pre = cat === 'events' ? '' : cat + ':';
   const rules = a.rules || {}, r = rules[pre + (l.venue || '')] || rules[pre + '*']; if (!r || !r.tpl) return;
   const pub = (await db.doc('wapub/main').get()).data() || {}; if (!pub.on) return;

@@ -2,7 +2,7 @@ name: Yield agent run
 on:
   workflow_dispatch:
     inputs:
-      kind: { description: 'daily / weekly / empty = only indexes + config check', required: false, default: 'daily' }
+      kind: { description: 'daily / weekly / check = only indexes, config and the last log lines', required: false, default: 'daily' }
 jobs:
   run:
     runs-on: ubuntu-latest

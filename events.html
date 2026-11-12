@@ -1,4 +1,4 @@
-<!doctype html><html lang="he" dir="rtl"><head><meta name="theme-color" content="#14213D"><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style><script src="i18n.js?v=202611111400"></script></head><body>
+<!doctype html><html lang="he" dir="rtl"><head><meta name="theme-color" content="#14213D"><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style><script src="i18n.js?v=202611121030"></script></head><body>
 <style>
 .evtop{background:var(--surface);border-bottom:1px solid var(--line)}
 .evtop-in{max-width:1240px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:10px;padding-block:6px;padding-left:max(10px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
@@ -1690,10 +1690,26 @@ function renderSignUI(){
   if(cur.signature){bar.hidden=false;bar.innerHTML=`<span>${cur.signature.remote?'נחתמה בקישור על ידי':'נחתמה במקום על ידי'} <b>${esc(cur.signature.name)}</b> ב-${esc(cur.signature.at)}</span><button class="btn sm ghost" id="sgRemove">הסר חתימה</button>`}else bar.hidden=true;
 }
 // WhatsApp through the system (Oct 26): the message goes out from the business number and is kept in the conversation on the leads page
+// outside the 24h window (owner, Nov 11, sketch A): send the approved quote template (waauto/main.quote {tpl, lang}, default 'quote_ready')
+// filled from the quote: client's first name, the venue name and the signing link; a preview + confirm before sending
+async function waQuoteTpl(d){
+  if(cur.signature){toast('ההצעה כבר נחתמה');return}
+  const link=buildSignLink(cur);if(!link){toast('לא הצלחתי ליצור קישור להצעה. שמור שוב ונסה.');return}
+  let pub={},auto={};try{const [p,a]=await Promise.all([db.doc('wapub/main').get(),db.doc('waauto/main').get()]);pub=p.exists?p.data():{};auto=a.exists?a.data():{}}catch(_){}
+  const pick=auto.quote||{},want=pick.tpl||'quote_ready',t=(pub.templates||[]).find(x=>x.name===want&&(!pick.lang||x.lang===pick.lang));
+  if(!pub.on||!t){if(confirm(`הלקוח לא כתב לעסק בוואטסאפ ב-24 השעות האחרונות, ולכן אפשר לשלוח לו רק תבנית מאושרת. התבנית ${want} לא נמצאה ברשימת התבניות המאושרות.\n\nלפתוח את השיחה בעמוד הלידים כדי לשלוח תבנית אחרת?`))window.open('index.html#leads?wa='+d,'_blank');return}
+  const first=String(cur.client.name||'').trim().split(/\s+/)[0]||'-',hotel=venueOf(cur.event.venue).name||'-';
+  const val=k=>/link|url|quote/i.test(k)?link:/hotel|venue|place|biz/i.test(k)?hotel:first;
+  const keys=t.names&&t.names.length?t.names:['name','hotel','link'];
+  const params=Array.from({length:t.n||0},(_,i)=>val(keys[i]||''));
+  const text=String(t.body||'').replace(/\{\{(\w+)\}\}/g,(m,k)=>{const i=/^\d+$/.test(k)?+k-1:(t.names||[]).indexOf(k);return i>=0&&params[i]!=null?params[i]:m});
+  if(!confirm('הלקוח לא כתב לעסק בוואטסאפ ב-24 השעות האחרונות, ולכן תישלח התבנית המאושרת '+t.name+':\n\n'+text+'\n\nלשלוח?'))return;
+  await db.collection('waChats/'+d+'/msgs').add({dir:'out',type:'template',tpl:{name:t.name,lang:t.lang,params,...(t.names&&t.names.length?{names:t.names}:{})},text,status:'queued',by:myId,byName:nameCache[myId]||'',at:Date.now(),src:'system',quoteId:cur.id});
+  markSent();toast('נשלח בוואטסאפ מהמספר של העסק (תבנית '+t.name+')')}
 $('#btnWaSys').addEventListener('click',async()=>{if(!db)return;const d=waPhone(cur.client.phone);if(d.length<11){toast('הזן טלפון תקין של הלקוח');$('#cPhone').focus();return}
   try{await saveQuote(cur);refresh()}catch(e){if(e&&e.code!=='cancel')toast('השמירה נכשלה, נסה שוב');return}
   let c=null;try{const cs=await db.doc('waChats/'+d).get();c=cs.exists?cs.data():null}catch(_){}
-  if(!(c&&c.lastInAt&&Date.now()-c.lastInAt<864e5)){if(confirm('הלקוח לא כתב לעסק בוואטסאפ ב-24 השעות האחרונות, ולכן אפשר לשלוח לו רק תבנית מאושרת.\n\nלפתוח את השיחה בעמוד הלידים כדי לשלוח תבנית?'))window.open('index.html#leads?wa='+d,'_blank');return}
+  if(!(c&&c.lastInAt&&Date.now()-c.lastInAt<864e5)){try{await waQuoteTpl(d)}catch(e){toast('לא נשלח: '+(e&&e.message||''))}return}
   try{await db.collection('waChats/'+d+'/msgs').add({dir:'out',type:'text',text:msgText(),status:'queued',by:myId,byName:nameCache[myId]||'',at:Date.now(),src:'system',quoteId:cur.id});markSent();toast('נשלח בוואטסאפ מהמספר של העסק')}
   catch(e){toast('לא נשלח: '+(e&&e.message||''))}});
 $('#signedBar').addEventListener('click',async e=>{if(e.target.id!=='sgRemove')return;delete cur.signature;cur.signKey=null;try{if(cur.id)await saveQuote(cur,'unsigned')}catch(_){}refresh();toast('החתימה הוסרה')});

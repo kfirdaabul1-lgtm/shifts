@@ -48,6 +48,8 @@ const shiftHotel = (s) => s.hotel || 'main';
 const occL = (v) => String(v || '').split(',').filter(Boolean);
 const ilHour = (ms) => +new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Jerusalem', hour: '2-digit', hour12: false }).format(new Date(ms)) % 24;
 const SEV = { high: 3, medium: 2, low: 1 };
+// agentLog row without undefined values (Firestore add() throws synchronously on undefined, which broke the first run)
+const log = (data) => { try { return C.logRun('ops', JSON.parse(JSON.stringify(data))); } catch (e) { console.error('ops log', e.message); } };
 
 // ---------- loading ----------
 async function loadHotels() { const s = await db.collection('hotels').get(); return s.docs.map((d) => ({ id: d.id, name: (d.data() || {}).name || d.id })); }
@@ -349,10 +351,10 @@ async function runMorning(cfg, today, only, force) {
       const w = items.length ? await writeWithModel(cfg.model || cfg.fastModel, systemOps(kb, hotel.name, 'morning'), content, [], fb) : { rep: fb };
       const pushed = await notify(hotel, items, P, duty, cfg, today, 'morning', force);
       await db.doc('opsReports/morning_' + hotel.id + '_' + today).set({ kind: 'morning', hotel: hotel.id, hotelName: hotel.name, date: today, ...w.rep, items: items.map(({ to, ...x }) => ({ ...x, to })), metrics: m, pushed, at: Date.now(), model: w.U ? cfg.model || cfg.fastModel : '', by: 'ai' });
-      await C.logRun('ops', { kind: 'morning', hotel: hotel.id, items: items.length, usage: w.U, stop: w.stop || '', error: w.error });
+      await log({ kind: 'morning', hotel: hotel.id, items: items.length, usage: w.U, stop: w.stop || '', error: w.error });
       chain.push({ hotel: hotel.id, name: hotel.name, high: items.filter((i) => i.sev === 'high').length, items: items.length, headline: w.rep.headline, tenDays: m.tenDays, events: (m.events || []).length, groups: (m.groups || []).length });
       done.push({ hotel: hotel.id, items: items.length });
-    } catch (e) { console.error('ops morning', hotel.id, e); await C.logRun('ops', { kind: 'morning', hotel: hotel.id, error: clip(e.message || e, 300) }); done.push({ hotel: hotel.id, error: true }); }
+    } catch (e) { console.error('ops morning', hotel.id, e); await log({ kind: 'morning', hotel: hotel.id, error: clip(e.message || e, 300) }); done.push({ hotel: hotel.id, error: true }); }
   }
   if (only) return done;
   // the chain: every hotel's status + the other agents' health; the only place directions to agents are given
@@ -365,7 +367,7 @@ async function runMorning(cfg, today, only, force) {
   const problems = health.filter((x) => x.problem);
   await db.doc('opsReports/morning_chain_' + today).set({ kind: 'morning', hotel: '', hotelName: 'כל הרשת', date: today, ...w.rep, hotels: chain, agents: health, directions: given, at: Date.now(), model: w.U ? cfg.model || cfg.smartModel : '', by: 'ai' });
   if (cfg.push && problems.length) { const own = await db.collection('pushTokens').where('owner', '==', true).get(); await sendPush(own.docs.map((d) => d.id), { title: 'מנהל האופרציה · בעיה בסוכן', body: clip(problems.map((p) => p.name + ': ' + p.problem).join('\n'), 400), hash: '#', tag: 'ops-agents-' + today }); }
-  await C.logRun('ops', { kind: 'morning', hotel: 'chain', directions: given.length, usage: w.U, stop: w.stop || '', error: w.error });
+  await log({ kind: 'morning', hotel: 'chain', directions: given.length, usage: w.U, stop: w.stop || '', error: w.error });
   return done;
 }
 async function runCheckin(cfg, today, only, force) {
@@ -376,7 +378,7 @@ async function runCheckin(cfg, today, only, force) {
       const pushed = await notify(hotel, items, await people(hotel.id), duty, cfg, today, 'checkin', force);
       await db.doc('opsReports/checkin_' + hotel.id + '_' + today).set({ kind: 'checkin', hotel: hotel.id, hotelName: hotel.name, date: today, ...codeReport(items, hotel.name), items, metrics: m, pushed, at: Date.now(), by: 'ai' });
       done.push({ hotel: hotel.id, items: items.length });
-    } catch (e) { console.error('ops checkin', hotel.id, e); await C.logRun('ops', { kind: 'checkin', hotel: hotel.id, error: clip(e.message || e, 300) }); done.push({ hotel: hotel.id, error: true }); }
+    } catch (e) { console.error('ops checkin', hotel.id, e); await log({ kind: 'checkin', hotel: hotel.id, error: clip(e.message || e, 300) }); done.push({ hotel: hotel.id, error: true }); }
   }
   return done;
 }
@@ -422,9 +424,9 @@ async function runWeekly(cfg, today, only) {
         const P = await people(h), depts = [...new Set(changes.map((c) => c.dept))];
         await sendPush(route(['gm', 'sched', ...depts.map((d) => 'dept:' + d)], P, []), { title: `${hotel.name} · טיוטת משמרות לשבוע הבא`, body: clip(depts.map((d) => `${DEPT[d]}: ${changes.filter((c) => c.dept === d).map((c) => `${DOW[dowOf(c.date)]} ${c.diff > 0 ? '+' : ''}${c.diff}`).join(', ')}`).join('\n') + '\nזו הצעה בלבד. ההחלטה שלכם.', 400), hash: '#shifts', tag: 'opsdraft-' + h + '-' + nw });
       } else if (cfg.push && missing.length) await sendPush(route(['reception', 'gm'], await people(h), []), { title: `${hotel.name} · חסרים מספרי 10days לשבוע הבא`, body: `בלי צ׳ק אין, צ׳ק אאוט וארוחות ל-${missing.length} ימים אי אפשר לתכנן את המשמרות. לעדכן בעמוד הקבלה.`, hash: '#front', tag: 'opsdraft-miss-' + h + '-' + nw });
-      await C.logRun('ops', { kind: 'weekly', hotel: h, changes: changes.length, usage: w.U, stop: w.stop || '', error: w.error });
+      await log({ kind: 'weekly', hotel: h, changes: changes.length, usage: w.U, stop: w.stop || '', error: w.error });
       done.push({ hotel: h, changes: changes.length, missing: missing.length });
-    } catch (e) { console.error('ops weekly', hotel.id, e); await C.logRun('ops', { kind: 'weekly', hotel: hotel.id, error: clip(e.message || e, 300) }); done.push({ hotel: hotel.id, error: true }); }
+    } catch (e) { console.error('ops weekly', hotel.id, e); await log({ kind: 'weekly', hotel: hotel.id, error: clip(e.message || e, 300) }); done.push({ hotel: hotel.id, error: true }); }
   }
   return done;
 }

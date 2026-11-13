@@ -285,7 +285,7 @@ exports.onAliIn = functions.region(REGION).runWith({ timeoutSeconds: 300, memory
     const msgs = (Array.isArray(st.msgs) ? st.msgs : []).slice(-7).concat([{ role: 'user', text: clip(t, 2000) }]);
     const hist = msgs.map((x) => ({ role: x.role, content: x.text }));
     while (hist.length && hist[0].role !== 'user') hist.shift();
-    const r = await ads.chatCore(cfg, who, h, hist, 'You are answering on WhatsApp: plain text, *bold* with single asterisks, short lines and "•" lists, no markdown tables or headings. If the person wants another hotel or the whole chain, tell them to name it.');
+    const r = await ads.chatCore(cfg, who, h, hist, 'You are answering on WhatsApp: plain text, *bold* with single asterisks, short lines and "•" lists, no markdown tables or headings. If the person wants another hotel or the whole chain, tell them to name it. On this WhatsApp number there are other agents too; the person switches by writing only the name: "אליאנה" = Aliana, the operations manager (shifts, housekeeping, maintenance, groups, events; she also supervises the other agents), "גיא" = Guy (yield/prices), "אדם" = Adam (events sales). Sharon (the managers\' assistant) is only inside the app (✦ button). You cannot talk to the other agents yourself: if the person asks for one of them or for something in their field, tell him in one line which word to write.');
     if (r.error) { await say(c, from, 'משהו השתבש. נסו שוב בעוד רגע.'); return; }
     await say(c, from, r.text);
     await ref.set({ uid: who.uid, name: who.name || m.name || '', h, msgs: msgs.concat([{ role: 'assistant', text: clip(r.text, 2000) }]).slice(-8), at: Date.now() }, { merge: true });

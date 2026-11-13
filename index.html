@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202611121420"></script>
+<script src="i18n.js?v=202611131120"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -672,7 +672,7 @@ const isIOS=()=>/iPhone|iPad|iPod/.test(navigator.userAgent)||(navigator.platfor
 const isStandalone=()=>!!(navigator.standalone||(window.matchMedia&&matchMedia('(display-mode: standalone)').matches));
 const pushSupported=()=>'serviceWorker' in navigator&&'PushManager' in window&&'Notification' in window&&!!(window.firebase&&firebase.messaging);
 function pushLocalOk(){try{return localStorage.getItem('pushOk:'+S.uid)==='1'}catch(_){return false}}
-function pushOffered(){if(!S.uid)return false;if(isIOS()&&!isStandalone())return true;if(!pushSupported())return false;return Notification.permission!=='denied'&&!(Notification.permission==='granted'&&pushLocalOk())}
+function pushOffered(){if(!S.uid)return false;if(isIOS()&&!isStandalone())return true;if(isIOS()&&'Notification' in window&&Notification.permission!=='granted')return true;if(!pushSupported())return false;return Notification.permission!=='denied'&&!(Notification.permission==='granted'&&pushLocalOk())}
 async function pushToken(){const reg=await navigator.serviceWorker.register('firebase-messaging-sw.js');await navigator.serviceWorker.ready;
   const opt={serviceWorkerRegistration:reg};if(CFG.vapidKey)opt.vapidKey=CFG.vapidKey;
   const tok=await firebase.messaging().getToken(opt);if(!tok)throw new Error('no token');
@@ -680,8 +680,9 @@ async function pushToken(){const reg=await navigator.serviceWorker.register('fir
   try{localStorage.setItem('pushOk:'+S.uid,'1')}catch(_){ }return {tok,reg}}
 async function pushEnable(){
   if(isIOS()&&!isStandalone()){S.sheet={type:'iospush'};render();return}
+  if(!pushSupported()&&isIOS()){S.sheet={type:'iospush',fix:true};render();return}
   if(!pushSupported()){toast('הדפדפן הזה לא תומך בהתראות. נסו ב-Chrome, או באייפון דרך מסך הבית.');return}
-  try{const p=await Notification.requestPermission();if(p!=='granted'){toast('ההתראות לא הופעלו. אפשר להפעיל אותן בהגדרות הדפדפן.');render();return}
+  try{const p=await Notification.requestPermission();if(p!=='granted'){if(isIOS()){S.sheet={type:'iospush',fix:true};render();return}toast('ההתראות לא הופעלו. אפשר להפעיל אותן בהגדרות הדפדפן.');render();return}
     const {reg}=await pushToken();
     try{reg.showNotification(appName(),{body:'ההתראות פעילות במכשיר הזה ✓',icon:'icon-192.png',dir:'rtl',lang:'he'})}catch(_){ }
     toast('ההתראות הופעלו במכשיר הזה ✓');render()}
@@ -716,7 +717,12 @@ function pushReqHTML(u,e){const r=+e.pushReq||0;let dev='';if(S.isOwner){S.pushD
 function sheetPushDenied(){return sheetHead('ההתראות חסומות','')+`<p>ביקשו ממך להפעיל התראות, אבל הן חסומות בדפדפן או בטלפון.</p>
   <ol style="padding-inline-start:20px;line-height:1.9"><li>פותחים את <b>הגדרות</b> הטלפון (או את הגדרות האתר בדפדפן, ליד שורת הכתובת).</li><li>מחפשים את <b>${esc(appName())}</b> או את הדפדפן.</li><li>מעבירים את <b>התראות</b> למצב מופעל, וחוזרים לאתר.</li></ol>
   <div class="actions"><button class="btn pri" data-act="close">הבנתי</button></div>`}
-function sheetIosPush(){return sheetHead('התראות באייפון','')+`<p>באייפון אפשר לקבל התראות רק כשהאתר מותקן במסך הבית:</p>
+function sheetIosPush(){const fx=S.sheet&&S.sheet.fix,host=(()=>{try{return new URL(CFG.appUrl||location.href).host}catch(_){return location.host}})();
+  // Nov 13 (owner: staff installed to the home screen but notifications still failed): an icon installed from the OLD address opens the new one
+  // outside the app's scope (address bar shown) and iOS refuses the permission there → the fix is removing and re-adding the icon
+  return sheetHead('התראות באייפון','')+(fx?`<div class="card" style="border-color:#FDBA74;background:#FFF7ED;margin-bottom:10px"><p style="margin:0 0 6px"><b>אם האייקון כבר במסך הבית ועדיין לא עובד, כנראה הוא הותקן מהכתובת הישנה של האפליקציה:</b></p>
+  <ol style="padding-inline-start:20px;line-height:1.9;margin:0"><li>מוחקים את האייקון הישן (לחיצה ארוכה עליו ← הסרה).</li><li>פותחים ב-Safari את הכתובת <b dir="ltr" data-i18n-skip>${esc(host)}</b></li><li>מוסיפים שוב למסך הבית ופותחים מהאייקון החדש.</li></ol>
+  <p class="muted" style="font-size:.85rem;margin:6px 0 0">אם פעם נלחץ "לא לאפשר": בהגדרות של האייפון ← התראות ← בוחרים את האפליקציה ← לאפשר התראות.</p></div>`:'')+`<p>באייפון אפשר לקבל התראות רק כשהאתר מותקן במסך הבית:</p>
   <ol style="padding-inline-start:20px;line-height:1.9"><li>פותחים את האתר ב-<b>Safari</b>.</li><li>לוחצים על כפתור השיתוף <b>⎙</b> (ריבוע עם חץ למעלה) בתחתית המסך.</li><li>בוחרים <b>"הוסף למסך הבית"</b> ולוחצים "הוסף".</li><li>פותחים את <b>${esc(appName())}</b> מהאייקון החדש במסך הבית.</li><li>בתפריט לוחצים <b>"הפעלת התראות"</b> ומאשרים.</li></ol>
   <p class="muted" style="font-size:.85rem">צריך iOS 16.4 ומעלה. אחרי ההתקנה האתר נפתח כמו אפליקציה, בלי שורת הכתובת.</p>
   <div class="actions"><button class="btn pri" data-act="close">הבנתי</button></div>`}

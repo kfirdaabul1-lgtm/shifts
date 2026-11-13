@@ -422,6 +422,23 @@ service cloud.firestore {
         && request.resource.data.data.matches('^data:image/(jpeg|png);base64,[A-Za-z0-9+/=]+$')
         && (!exists(/databases/$(database)/documents/waChats/$(request.resource.data.chat)) || waChatOk(request.resource.data.chat));
     }
+    // ready-made picture galleries for WhatsApp (Nov 13): any events user may use and edit them; the creator or the owner deletes
+    match /waGalleries/{g} {
+      allow read: if canEvents();
+      allow create: if canEvents() && request.resource.data.createdBy == request.auth.uid && request.resource.data.name is string
+        && request.resource.data.imgs is list && request.resource.data.imgs.size() <= 10
+        && request.resource.data.keys().hasOnly(['name', 'cat', 'caption', 'imgs', 'createdBy', 'createdByName', 'createdAt', 'updatedAt', 'updatedBy']);
+      allow update: if canEvents() && request.resource.data.imgs is list && request.resource.data.imgs.size() <= 10
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'cat', 'caption', 'imgs', 'updatedAt', 'updatedBy']);
+      allow delete: if canEvents() && (resource.data.createdBy == request.auth.uid || isOwner());
+    }
+    match /waGalImgs/{m} {
+      allow read: if canEvents();
+      allow create: if canEvents() && request.resource.data.by == request.auth.uid && request.resource.data.keys().hasOnly(['data', 'by', 'at'])
+        && request.resource.data.data is string && request.resource.data.data.size() < 900000
+        && request.resource.data.data.matches('^data:image/(jpeg|png);base64,[A-Za-z0-9+/=]+$');
+      allow delete: if canEvents();
+    }
     match /waChats/{id} {
       // hotel separation (Nov 5): venue = the linked lead's venue (kept by the server, waChatVenue); '' = chain roles only
       allow read: if canEvents() && leadVenueOk(resource.data.get('venue', '')) && waSee(resource.data);

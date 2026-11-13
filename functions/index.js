@@ -984,8 +984,9 @@ exports.onWaOut = trig('waChats/{chat}/msgs/{id}').onCreate(async (snap, ctx) =>
   try {
     // picture from the chat (owner, Nov 13): the client stores the compressed JPEG in waMedia/{id}; we upload it to WhatsApp and send it
     if (m.type === 'image') {
-      const md = await db.doc('waMedia/' + String(m.mediaRef || 'x')).get(), d = md.data() || {};
-      if (!md.exists || d.chat !== chat || d.by !== m.by) throw new Error('התמונה לא נמצאה');
+      // a chat picture (waMedia, must belong to this chat + sender) or a picture of a ready-made gallery (waGalImgs, Nov 13)
+      const gal = !m.mediaRef && m.galImg, md = await db.doc((gal ? 'waGalImgs/' : 'waMedia/') + String((gal ? m.galImg : m.mediaRef) || 'x')).get(), d = md.data() || {};
+      if (!md.exists || (!gal && (d.chat !== chat || d.by !== m.by))) throw new Error('התמונה לא נמצאה');
       const mt = /^data:(image\/(jpeg|png));base64,/.exec(String(d.data || '')); if (!mt) throw new Error('קובץ תמונה לא תקין');
       const buf = Buffer.from(String(d.data).slice(mt[0].length), 'base64');
       const mediaId = await waUpload(c, buf, mt[1]);

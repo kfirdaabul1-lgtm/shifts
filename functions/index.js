@@ -794,6 +794,19 @@ const tplRef = (t, params) => ({ name: t.name, lang: t.lang, params, ...(t.names
 const waLocal = (id) => { const d = String(id || '').replace(/\D/g, ''); return d.startsWith('972') ? '0' + d.slice(3) : d; };
 const waTail = (p) => String(p || '').replace(/\D/g, '').replace(/^972/, '0').slice(-9);
 async function waCfg() { const d = await db.doc('wacfg/main').get(); return d.exists ? d.data() : {}; }
+// upload a picture to WhatsApp, returns the media id (Meta: multipart to /{phoneId}/media; 360dialog: raw body to /media)
+async function waUpload(c, buf, mime) {
+  if (buf.length > 5 * 1024 * 1024) throw new Error('התמונה גדולה מדי');
+  let r;
+  if (c.provider === '360dialog') r = await fetch(WA_360 + 'media', { method: 'POST', headers: { 'D360-API-KEY': c.token, 'Content-Type': mime }, body: buf });
+  else {
+    const fd = new FormData(); fd.append('messaging_product', 'whatsapp'); fd.append('type', mime); fd.append('file', new Blob([buf], { type: mime }), 'photo.' + (mime === 'image/png' ? 'png' : 'jpg'));
+    r = await fetch(WA_GRAPH + c.phoneId + '/media', { method: 'POST', headers: { Authorization: 'Bearer ' + c.token }, body: fd });
+  }
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok || j.error || !j.id) { const e = j.error || {}; const err = new Error(e.error_user_msg || e.message || ('העלאת תמונה נכשלה (HTTP ' + r.status + ')')); err.code = e.code; throw err; }
+  return j.id;
+}
 async function waApi(c, method, path, body) {
   const is360 = c.provider === '360dialog', url = (is360 ? WA_360 : WA_GRAPH) + path;
   const headers = { 'Content-Type': 'application/json', ...(is360 ? { 'D360-API-KEY': c.token } : { Authorization: 'Bearer ' + c.token }) };
@@ -966,13 +979,24 @@ exports.onWaOut = trig('waChats/{chat}/msgs/{id}').onCreate(async (snap, ctx) =>
     const nm = Array.isArray(m.tpl.names) ? m.tpl.names : [];
     const params = (m.tpl.params || []).map((t, i) => ({ type: 'text', ...(nm[i] ? { parameter_name: nm[i] } : {}), text: String(t || '-') }));
     body = { messaging_product: 'whatsapp', to: chat, type: 'template', template: { name: m.tpl.name, language: { code: m.tpl.lang || 'he' }, ...(params.length ? { components: [{ type: 'body', parameters: params }] } : {}) } };
-  } else body = { messaging_product: 'whatsapp', recipient_type: 'individual', to: chat, type: 'text', text: { body: String(m.text || '').slice(0, 4096), preview_url: true } };
+  } else if (m.type === 'image') body = null;
+  else body = { messaging_product: 'whatsapp', recipient_type: 'individual', to: chat, type: 'text', text: { body: String(m.text || '').slice(0, 4096), preview_url: true } };
   try {
+    // picture from the chat (owner, Nov 13): the client stores the compressed JPEG in waMedia/{id}; we upload it to WhatsApp and send it
+    if (m.type === 'image') {
+      const md = await db.doc('waMedia/' + String(m.mediaRef || 'x')).get(), d = md.data() || {};
+      if (!md.exists || d.chat !== chat || d.by !== m.by) throw new Error('התמונה לא נמצאה');
+      const mt = /^data:(image\/(jpeg|png));base64,/.exec(String(d.data || '')); if (!mt) throw new Error('קובץ תמונה לא תקין');
+      const buf = Buffer.from(String(d.data).slice(mt[0].length), 'base64');
+      const mediaId = await waUpload(c, buf, mt[1]);
+      const cap = String(m.caption || '').slice(0, 1024);
+      body = { messaging_product: 'whatsapp', recipient_type: 'individual', to: chat, type: 'image', image: { id: mediaId, ...(cap ? { caption: cap } : {}) } };
+    }
     const r = await waApi(c, 'POST', c.provider === '360dialog' ? 'messages' : c.phoneId + '/messages', body);
     const wamid = r.messages && r.messages[0] && r.messages[0].id;
     await snap.ref.update({ status: 'sent', wamid: wamid || '', sentAt: Date.now() });
     if (wamid) await db.doc('waIds/' + wamid).set({ chat, msg: snap.id });
-    await db.doc('waChats/' + chat).set({ waId: chat, phone: waLocal(chat), lastAt: m.at || Date.now(), lastText: String(m.text || '').slice(0, 200), lastDir: 'out' }, { merge: true });
+    await db.doc('waChats/' + chat).set({ waId: chat, phone: waLocal(chat), lastAt: m.at || Date.now(), lastText: (m.type === 'image' ? '📷 תמונה' + (m.caption ? ': ' + m.caption : '') : String(m.text || '')).slice(0, 200), lastDir: 'out' }, { merge: true });
     await waClaim(chat, m).catch((e) => console.error('waClaim', e.message));
   } catch (e) { await snap.ref.update({ status: 'failed', error: waErr({ code: e.code, message: e.message }) }); }
 });

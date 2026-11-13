@@ -413,6 +413,15 @@ service cloud.firestore {
     // agent is ''. The owner sees every chat and may transfer it; the agent may release it (agent → '').
     function waSee(c) { return c.get('agent', '') == '' || c.get('agent', '') == request.auth.uid || isOwner(); }
     function waChatOk(id) { let c = get(/databases/$(database)/documents/waChats/$(id)).data; return leadVenueOk(c.get('venue', '')) && waSee(c); }
+    // pictures sent from a WhatsApp chat (Nov 13): the sender writes the compressed image, onWaOut uploads it to WhatsApp
+    match /waMedia/{m} {
+      allow read: if canEvents() && waChatOk(resource.data.chat);
+      allow create: if canEvents() && request.resource.data.by == request.auth.uid && request.resource.data.chat is string
+        && request.resource.data.keys().hasOnly(['data', 'by', 'chat', 'at', 'mime'])
+        && request.resource.data.data is string && request.resource.data.data.size() < 900000
+        && request.resource.data.data.matches('^data:image/(jpeg|png);base64,[A-Za-z0-9+/=]+$')
+        && (!exists(/databases/$(database)/documents/waChats/$(request.resource.data.chat)) || waChatOk(request.resource.data.chat));
+    }
     match /waChats/{id} {
       // hotel separation (Nov 5): venue = the linked lead's venue (kept by the server, waChatVenue); '' = chain roles only
       allow read: if canEvents() && leadVenueOk(resource.data.get('venue', '')) && waSee(resource.data);

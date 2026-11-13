@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202611131120"></script>
+<script src="i18n.js?v=202611131600"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -257,7 +257,7 @@ table.plain.plg{width:100%;table-layout:fixed;min-width:0}.plg th,table.plain.pl
 .wac .wa-b{max-width:82%;padding:6px 9px 4px;border-radius:8px;box-shadow:0 1px .5px rgba(0,0,0,.13);font-size:.95rem;line-height:1.35;white-space:pre-wrap;word-break:break-word}.wac .wa-b.in{background:#fff;color:#111;align-self:flex-start;border-start-start-radius:2px}.wac .wa-b.out{background:#D9FDD3;color:#111;align-self:flex-end;border-start-end-radius:2px}.wac .wa-b small{display:block;text-align:end;font-size:.68rem;color:#667781;margin-top:2px}
 .wac .wa-day{align-self:center;background:#fff;color:#54656F;font-size:.75rem;padding:3px 10px;border-radius:8px;box-shadow:0 1px .5px rgba(0,0,0,.1);margin:6px 0}
 .wac-comp{background:#F0F2F5;padding:8px 10px calc(8px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:6px;max-height:55vh;overflow:auto}.wac-comp .notice{margin:0}
-.wac-in{display:flex;gap:8px;align-items:flex-end}.wac-in textarea{flex:1;border-radius:22px;border:0;padding:10px 14px;min-height:44px;max-height:140px;resize:none;background:#fff;font:inherit}.wac-send{flex:none;width:46px;height:46px;border-radius:50%;border:0;background:#00A884;color:#fff;font-size:1.2rem;cursor:pointer;transform:scaleX(-1)}
+.wac-in{display:flex;gap:8px;align-items:flex-end}.wac-att{flex:none;width:44px;height:44px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;font-size:1.25rem;cursor:pointer}.wa-img{display:block;margin:-2px -2px 4px}.wa-img img{display:block;max-width:240px;max-height:300px;width:100%;border-radius:8px;object-fit:cover}.wa-img-l{width:200px;height:140px;border-radius:8px;background:rgba(0,0,0,.06);display:flex;align-items:center;justify-content:center;font-size:1.6rem}.wac-in textarea{flex:1;border-radius:22px;border:0;padding:10px 14px;min-height:44px;max-height:140px;resize:none;background:#fff;font:inherit}.wac-send{flex:none;width:46px;height:46px;border-radius:50%;border:0;background:#00A884;color:#fff;font-size:1.2rem;cursor:pointer;transform:scaleX(-1)}
 .wac-sub{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .wa-inbox .wa-pane{padding:0;overflow:hidden;border:0;background:none}
 @media (min-width:720px){.panel.big{width:min(1000px,94vw);min-height:70vh}}
@@ -645,6 +645,18 @@ document.addEventListener('change',e=>{if(e.target.id==='pm_hotel'&&S.drafts.per
 document.addEventListener('change',e=>{const t=e.target;if(t.matches&&t.matches('[data-hkoospr]'))S.hkOosR=t.value;else if(t.matches&&t.matches('[data-hkoospu]'))S.hkOosU=t.value});
 document.addEventListener('change',e=>{const id=e.target.id;if(id!=='bar_z'&&id!=='bar_c')return;const f=e.target.files&&e.target.files[0];if(!f)return;compressImage(f).then(u=>{if(id==='bar_z')S.barZ=u;else S.barC=u;render()},()=>toast('לא הצלחתי לקרוא את התמונה'))});
 document.addEventListener('change',e=>{if(e.target.id!=='hk_dndimg')return;const f=e.target.files&&e.target.files[0];if(!f)return;compressImage(f).then(u=>{S.dndImg=u;render()},()=>toast('לא הצלחתי לקרוא את התמונה'))});
+// pictures in a WhatsApp chat (owner, Nov 13): compress → waMedia/{id} → a queued msg {type image, mediaRef, caption}; onWaOut uploads and sends it.
+// The text typed in the composer goes as the caption of the first picture. Up to 5 pictures at once.
+function waImgHTML(ref){const u=(S.waImg||{})[ref];if(u===undefined){(S.waImg=S.waImg||{})[ref]=null;fdb.doc('waMedia/'+ref).get().then(d=>{S.waImg[ref]=d.exists&&imgSrc((d.data()||{}).data)||'';render()}).catch(()=>{S.waImg[ref]=''})}
+  return u?`<a href="${u}" target="_blank" rel="noopener" class="wa-img"><img src="${u}" alt="תמונה"></a>`:`<div class="wa-img wa-img-l">📷</div>`}
+document.addEventListener('change',async e=>{const t=e.target;if(!t.matches||!t.matches('[data-waimg]'))return;const id=t.dataset.waimg,fs=[...(t.files||[])].slice(0,5);t.value='';if(!fs.length)return;
+  const c=(S.waChats||{})[id];if(!waOpenWin(c)){toast('עברו 24 שעות. צריך לשלוח תבנית');return}
+  let cap=String(dv('wa','text','')).trim().slice(0,1000);const L=waLeadOf(id,c);S.drafts.wa=null;S.waAtBottom=true;toast(fs.length>1?'שולח '+fs.length+' תמונות…':'שולח תמונה…');
+  try{if(L&&c&&!c.leadId)await fdb.doc('waChats/'+id).update({leadId:L[0]});
+    for(const f of fs){const u=await compressImage(f),ref=fdb.collection('waMedia').doc(),now=Date.now();
+      await ref.set({data:u,by:S.uid,chat:id,at:now,mime:'image/jpeg'});(S.waImg=S.waImg||{})[ref.id]=u;
+      await fdb.collection('waChats/'+id+'/msgs').add({dir:'out',type:'image',mediaRef:ref.id,caption:cap,text:'📷 תמונה'+(cap?': '+cap:''),status:'queued',by:S.uid,byName:S.meName||'',at:now,src:'system'});cap=''}
+    render()}catch(err){toast(waErrTxt(err))}});
 document.addEventListener('change',e=>{if(e.target.id!=='sr_cimg')return;const f=e.target.files&&e.target.files[0];if(!f)return;compressImage(f).then(u=>{S.srCleanImg=u;render()},()=>toast('לא הצלחתי לקרוא את התמונה'))});
 document.addEventListener('change',e=>{if(e.target.id!=='sr_inv')return;const f=e.target.files&&e.target.files[0];if(!f)return;compressImage(f).then(u=>{S.srInv=u;render()},()=>toast('לא הצלחתי לקרוא את התמונה'))});
 document.addEventListener('change',e=>{const t=e.target;if(!t.matches||!t.matches('[data-spatid]')||!S.sheet||S.sheet.type!=='spa')return;const b=(S.spaBk||{})[S.sheet.id]||{},d=S.drafts.spa||(S.drafts.spa={}),ti=[...dv('spa','tid',b.tid||[])];ti[+t.dataset.spatid]=t.value;d.tid=ti;const th=[...dv('spa','ther',b.ther||[])],x=spaThers().find(y=>y.id===t.value);if(x)th[+t.dataset.spatid]=x.g;d.ther=th;t.blur();render()});
@@ -2568,10 +2580,10 @@ function waChatBody(id,inPane,embed){const c=(S.waChats||{})[id]||{},L=waLeadOf(
   const M=S.waMsgs,name=c.name||(l&&l.name)||waLocalOf(id);
   const tick=m=>m.status==='queued'?'🕓':m.status==='failed'?'⚠':m.status==='read'?'<b style="color:#34B7F1">✓✓</b>':m.status==='delivered'?'✓✓':'✓';
   let lastDay='';const bubbles=!M?'<p class="muted">טוען…</p>':!M.length?'<p class="muted" style="text-align:center">עוד אין הודעות בשיחה הזו.</p>':M.map(m=>{const d=new Date(m.at||0).toLocaleDateString('en-CA'),sep=d!==lastDay?`<div class="wa-day">${d===todayISO()?'היום':dm(d)+'.'+d.slice(0,4)}</div>`:'';lastDay=d;
-    return sep+`<div class="wa-b ${m.dir==='out'?'out':'in'}">${esc(m.text||'')}<small>${m.dir==='out'&&m.byName?esc(m.byName)+' · ':''}${new Date(m.at||0).toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'})}${m.dir==='out'?' '+tick(m):''}</small>${m.status==='failed'?`<div class="bad-t" style="font-size:.8rem">${esc(m.error||'לא נשלח')}</div>`:''}</div>`}).join('');
+    return sep+`<div class="wa-b ${m.dir==='out'?'out':'in'}">${m.type==='image'&&m.mediaRef?waImgHTML(m.mediaRef):''}${esc(m.text||'')}<small>${m.dir==='out'&&m.byName?esc(m.byName)+' · ':''}${new Date(m.at||0).toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'})}${m.dir==='out'?' '+tick(m):''}</small>${m.status==='failed'?`<div class="bad-t" style="font-size:.8rem">${esc(m.error||'לא נשלח')}</div>`:''}</div>`}).join('');
   const lq=L?leadQuote(L[0],l):null,q=lq&&lq[1],sign=q&&q.signKey&&!q.signature?appLink().replace(/[^/]*$/,'')+'sign.html?k='+q.signKey+(CFG.chainId&&CFG.chainId!==window.SC_HOME?'&chain='+encodeURIComponent(CFG.chainId):''):'';
   const T=W.templates||[],ti=+dv('wa','tpl',0)||0,t=T[ti];
-  const comp=!W.on?'<div class="notice">וואטסאפ עוד לא מחובר למערכת.</div>':open?`<div class="wac-in"><textarea rows="1" data-f="wa.text" placeholder="הודעה" aria-label="הודעה">${esc(dv('wa','text',''))}</textarea><button class="wac-send" data-act="wa-send" aria-label="שליחה">➤</button></div>
+  const comp=!W.on?'<div class="notice">וואטסאפ עוד לא מחובר למערכת.</div>':open?`<div class="wac-in"><label class="wac-att" title="שליחת תמונה" aria-label="שליחת תמונה">📷<input type="file" accept="image/*" multiple data-waimg="${esc(id)}" hidden></label><textarea rows="1" data-f="wa.text" placeholder="הודעה" aria-label="הודעה">${esc(dv('wa','text',''))}</textarea><button class="wac-send" data-act="wa-send" aria-label="שליחה">➤</button></div>
     <div class="wac-sub">${sign?`<button class="btn sm ghost" data-act="wa-sign" data-v="${esc(sign)}">➕ לינק לחתימה על הצעה #${esc(q.num||'')}</button>`:''}<small class="muted">אפשר לענות חופשי עוד ${Math.max(1,Math.ceil((864e5-(Date.now()-c.lastInAt))/36e5))} שעות</small></div>`
     :`<div class="notice">${c.lastInAt?'עברו יותר מ-24 שעות מההודעה האחרונה של הלקוח':'הלקוח עוד לא כתב לעסק'}, ולכן וואטסאפ מאפשר לשלוח רק תבנית מאושרת. כשהלקוח יענה, אפשר לכתוב חופשי.</div>
     ${T.length?`<label class="f">תבנית<select data-f="wa.tpl">${T.map((x,i)=>`<option value="${i}" ${i===ti?'selected':''}>${esc(x.name)} (${esc(x.lang)})</option>`).join('')}</select></label>${t?`<p class="muted" style="font-size:.85rem;white-space:pre-wrap;margin:4px 0">${esc(t.body)}</p>${Array.from({length:t.n},(_,i)=>`<label class="f">ערך ל-{{${esc((t.names&&t.names[i])||String(i+1))}}}<input type="text" data-f="wa.p${i+1}" value="${esc(dv('wa','p'+(i+1),i===0&&l?l.name:''))}"></label>`).join('')}<div class="actions"><button class="btn pri" data-act="wa-tpl-send">שליחת התבנית</button></div>`:''}`:'<p class="muted">אין עדיין תבניות מאושרות. יוצרים אותן ב-WhatsApp Manager של Meta.</p>'}`;

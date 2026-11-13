@@ -106,6 +106,23 @@ function readTools(scope) {
         const rows = Object.entries(g).map(([k, x]) => { const sp = spend[k] || 0; return { group: k, leads: x.n, open: x.open, won: x.won, lost: x.lost, junk: x.junk, winRatePct: x.won + x.lost ? Math.round(x.won / (x.won + x.lost) * 100) : null, revenue: Math.round(x.revenue), avgDaysToClose: x.won ? r2(x.days / x.won) : null, ...(grp === 'campaign' ? { spend: r2(sp), costPerLead: div(sp, x.n), costPerWon: div(sp, x.won), roi: sp ? r2(x.revenue / sp) : null } : {}) }; }).sort((x, y) => y.revenue - x.revenue || y.leads - x.leads);
         return { scope: scope.name, from, to, group: grp, note: 'Leads are counted by creation date; revenue is booked on the lead (stage won). Thin samples (<10 leads or <3 won) prove nothing.', rows: rows.slice(0, 60), lostReasons: lost }; } },
 
+    { name: 'google_search_terms', description: 'Google Ads keywords (text + match type) and the actual search terms people typed, per Google campaign, with impressions, clicks, cost ₪ and conversions. Default: the last 2 weeks of every Google campaign in this scope. Optional "campaign" = part of the campaign name, "weeks" = 1–8.',
+      input_schema: { type: 'object', properties: { campaign: { type: 'string' }, weeks: { type: 'number' } } },
+      run: async (a) => {
+        const n = Math.min(8, Math.max(1, +a.weeks || 2)), to = C.ilDate(new Date()), from = C.addDays(C.weekOf(to), -7 * (n - 1)), q = String(a.campaign || '').trim().toLowerCase();
+        const rows = (await campRows(scope, from, to)).filter((c) => (c.platform === 'google' || c.auto === 'google') && c.gadsId && (!q || String(c.name || '').toLowerCase().includes(q)));
+        if (!rows.length) return { scope: scope.name, from, note: q ? 'no Google campaign in this scope matches that name' : 'no Google campaign rows in this scope for these weeks' };
+        const refs = rows.slice(0, 60).map((c) => db.doc('gadsTerms/' + String(c.gadsId) + '_' + c.week));
+        const docs = await db.getAll(...refs), num = (x) => ({ impressions: x.i || 0, clicks: x.c || 0, cost: x.s || 0, conversions: x.v || 0 });
+        const out = rows.slice(0, 60).map((c, i) => { const d = docs[i].exists ? docs[i].data() || {} : null;
+          return { campaign: c.name || '', week: c.week, spend: r2(+c.spend || 0), clicks: +c.clicks || 0, impressions: +c.impressions || 0,
+            keywords: d ? (d.kw || []).slice(0, 40).map((x) => ({ keyword: x.t, match: x.m, ...num(x) })) : null,
+            searchTerms: d ? (d.st || []).slice(0, 60).map((x) => ({ term: x.t, ...num(x) })) : null,
+            note: d ? undefined : 'keywords/search terms not synced for this week yet' }; })
+          .sort((x, y) => y.week.localeCompare(x.week) || y.spend - x.spend);
+        return { scope: scope.name, from, to, note: 'Google hides low-volume search terms; totals may be lower than the campaign.', campaigns: out };
+      } },
+
     { name: 'campaign_structure', description: 'How the Meta campaigns are BUILT (read once a day from Meta, last 28 days): objective, budget, bid; ad sets with optimisation goal and audience (ages, genders, places, interests, custom audiences, placements); ads with format, headline, text, button and each ad\'s numbers; numbers split by age+gender and by placement. Without "campaign": a short overview of every campaign. With "campaign" (part of the name): the full detail of the matching campaigns.',
       input_schema: { type: 'object', properties: { campaign: { type: 'string', description: 'part of the campaign name; empty = overview of all' } } },
       run: async (a) => {
@@ -155,7 +172,7 @@ You write a ${kind === 'weekly' ? 'WEEKLY CAMPAIGN REPORT' : 'DAILY ANALYSIS'} f
 YOUR ROLE: you are the owner's independent expert on paid social (Meta: Facebook/Instagram/WhatsApp ads), on the OWNER'S side, reviewing the work of the external social media agency that runs the campaigns. You think like a senior performance-marketing lead: you know how Meta campaigns should be built (objective, optimisation event, campaign/ad-set structure, budgets and learning phase, audiences, placements, creative and copy, testing, frequency, landing/WhatsApp flow, lead quality) and you JUDGE whether what the agency did is right for these hotels and goals. Give clear verdicts ("נכון", "לא נכון", "לא בטוח") with the reason and the numbers, and say what the owner should ask or demand from the agency. Do not hide behind "I only read data": the owner wants your professional opinion.
 You do not touch the ad accounts yourself (read only) and never say that you changed anything; the agency executes.
 Tools for judging the agency: campaign_structure (how each campaign is built), agency_changes (what they changed and when), the weekly numbers and the CRM (what it brought), and the owner's/managers' directions + what was learned from the agency WhatsApp group (in MANAGERS' DIRECTIONS).
-Data: weekly campaign rows (the Meta sync writes spend ₪, impressions, clicks, leads, conversations started; manual reports may exist too) and the CRM leads with source, campaign name, stage and won revenue (before VAT). Google Ads is NOT connected yet: say so once in caveats, never invent Google numbers. The tools only show this scope's data.
+Data: weekly campaign rows (the Meta sync writes spend ₪, impressions, clicks, leads, conversations started; manual reports may exist too) and the CRM leads with source, campaign name, stage and won revenue (before VAT). Google Ads IS connected (read only, synced every 3 hours): Google campaigns appear in the weekly rows with platform 'google' (spend, impressions, clicks, conversions as leads), and the tool google_search_terms gives each Google campaign's keywords (with match type) and the real search terms people typed, per week, with impressions, clicks, cost and conversions. Google hides low-volume search terms, so their totals can be below the campaign's. Never invent Google numbers. The tools only show this scope's data.
 
 How to work:
 - The METRICS in the user message are computed by the system: trust and quote them, do not recompute. Use the tools to look inside campaigns and the CRM funnel.
@@ -179,7 +196,7 @@ const SAVE_REPORT = { name: 'save_report', description: 'Save the report the man
     summary: { type: 'string', description: '3-6 short sentences: what is happening, with numbers' },
     highlights: { type: 'array', description: 'up to 6 campaigns worth a look', items: { type: 'object', properties: { campaign: { type: 'string' }, status: { type: 'string', enum: ['good', 'watch', 'bad'] }, note: { type: 'string' } }, required: ['campaign', 'status', 'note'] } },
     directions: { type: 'array', description: 'up to 3 suggested directions, ranked', items: { type: 'object', properties: { title: { type: 'string' }, why: { type: 'string', description: 'the numbers behind it' }, action: { type: 'string' }, priority: { type: 'string', enum: ['high', 'medium', 'low'] } }, required: ['title', 'why', 'action'] } },
-    caveats: { type: 'string', description: 'data limits: thin sample, partial week, leads without campaign, Google not connected' } }, required: ['headline', 'summary'] } };
+    caveats: { type: 'string', description: 'data limits: thin sample, partial week, leads without campaign' } }, required: ['headline', 'summary'] } };
 const cleanReport = (a) => ({ headline: clip(a.headline, 200), summary: clip(a.summary, 1500),
   highlights: (Array.isArray(a.highlights) ? a.highlights : []).slice(0, 6).map((h) => ({ campaign: clip(h.campaign, 120), status: ['good', 'watch', 'bad'].includes(h.status) ? h.status : 'watch', note: clip(h.note, 300) })),
   directions: (Array.isArray(a.directions) ? a.directions : []).slice(0, 3).map((d) => ({ title: clip(d.title, 160), why: clip(d.why, 400), action: clip(d.action, 400), priority: ['high', 'medium', 'low'].includes(d.priority) ? d.priority : 'medium' })),

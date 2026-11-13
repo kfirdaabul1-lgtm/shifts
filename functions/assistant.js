@@ -177,7 +177,7 @@ const TOOLS = [
       const by = (x, y) => String(x.name).localeCompare(String(y.name), 'he');
       return { hotel: H.name, week: w + ' עד ' + addDays(w, 6), submittedCount: sub.length, total: sub.length + no.length, notSubmitted: no.sort(by), submitted: sub.sort(by) };
     } },
-  { name: 'rooms_status', description: 'Housekeeping board of a hotel for its current day: counts per cleaning status and the room lists (VD, OOO, DND, in progress, priority).', input_schema: { type: 'object', properties: { hotel: { type: 'string' } }, required: ['hotel'] },
+  { name: 'rooms_status', description: 'Housekeeping board of a hotel for its CURRENT day only (for past days or who cleaned a room use room_cleaning): counts per cleaning status and the room lists (VD, OOO, DND, in progress, priority).', input_schema: { type: 'object', properties: { hotel: { type: 'string' } }, required: ['hotel'] },
     run: async (c, a) => {
       const H = await hotelArg(c, a.hotel); if (H.err) return H; if (!P.hk(c, H.h)) return deny;
       const hd = await db.doc('hkday/' + H.h).get(), day = (hd.exists && hd.data().date) || ilDate(new Date());
@@ -193,6 +193,35 @@ const TOOLS = [
         cleaningNow: pick('start').filter((r) => !(D.done || {})[r]).map((r) => r + ((D.asgName || {})[r] ? ' (' + D.asgName[r] + ')' : '')),
         waitingInspection: pick('done').filter((r) => !(D.chk || {})[r]), dnd: pick('dnd'), priority: pick('pri'), vip: pick('vip'),
         unassigned: all.filter((r) => ['vd', 'od'].includes(clean[r]) && !(D.asg || {})[r]) };
+    } },
+
+  { name: 'room_cleaning', description: 'Cleaning history of a hotel on ANY date (today, yesterday, earlier): per room who was assigned, who cleaned it (finished), start/finish times, minutes, status, inspection, refresh, DND, note. Use for "who cleaned room X yesterday". Give date (YYYY-MM-DD) or days_ago (1 = yesterday); rooms optional.', input_schema: { type: 'object', properties: { hotel: { type: 'string' }, date: { type: 'string' }, days_ago: { type: 'integer' }, rooms: { type: 'array', items: { type: 'string' } } }, required: ['hotel'] },
+    run: async (c, a) => {
+      const H = await hotelArg(c, a.hotel); if (H.err) return H; if (!P.hk(c, H.h)) return deny;
+      let date = isoOk(a.date) ? a.date : '';
+      if (!date) { const n = Math.max(0, Math.min(400, parseInt(a.days_ago, 10) || 0)); date = ilDate(new Date(Date.now() - n * 864e5)); }
+      const dd = await db.doc('hk/' + H.h + '__' + date).get();
+      if (!dd.exists) return { hotel: H.name, date, note: 'אין לוח משק שמור לתאריך הזה.' };
+      const D = dd.data() || {}, g = (f, r) => (D[f] || {})[r];
+      const want = (Array.isArray(a.rooms) ? a.rooms : []).map((x) => String(x).replace(/\D/g, '')).filter(Boolean);
+      const keys = new Set(); ['clean', 'asg', 'start', 'done', 'doneBy', 'chk', 'trt', 'dnd', 'note'].forEach((f) => Object.keys(D[f] || {}).forEach((r) => keys.add(r)));
+      let rooms = [...keys].sort((x, y) => (+x || 0) - (+y || 0)); if (want.length) rooms = rooms.filter((r) => want.includes(String(r).replace(/\D/g, '')));
+      const logs = {}; const canLog = c.owner || app(c, 'ceo') || (inH(c, H.h) && (app(c, 'shifts') || app(c, 'gm')));
+      if (canLog && rooms.length && rooms.length <= 40) {
+        const ds = await db.getAll(...rooms.map((r) => db.doc('hkLog/' + H.h + '__' + date + '__' + r)));
+        ds.forEach((d, i) => { if (d.exists) logs[rooms[i]] = d.data() || {}; });
+      }
+      const nm = await names(rooms.map((r) => g('doneBy', r)).concat(rooms.map((r) => g('asg', r))));
+      const tm = (v) => { const t = typeof v === 'number' ? v : (v && v.toMillis ? v.toMillis() : 0); return t ? new Date(t).toLocaleTimeString('he-IL', { timeZone: 'Asia/Jerusalem', hour: '2-digit', minute: '2-digit' }) : ''; };
+      const out = rooms.slice(0, 150).map((r) => {
+        const st = g('clean', r) || '', db_ = g('doneBy', r), asg = g('asgName', r) || (g('asg', r) && nm[g('asg', r)]) || '', L = logs[r];
+        const cleaner = (db_ && nm[db_] !== '?' && nm[db_]) || (L && L.name) || (g('done', r) ? asg : '') || '';
+        return { room: r, status: HK[st] || st, statusSetBy: g('cleanBy', r) || '', assigned: asg, cleanedBy: cleaner,
+          started: tm(g('start', r)) || (L ? tm(L.start) : ''), finished: tm(g('done', r)) || (L ? tm(L.end) : ''), minutes: L && L.mins ? L.mins : undefined,
+          inspectedBy: g('chk', r) ? (g('chkBy', r) || 'כן') : '', refresh: g('trt', r) ? (g('trt', r) === 'full' ? 'Full refresh' : 'Refresh') + (g('trtDone', r) ? ' ✓ ' + (g('trtByName', r) || '') : '') : '',
+          dnd: g('dnd', r) ? true : undefined, note: g('note', r) ? String(g('note', r)).slice(0, 200) : undefined };
+      });
+      return { hotel: H.name, date, rooms: out, minutesShown: canLog, hint: 'cleanedBy ריק = אין רישום שמישהו סיים לנקות את החדר באפליקציה באותו יום.' };
     } },
 
   { name: 'open_faults', description: 'Open maintenance faults of a hotel (room, description, who opened, how long ago).', input_schema: { type: 'object', properties: { hotel: { type: 'string' } }, required: ['hotel'] },

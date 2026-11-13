@@ -187,6 +187,8 @@ table.plain th{font-weight:500;color:var(--muted);font-size:.8rem;border-top:0}
 table.plain td.num{font-family:var(--f-mono);font-variant-numeric:tabular-nums;text-align:end}
 table.plain th.num{text-align:end}
 .scroll-x{overflow-x:auto}
+.panel:not(.wa-full)>*{flex-shrink:0}
+table.plain.gt{min-width:0;font-size:.85rem}table.plain.gt th,table.plain.gt td{padding:7px 5px}table.plain.gt td:first-child{word-break:break-word}table.plain.gt th.num,table.plain.gt td.num{white-space:nowrap;width:1%}
 
 /* sheet */
 .sheet{position:fixed;inset:0;z-index:50;display:flex;align-items:flex-end;justify-content:center;background:var(--scrim)}
@@ -4505,7 +4507,7 @@ const gIsBrand=t=>{const s=String(t||'').toLowerCase();return GBRAND.some(b=>s.i
 function sheetGTerms(){const c=(S.camps||{})[S.sheet.id]||{},key=(c.gadsId||'')+'_'+(c.week||''),M=S.gTerms||(S.gTerms={});
   if(M[key]===undefined){M[key]=null;fdb.doc('gadsTerms/'+key).get().then(d=>{M[key]=d.exists?d.data():false;render()},()=>{M[key]=false;render()})}
   const d=M[key],cpc=+c.clicks?ils(c.spend/c.clicks):'—',ctr=+c.impressions?Math.round(c.clicks/c.impressions*100)+'%':'—';
-  const tbl=(rows,lbl)=>rows.length?`<div class="scroll-x"><table class="plain"><thead><tr><th>${lbl}</th><th class="num">חשיפות</th><th class="num">קליקים</th><th class="num">עלות</th><th class="num">המרות</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${esc(r.t)}${r.m?` <small class="muted">· ${GMATCH[r.m]||esc(r.m)}</small>`:''}${r.nb?' <span class="pill warn">לא מותג</span>':''}</td><td class="num">${(+r.i||0).toLocaleString('he-IL')}</td><td class="num">${+r.c||0}</td><td class="num">${ils(r.s)}</td><td class="num">${+r.v||0}</td></tr>`).join('')}</tbody></table></div>`:'<p class="muted">אין נתונים לשבוע הזה.</p>';
+  const tbl=(rows,lbl)=>rows.length?`<div class="scroll-x"><table class="plain gt"><thead><tr><th>${lbl}</th><th class="num">חשיפות</th><th class="num">קליקים</th><th class="num">עלות</th><th class="num">המרות</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${esc(r.t)}${r.m?` <small class="muted">· ${GMATCH[r.m]||esc(r.m)}</small>`:''}${r.nb?' <span class="pill warn">לא מותג</span>':''}</td><td class="num">${(+r.i||0).toLocaleString('he-IL')}</td><td class="num">${+r.c||0}</td><td class="num">${ils(r.s)}</td><td class="num">${+r.v||0}</td></tr>`).join('')}</tbody></table></div>`:'<p class="muted">אין נתונים לשבוע הזה.</p>';
   const st=d?(d.st||[]).map(r=>({...r,nb:!gIsBrand(r.t)})):[],kw=d?(d.kw||[]):[],nbS=st.filter(r=>r.nb).reduce((a,r)=>a+(+r.s||0),0);
   return sheetHead(esc(c.name||'קמפיין'),`שבוע ${c.week?weekLabel(c.week):''} · עלות לקליק ${cpc} · שיעור הקלקה ${ctr}`)+
    (d===null?'<p class="muted">טוען…</p>':d===false?'<p class="muted">עוד אין פירוט מילים לקמפיין הזה. הוא מתעדכן בכל סנכרון עם Google (כל 3 שעות).</p>':

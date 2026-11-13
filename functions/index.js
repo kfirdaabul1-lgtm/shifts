@@ -828,6 +828,34 @@ async function waLead(waId, name) {
   await db.doc('leads/' + id).set({ name: name || waLocal(waId), phone: waLocal(waId), email: '', company: '', type: '', date: '', guests: 0, venue: '', source: 'whatsapp', campaign: '', stage: 'new', owner: '', ownerName: '', nextAt: new Date(now + 3 * 3600e3).toISOString().slice(0, 10), value: 0, notes: '', acts: [], createdAt: now, createdBy: 'whatsapp', updatedAt: now }, { merge: true });
   return { id, owner: '', isNew: true };
 }
+// automatic inbox for a new WhatsApp chat (owner, Nov 13): Click-to-WhatsApp ad referral → the ad's campaign → leadcats campCat / words;
+// else a known pre-filled phrase from our wa.me links. Never a general word guess ("חתונה" can be a hall event or a bride).
+const WA_CAT_WORDS = (x) => /כלה|כלות|התארגנות|bride|bridal/i.test(x) ? 'bride' : /ספא|spa|עיסוי|massage|טיפולי|טיפול זוגי|wellness/i.test(x) ? 'spa' : /חדר|חדרים|room|לינה|נופש|stay|night|לילה|לילות|סוויט|suite/i.test(x) ? 'rooms' : /אירוע|אירועים|event|כנס|בר מצו|בת מצו|חינה|ברית/i.test(x) ? 'events' : '';
+const WA_PHRASES = { 'התארגנות כלה': 'bride', 'חבילת כלה': 'bride', 'טיפול ספא': 'spa', 'הזמנת טיפול': 'spa', 'עיסוי': 'spa', 'הזמנת חדר': 'rooms', 'לינה במלון': 'rooms' };
+async function waAdCampaign(adId) {
+  if (!/^\d{5,25}$/.test(String(adId || ''))) return '';
+  const m = (await db.doc('metacfg/main').get()).data() || {};
+  for (const [, conn] of metaConnList(m)) {
+    try { const j = await graph(String(adId), conn.token, { fields: 'campaign{name}' }); if (j.campaign && j.campaign.name) return String(j.campaign.name); } catch (e) { /* other portfolio */ }
+  }
+  return '';
+}
+async function waGuessCat(m, text) {
+  const out = { cat: '', campaign: '', ref: null };
+  let lc = {}; try { lc = (await db.doc('leadcats/main').get()).data() || {}; } catch (e) { }
+  const r = m.referral;
+  if (r && (r.source_id || r.headline || r.source_url)) {
+    out.ref = { type: String(r.source_type || '').slice(0, 20), id: String(r.source_id || '').slice(0, 30), headline: String(r.headline || '').slice(0, 160), url: String(r.source_url || '').slice(0, 300), at: Date.now() };
+    out.campaign = await waAdCampaign(out.ref.id).catch(() => '');
+    out.cat = ((lc.campCat || {})[out.campaign.trim()]) || WA_CAT_WORDS(out.campaign) || WA_CAT_WORDS(out.ref.headline) || '';
+  }
+  if (!out.cat) {
+    const t = String(text || '').toLowerCase(), P = { ...WA_PHRASES, ...(lc.waPhrases || {}) };
+    const hit = Object.keys(P).find((p) => p && t.includes(String(p).toLowerCase()) && ['events', 'rooms', 'spa', 'bride'].includes(P[p]));
+    if (hit) out.cat = P[hit];
+  }
+  return out;
+}
 async function waSave(chatId, msgId, data, chatUp) {
   const cref = db.doc('waChats/' + chatId), mref = cref.collection('msgs').doc(msgId);
   try { await mref.create(data); } catch (e) { return false; } // already saved (webhooks can repeat)
@@ -844,7 +872,25 @@ async function waIncoming(m, name, push) {
   let leadId = c.leadId, owner = '', venue = '', ld = null;
   if (!leadId) { try { const L = await waLead(chat, name || c.name); leadId = L.id; owner = L.owner; venue = L.venue || ''; await cref.set({ leadId }, { merge: true }); } catch (e) { console.warn('wa lead', e.message); } }
   else { try { const l = await db.doc('leads/' + leadId).get(); ld = l.exists ? l.data() : null; owner = (ld && ld.owner) || ''; venue = (ld && ld.venue) || ''; } catch (e) { } }
-  const kc = c.cat || (ld ? await leadKind(ld) : 'events'); // the chat's inbox kind (unsorted chats live in the events inbox)
+  // automatic inbox (Nov 13): first message of a new chat, or any message that came from an ad; a manual choice (c.cat) is never replaced
+  let autoCat = '';
+  if (!c.cat && (!cs.exists || m.referral)) {
+    try {
+      const g = await waGuessCat(m, text);
+      if (g.cat || g.ref) {
+        autoCat = g.cat || '';
+        await cref.set({ ...(g.cat ? { cat: g.cat, catAuto: g.ref ? 'ad' : 'text' } : {}), ...(g.ref ? { adRef: g.ref } : {}) }, { merge: true });
+        if (leadId) {
+          const lr = db.doc('leads/' + leadId), lx = (await lr.get()).data() || {}, lu = { updatedAt: Date.now() };
+          if (g.cat && !lx.cat) lu.cat = g.cat;
+          if (g.campaign && !lx.campaign) lu.campaign = g.campaign;
+          if (g.ref) lu.adRef = g.ref;
+          if (Object.keys(lu).length > 1) await lr.set(lu, { merge: true });
+        }
+      }
+    } catch (e) { console.warn('wa cat', e.message); }
+  }
+  const kc = c.cat || autoCat || (ld ? await leadKind(ld) : 'events'); // the chat's inbox kind (unsorted chats live in the events inbox)
   if (push) await sendTo(owner ? [owner] : await eventsPeople(venue, true, kc), { title: '💬 ' + (name || c.name || waLocal(chat)), body: text.slice(0, 140), hash: '#leads?wa=' + chat, tag: 'wa-' + chat });
 }
 async function waOutgoing(chat, m, src) {

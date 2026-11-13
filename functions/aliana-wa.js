@@ -147,14 +147,29 @@ exports.onAliIn = functions.region(REGION).runWith({ timeoutSeconds: 300, memory
       return;
     }
     if (guyOk && (st0.agent === 'guy' || (!allowed.length && !adamOk))) {
-      if (m.type !== 'text' || !tx0) { await say(c, from, 'גיא קורא כאן רק טקסט.'); return; }
+      // files for Guy (owner, Nov 13): pictures, PDF, Word, text and WhatsApp chat exports (.zip/.txt), read for this message only
+      let gBlocks = null, gLabel = '';
+      if ((m.type === 'document' || m.type === 'image') && m.doc && m.doc.id) {
+        const At = require('./attach.js');
+        try {
+          const meta = await graph(c, 'GET', m.doc.id);
+          const isZip = /zip/i.test(m.doc.mime || meta.mime_type || '') || /\.zip$/i.test(m.doc.file || '');
+          if (+meta.file_size > (isZip ? 60e6 : 7e6)) throw new Error('big');
+          const rr = await fetch(meta.url, { headers: { Authorization: 'Bearer ' + c.token } }); if (!rr.ok) throw new Error('download');
+          const a = At.toBlocks({ name: m.doc.file, mime: m.doc.mime || meta.mime_type, buf: Buffer.from(await rr.arrayBuffer()), use: 'analyse' });
+          gBlocks = a.blocks; gLabel = a.label + (/^💬/.test(a.label) ? ' (ייצוא צ׳אט)' : '');
+        } catch (e) { await say(c, from, (At.ERR[e.message] || 'לא הצלחתי להוריד את הקובץ. נסו לשלוח שוב.').replace('לאדם', 'לגיא')); return; }
+        await say(c, from, '📈 קיבלתי, קורא…');
+      } else if (m.type !== 'text' || !tx0) { await say(c, from, 'גיא קורא כאן טקסט, תמונות, PDF, קבצי וורד וייצוא צ׳אט מוואטסאפ.'); return; }
       if (/^(איפוס|שיחה חדשה|reset)$/i.test(tx0)) { await ref0.set({ guyMsgs: [] }, { merge: true }); await say(c, from, 'התחלנו שיחה חדשה עם גיא ✓'); return; }
       const gs = await Y.guyScopes(who);
       const nm = tx0.replace(/[.!?]$/, '').trim(), pickS = /^(כל הרשת|הרשת|רשת)$/.test(nm) ? gs.find((x) => !x.hotel) : gs.find((x) => x.hotel && String(x.name).trim() === nm);
       if (pickS) { await ref0.set({ agent: 'guy', guyH: pickS.hotel, guyMsgs: [] }, { merge: true }); await say(c, from, '📈 עברנו ל' + pickS.name + ' ✓'); return; }
       if (!(await Y.guyRate(who.uid))) { await say(c, from, 'הגעת למגבלת ההודעות לשעה. נדבר שוב בעוד קצת 🙂'); return; }
-      const gm = (Array.isArray(st0.guyMsgs) ? st0.guyMsgs : []).slice(-11).concat([{ role: 'user', text: clip(tx0, 3000) }]);
+      const gSaid = gBlocks ? (gLabel + (m.doc.caption ? '\n' + m.doc.caption : '')) : tx0;
+      const gm = (Array.isArray(st0.guyMsgs) ? st0.guyMsgs : []).slice(-11).concat([{ role: 'user', text: clip(gSaid, 3000) }]);
       const gh = gm.map((x) => ({ role: x.role, content: x.text })); while (gh.length && gh[0].role !== 'user') gh.shift();
+      if (gBlocks) gh[gh.length - 1].content = [...gBlocks, { type: 'text', text: m.doc.caption || 'מה יש בקובץ, ומה הוא אומר על המחירים / התשואה?' }];
       const gr = await Y.guyCore(who, gh, typeof st0.guyH === 'string' ? st0.guyH : '', 'You are answering on WhatsApp: plain text, *bold* with single asterisks, short lines and "•" lists, no markdown tables or headings. To switch hotel the person writes the hotel name (or "כל הרשת"); to go back to Aliana he writes "אליאנה"; "איפוס" starts a new conversation.');
       const gt = gr.error || gr.text;
       await say(c, from, '📈 ' + (gr.scope && gs.length > 1 ? '[' + gr.scope.name + '] ' : '') + gt);

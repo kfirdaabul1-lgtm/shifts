@@ -496,13 +496,26 @@ exports.assistant = functions.region(REGION).runWith({ timeoutSeconds: 120, memo
       .map((m) => ({ role: m.role, content: m.text.slice(0, 2000) }));
     while (hist.length && hist[0].role !== 'user') hist.shift();
     if (!hist.length || hist[hist.length - 1].role !== 'user') { res.status(400).json({ error: 'empty' }); return; }
+    const r = await sharonCore(c, hist);
+    res.json({ text: r.text, tools: r.tools, show: c.show || undefined });
+  } catch (e) {
+    console.error('assistant', e);
+    const m = String(e.message || '');
+    if (/credit balance|billing/i.test(m)) { res.status(503).json({ error: 'אין קרדיט בחשבון Claude API. צריך לטעון קרדיט ב-console.anthropic.com ← Billing.' }); return; }
+    if (/^secret:/.test(m)) { res.status(503).json({ error: 'השרת לא מצליח לקרוא את מפתח ה-API (הרשאה ל-ANTHROPIC_API_KEY).' }); return; }
+    res.status(500).json({ error: 'משהו השתבש. נסו שוב בעוד רגע.' });
+  }
+});
+
+// Sharon's loop; also called by Aliana (agent-ops ask_agent) with opt.readOnly = no notification tools.
+async function sharonCore(c, hist, opt = {}) {
     const hs = c.helpOnly ? [] : await TOOL_BY.list_hotels.run(c, {});
-    const avail = c.helpOnly ? HELP_TOOLS : TOOLS;
+    const avail = (c.helpOnly ? HELP_TOOLS : TOOLS).filter((t) => !opt.readOnly || !/notification|show_on_screen/.test(t.name));
     // prompt caching (owner, Nov 6: fewer tokens): the tools, the system prompt and the conversation so far are cached,
     // so the 2nd–6th call of the same question pays ~10% for everything already sent
     const tools = avail.map(({ name, description, input_schema }) => ({ name, description, input_schema }));
     tools[tools.length - 1].cache_control = { type: 'ephemeral' };
-    const system = [{ type: 'text', text: c.helpOnly ? helpPrompt(c) : systemPrompt(c, hs), cache_control: { type: 'ephemeral' } }];
+    const system = [{ type: 'text', text: (c.helpOnly ? helpPrompt(c) : systemPrompt(c, hs)) + (opt.extra ? '\n\n' + opt.extra : ''), cache_control: { type: 'ephemeral' } }];
     const msgs = hist.slice(); let answer = '', used = [];
     const U = { in: 0, out: 0, cr: 0, cw: 0 };
     for (let turn = 0; turn < MAX_TURNS; turn++) {
@@ -528,16 +541,9 @@ exports.assistant = functions.region(REGION).runWith({ timeoutSeconds: 120, memo
     }
     // token use per person (assistantRate/{uid}: tokIn/tokOut/tokCacheRead/tokCacheWrite, admin only)
     db.doc('assistantRate/' + c.uid).set({ tokIn: admin.firestore.FieldValue.increment(U.in), tokOut: admin.firestore.FieldValue.increment(U.out), tokCacheRead: admin.firestore.FieldValue.increment(U.cr), tokCacheWrite: admin.firestore.FieldValue.increment(U.cw) }, { merge: true }).catch(() => {});
-    console.log('assistant usage', JSON.stringify({ uid: c.uid, ...U, tools: used.length }));
-    res.json({ text: answer || 'לא הצלחתי לענות על זה. אפשר לנסח אחרת?', tools: [...new Set(used)], show: c.show || undefined });
-  } catch (e) {
-    console.error('assistant', e);
-    const m = String(e.message || '');
-    if (/credit balance|billing/i.test(m)) { res.status(503).json({ error: 'אין קרדיט בחשבון Claude API. צריך לטעון קרדיט ב-console.anthropic.com ← Billing.' }); return; }
-    if (/^secret:/.test(m)) { res.status(503).json({ error: 'השרת לא מצליח לקרוא את מפתח ה-API (הרשאה ל-ANTHROPIC_API_KEY).' }); return; }
-    res.status(500).json({ error: 'משהו השתבש. נסו שוב בעוד רגע.' });
-  }
-});
+    console.log('assistant usage', JSON.stringify({ uid: c.uid, ...U, tools: used.length, via: opt.via || '' }));
+    return { text: answer || 'לא הצלחתי לענות על זה. אפשר לנסח אחרת?', tools: [...new Set(used)] };
+}
 
 // exported for the tests only
-exports._t = { P, roomsParse, weekOf, TOOLS, caller, callerUid, helpKB, helpFor, PAGE_OK };
+exports._t = { sharonCore, P, roomsParse, weekOf, TOOLS, caller, callerUid, helpKB, helpFor, PAGE_OK };

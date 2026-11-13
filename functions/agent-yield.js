@@ -273,7 +273,7 @@ async function runScope(scope, kind, cfg, today, force) {
   const prev = await previous(scope, prevIds);
   let saved = null; const tools = [...readTools(scope, today), { ...SAVE_REPORT, run: async (a) => { saved = a || {}; return { saved: true }; } }];
   const model = cfg.model || SMART;
-  const out = await C.runLoop({ model, system: system(await C.loadKB('yield'), scope, kind), tools, messages: [{ role: 'user', content: `${kind === 'weekly' ? 'Weekly report' : 'Daily check'} for ${today}. Previous reports (latest first): ${JSON.stringify(prev)}\n\nMETRICS (computed by the system; one block per hotel):\n${JSON.stringify(per.map(compact))}` }], maxTurns: 8, maxTokens: 12000, mustAnswer: true });
+  const out = await C.runLoop({ model, system: [...system(await C.loadKB('yield'), scope, kind), ...(await tasksTxt(scope.hotel).then((t) => t ? [{ type: 'text', text: t }] : []))], tools, messages: [{ role: 'user', content: `${kind === 'weekly' ? 'Weekly report' : 'Daily check'} for ${today}. Previous reports (latest first): ${JSON.stringify(prev)}\n\nMETRICS (computed by the system; one block per hotel):\n${JSON.stringify(per.map(compact))}` }], maxTurns: 8, maxTokens: 12000, mustAnswer: true });
   const marketOk = per.some((m) => m.market && m.market.available);
   let rep = saved ? cleanReport(saved, marketOk) : null;
   if (!rep) { const t = String(out.text || '').trim(); if (!t) { await C.logRun('yield', { scope: scope.key, kind, model, usage: out.U, tools: out.used, stop: out.stop, error: 'no report produced' }); return { scope: scope.key, skipped: 'no report' }; } rep = cleanReport({ headline: t.split('\n')[0], summary: t, pageStatus: 'warn' }, marketOk); }
@@ -322,6 +322,15 @@ async function guyRate(uid) {
   const ref = db.doc('agentRate/guy_' + uid), hour = new Date().toISOString().slice(0, 13);
   return db.runTransaction(async (tx) => { const s = await tx.get(ref), d = s.exists ? s.data() : {}, n = d.hour === hour ? (+d.n || 0) : 0; if (n >= 40) return false; tx.set(ref, { hour, n: n + 1, total: (+d.total || 0) + 1, at: Date.now() }); return true; });
 }
+// directions from Aliana (agent-ops writeDirection → agentTasks {to:'yield', hotel, text, until})
+async function tasksTxt(hotel) {
+  const today = C.ilDate(new Date());
+  try {
+    const L = (await db.collection('agentTasks').where('to', '==', 'yield').get()).docs.map((d) => d.data())
+      .filter((x) => x.status !== 'done' && (!x.until || x.until >= today) && (!hotel || !x.hotel || x.hotel === hotel)).sort((x, y) => (y.at || 0) - (x.at || 0)).slice(0, 8);
+    return L.length ? '\n\nDIRECTIONS FROM ALIANA (the operations manager agent, on behalf of the owner) — take them into account, say when you followed one:\n' + L.map((x) => `- (${new Date(x.at || 0).toISOString().slice(0, 10)}${x.hotel ? ', hotel ' + x.hotel : ', chain'}) ${String(x.text || '').slice(0, 400)}`).join('\n') : '';
+  } catch (e) { return ''; }
+}
 function chatSystem(kb, scope, who) {
   const base = system(kb, scope, 'daily')[0].text.split('\n\nRULES')[0];
   const rules = `${base}
@@ -363,6 +372,7 @@ async function guyCore(c, hist, want, extra) {
   if (!scope) return { error: 'אין לך מלון בהרשאה.' };
   const cfg = { ...DEFAULTS, ...(await C.cfg('yield')) }, today = C.ilDate(new Date()), model = cfg.chatModel || SMART;
   const sys = chatSystem(await C.loadKB('yield'), scope, c.name || 'a manager');
+  { const tt = await tasksTxt(scope.hotel); if (tt) sys.push({ type: 'text', text: tt }); }
   if (extra) sys.push({ type: 'text', text: extra });
   const out = await C.runLoop({ model, system: sys, tools: chatTools(scope, today, cfg), messages: hist, maxTurns: 8, maxTokens: 8000, mustAnswer: true });
   await C.logRun('guy-chat', { uid: c.uid, scope: scope.key, model, usage: out.U, tools: out.used, stop: out.stop || '', textLen: (out.text || '').length, via: extra ? 'wa' : 'app' });

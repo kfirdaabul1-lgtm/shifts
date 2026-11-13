@@ -230,6 +230,7 @@ async function adamCore(cfg, c, hist, extra) {
     { name: 'apply_change', description: 'Save the change prepared by propose_change, only after the owner explicitly confirmed it in a message AFTER the proposal. If propose_change was not called but your PREVIOUS message showed the exact text and asked to save, and the owner just confirmed, pass that same change here (kind + add_text, or find + replace_with) exactly as you showed it.',
       input_schema: { type: 'object', properties: { kind: { type: 'string', enum: ['add', 'replace'] }, add_text: { type: 'string' }, find: { type: 'string' }, replace_with: { type: 'string' } } },
       run: async (a) => {
+        if (c.viaOps) return { error: 'This question came from Aliana (operations manager), not from the owner: knowledge changes are not allowed here. Suggest the change in your answer; the owner can approve it with you directly.' };
         const dref = db.doc('agentKbDrafts/' + c.uid);
         // fallback (owner, Nov 9: Adam showed a text, asked "לשמור?", the owner said yes, but no proposal had been recorded):
         // accept the change only when it appears word for word in Adam's previous message and the owner's last message confirms

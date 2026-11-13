@@ -14,6 +14,8 @@ const KEYS = ['hotel', 'month', 'date', 'shift', 'name', 'empUid', 'ooo', 'fault
     // Guy, the yield agent (Nov 12, owner asked to turn it on): create agentcfg/yield enabled, ONLY when missing
     const yr = db.doc('agentcfg/yield');
     if (!(await yr.get()).exists) { await yr.set({ enabled: true, name: 'גיא', createdAt: Date.now(), createdBy: 'setup' }); console.log('::notice title=Guy::agentcfg/yield created (on)'); }
+    // Nov 13 (owner): the campaigns agent is now Adi (Aliana = the operations manager) → rename the notes she learned from the social group
+    { const q = await db.collection('adNotes').where('by', '==', 'aliana').get(); const b = db.batch(); let n = 0; q.forEach((d) => { if (d.data().byName !== 'עדי · מקבוצת הסושיאל') { b.update(d.ref, { byName: 'עדי · מקבוצת הסושיאל' }); n++; } }); if (n) { await b.commit(); console.log('::notice title=Adi::renamed ' + n + ' notes'); } }
     // operations manager (Nov 13, owner's settings; reports only until push is turned on): create ONLY when missing
     const oc = db.doc('agentcfg/ops');
     if (!(await oc.get()).exists) { await oc.set({ enabled: true, push: false, hkTarget: 14, ratios: { default: { dining: { bf: 50, dn: 50 }, kitchen: { covers: 180 }, dishwash: { perMeal: 1 }, reception: { upTo: 40, low: 1, high: 2 } } }, createdAt: Date.now(), createdBy: 'setup' }); console.log('::notice title=Ops::agentcfg/ops created (on, push off)'); }

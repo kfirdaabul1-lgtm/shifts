@@ -82,7 +82,7 @@
     const b = document.createElement('button'); b.id = 'asst-btn'; b.type = 'button'; b.title = 'שרון · עוזרת כללית'; b.textContent = '✦'; b.hidden = true;
     const w = document.createElement('div'); w.id = 'asst'; w.hidden = true;
     w.innerHTML = `<header><span><span style="color:#D9B66C">✦</span> <span>שרון · עוזרת כללית</span></span><span><button type="button" data-a="clear" title="שיחה חדשה">↺</button><button type="button" data-a="close" title="סגירה">✕</button></span></header>
-      <div class="ag" hidden><button type="button" data-ag="gen">✦ שרון · עוזרת כללית</button><button type="button" data-ag="ads">📣 אליאנה · קמפיינים</button><button type="button" data-ag="adam" hidden>🤵 אדם · אירועים</button><button type="button" data-ag="guy" hidden>📈 גיא · תשואה</button><select aria-label="איזה מלון" data-agh></select></div>
+      <div class="ag" hidden><button type="button" data-ag="gen">✦ שרון · עוזרת כללית</button><button type="button" data-ag="ads">📣 עדי · קמפיינים</button><button type="button" data-ag="adam" hidden>🤵 אדם · אירועים</button><button type="button" data-ag="guy" hidden>📈 גיא · תשואה</button><select aria-label="איזה מלון" data-agh></select></div>
       <div class="log" aria-live="polite"></div>
       <div class="fchip" hidden></div>
       <form><label class="att" hidden title="צירוף קובץ וורד, PDF, תמונה או ייצוא צ׳אט מוואטסאפ">📎<input type="file" accept=".docx,.pdf,.txt,.zip,image/*" hidden></label><textarea rows="1" placeholder="לשאול על משמרות, חדרים, תקלות, מלאי…" maxlength="1500"></textarea><button type="submit">שליחה</button></form>`;
@@ -161,12 +161,12 @@
     if (guyH === null || !guyScopes.some((x) => x.id === guyH)) guyH = guyScopes.length ? guyScopes[0].id : '';
     const scs = guy ? guyScopes : adsScopes, cur = guy ? guyH : adsH;
     sel.hidden = !(ads || (guy && guyScopes.length > 1)); sel.innerHTML = scs.map((x) => `<option value="${esc(x.id)}" ${x.id === cur ? 'selected' : ''}>${esc(x.name)}</option>`).join('');
-    root.querySelector('header span span:last-child').textContent = adam ? 'אדם · סוכן מכירת אירועים' : guy ? 'גיא · סוכן תשואה' : ads ? 'אליאנה · קמפיינים' : 'שרון · עוזרת כללית';
+    root.querySelector('header span span:last-child').textContent = adam ? 'אדם · סוכן מכירת אירועים' : guy ? 'גיא · סוכן תשואה' : ads ? 'עדי · קמפיינים' : 'שרון · עוזרת כללית';
     root.querySelector('textarea').placeholder = adam ? 'ללמד את אדם משהו, לצרף קובץ או ייצוא צ׳אט 📎, או לכתוב "לקוח שואל: …"' : guy ? 'לשאול על המחירים, הפריטי, מה מנהל התשואה שינה…' : ads ? 'לשאול על הקמפיינים, הקהלים, המודעות…' : helpOnly ? 'לשאול איך עושים משהו באפליקציה…' : 'לשאול על משמרות, חדרים, תקלות, מלאי, או איך עושים משהו…';
     let h = hist.map((m, i) => `<div class="m ${m.role === 'user' ? 'u' : 'a'}">${fmt(m.text)}${m.show && m.show.steps ? `<div class="shw"><button type="button" data-show="${i}">👀 הראי לי על המסך</button>${m.show.page !== 'events' ? `<button type="button" class="g" data-open="${i}">פתיחת העמוד</button>` : ''}</div>` : ''}</div>`).join('');
     if (!hist.length) h = adam ? `<div class="hint">כאן מדברים עם אדם ומלמדים אותו. ספר לו עובדות על האירועים והוא יציע איך לכתוב אותן בידע שלו, וישמור רק אחרי שתאשר. כתוב "לקוח שואל: …" כדי לראות מה הוא היה עונה. שום דבר לא נשלח ללקוחות מכאן.${adamSt ? `<br><b>${esc(adamSt)}</b>` : ''}</div><div class="chips">${SUGG_ADAM.map((s) => `<button type="button">${esc(s)}</button>`).join('')}</div>`
       : guy ? `<div class="hint">גיא בודק את המחירים של <b>${esc((guyScopes.find((x) => x.id === guyH) || {}).name || '')}</b>. הוא עובר על עמוד השוואת המחירים, על פערים בין האתר ל-Booking ועל מה שמנהל התשואה שינה. הוא רק קורא נתונים ולא משנה מחירים.</div><div class="chips">${SUGG_GUY.map((s) => `<button type="button">${esc(s)}</button>`).join('')}</div>`
-      : ads ? `<div class="hint">אליאנה עונה על הקמפיינים, הקהלים והמודעות של ${esc((adsScopes.find((x) => x.id === adsH) || {}).name || '')}. היא רק קוראת, לא משנה קמפיינים.</div><div class="chips">${SUGG_ADS.map((s) => `<button type="button">${esc(s)}</button>`).join('')}</div>`
+      : ads ? `<div class="hint">עדי עונה על הקמפיינים, הקהלים והמודעות של ${esc((adsScopes.find((x) => x.id === adsH) || {}).name || '')}. היא רק קוראת, לא משנה קמפיינים.</div><div class="chips">${SUGG_ADS.map((s) => `<button type="button">${esc(s)}</button>`).join('')}</div>`
       : helpOnly ? `<div class="hint">אפשר לשאול את שרון איך עושים דברים באפליקציה. היא מסבירה בשלבים ויכולה להראות לך על המסך על מה ללחוץ. את הלחיצות עושים בעצמך.</div><div class="chips">${SUGG_HELP.map((s) => `<button type="button">${esc(s)}</button>`).join('')}</div>`
       : `<div class="hint">אפשר לשאול את שרון איך עושים דברים באפליקציה (היא תראה לך על המסך), על הנתונים של המלונות שבהרשאה שלך, לבקש סיכום, או לבקש שתשלח הודעה לעובדים. לפני כל שליחה היא מראה לך את ההודעה ומחכה לאישור.</div><div class="chips">${SUGG.map((s) => `<button type="button">${esc(s)}</button>`).join('')}</div>`;
     if (busy) h += '<div class="m a">…</div>';
@@ -188,7 +188,7 @@
     try {
       const r = await fetch(URL_(), { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + (await u.getIdToken()) }, body: JSON.stringify(agent === 'ads' ? { messages: hist.slice(-8).map(({ role, text }) => ({ role, text })), hotel: adsH || '' } : agent === 'guy' ? { messages: hist.slice(-12).map(({ role, text }) => ({ role, text })), hotel: guyH || '' } : { messages: hist.slice(agent === 'adam' ? -40 : -8).map(({ role, text }) => ({ role, text })), ...(file ? { file } : {}) }) });
       const j = await r.json().catch(() => ({}));
-      if (!r.ok) err = j.error && j.error.length > 8 ? j.error : (agent === 'ads' ? 'אליאנה לא זמינה' : agent === 'adam' ? 'אדם לא זמין' : agent === 'guy' ? 'גיא לא זמין' : 'שרון לא זמינה') + ' כרגע (' + r.status + ').';
+      if (!r.ok) err = j.error && j.error.length > 8 ? j.error : (agent === 'ads' ? 'עדי לא זמינה' : agent === 'adam' ? 'אדם לא זמין' : agent === 'guy' ? 'גיא לא זמין' : 'שרון לא זמינה') + ' כרגע (' + r.status + ').';
       else hist.push({ role: 'assistant', text: String(j.text || ''), ...(j.show && j.show.page && Array.isArray(j.show.steps) ? { show: j.show } : {}) });
     } catch (e) { err = 'אין חיבור לשרת. נסו שוב.'; }
     if (err) { hist.pop(); if (file) pend = file; } // the question was not answered: let the person send it again (with the file)

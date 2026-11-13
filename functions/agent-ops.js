@@ -37,7 +37,7 @@ const DEFAULTS = {
   maxDirections: 0, agents: ['ads', 'reply', 'yield'], // owner, Nov 12: the other agents are still learning → supervise only, no directions until he says so
 };
 const DEPT = { ops: 'תפעול / מנהל תורן', reception: 'קבלה', housekeeping: 'משק', public: 'שטחים ציבוריים', maintenance: 'אחזקה', kitchen: 'מטבח', dining: 'חדר אוכל', bar: 'בר', dishwash: 'שוטף כלים', laundry: 'מכבסה' };
-const AGENT_HE = { ads: 'סוכן הפרסום', reply: 'אדם (מענה ללידים)', yield: 'סוכן התשואה' };
+const AGENT_HE = { ads: 'עדי (קמפיינים)', reply: 'אדם (מענה ללידים)', yield: 'גיא (תשואה)' };
 const DOW = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];
 const clip = (s, n) => String(s == null ? '' : s).slice(0, n);
 const dowOf = (iso) => new Date(iso + 'T12:00:00Z').getUTCDay();
@@ -281,7 +281,7 @@ async function notify(hotel, items, P, duty, cfg, today, kind, force) {
 // ---------- the model ----------
 const OPS_KNOW = `HOW A HOTEL OPERATIONS MANAGER THINKS: every morning, walk the day before it happens: who is on shift in each department and where the holes are; arrivals, departures and which rooms must be ready by check-in; groups and events in house and what they need (rooms, meals, halls, staff); open maintenance faults, especially in rooms that are sold tonight; spa and tours on the diary; what was promised yesterday and not closed (reports, purchase requests, guest complaints). Rank by impact on the guest today, then on cost. Name the owner of each action (department) and when it must be done.`;
 function systemOps(kb, scopeName, kind) {
-  const rules = `You are the operations manager agent of the Seven Collection hotels (Israel), writing the ${kind === 'weekly' ? 'weekly staffing-draft note' : 'morning operations report'} for ${scopeName}.
+  const rules = `Your name is Aliana (אליאנה, a woman). You are the operations manager agent of the Seven Collection hotels (Israel), writing the ${kind === 'weekly' ? 'weekly staffing-draft note' : 'morning operations report'} for ${scopeName}.
 ${OPS_KNOW}
 RULES
 - The checks and numbers are computed by the system. Use only them; never invent a number, a name or a room.
@@ -334,8 +334,8 @@ async function writeDirection(a, hotels, today) {
   const text = clip(String(a.text || '').trim(), 400), hotel = hotels.some((h) => h.id === a.hotel) ? a.hotel : '';
   if (!text) return { error: 'empty' };
   const id = 'ops_' + today + '_' + a.agent + '_' + (hotel || 'chain');
-  if (a.agent === 'ads') await db.doc('adNotes/' + id).set({ hotel, text: 'מנהל האופרציה: ' + text, by: 'ops', byName: 'מנהל האופרציה', at: Date.now() });
-  else if (a.agent === 'yield') await db.doc('agentTasks/' + id).set({ to: 'yield', hotel, text, status: 'open', by: 'ops', byName: 'מנהל האופרציה', at: Date.now(), until: C.addDays(today, 7) });
+  if (a.agent === 'ads') await db.doc('adNotes/' + id).set({ hotel, text: 'אליאנה (מנהלת האופרציה): ' + text, by: 'ops', byName: 'אליאנה · מנהלת האופרציה', at: Date.now() });
+  else if (a.agent === 'yield') await db.doc('agentTasks/' + id).set({ to: 'yield', hotel, text, status: 'open', by: 'ops', byName: 'אליאנה · מנהלת האופרציה', at: Date.now(), until: C.addDays(today, 7) });
   else return { error: 'agent' };
   return { saved: id };
 }
@@ -366,7 +366,7 @@ async function runMorning(cfg, today, only, force) {
   const w = await writeWithModel(cfg.model || cfg.smartModel, systemOps(kb, 'the whole chain (owner)', 'morning'), content, tools, fb);
   const problems = health.filter((x) => x.problem);
   await db.doc('opsReports/morning_chain_' + today).set({ kind: 'morning', hotel: '', hotelName: 'כל הרשת', date: today, ...w.rep, hotels: chain, agents: health, directions: given, at: Date.now(), model: w.U ? cfg.model || cfg.smartModel : '', by: 'ai' });
-  if (cfg.push && problems.length) { const own = await db.collection('pushTokens').where('owner', '==', true).get(); await sendPush(own.docs.map((d) => d.id), { title: 'מנהל האופרציה · בעיה בסוכן', body: clip(problems.map((p) => p.name + ': ' + p.problem).join('\n'), 400), hash: '#', tag: 'ops-agents-' + today }); }
+  if (cfg.push && problems.length) { const own = await db.collection('pushTokens').where('owner', '==', true).get(); await sendPush(own.docs.map((d) => d.id), { title: 'אליאנה · בעיה בסוכן', body: clip(problems.map((p) => p.name + ': ' + p.problem).join('\n'), 400), hash: '#', tag: 'ops-agents-' + today }); }
   await log({ kind: 'morning', hotel: 'chain', directions: given.length, usage: w.U, stop: w.stop || '', error: w.error });
   return done;
 }

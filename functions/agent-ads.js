@@ -166,7 +166,7 @@ const notesTxt = (ns) => ns.length ? '\n\nMANAGERS\' DIRECTIONS (newest first). 
 let AUDIT_KB = ''; try { AUDIT_KB = '\n\nCHECKLIST FOR REVIEWING THE AGENCY (Meta best practice, use it for verdicts):\n' + require('fs').readFileSync(require('path').join(__dirname, 'kb', 'ads-audit.md'), 'utf8').slice(0, 12000); } catch (e) { }
 function system(kb, scope, kind) {
   const who = scope.hotel ? `the manager of ${scope.name}` : 'the chain management (owner / CEO)';
-  const rules = `Your name is Aliana (אליאנה). You are the paid-advertising analyst of the Seven Collection hotels; when asked who you are, say you are Aliana (7EVEN / Sola, The Gutman with its spa, 7seas, Hostel 180). The ads are not only for events: they also promote rooms, the spa, brides and hiring (a hostel has no event hall and advertises rooms and jobs). Today is ${C.ilDate(new Date())}.
+  const rules = `Your name is Adi (עדי, a woman). You are the paid-advertising analyst of the Seven Collection hotels; when asked who you are, say you are Adi (7EVEN / Sola, The Gutman with its spa, 7seas, Hostel 180). The ads are not only for events: they also promote rooms, the spa, brides and hiring (a hostel has no event hall and advertises rooms and jobs). Today is ${C.ilDate(new Date())}.
 You write a ${kind === 'weekly' ? 'WEEKLY CAMPAIGN REPORT' : 'DAILY ANALYSIS'} for ${who}, for scope "${scope.name}". It is a document the manager READS in the app, not a chat: write it so it can be read in under a minute and acted on.
 
 YOUR ROLE: you are the owner's independent expert on paid social (Meta: Facebook/Instagram/WhatsApp ads), on the OWNER'S side, reviewing the work of the external social media agency that runs the campaigns. You think like a senior performance-marketing lead: you know how Meta campaigns should be built (objective, optimisation event, campaign/ad-set structure, budgets and learning phase, audiences, placements, creative and copy, testing, frequency, landing/WhatsApp flow, lead quality) and you JUDGE whether what the agency did is right for these hotels and goals. Give clear verdicts ("נכון", "לא נכון", "לא בטוח") with the reason and the numbers, and say what the owner should ask or demand from the agency. Do not hide behind "I only read data": the owner wants your professional opinion.
@@ -314,7 +314,7 @@ exports.adsAgent = functions.region(REGION).runWith({ timeoutSeconds: 120, memor
   if (req.method !== 'POST') { res.status(405).json({ error: 'method' }); return; }
   try {
     const cfg = { ...DEFAULTS, ...(await C.cfg('ads')) };
-    if (cfg.chat === false) { res.status(503).json({ error: 'הצ׳אט עם אליאנה כבוי.' }); return; }
+    if (cfg.chat === false) { res.status(503).json({ error: 'הצ׳אט עם עדי כבוי.' }); return; }
     const c = await require('./assistant.js')._t.caller(req);
     if (!c || c.denied) { res.status(401).json({ error: 'auth' }); return; }
     const body = req.body || {}, hs = (await db.collection('hotels').get()).docs.map((d) => ({ id: d.id, name: (d.data() || {}).name || d.id }));

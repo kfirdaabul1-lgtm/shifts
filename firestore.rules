@@ -501,6 +501,19 @@ service cloud.firestore {
     // adReports: written only by the server (admin). A hotel report (hotel = 'h1') is read by that hotel's manager, or by marketing
     // holders of that hotel; a chain report (hotel = '') by the owner, the CEO and marketing holders who see every hotel.
     // UI queries must filter: where('hotel', '==', h)
+    // operations manager agent (Nov 13): reports + staffing drafts written only by the server
+    match /opsReports/{id} {
+      allow read: if isOwner() || canCeo() || (resource.data.hotel != '' && (gmIn(resource.data.hotel) || manages(resource.data.hotel)));
+      allow write: if false;
+    }
+    match /opsDrafts/{id} {
+      allow read: if isOwner() || canCeo() || gmIn(resource.data.hotel) || manages(resource.data.hotel);
+      allow write: if false;
+    }
+    match /agentTasks/{id} {
+      allow read, delete: if isOwner();
+      allow write: if false;
+    }
     match /adReports/{id} {
       allow read: if isOwner() || canCeo()
         || (resource.data.hotel != '' && (gmIn(resource.data.hotel) || (canMkt() && (roleHotels().size() == 0 || resource.data.hotel in roleHotels()))))

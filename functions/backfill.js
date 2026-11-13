@@ -14,6 +14,11 @@ const KEYS = ['hotel', 'month', 'date', 'shift', 'name', 'empUid', 'ooo', 'fault
     // Guy, the yield agent (Nov 12, owner asked to turn it on): create agentcfg/yield enabled, ONLY when missing
     const yr = db.doc('agentcfg/yield');
     if (!(await yr.get()).exists) { await yr.set({ enabled: true, name: 'גיא', createdAt: Date.now(), createdBy: 'setup' }); console.log('::notice title=Guy::agentcfg/yield created (on)'); }
+    // operations manager (Nov 13, owner's settings; reports only until push is turned on): create ONLY when missing
+    const oc = db.doc('agentcfg/ops');
+    if (!(await oc.get()).exists) { await oc.set({ enabled: true, push: false, hkTarget: 14, ratios: { default: { dining: { bf: 50, dn: 50 }, kitchen: { covers: 180 }, dishwash: { perMeal: 1 }, reception: { upTo: 40, low: 1, high: 2 } } }, createdAt: Date.now(), createdBy: 'setup' }); console.log('::notice title=Ops::agentcfg/ops created (on, push off)'); }
+    const ok = db.doc('agentKB/ops');
+    if (!(await ok.get()).exists) { const t = require('fs').readFileSync(require('path').join(__dirname, 'kb', 'ops.md'), 'utf8').trim(); await ok.set({ text: t, updatedAt: Date.now(), updatedBy: 'setup', updatedByName: 'תשובות הבעלים 12.11' }); console.log('::notice title=Ops::agentKB/ops created, ' + t.length + ' chars'); }
   } catch (e) { console.log('::warning title=Adam seed::' + String(e.message || e).slice(0, 200)); }
   const [all, pub] = await Promise.all([db.collection('shiftReports').get(), db.collection('shiftReportsPub').get()]);
   const have = new Set(pub.docs.map((d) => d.id));

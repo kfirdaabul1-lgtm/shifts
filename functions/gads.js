@@ -36,6 +36,25 @@ async function accountsOf(c, at) {
   const rows = await gaql(c, at, c.loginId, 'SELECT customer_client.id, customer_client.descriptive_name, customer_client.manager, customer_client.status FROM customer_client WHERE customer_client.level <= 1');
   return rows.map((r) => r.customerClient || {}).filter((x) => !x.manager && x.status === 'ENABLED').map((x) => ({ id: dig(x.id), name: x.descriptiveName || '' }));
 }
+// keywords + search terms per campaign per week (owner, Nov 13) → gadsTerms/{campaignId}_{week} {campaignId, week, kw:[{t,m,i,c,s,v}], st:[{t,i,c,s,v}], at}
+// top 150 rows by cost of each list; read only (Google hides low-volume search terms, so totals can be below the campaign's)
+async function gadsTerms(c, at, cid, since, until) {
+  const per = {}, add = (k, list, key, row) => { const x = per[k] = per[k] || { kw: {}, st: {} }, y = x[list][key] = x[list][key] || { ...row, i: 0, c: 0, s: 0, v: 0 }; return y; };
+  const put = (y, m) => { y.i += +m.impressions || 0; y.c += +m.clicks || 0; y.s += (+m.costMicros || 0) / 1e6; y.v += +m.conversions || 0; };
+  const kw = await gaql(c, at, cid, `SELECT campaign.id, segments.date, ad_group_criterion.keyword.text, ad_group_criterion.keyword.match_type, metrics.impressions, metrics.clicks, metrics.cost_micros, metrics.conversions FROM keyword_view WHERE segments.date BETWEEN '${since}' AND '${until}' AND metrics.impressions > 0`);
+  for (const r of kw) { const k = (r.adGroupCriterion || {}).keyword || {}, t = String(k.text || '').slice(0, 120); if (!t) continue; put(add(r.campaign.id + '_' + weekOf(r.segments.date), 'kw', t + '|' + (k.matchType || ''), { t, m: k.matchType || '' }), r.metrics || {}); }
+  const st = await gaql(c, at, cid, `SELECT campaign.id, segments.date, search_term_view.search_term, metrics.impressions, metrics.clicks, metrics.cost_micros, metrics.conversions FROM search_term_view WHERE segments.date BETWEEN '${since}' AND '${until}' AND metrics.impressions > 0`);
+  for (const r of st) { const t = String((r.searchTermView || {}).searchTerm || '').slice(0, 120); if (!t) continue; put(add(r.campaign.id + '_' + weekOf(r.segments.date), 'st', t, { t }), r.metrics || {}); }
+  const top = (o) => Object.values(o).map((y) => ({ ...y, s: Math.round(y.s * 100) / 100, v: Math.round(y.v * 10) / 10 })).sort((a, b) => b.s - a.s || b.c - a.c).slice(0, 150);
+  const list = Object.entries(per);
+  for (let i = 0; i < list.length; i += 400) {
+    const b = db.batch();
+    for (const [k, x] of list.slice(i, i + 400)) { const [id, week] = k.split('_'); b.set(db.doc('gadsTerms/' + k), { campaignId: id, week, kw: top(x.kw), st: top(x.st), at: Date.now() }); }
+    await b.commit();
+  }
+  return list.length;
+}
+
 async function gadsRun() {
   const ref = db.doc('gadscfg/main'), s = await ref.get(); if (!s.exists) return null;
   const c = s.data() || {};
@@ -55,6 +74,7 @@ async function gadsRun() {
           const x = by[k] = by[k] || { name: cp.name || '', id: String(cp.id), cust: a.id, custName: nm, week: w, spend: 0, impressions: 0, clicks: 0, conv: 0 };
           x.name = cp.name || x.name; x.spend += (+m.costMicros || 0) / 1e6; x.impressions += +m.impressions || 0; x.clicks += +m.clicks || 0; x.conv += +m.conversions || 0;
         }
+        try { st.terms = (st.terms || 0) + await gadsTerms(c, at, a.id, since, until); } catch (e) { errs.push(a.id + ' (מילים): ' + e.message); }
       } catch (e) { errs.push(a.id + ': ' + e.message); }
     }
     const list = Object.entries(by); let n = 0;

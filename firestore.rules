@@ -491,6 +491,11 @@ service cloud.firestore {
       allow read: if canMkt() || canCeo() || (resource.data.get('hotelAuto', '') != '' && gmIn(resource.data.hotelAuto));
       allow write: if canMkt();
     }
+    // Google Ads keywords / search terms per campaign-week (Nov 13): written only by the server (gads.js)
+    match /gadsTerms/{id} {
+      allow read: if canMkt() || canCeo();
+      allow write: if false;
+    }
     match /mktcfg/{id} { allow read, write: if canMkt(); }
     // ---------- paid-advertising agent (Nov 7, owner) ----------
     // adReports: written only by the server (admin). A hotel report (hotel = 'h1') is read by that hotel's manager, or by marketing

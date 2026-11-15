@@ -880,8 +880,8 @@ async function waSave(chatId, msgId, data, chatUp) {
   return true;
 }
 // Arsona AI guest-messaging alerts (owner, Nov 15). Optional waauto/main.arsonaFrom = "05x..., 05y..." limits the sender numbers.
-const ARS_T = { 'agent required': 'agent', 'potential lead': 'lead', 'missing information': 'missing' };
-const ARS_F = [['סוג הפנייה', 'kind'], ['סיבת הפנייה', 'reason'], ['פרטי המקרה', 'reason'], ['שם האורח', 'guest'], ['טלפון', 'phone'], ['אימייל', 'email'], ['מייל', 'email'], ['מספר הזמנה', 'conf'], ['חדר', 'room'], ['יחידה', 'room'], ['ערוץ', 'channel'], ['מועד', 'when'], ['סיכום', 'summary'], ['מלון', 'hotelTxt']];
+const ARS_T = { 'agent required': 'agent', 'request for agent': 'agent', 'potential lead': 'lead', 'missing information': 'missing' };
+const ARS_F = [['סוג הפנייה', 'kind'], ['סיבת הפנייה', 'reason'], ['פרטי המקרה', 'reason'], ['שם האורח', 'guest'], ['טלפון', 'phone'], ['אימייל', 'email'], ['מייל', 'email'], ['מספר הזמנה', 'conf'], ['חדר', 'room'], ['יחידה', 'room'], ['ערוץ', 'channel'], ['מועד', 'when'], ['סיכום', 'summary'], ['מלון', 'hotelTxt'], ['סיבה', 'kind'], ['אורח', 'guest'], ['תיאור', 'summary'], ['פירוט', 'reason'], ['נפתח בשעה', 'when']];
 async function arsHotel(txt) {
   const s = String(txt || '').toLowerCase();
   const A = [[/seas|סיז|blueberry|בלובר/, 'sevenseas'], [/gutman|גוטמן|boheme/, 'boheme'], [/hostel|הוסטל|180|קפסול/, 'hostel'], [/7even|seven|סבן|beach|sola/, 'sola']];
@@ -904,8 +904,8 @@ async function arsonaIn(m) {
   let cfg = {}; try { cfg = (await db.doc('waauto/main').get()).data() || {}; } catch (e) { }
   const from = String(cfg.arsonaFrom || '').split(/[,;\s]+/).map(waIdFrom).filter(Boolean), fromArs = from.includes(m.from);
   const t = arsText(m), head = t.split('\n')[0] || '';
-  const tm = /(agent required|potential lead|missing information)/i.exec(head);
-  if (!tm || !/סוג הפנייה|שם האורח/.test(t)) {
+  const tm = /(agent required|potential lead|missing information)/i.exec(head) || (/קריאה חדשה/.test(head) && /(request for agent|agent required|potential lead|missing information)/i.exec(t));
+  if (!tm || !/סוג הפנייה|שם האורח|אורח:|סיבה:/.test(t)) {
     if (!fromArs) return false;
     // owner, Nov 15: anything from Arsona's number is a guest request, never a chat/lead — even when WhatsApp
     // delivered it in a form we can't read (e.g. type 'unsupported' = a message with buttons)
@@ -922,9 +922,9 @@ async function arsonaIn(m) {
   if (from.length && !fromArs) return false;
   const f = {}; let cur = null;
   for (const ln of t.split('\n').slice(1)) {
-    const x = ln.replace(/^[^\p{L}\d]+/u, '').trim(); if (!x) continue;
+    const x = ln.replace(/^[^\p{L}\d]+/u, '').trim(); if (!x || /^נא לטפל/.test(x)) continue;
     const i = x.indexOf(':'), lab = i > 0 ? x.slice(0, i) : '', hit = lab && ARS_F.find(([w]) => lab.includes(w));
-    if (hit) { cur = hit[1]; const v = x.slice(i + 1).trim(); if (v && v !== '-') f[cur] = (f[cur] ? f[cur] + '\n' : '') + v; }
+    if (hit) { cur = hit[1]; const v = x.slice(i + 1).trim(); if (v && !/^[-–.\s]*$/.test(v)) f[cur] = (f[cur] ? f[cur] + '\n' : '') + v; }
     else if (cur) f[cur] = (f[cur] ? f[cur] + '\n' : '') + x;
   }
   // shifted fields: take e-mail / phone from anywhere; a number in the e-mail line is the confirmation
@@ -932,7 +932,9 @@ async function arsonaIn(m) {
   if (f.email && !f.email.includes('@')) { if (!f.conf && /^\d{5,}$/.test(f.email)) f.conf = f.email; f.email = ''; }
   if (!f.email && em) f.email = em[0];
   if (!/\d{7,}/.test(String(f.phone || '').replace(/\D/g, ''))) f.phone = ph ? ph[0].replace(/[\s-]/g, '') : '';
-  const hotel = await arsHotel((head.split('|')[1] || '') + ' ' + (f.hotelTxt || '')), type = ARS_T[tm[1].toLowerCase()] || 'agent';
+  { const rm = /(?:room|חדר)\s*#?\s*(\d{2,5})/i.exec(t), rs = /(?:reservation|הזמנה)\s*(?:no\.?|number|מס['׳]?|#)?\s*([\w-]{4,})/i.exec(t);
+    if (!f.room && rm) f.room = rm[1]; if (!f.conf && rs && /\d/.test(rs[1])) f.conf = rs[1]; }
+  const hotel = await arsHotel((head.split('|')[1] || '') + ' ' + (f.hotelTxt || '') + ' ' + String(f.summary || '').replace(/\d{3,}/g, ' ')), type = ARS_T[tm[1].toLowerCase()] || 'agent';
   const at = (+m.timestamp || Date.now() / 1000) * 1000, ref = db.doc('guestReqs/ars_' + String(m.id).replace(/[^A-Za-z0-9_-]/g, '').slice(-60));
   const doc = { type, hotel, hotelTxt: String(f.hotelTxt || head.split('|')[1] || '').trim().slice(0, 80), at, status: 'open', assignee: '', assigneeName: '', leadId: '', from: m.from, raw: t.slice(0, 4000), createdAt: Date.now(), acts: [] };
   for (const k of ['kind', 'reason', 'guest', 'phone', 'email', 'conf', 'room', 'channel', 'when', 'summary']) doc[k] = String(f[k] || '').slice(0, 1500);

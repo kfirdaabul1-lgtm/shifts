@@ -3217,7 +3217,10 @@ const stockBoss=h=>S.isOwner||S.can.shifts&&scopeHs().includes(h)||S.can.gm&&sco
 // suppliers for stock: readable by expenses, hotel managers, shift managers and the owner
 const canSupList=()=>S.isOwner||S.can.exp||S.can.gm||S.can.shifts;
 const supOfItem=x=>x&&x.supplier?{id:x.supplier,name:(S.sups||{})[x.supplier]?.name||x.supplierName||'ספק'}:null;
-function orderText(h,sup,lines){return `שלום${sup&&sup.name?' '+sup.name:''},\nהזמנה מ${hotelName(h)}:\n`+lines.map(([,r])=>`• ${r.itemName} – ${+r.qty} ${r.unit||''}`.trim()).join('\n')+'\nתודה!'}
+// supplier order message (owner, Nov 15): like a person writes it — greeting the supplier's contact person (not the company), "qty item" lines, "בבקשה", NO prices
+const ordLine=(n,q,u)=>{u=String(u||'').trim();return `${+q||0} ${u&&!/^(יח|יחידה|יחידות|unit|units|pcs)/i.test(u)?u+' ':''}${n}`};
+function ordMsg(h,sp,items,note){const c=String(sp?.contact||'').trim();return (c?`היי ${c},`:'היי,')+'\n'+items.map(([n,q,u])=>ordLine(n,q,u)).join('\n')+'\nבבקשה 🙏'+(note?'\n'+note:'')+'\n'+hotelName(h)}
+function orderText(h,sp,lines){return ordMsg(h,sp,lines.map(([,r])=>[r.itemName,+r.qty,r.unit]),'')}
 function stockSub(h){const k='stock:'+h;if(S.live[k])return;S.live[k]=true;S.stockAll=S.stockAll||{};S.preqAll=S.preqAll||{};
   let q1=S.db.collection('inventory').where('hotel','==',h),q2=S.db.collection('purchaseReqs').where('hotel','==',h);
   if(S.deptOnly&&!S.can.gm){const ds=S.myDepts.slice(0,10);q1=q1.where('dept','in',ds.length?ds:['-']);q2=q2.where('dept','in',ds.length?ds:['-'])}
@@ -3243,8 +3246,23 @@ function stkShopHTML(h,rows,pend){const C=cartOf(h),Q=S.shopQ||(S.shopQ={}),qs=S
     ${list.length?`<div class="shop-g">${list.map(card).join('')}</div>`:'<p class="muted">לא נמצאו מוצרים.</p>'}</div>
     ${L.length?`<button class="shop-bar" data-act="cart-open"><span>🛒 העגלה · ${cnt} פריטים</span><b>${tot?ilsP(tot)+' לפני מע״מ':'לצפייה ושליחה'}</b></button><div style="height:70px"></div>`:''}`}
 // cart review (owner, Nov 15): grouped by supplier with prices; stock bosses send each supplier's part straight to the supplier on WhatsApp
-function cartOrderText(h,sup,rs,note){const tot=rs.reduce((a,[,x,q])=>a+(+x.price||0)*q,0);
-  return `שלום${sup?' '+sup:''},\nהזמנה מ${hotelName(h)}:\n`+rs.map(([,x,q])=>`• ${x.name} – ${q} ${x.unit||''}${+x.price?` × ${ilsP(+x.price)} = ${ilsP(+x.price*q)}`:''}`.replace(/ +–/,' –')).join('\n')+(tot?`\nסה״כ ${ilsP(tot)} לפני מע״מ`:'')+(note?`\nהערה: ${note}`:'')+'\nתודה!'}
+function cartOrderText(h,sp,rs,note){return ordMsg(h,sp,rs.map(([,x,q])=>[x.name,q,x.unit]),note)}
+// order as a PDF file (owner, Nov 15): hotel, supplier, contact, date, items and quantities — no prices
+async function ordPdf(h,sp,supName,items,note){toast('מכין PDF…');
+  try{await loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js')}
+  catch(_){toast('לא הצלחתי לטעון את רכיב ההדפסה. בדקו חיבור לאינטרנט ונסו שוב.');return}
+  const day=new Date().toLocaleDateString('he-IL'),c=String(sp?.contact||'').trim(),el=document.createElement('div');
+  el.setAttribute('data-i18n-skip','');el.dir='rtl';el.style.cssText='position:fixed;left:-10000px;top:0;width:794px;background:#fff;color:#111;padding:44px;font-family:Assistant,Arial,sans-serif;box-sizing:border-box';
+  el.innerHTML=`<div style="font-size:28px;font-weight:700">הזמנה · ${esc(hotelName(h))}</div>
+    <div style="margin-top:10px;font-size:17px;line-height:1.6">ספק: <b>${esc(supName||'')}</b>${c?` · איש קשר: <b>${esc(c)}</b>`:''}<br>תאריך: ${esc(day)}</div>
+    <table style="width:100%;border-collapse:collapse;margin-top:18px;font-size:17px"><thead><tr style="background:#f1f3f6"><th style="border:1px solid #ccc;padding:8px;width:50px">#</th><th style="border:1px solid #ccc;padding:8px;text-align:right">פריט</th><th style="border:1px solid #ccc;padding:8px;width:110px">כמות</th><th style="border:1px solid #ccc;padding:8px;width:130px">יחידה</th></tr></thead>
+    <tbody>${items.map(([n,q,u],i)=>`<tr><td style="border:1px solid #ccc;padding:8px;text-align:center">${i+1}</td><td style="border:1px solid #ccc;padding:8px">${esc(n||'')}</td><td style="border:1px solid #ccc;padding:8px;text-align:center;font-weight:700">${+q||0}</td><td style="border:1px solid #ccc;padding:8px;text-align:center">${esc(u||'')}</td></tr>`).join('')}</tbody></table>
+    ${note?`<div style="margin-top:16px;font-size:16px">הערה: ${esc(note)}</div>`:''}<div style="margin-top:22px;font-size:17px">תודה רבה!</div>`;
+  document.body.appendChild(el);
+  try{await (document.fonts?document.fonts.ready:Promise.resolve());const cv=await window.html2canvas(el,{scale:2,backgroundColor:'#ffffff'});
+    const {jsPDF}=window.jspdf,pdf=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'}),pw=210,m=8,iw=pw-2*m,ih=cv.height*iw/cv.width;
+    pdf.addImage(cv.toDataURL('image/jpeg',0.92),'JPEG',m,m,iw,Math.min(ih,297-2*m));pdf.save(`הזמנה ${supName||''} ${day}`.replace(/[\\/:*?"<>|.]/g,'-').trim()+'.pdf');toast('ה-PDF של ההזמנה ירד')}
+  catch(e){toast('יצירת הקובץ נכשלה')}finally{el.remove()}}
 // supplier groups under their minimum order (supplier card minOrder, ₪ before VAT); prices missing count as 0
 function cartUnder(h){const G=cartGroups(h);return Object.entries(G).map(([sid,rs])=>{const sp=sid!=='__none'?(S.sups||{})[sid]:null,mn=+(sp?.minOrder)||0,st=rs.reduce((a,[,x,q])=>a+(+x.price||0)*q,0);return {sid,name:sp?.name||rs[0][1].supplierName||'ספק',mn,st}}).filter(g=>g.mn>0&&g.st<g.mn)}
 function cartGroups(h){const grp={};cartLines(h).forEach(r=>{const k=r[1].supplier||'__none';(grp[k]=grp[k]||[]).push(r)});return grp}
@@ -3256,7 +3274,7 @@ function sheetCart(){const h=S.hotel,L=cartLines(h),grp=cartGroups(h),boss=stock
     return `<div class="card" style="margin:10px 0;padding:10px"><div class="actions" style="justify-content:space-between;align-items:center"><h4 style="margin:0">${esc(name)}</h4><b>${st?ilsP(st)+' לפני מע״מ':''}</b></div>
       <div class="plist">${rs.map(row).join('')}</div>
       ${under?`<div class="notice" style="margin-top:8px;border-color:#EA580C;background:#FFEDD5;color:#9A3412">⚠️ <b>מתחת למינימום ההזמנה</b> · הספק מבקש לפחות ${ilsP(mn)} לפני מע״מ למשלוח · חסרים ${ilsP(mn-st)}</div>`:mn?`<small class="muted">מינימום למשלוח ${ilsP(mn)} ✓</small>`:''}
-      ${boss?`<div class="actions" style="margin-top:8px;align-items:center"><button class="btn pri" data-act="cart-sup" data-s="${esc(sid)}">${under&&S.confirm==='cmin:'+sid?'⚠️ לחיצה נוספת תשלח למרות המינימום':`📲 שליחת ההזמנה ל${esc(name)} בוואטסאפ`}</button>${sid!=='__none'&&!ph?'<small class="muted">אין טלפון בכרטיס הספק · תבחר את איש הקשר בוואטסאפ</small>':''}</div>`:''}</div>`}).join('');
+      ${boss?`<div class="actions" style="margin-top:8px;align-items:center"><button class="btn pri" data-act="cart-sup" data-s="${esc(sid)}">${under&&S.confirm==='cmin:'+sid?'⚠️ לחיצה נוספת תשלח למרות המינימום':`📲 שליחת ההזמנה ל${esc(name)} בוואטסאפ`}</button><button class="btn" data-act="ord-pdf" data-src="cart" data-s="${esc(sid)}">📄 PDF</button>${sid!=='__none'&&!ph?'<small class="muted">אין טלפון בכרטיס הספק · תבחר את איש הקשר בוואטסאפ</small>':''}</div>`:''}</div>`}).join('');
   return sheetHead('🛒 סיכום הזמנת הרכש',esc(hotelName(h)))+`<p class="muted" style="font-size:.85rem;margin:0">עוברים על הכמויות והמחירים${boss?', ואז שולחים לכל ספק את החלק שלו בוואטסאפ.':'. ההזמנה עוברת למנהל לאישור.'}</p>`+grpH+
   `${tot?`<div class="notice"><b>סה״כ ${ilsP(tot)}</b> לפני מע״מ · ${ilsP(tot*1.18)} כולל מע״מ</div>`:''}
   <label class="f">הערה להזמנה (תופיע בהודעה לספק)<input type="text" data-f="cart.note" value="${esc(dv('cart','note',''))}" placeholder="למשל: דחוף לסוף השבוע"></label>
@@ -3294,9 +3312,9 @@ function vStock(){const hs=modHs('stock',scopeHs());if(!hs.length)return wrap(em
     for(const [rid,r] of preqs.filter(([,r])=>r.status==='approved'||r.status==='ordered')){const sid=r.supplier||items[r.itemId]?.supplier||'',g=grp[sid]||(grp[sid]={approved:[],ordered:[]});g[r.status].push([rid,r])}
     const keys=Object.keys(grp).sort((a,b)=>(a?0:1)-(b?0:1));
     orders=`<div class="card"><h3>הזמנות לספקים</h3><p class="muted" style="font-size:.85rem">כל דרישת רכש שאושרה נכנסת לכאן, לפי הספק של הפריט. שולחים לספק בוואטסאפ, מסמנים שהוזמן, וכשהסחורה מגיעה מי שקיבל אותה בודק כמויות וחותם במערכת, והכמות נוספת למלאי.</p>
-    ${keys.length?keys.map(sid=>{const g=grp[sid],sp=sid?(S.sups||{})[sid]:null,name=sid?(sp?.name||g.approved.concat(g.ordered)[0][1].supplierName||items[g.approved.concat(g.ordered)[0][1].itemId]?.supplierName||'ספק'):'בלי ספק',ph=normPhone(sp?.phone||'').replace('+',''),txt=orderText(h,{name:sid?name:''},g.approved);
+    ${keys.length?keys.map(sid=>{const g=grp[sid],sp=sid?(S.sups||{})[sid]:null,name=sid?(sp?.name||g.approved.concat(g.ordered)[0][1].supplierName||items[g.approved.concat(g.ordered)[0][1].itemId]?.supplierName||'ספק'):'בלי ספק',ph=normPhone(sp?.phone||'').replace('+',''),txt=orderText(h,sp,g.approved);
       return `<div class="sep"></div><div class="actions" style="justify-content:space-between;align-items:center"><b>${esc(name)}${sp?.phone?` <span class="muted" style="font-weight:400"><bdi dir="ltr">${esc(sp.phone)}</bdi></span>`:''}</b>
-      ${g.approved.length?`<span class="actions">${ph?`<a class="btn sm pri" target="_blank" rel="noopener" href="https://wa.me/${ph}?text=${encodeURIComponent(txt)}">שליחה לספק בוואטסאפ</a>`:''}<button class="btn sm" data-act="order-copy" data-h="${h}" data-s="${esc(sid)}">העתקת ההזמנה</button><button class="btn sm" data-act="order-done" data-h="${h}" data-s="${esc(sid)}">סימון שהוזמן</button></span>`:''}</div>
+      ${g.approved.length?`<span class="actions">${ph?`<a class="btn sm pri" target="_blank" rel="noopener" href="https://wa.me/${ph}?text=${encodeURIComponent(txt)}">שליחה לספק בוואטסאפ</a>`:''}<button class="btn sm" data-act="order-copy" data-h="${h}" data-s="${esc(sid)}">העתקת ההזמנה</button><button class="btn sm" data-act="ord-pdf" data-src="ord" data-h="${h}" data-s="${esc(sid)}">📄 PDF</button><button class="btn sm" data-act="order-done" data-h="${h}" data-s="${esc(sid)}">סימון שהוזמן</button></span>`:''}</div>
       ${!sid?'<p class="muted" style="font-size:.82rem">לפריטים האלה עוד לא שויך ספק. משייכים ספק בעריכת הפריט.</p>':''}
       <div class="plist">${g.approved.concat(g.ordered).map(([rid,r])=>`<div class="prow"><span class="who"><b>${esc(r.itemName)} · ${+r.qty} ${esc(r.unit||'')}</b><small>${esc(DMAP[r.dept]?.n||'')}${r.note?' · '+esc(r.note):''}</small></span><span class="actions"><span class="pill ${r.status==='ordered'?'ok':'warn'}">${r.status==='ordered'?'הוזמן, ממתין לקבלה':'להזמין'}</span><button class="btn sm" data-act="recv-open" data-r="${rid}" data-h="${h}">התקבל</button></span></div>`).join('')}</div>
       <div class="actions" style="margin-top:6px"><button class="btn sm pri" data-act="recv-open" data-h="${h}" data-s="${esc(sid)}">✍️ קבלת הסחורה מהספק וחתימה</button></div>`}).join('')
@@ -5662,7 +5680,7 @@ const ACT={
   'cart-sup':async D=>{const h=S.hotel;if(!stockBoss(h)||S.cartBusy)return;const rs=cartGroups(h)[D.s]||[];if(!rs.length)return;
     const un=cartUnder(h).find(g=>g.sid===D.s);if(un&&S.confirm!=='cmin:'+D.s){S.confirm='cmin:'+D.s;toast(`ההזמנה ל${un.name} (${ilsP(un.st)}) מתחת למינימום של ${ilsP(un.mn)}. לחיצה נוספת תשלח בכל זאת`);renderSheet();return}S.confirm=null;
     const sp=D.s!=='__none'?(S.sups||{})[D.s]:null,name=D.s==='__none'?'':(sp?.name||rs[0][1].supplierName||''),note=String(dv('cart','note','')).trim(),ph=normPhone(sp?.phone||'').replace('+','');
-    window.open(`https://wa.me/${ph}?text=${encodeURIComponent(cartOrderText(h,name,rs,note))}`,'_blank','noopener'); // open first (a tap is needed for pop-ups)
+    window.open(`https://wa.me/${ph}?text=${encodeURIComponent(cartOrderText(h,sp,rs,note))}`,'_blank','noopener'); // open first (a tap is needed for pop-ups)
     S.cartBusy=true;const now=Date.now(),oid='o'+now.toString(36);
     try{const b=fdb.batch(),rids=[];for(const [id,x,q] of rs){const rid='p'+now.toString(36)+Math.random().toString(36).slice(2,6);rids.push(rid);b.set(fdb.doc('purchaseReqs/'+rid),{hotel:h,dept:x.dept,itemId:id,itemName:x.name,unit:x.unit||'',supplier:x.supplier||'',supplierName:x.supplierName||name,qty:q,price:+x.price||0,note,orderId:oid,status:'pending',by:S.uid,createdAt:now})}
       await b.commit();const C=cartOf(h);rs.forEach(([id])=>delete C[id]);cartSave(h);
@@ -5724,7 +5742,11 @@ const ACT={
   'stock-del':()=>{if(S.confirm!=='stk-del'){S.confirm='stk-del';render();return}const h=S.hotel,id=S.sheet.id;S.confirm=null;const c={...(S.stockAll[h]||{})};delete c[id];S.stockAll[h]=c;save('inventory/'+id,null);S.sheet=null;render();toast('הפריט נמחק')},
   'stock-qty':D=>{const h=S.hotel,x=((S.stockAll||{})[h]||{})[D.id];if(!x)return;const doc={...x,qty:Math.max(0,(+x.qty||0)+ +D.n),updatedAt:Date.now(),updatedBy:S.uid};S.stockAll[h]={...S.stockAll[h],[D.id]:doc};save('inventory/'+D.id,doc);render();if(isLow(doc)&&!isLow(x))toast('הפריט הגיע לרף המינימום. המנהל יקבל התראה.')},
   'order-copy':async D=>{const h=D.h,items=(S.stockAll||{})[h]||{},lines=Object.entries((S.preqAll||{})[h]||{}).filter(([,r])=>r.status==='approved'&&(r.supplier||items[r.itemId]?.supplier||'')===D.s),sp=D.s?(S.sups||{})[D.s]:null;
-    try{await navigator.clipboard.writeText(orderText(h,{name:sp?.name||''},lines));toast('ההזמנה הועתקה')}catch(_){toast('ההעתקה נכשלה')}},
+    try{await navigator.clipboard.writeText(orderText(h,sp,lines));toast('ההזמנה הועתקה')}catch(_){toast('ההעתקה נכשלה')}},
+  'ord-pdf':D=>{let h,sp=D.s&&D.s!=='__none'?(S.sups||{})[D.s]:null,items,note='',name;
+    if(D.src==='cart'){h=S.hotel;const rs=cartGroups(h)[D.s]||[];if(!rs.length)return;items=rs.map(([,x,q])=>[x.name,q,x.unit]);note=String(dv('cart','note','')).trim();name=sp?.name||rs[0][1].supplierName||''}
+    else{h=D.h;const its=(S.stockAll||{})[h]||{},all=Object.entries((S.preqAll||{})[h]||{}).filter(([,r])=>(r.supplier||its[r.itemId]?.supplier||'')===D.s),ap=all.filter(([,r])=>r.status==='approved'),ls=ap.length?ap:all.filter(([,r])=>r.status==='ordered');if(!ls.length)return;items=ls.map(([,r])=>[r.itemName,+r.qty,r.unit]);name=sp?.name||ls[0][1].supplierName||''}
+    ordPdf(h,sp,name,items,note)},
   'order-done':D=>{const h=D.h,items=(S.stockAll||{})[h]||{},lines=Object.entries((S.preqAll||{})[h]||{}).filter(([,r])=>r.status==='approved'&&(r.supplier||items[r.itemId]?.supplier||'')===D.s);
     for(const [rid,r] of lines){const doc={...r,status:'ordered',orderedAt:Date.now(),handledBy:S.uid};S.preqAll[h]={...S.preqAll[h],[rid]:doc};save('purchaseReqs/'+rid,doc)}render();toast(`סומן שהוזמן · ${lines.length} פריטים`)},
   'backup-now':()=>backupNow(),

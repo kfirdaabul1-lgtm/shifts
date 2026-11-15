@@ -1,4 +1,5 @@
-<!doctype html><html lang="he" dir="rtl"><head><meta name="theme-color" content="#14213D"><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style><script src="i18n.js?v=202611132100"></script></head><body>
+<!doctype html><html lang="he" dir="rtl"><head><meta name="theme-color" content="#14213D"><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}.vatpick{background:var(--soft,rgba(176,141,87,.12));border-radius:6px;padding:8px 10px;margin-bottom:8px}
+</style><script src="i18n.js?v=202611151600"></script></head><body>
 <style>
 .evtop{background:var(--surface);border-bottom:1px solid var(--line)}
 .evtop-in{max-width:1240px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:10px;padding-block:6px;padding-left:max(10px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
@@ -376,6 +377,8 @@ table.ctable{border-collapse:collapse;width:100%;min-width:620px;font-size:14px;
       </div>
 
       <div class="sec"><div class="sec-t">פריטים ומחירים</div>
+        <label class="check vatpick"><input type="checkbox" id="vatIncl"> <b>המחירים שאני מזין כוללים מע״מ</b></label>
+        <div class="meta" id="vatHint" style="font-size:13px;color:var(--muted);margin:-4px 0 6px"></div>
         <div class="items" id="items"></div>
         <div class="actions">
           <select id="catPick" style="flex:1 1 200px;width:auto"></select>
@@ -422,7 +425,6 @@ table.ctable{border-collapse:collapse;width:100%;min-width:620px;font-size:14px;
           <label class="f">הנחה (%)<input id="disc" type="number" min="0" max="100" step="0.5" inputmode="decimal"></label>
           <label class="f">תוקף ההצעה (ימים)<input id="valid" type="number" min="1" inputmode="numeric"></label>
         </div>
-        <label class="check"><input type="checkbox" id="vatIncl"> המחירים שהזנתי כוללים מע״מ</label>
         <label class="f">הערות ללקוח<textarea id="notes" placeholder="לדוגמה: התפריט כולל מנה צמחונית לפי בקשה"></textarea></label>
         <div class="totals" id="totals"></div>
       </div>
@@ -1174,7 +1176,7 @@ for(const [id,[a,b]] of Object.entries(F)){
 }
 $('#disc').addEventListener('input',e=>{cur.discount=Number(e.target.value)||0;refresh()});
 $('#valid').addEventListener('input',e=>{cur.validDays=Number(e.target.value)||0;refresh()});
-$('#vatIncl').addEventListener('change',e=>{cur.vatIncluded=e.target.checked;refresh()});
+$('#vatIncl').addEventListener('change',e=>{cur.vatIncluded=e.target.checked;updateLineTotals();refresh()});
 $('#notes').addEventListener('input',e=>{cur.notes=e.target.value;refresh()});
 
 const LEGACY_AREAS={'גג@sola':['סולה'],'מסעדת לה בוהם':['לה בוהם'],'לה בוהם גארדן – בר היין':['לה בוהם גארדן'],'המסעדה + הגארדן':['לה בוהם','לה בוהם גארדן']};
@@ -1230,7 +1232,7 @@ function renderItems(){
     <div class="lt" id="lt-${i}"></div></div>`).join('');
   updateLineTotals();
 }
-function updateLineTotals(){const c=calc(cur);c.lines.forEach((l,i)=>{const el=$('#lt-'+i);if(el)el.textContent=`${l.qty} × ${money(l.price)}${l.disc?` − ${l.disc}%`:''} = ${money(l.total)}`})}
+function updateLineTotals(){const c=calc(cur);const vi=cur.vatIncluded?' (כולל מע״מ)':' (לפני מע״מ)';c.lines.forEach((l,i)=>{const el=$('#lt-'+i);if(el)el.textContent=`${l.qty} × ${money(l.price)}${l.disc?` − ${l.disc}%`:''} = ${money(l.total)}${vi}`});const h=$('#vatHint');if(h)h.textContent=cur.vatIncluded?'המחירים בשורות כוללים מע״מ. המערכת מחשבת מתוכם את המע״מ ואת הסכום לפני מע״מ.':'המחירים בשורות הם לפני מע״מ. המע״מ יתווסף בסיכום. מחיר כולל מע״מ? סמן את התיבה.'}
 $('#items').addEventListener('input',e=>{
   const row=e.target.closest('.item');if(!row)return;const it=cur.items[row.dataset.i];const k=e.target.dataset.k;
   it[k]=(k==='price'||k==='qty'||k==='disc')?Number(e.target.value):e.target.value;

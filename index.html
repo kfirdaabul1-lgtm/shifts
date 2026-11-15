@@ -367,7 +367,7 @@ input[type=text],input[type=tel],input[type=number],input[type=time],input[type=
 .fsel-b.on{border-color:var(--gold);background:var(--brass-bg);color:var(--brass);font-weight:600}
 .fsel-b[aria-expanded="true"] svg{transform:rotate(180deg)}
 .fsel-m{position:absolute;top:calc(100% + 4px);inset-inline-start:0;z-index:40;min-width:200px;max-width:min(320px,88vw);max-height:60vh;overflow:auto;background:var(--surface);border:1px solid var(--line);border-radius:8px;box-shadow:0 10px 28px rgb(20 33 61 / .16);padding:4px;display:flex;flex-direction:column}
-.fsel-o{font:inherit;font-size:.92rem;text-align:start;border:0;background:none;color:var(--ink);padding:10px 12px;border-radius:5px;cursor:pointer;min-height:40px}
+.fsel-o{font:inherit;flex-shrink:0;line-height:1.3;font-size:.92rem;text-align:start;border:0;background:none;color:var(--ink);padding:10px 12px;border-radius:5px;cursor:pointer;min-height:40px}
 .fsel-o:hover{background:var(--sunk)}
 .fsel-o.cur{font-weight:700;color:var(--brass)}
 .fsel-o.cur::after{content:" ✓"}
@@ -3214,8 +3214,8 @@ function vStock(){const hs=modHs('stock',scopeHs());if(!hs.length)return wrap(em
   const ds=stockDepts(),f=S.stockF||(S.stockF={d:'all',low:false});if(f.d!=='all'&&!ds.includes(f.d))f.d='all';
   const all=Object.entries((S.stockAll||{})[h]||{});
   // supplier filter (owner, Nov 8): suppliers that appear on this hotel's items, '__none' = items without a supplier
-  const sups={};all.forEach(([,x])=>{if(x.supplier)sups[x.supplier]=x.supplierName||sups[x.supplier]||'ספק'});const supL=Object.entries(sups).sort((a,b)=>String(a[1]).localeCompare(String(b[1]),'he'));const noSup=all.some(([,x])=>!x.supplier);
-  if(!f.s||(f.s!=='all'&&f.s!=='__none'&&!sups[f.s]))f.s='all';
+  const inD=all.filter(([,x])=>f.d==='all'||x.dept===f.d);const sups={};inD.forEach(([,x])=>{if(x.supplier)sups[x.supplier]=x.supplierName||sups[x.supplier]||'ספק'});const supL=Object.entries(sups).sort((a,b)=>String(a[1]).localeCompare(String(b[1]),'he'));const noSup=inD.some(([,x])=>!x.supplier);
+  if(!f.s||(f.s!=='all'&&f.s!=='__none'&&!sups[f.s])||(f.s==='__none'&&!noSup))f.s='all';
   const rows=all.filter(([,x])=>(f.d==='all'||x.dept===f.d)&&(f.s==='all'||(f.s==='__none'?!x.supplier:x.supplier===f.s))&&(!f.low||(isLow(x)))).sort(([,a],[,b])=>ds.indexOf(a.dept)-ds.indexOf(b.dept)||String(a.name).localeCompare(String(b.name),'he'));
   const low=all.filter(([,x])=>isLow(x)),preqs=Object.entries((S.preqAll||{})[h]||{}).sort(([,a],[,b])=>(b.createdAt||0)-(a.createdAt||0)),pend=preqs.filter(([,r])=>r.status==='pending');
   const chips=hs.length>1?`<div class="chips" style="gap:6px">${hs.map(x=>`<button class="dchip ${x===h?'':'off'}" style="--h:var(--brass)" data-act="gm-hotel" data-h="${x}">${esc(hotelName(x))}</button>`).join('')}</div>`:'';

@@ -895,13 +895,31 @@ async function arsHotel(txt) {
   }
   return '';
 }
+// the text of an incoming message wherever WhatsApp put it (text / interactive body / button / captions)
+function arsText(m) {
+  const i = m.interactive || {}, x = (o) => (o && (o.body || o.text || o.caption)) || '';
+  return String((m.text && m.text.body) || (i.body && i.body.text) || x(m.button) || x(m.image) || x(m.document) || x(m.video) || '');
+}
 async function arsonaIn(m) {
-  const t = String((m.text && m.text.body) || ''), head = t.split('\n')[0] || '';
-  const tm = /(agent required|potential lead|missing information)/i.exec(head);
-  if (!tm || !/סוג הפנייה|שם האורח/.test(t)) return false;
   let cfg = {}; try { cfg = (await db.doc('waauto/main').get()).data() || {}; } catch (e) { }
-  const from = String(cfg.arsonaFrom || '').split(/[,;\s]+/).map(waIdFrom).filter(Boolean);
-  if (from.length && !from.includes(m.from)) return false;
+  const from = String(cfg.arsonaFrom || '').split(/[,;\s]+/).map(waIdFrom).filter(Boolean), fromArs = from.includes(m.from);
+  const t = arsText(m), head = t.split('\n')[0] || '';
+  const tm = /(agent required|potential lead|missing information)/i.exec(head);
+  if (!tm || !/סוג הפנייה|שם האורח/.test(t)) {
+    if (!fromArs) return false;
+    // owner, Nov 15: anything from Arsona's number is a guest request, never a chat/lead — even when WhatsApp
+    // delivered it in a form we can't read (e.g. type 'unsupported' = a message with buttons)
+    const ref = db.doc('guestReqs/ars_' + String(m.id).replace(/[^A-Za-z0-9_-]/g, '').slice(-60));
+    const at = (+m.timestamp || Date.now() / 1000) * 1000;
+    const doc = { type: 'agent', hotel: '', hotelTxt: '', at, status: 'open', assignee: '', assigneeName: '', leadId: '', from: m.from, createdAt: Date.now(), acts: [],
+      kind: 'הודעה מארסונה', reason: '', guest: '', phone: '', email: '', conf: '', room: '', channel: 'WhatsApp', when: '',
+      summary: t ? t.slice(0, 1500) : 'הודעה מארסונה שהוואטסאפ לא העביר את התוכן שלה למערכת (כנראה הודעה עם כפתורים). יש לפתוח אותה בארסונה או בוואטסאפ בטלפון.',
+      raw: t.slice(0, 4000), unreadable: !t, msgType: String(m.type || ''), msgErr: JSON.stringify(m.errors || []).slice(0, 400) };
+    try { await ref.create(doc); } catch (e) { return true; }
+    await sendTo(await roleHolders('', ['greq']), { title: '🔴 פנייה חדשה מארסונה', body: doc.summary.slice(0, 170), hash: '#greq?r=' + ref.id, tag: 'greq-' + ref.id });
+    return true;
+  }
+  if (from.length && !fromArs) return false;
   const f = {}; let cur = null;
   for (const ln of t.split('\n').slice(1)) {
     const x = ln.replace(/^[^\p{L}\d]+/u, '').trim(); if (!x) continue;
@@ -963,7 +981,7 @@ exports.onGreqReq = trig('guestReqs/{id}').onUpdate(async (ch, ctx) => {
   } catch (e) { console.warn('greq req', e.message); return done({ kind: q.kind, err: e.message.slice(0, 200) }); }
 });
 async function waIncoming(m, name, push) {
-  if (m.type === 'text' && await arsonaIn(m)) return; // Arsona alert → guestReqs, not a chat/lead
+  if (await arsonaIn(m)) return; // Arsona alert (or anything from Arsona's number) → guestReqs, not a chat/lead
   const chat = m.from, at = (+m.timestamp || Date.now() / 1000) * 1000, text = waText(m);
   const cref = db.doc('waChats/' + chat), cs = await cref.get(), c = cs.exists ? cs.data() : {};
   const up = { lastAt: at, lastText: text.slice(0, 200), lastDir: 'in', lastInAt: at, unread: admin.firestore.FieldValue.increment(1), status: 'open' };

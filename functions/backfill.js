@@ -12,6 +12,17 @@ const KEYS = ['hotel', 'month', 'date', 'shift', 'name', 'empUid', 'ooo', 'fault
       if (last) { const rx = /do+rm|דורם|מיטה במעונות|bed in|beds|mixed|female|male|מעורב|נשים בלבד|גברים בלבד/i; const own = [...new Set((last.rows || []).filter(r => r.src !== 'comp').map(r => r.room || ''))]; const cmp = [...new Set((last.rows || []).filter(r => r.src === 'comp').map(r => r.comp || ''))];
         console.log('::notice title=Hostel rooms::' + own.map(n => (rx.test(n) ? '[D] ' : '[P] ') + n).join(' | ').slice(0, 1500));
         console.log('::notice title=Hostel comps::' + cmp.map(n => (rx.test(n) ? '[D] ' : '[P] ') + n).join(' | ').slice(0, 1500)); } else console.log('::notice title=Hostel rooms::no runs'); }
+    { // owner, Nov 15: Arsona's number opened a WhatsApp chat + lead before the routing fix → move its messages to guest requests, remove the chat/lead
+      const ch = '972795157779', cref = db.doc('waChats/' + ch), ms = await cref.collection('msgs').get(); let n = 0; const types = {};
+      for (const d of ms.docs) { const x = d.data() || {}; types[x.type || '?'] = (types[x.type || '?'] || 0) + 1; if (x.dir !== 'in') continue;
+        const real = x.text && !/^\[הודעה מסוג/.test(x.text) ? x.text : '';
+        try { await db.doc('guestReqs/ars_' + d.id.replace(/[^A-Za-z0-9_-]/g, '').slice(-60)).create({ type: 'agent', hotel: '', hotelTxt: '', at: x.at || Date.now(), status: 'open', assignee: '', assigneeName: '', leadId: '', from: ch, createdAt: Date.now(), acts: [], kind: 'הודעה מארסונה', reason: '', guest: '', phone: '', email: '', conf: '', room: '', channel: 'WhatsApp', when: '', summary: real || 'הודעה מארסונה שהוואטסאפ לא העביר את התוכן שלה למערכת (כנראה הודעה עם כפתורים). יש לפתוח אותה בארסונה או בוואטסאפ בטלפון.', raw: real, unreadable: !real, msgType: String(x.type || '') }); n++; } catch (e) { }
+        await d.ref.delete(); }
+      if (ms.size) console.log('::notice title=Arsona chat::moved ' + n + ' msgs · types ' + JSON.stringify(types));
+      if ((await cref.get()).exists) await cref.delete();
+      const lr = db.doc('leads/wa_' + ch), ls = await lr.get();
+      if (ls.exists && (ls.data().source === 'whatsapp') && !ls.data().owner) { await lr.delete(); console.log('::notice title=Arsona chat::lead removed'); }
+    }
     const cr = db.doc('agentcfg/reply');
     if (!(await cr.get()).exists) { await cr.set({ enabled: false, name: 'אדם', mode: 'draft', scope: ['events'], createdAt: Date.now(), createdBy: 'setup' }); console.log('::notice title=Adam::agentcfg/reply created (off, draft)'); }
     const kr = db.doc('agentKB/reply');

@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202611151830"></script>
+<script src="i18n.js?v=202611151900"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -3221,14 +3221,22 @@ function stkShopHTML(h,rows,pend){const C=cartOf(h),Q=S.shopQ||(S.shopQ={}),qs=S
   return `<div class="card"><input type="search" data-shopq placeholder="חיפוש מוצר או ספק…" value="${esc(S.shopS||'')}" style="width:100%;margin-bottom:8px"><p class="muted" style="font-size:.82rem;margin:0 0 8px">המחירים לפי המחירון, לפני מע״מ. בוחרים כמות, מוסיפים לעגלה ושולחים הזמנת רכש.</p>
     ${list.length?`<div class="shop-g">${list.map(card).join('')}</div>`:'<p class="muted">לא נמצאו מוצרים.</p>'}</div>
     ${L.length?`<button class="shop-bar" data-act="cart-open"><span>🛒 העגלה · ${cnt} פריטים</span><b>${tot?ilsP(tot)+' לפני מע״מ':'לצפייה ושליחה'}</b></button><div style="height:70px"></div>`:''}`}
-function sheetCart(){const h=S.hotel,L=cartLines(h),grp={};L.forEach(r=>{const k=r[1].supplierName||'בלי ספק';(grp[k]=grp[k]||[]).push(r)});
+// cart review (owner, Nov 15): grouped by supplier with prices; stock bosses send each supplier's part straight to the supplier on WhatsApp
+function cartOrderText(h,sup,rs,note){const tot=rs.reduce((a,[,x,q])=>a+(+x.price||0)*q,0);
+  return `שלום${sup?' '+sup:''},\nהזמנה מ${hotelName(h)}:\n`+rs.map(([,x,q])=>`• ${x.name} – ${q} ${x.unit||''}${+x.price?` × ${ilsP(+x.price)} = ${ilsP(+x.price*q)}`:''}`.replace(/ +–/,' –')).join('\n')+(tot?`\nסה״כ ${ilsP(tot)} לפני מע״מ`:'')+(note?`\nהערה: ${note}`:'')+'\nתודה!'}
+function cartGroups(h){const grp={};cartLines(h).forEach(r=>{const k=r[1].supplier||'__none';(grp[k]=grp[k]||[]).push(r)});return grp}
+function sheetCart(){const h=S.hotel,L=cartLines(h),grp=cartGroups(h),boss=stockBoss(h);
   const tot=L.reduce((a,[,x,q])=>a+(+x.price||0)*q,0);
   if(!L.length)return sheetHead('העגלה',esc(hotelName(h)))+'<p class="muted">העגלה ריקה.</p>';
-  return sheetHead('🛒 הזמנת רכש',esc(hotelName(h)))+Object.entries(grp).map(([k,rs])=>`<h4 style="margin:10px 0 4px">${esc(k)}</h4><div class="plist">${rs.map(([id,x,q])=>`<div class="prow"><span class="who"><b>${esc(x.name)}</b><small>${+x.price?ilsP(+x.price)+' × '+q+' = '+ilsP(+x.price*q):q+' '+esc(x.unit||'יח׳')} · במלאי ${+x.qty||0}</small></span><span class="actions"><button class="btn sm" data-act="cart-q" data-id="${id}" data-n="1" aria-label="עוד">+</button><b class="mono">${q}</b><button class="btn sm" data-act="cart-q" data-id="${id}" data-n="-1" aria-label="פחות">−</button><button class="btn sm ghost" data-act="cart-q" data-id="${id}" data-n="x" aria-label="הסרה">✕</button></span></div>`).join('')}</div>`).join('')+
+  const row=([id,x,q])=>`<div class="prow"><span class="who"><b>${esc(x.name)}</b><small>${+x.price?ilsP(+x.price)+' × '+q+' '+esc(x.unit||'יח׳')+' = <b>'+ilsP(+x.price*q)+'</b>':q+' '+esc(x.unit||'יח׳')+' · אין מחיר'} · במלאי ${+x.qty||0}</small></span><span class="actions"><button class="btn sm" data-act="cart-q" data-id="${id}" data-n="1" aria-label="עוד">+</button><b class="mono">${q}</b><button class="btn sm" data-act="cart-q" data-id="${id}" data-n="-1" aria-label="פחות">−</button><button class="btn sm ghost" data-act="cart-q" data-id="${id}" data-n="x" aria-label="הסרה">✕</button></span></div>`;
+  const grpH=Object.entries(grp).map(([sid,rs])=>{const sp=sid!=='__none'?(S.sups||{})[sid]:null,name=sid==='__none'?'בלי ספק':(sp?.name||rs[0][1].supplierName||'ספק'),st=rs.reduce((a,[,x,q])=>a+(+x.price||0)*q,0),ph=normPhone(sp?.phone||'');
+    return `<div class="card" style="margin:10px 0;padding:10px"><div class="actions" style="justify-content:space-between;align-items:center"><h4 style="margin:0">${esc(name)}</h4><b>${st?ilsP(st)+' לפני מע״מ':''}</b></div>
+      <div class="plist">${rs.map(row).join('')}</div>
+      ${boss?`<div class="actions" style="margin-top:8px;align-items:center"><button class="btn pri" data-act="cart-sup" data-s="${esc(sid)}">📲 שליחת ההזמנה ל${esc(name)} בוואטסאפ</button>${sid!=='__none'&&!ph?'<small class="muted">אין טלפון בכרטיס הספק · תבחר את איש הקשר בוואטסאפ</small>':''}</div>`:''}</div>`}).join('');
+  return sheetHead('🛒 סיכום הזמנת הרכש',esc(hotelName(h)))+`<p class="muted" style="font-size:.85rem;margin:0">עוברים על הכמויות והמחירים${boss?', ואז שולחים לכל ספק את החלק שלו בוואטסאפ.':'. ההזמנה עוברת למנהל לאישור.'}</p>`+grpH+
   `${tot?`<div class="notice"><b>סה״כ ${ilsP(tot)}</b> לפני מע״מ · ${ilsP(tot*1.18)} כולל מע״מ</div>`:''}
-  <label class="f">הערה להזמנה<input type="text" data-f="cart.note" value="${esc(dv('cart','note',''))}" placeholder="למשל: דחוף לסוף השבוע"></label>
-  <p class="muted" style="font-size:.82rem">${stockBoss(h)?'ההזמנה נשמרת כמאושרת ונכנסת ל"הזמנות לספקים", לפי ספק.':'ההזמנה נשלחת למנהל לאישור. אחרי האישור היא עוברת להזמנות לספקים.'}</p>
-  <div class="actions"><button class="btn pri" data-act="cart-send" ${S.cartBusy?'disabled':''}>${S.cartBusy?'שולח…':stockBoss(h)?'אישור ושליחה להזמנות לספקים':'שליחת הזמנת רכש למנהל'}</button><button class="btn ghost" data-act="cart-clear">ריקון העגלה</button></div>`}
+  <label class="f">הערה להזמנה (תופיע בהודעה לספק)<input type="text" data-f="cart.note" value="${esc(dv('cart','note',''))}" placeholder="למשל: דחוף לסוף השבוע"></label>
+  <div class="actions">${boss?`<button class="btn" data-act="cart-send" ${S.cartBusy?'disabled':''}>${S.cartBusy?'שומר…':'שמירה ב"הזמנות לספקים" בלי לשלוח עכשיו'}</button>`:`<button class="btn pri" data-act="cart-send" ${S.cartBusy?'disabled':''}>${S.cartBusy?'שולח…':'שליחת הזמנת רכש למנהל'}</button>`}<button class="btn ghost" data-act="cart-clear">ריקון העגלה</button></div>`}
 function vStock(){const hs=modHs('stock',scopeHs());if(!hs.length)return wrap(emptyBox('אין מלונות בהרשאה',''));
   if(!hs.includes(S.hotel))S.hotel=hs[0];const h=S.hotel;stockSub(h);
   const ds=stockDepts(),f=S.stockF||(S.stockF={d:'all',low:false});if(f.d!=='all'&&!ds.includes(f.d))f.d='all';
@@ -5619,6 +5627,15 @@ const ACT={
   'cart-open':()=>{S.drafts.cart=null;S.sheet={type:'cart'};render()},
   'cart-q':D=>{const h=S.hotel,C=cartOf(h);if(D.n==='x')delete C[D.id];else{C[D.id]=Math.max(0,(+C[D.id]||0)+(+D.n));if(!C[D.id])delete C[D.id]}cartSave(h);if(!cartLines(h).length)S.sheet=null;render()},
   'cart-clear':()=>{const h=S.hotel;if(S.confirm!=='cart-clear'){S.confirm='cart-clear';toast('לחיצה נוספת תרוקן את העגלה');return}S.confirm=null;S.cart[h]={};cartSave(h);S.sheet=null;render()},
+  'cart-sup':async D=>{const h=S.hotel;if(!stockBoss(h)||S.cartBusy)return;const rs=cartGroups(h)[D.s]||[];if(!rs.length)return;
+    const sp=D.s!=='__none'?(S.sups||{})[D.s]:null,name=D.s==='__none'?'':(sp?.name||rs[0][1].supplierName||''),note=String(dv('cart','note','')).trim(),ph=normPhone(sp?.phone||'').replace('+','');
+    window.open(`https://wa.me/${ph}?text=${encodeURIComponent(cartOrderText(h,name,rs,note))}`,'_blank','noopener'); // open first (a tap is needed for pop-ups)
+    S.cartBusy=true;const now=Date.now(),oid='o'+now.toString(36);
+    try{const b=fdb.batch(),rids=[];for(const [id,x,q] of rs){const rid='p'+now.toString(36)+Math.random().toString(36).slice(2,6);rids.push(rid);b.set(fdb.doc('purchaseReqs/'+rid),{hotel:h,dept:x.dept,itemId:id,itemName:x.name,unit:x.unit||'',supplier:x.supplier||'',supplierName:x.supplierName||name,qty:q,price:+x.price||0,note,orderId:oid,status:'pending',by:S.uid,createdAt:now})}
+      await b.commit();const C=cartOf(h);rs.forEach(([id])=>delete C[id]);cartSave(h);
+      const b2=fdb.batch();rids.forEach(rid=>b2.update(fdb.doc('purchaseReqs/'+rid),{status:'ordered',handledBy:S.uid,handledAt:Date.now(),orderedAt:Date.now()}));await b2.commit();
+      if(!cartLines(h).length){S.sheet=null;S.drafts.cart=null;S.stockV='list'}toast(`ההזמנה ל${name||'הספק'} נשמרה כ"הוזמן" · ${rs.length} פריטים`)}
+    catch(e){toast('לא נשמר: '+errMsg(mapErr(e)))}S.cartBusy=false;render()},
   'cart-send':async()=>{const h=S.hotel,L=cartLines(h);if(!L.length||S.cartBusy)return;S.cartBusy=true;renderSheet();
     const boss=stockBoss(h),note=String(dv('cart','note','')).trim(),oid='o'+Date.now().toString(36),now=Date.now(),docs=[];
     try{const b=fdb.batch();for(const [id,x,q] of L){const rid='p'+now.toString(36)+Math.random().toString(36).slice(2,6),doc={hotel:h,dept:x.dept,itemId:id,itemName:x.name,unit:x.unit||'',supplier:x.supplier||'',supplierName:x.supplierName||'',qty:q,price:+x.price||0,note,orderId:oid,status:'pending',by:S.uid,createdAt:now};b.set(fdb.doc('purchaseReqs/'+rid),doc);docs.push([rid,doc])}

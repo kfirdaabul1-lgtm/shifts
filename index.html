@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202611151900"></script>
+<script src="i18n.js?v=202611151930"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -2898,6 +2898,7 @@ function sheetSup(){const id=S.sheet.id,x=(S.sups||{})[id]||{},g=k=>dv('sup',k,x
   <label class="f">כתובת<input type="text" id="sp_a" data-f="sup.address" value="${esc(g('address'))}"></label>
   <h3>תשלום</h3>
   <div class="row"><label class="f">תנאי תשלום<select id="sp_t" data-f="sup.terms">${TERMS.map(([k,n])=>`<option value="${k}" ${String(g('terms')||'eom30')===k?'selected':''}>${n}</option>`).join('')}</select></label><label class="f">אמצעי תשלום מועדף<select id="sp_pm" data-f="sup.payMethod">${PAYM.map(([k,n])=>`<option value="${k}" ${String(g('payMethod')||'transfer')===k?'selected':''}>${n}</option>`).join('')}</select></label></div>
+  <label class="f">מינימום הזמנה למשלוח (₪ לפני מע״מ · לא חובה)<input type="number" min="0" step="1" inputmode="decimal" id="sp_min" data-f="sup.minOrder" value="${esc(String(g('minOrder')||''))}" placeholder="ריק = אין מינימום"><small class="muted">כשמזמינים מהספק פחות מהסכום הזה, העגלה מתריעה לפני השליחה.</small></label>
   <div class="row"><label class="f">בנק<input type="text" id="sp_b" data-f="sup.bank" value="${esc(g('bank'))}"></label><label class="f">סניף<input type="text" dir="ltr" id="sp_br" data-f="sup.branch" value="${esc(g('branch'))}"></label><label class="f">מספר חשבון<input type="text" dir="ltr" id="sp_ac" data-f="sup.account" value="${esc(g('account'))}"></label></div>
   <div class="f"><span>עובד עם המלונות <span class="muted">(בלי בחירה = כולם)</span></span><div class="chips" style="gap:6px">${hotelIds().map(h=>`<button type="button" class="dchip ${hs.includes(h)?'':'off'}" style="--h:var(--brass);cursor:pointer" data-act="sup-hotel" data-h="${h}">${esc(hotelName(h))}</button>`).join('')}</div></div>
   <label class="f">הערות<input type="text" id="sp_nt" data-f="sup.notes" value="${esc(g('notes'))}"></label>
@@ -3224,15 +3225,18 @@ function stkShopHTML(h,rows,pend){const C=cartOf(h),Q=S.shopQ||(S.shopQ={}),qs=S
 // cart review (owner, Nov 15): grouped by supplier with prices; stock bosses send each supplier's part straight to the supplier on WhatsApp
 function cartOrderText(h,sup,rs,note){const tot=rs.reduce((a,[,x,q])=>a+(+x.price||0)*q,0);
   return `שלום${sup?' '+sup:''},\nהזמנה מ${hotelName(h)}:\n`+rs.map(([,x,q])=>`• ${x.name} – ${q} ${x.unit||''}${+x.price?` × ${ilsP(+x.price)} = ${ilsP(+x.price*q)}`:''}`.replace(/ +–/,' –')).join('\n')+(tot?`\nסה״כ ${ilsP(tot)} לפני מע״מ`:'')+(note?`\nהערה: ${note}`:'')+'\nתודה!'}
+// supplier groups under their minimum order (supplier card minOrder, ₪ before VAT); prices missing count as 0
+function cartUnder(h){const G=cartGroups(h);return Object.entries(G).map(([sid,rs])=>{const sp=sid!=='__none'?(S.sups||{})[sid]:null,mn=+(sp?.minOrder)||0,st=rs.reduce((a,[,x,q])=>a+(+x.price||0)*q,0);return {sid,name:sp?.name||rs[0][1].supplierName||'ספק',mn,st}}).filter(g=>g.mn>0&&g.st<g.mn)}
 function cartGroups(h){const grp={};cartLines(h).forEach(r=>{const k=r[1].supplier||'__none';(grp[k]=grp[k]||[]).push(r)});return grp}
 function sheetCart(){const h=S.hotel,L=cartLines(h),grp=cartGroups(h),boss=stockBoss(h);
   const tot=L.reduce((a,[,x,q])=>a+(+x.price||0)*q,0);
   if(!L.length)return sheetHead('העגלה',esc(hotelName(h)))+'<p class="muted">העגלה ריקה.</p>';
   const row=([id,x,q])=>`<div class="prow"><span class="who"><b>${esc(x.name)}</b><small>${+x.price?ilsP(+x.price)+' × '+q+' '+esc(x.unit||'יח׳')+' = <b>'+ilsP(+x.price*q)+'</b>':q+' '+esc(x.unit||'יח׳')+' · אין מחיר'} · במלאי ${+x.qty||0}</small></span><span class="actions"><button class="btn sm" data-act="cart-q" data-id="${id}" data-n="1" aria-label="עוד">+</button><b class="mono">${q}</b><button class="btn sm" data-act="cart-q" data-id="${id}" data-n="-1" aria-label="פחות">−</button><button class="btn sm ghost" data-act="cart-q" data-id="${id}" data-n="x" aria-label="הסרה">✕</button></span></div>`;
-  const grpH=Object.entries(grp).map(([sid,rs])=>{const sp=sid!=='__none'?(S.sups||{})[sid]:null,name=sid==='__none'?'בלי ספק':(sp?.name||rs[0][1].supplierName||'ספק'),st=rs.reduce((a,[,x,q])=>a+(+x.price||0)*q,0),ph=normPhone(sp?.phone||'');
+  const grpH=Object.entries(grp).map(([sid,rs])=>{const sp=sid!=='__none'?(S.sups||{})[sid]:null,name=sid==='__none'?'בלי ספק':(sp?.name||rs[0][1].supplierName||'ספק'),st=rs.reduce((a,[,x,q])=>a+(+x.price||0)*q,0),ph=normPhone(sp?.phone||''),mn=+(sp?.minOrder)||0,under=mn>0&&st<mn;
     return `<div class="card" style="margin:10px 0;padding:10px"><div class="actions" style="justify-content:space-between;align-items:center"><h4 style="margin:0">${esc(name)}</h4><b>${st?ilsP(st)+' לפני מע״מ':''}</b></div>
       <div class="plist">${rs.map(row).join('')}</div>
-      ${boss?`<div class="actions" style="margin-top:8px;align-items:center"><button class="btn pri" data-act="cart-sup" data-s="${esc(sid)}">📲 שליחת ההזמנה ל${esc(name)} בוואטסאפ</button>${sid!=='__none'&&!ph?'<small class="muted">אין טלפון בכרטיס הספק · תבחר את איש הקשר בוואטסאפ</small>':''}</div>`:''}</div>`}).join('');
+      ${under?`<div class="notice" style="margin-top:8px;border-color:#EA580C;background:#FFEDD5;color:#9A3412">⚠️ <b>מתחת למינימום ההזמנה</b> · הספק מבקש לפחות ${ilsP(mn)} לפני מע״מ למשלוח · חסרים ${ilsP(mn-st)}</div>`:mn?`<small class="muted">מינימום למשלוח ${ilsP(mn)} ✓</small>`:''}
+      ${boss?`<div class="actions" style="margin-top:8px;align-items:center"><button class="btn pri" data-act="cart-sup" data-s="${esc(sid)}">${under&&S.confirm==='cmin:'+sid?'⚠️ לחיצה נוספת תשלח למרות המינימום':`📲 שליחת ההזמנה ל${esc(name)} בוואטסאפ`}</button>${sid!=='__none'&&!ph?'<small class="muted">אין טלפון בכרטיס הספק · תבחר את איש הקשר בוואטסאפ</small>':''}</div>`:''}</div>`}).join('');
   return sheetHead('🛒 סיכום הזמנת הרכש',esc(hotelName(h)))+`<p class="muted" style="font-size:.85rem;margin:0">עוברים על הכמויות והמחירים${boss?', ואז שולחים לכל ספק את החלק שלו בוואטסאפ.':'. ההזמנה עוברת למנהל לאישור.'}</p>`+grpH+
   `${tot?`<div class="notice"><b>סה״כ ${ilsP(tot)}</b> לפני מע״מ · ${ilsP(tot*1.18)} כולל מע״מ</div>`:''}
   <label class="f">הערה להזמנה (תופיע בהודעה לספק)<input type="text" data-f="cart.note" value="${esc(dv('cart','note',''))}" placeholder="למשל: דחוף לסוף השבוע"></label>
@@ -5628,6 +5632,7 @@ const ACT={
   'cart-q':D=>{const h=S.hotel,C=cartOf(h);if(D.n==='x')delete C[D.id];else{C[D.id]=Math.max(0,(+C[D.id]||0)+(+D.n));if(!C[D.id])delete C[D.id]}cartSave(h);if(!cartLines(h).length)S.sheet=null;render()},
   'cart-clear':()=>{const h=S.hotel;if(S.confirm!=='cart-clear'){S.confirm='cart-clear';toast('לחיצה נוספת תרוקן את העגלה');return}S.confirm=null;S.cart[h]={};cartSave(h);S.sheet=null;render()},
   'cart-sup':async D=>{const h=S.hotel;if(!stockBoss(h)||S.cartBusy)return;const rs=cartGroups(h)[D.s]||[];if(!rs.length)return;
+    const un=cartUnder(h).find(g=>g.sid===D.s);if(un&&S.confirm!=='cmin:'+D.s){S.confirm='cmin:'+D.s;toast(`ההזמנה ל${un.name} (${ilsP(un.st)}) מתחת למינימום של ${ilsP(un.mn)}. לחיצה נוספת תשלח בכל זאת`);renderSheet();return}S.confirm=null;
     const sp=D.s!=='__none'?(S.sups||{})[D.s]:null,name=D.s==='__none'?'':(sp?.name||rs[0][1].supplierName||''),note=String(dv('cart','note','')).trim(),ph=normPhone(sp?.phone||'').replace('+','');
     window.open(`https://wa.me/${ph}?text=${encodeURIComponent(cartOrderText(h,name,rs,note))}`,'_blank','noopener'); // open first (a tap is needed for pop-ups)
     S.cartBusy=true;const now=Date.now(),oid='o'+now.toString(36);
@@ -5636,7 +5641,8 @@ const ACT={
       const b2=fdb.batch();rids.forEach(rid=>b2.update(fdb.doc('purchaseReqs/'+rid),{status:'ordered',handledBy:S.uid,handledAt:Date.now(),orderedAt:Date.now()}));await b2.commit();
       if(!cartLines(h).length){S.sheet=null;S.drafts.cart=null;S.stockV='list'}toast(`ההזמנה ל${name||'הספק'} נשמרה כ"הוזמן" · ${rs.length} פריטים`)}
     catch(e){toast('לא נשמר: '+errMsg(mapErr(e)))}S.cartBusy=false;render()},
-  'cart-send':async()=>{const h=S.hotel,L=cartLines(h);if(!L.length||S.cartBusy)return;S.cartBusy=true;renderSheet();
+  'cart-send':async()=>{const h=S.hotel,L=cartLines(h);if(!L.length||S.cartBusy)return;
+    const un=cartUnder(h);if(un.length&&S.confirm!=='cmin-all'){S.confirm='cmin-all';toast('מתחת למינימום למשלוח: '+un.map(g=>`${g.name} (חסרים ${ilsP(g.mn-g.st)})`).join(', ')+'. לחיצה נוספת תשלח בכל זאת');renderSheet();return}S.confirm=null;S.cartBusy=true;renderSheet();
     const boss=stockBoss(h),note=String(dv('cart','note','')).trim(),oid='o'+Date.now().toString(36),now=Date.now(),docs=[];
     try{const b=fdb.batch();for(const [id,x,q] of L){const rid='p'+now.toString(36)+Math.random().toString(36).slice(2,6),doc={hotel:h,dept:x.dept,itemId:id,itemName:x.name,unit:x.unit||'',supplier:x.supplier||'',supplierName:x.supplierName||'',qty:q,price:+x.price||0,note,orderId:oid,status:'pending',by:S.uid,createdAt:now};b.set(fdb.doc('purchaseReqs/'+rid),doc);docs.push([rid,doc])}
       await b.commit();
@@ -5882,7 +5888,7 @@ const ACT={
   'sup-new':()=>{S.drafts.sup=null;S.confirm=null;S.sheet={type:'sup',id:'s'+Date.now().toString(36)+Math.random().toString(36).slice(2,6)};render()},
   'sup-open':D=>{S.drafts.sup=null;S.confirm=null;S.sheet={type:'sup',id:D.id};render()},
   'sup-save':()=>{const id=S.sheet.id,x=(S.sups||{})[id]||{},g=k=>String(dv('sup',k,x[k]??'')).trim();if(!g('name')){toast('צריך לרשום שם ספק');return}
-    const doc={...x,name:g('name'),companyId:g('companyId'),category:g('category'),contact:g('contact'),phone:g('phone'),email:g('email'),address:g('address'),terms:g('terms')||'eom30',payMethod:g('payMethod')||'transfer',bank:g('bank'),branch:g('branch'),account:g('account'),notes:g('notes'),
+    const doc={...x,name:g('name'),companyId:g('companyId'),category:g('category'),contact:g('contact'),phone:g('phone'),email:g('email'),address:g('address'),terms:g('terms')||'eom30',payMethod:g('payMethod')||'transfer',bank:g('bank'),branch:g('branch'),account:g('account'),notes:g('notes'),minOrder:Math.max(0,+g('minOrder')||0),
       hotels:dv('sup','hotels',x.hotels||[]),active:!!dv('sup','active',x.active!==false),createdAt:x.createdAt||Date.now(),updatedAt:Date.now(),updatedBy:S.uid};
     const isNew=!S.sups?.[id];S.sups={...S.sups,[id]:doc};save('suppliers/'+id,doc);S.drafts.sup=null;if(isNew){render();toast('הספק נפתח')}else{S.sheet=null;render();toast('הספק נשמר')}},
   'sup-del':()=>{if(S.confirm!=='sup-del'){S.confirm='sup-del';render();return}const id=S.sheet.id;S.confirm=null;const c={...S.sups};delete c[id];S.sups=c;save('suppliers/'+id,null);S.sheet=null;render();toast('הספק נמחק')},

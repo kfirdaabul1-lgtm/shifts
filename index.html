@@ -187,6 +187,7 @@ table.plain th{font-weight:500;color:var(--muted);font-size:.8rem;border-top:0}
 table.plain td.num{font-family:var(--f-mono);font-variant-numeric:tabular-nums;text-align:end}
 table.plain th.num{text-align:end}
 .scroll-x{overflow-x:auto}
+.deep-hl{outline:3px solid var(--gold,#B08D57);outline-offset:2px;border-radius:6px;background:rgba(176,141,87,.12)}
 .panel:not(.wa-full)>*{flex-shrink:0}
 table.plain.gt{min-width:0;font-size:.85rem}table.plain.gt th,table.plain.gt td{padding:7px 5px}table.plain.gt td:first-child{word-break:break-word}table.plain.gt th.num,table.plain.gt td.num{white-space:nowrap;width:1%}
 
@@ -767,7 +768,7 @@ function sheetIosPush(){const fx=S.sheet&&S.sheet.fix,host=(()=>{try{return new 
   <ol style="padding-inline-start:20px;line-height:1.9"><li>פותחים את האתר ב-<b>Safari</b>.</li><li>לוחצים על כפתור השיתוף <b>⎙</b> (ריבוע עם חץ למעלה) בתחתית המסך.</li><li>בוחרים <b>"הוסף למסך הבית"</b> ולוחצים "הוסף".</li><li>פותחים את <b>${esc(appName())}</b> מהאייקון החדש במסך הבית.</li><li>בתפריט לוחצים <b>"הפעלת התראות"</b> ומאשרים.</li></ol>
   <p class="muted" style="font-size:.85rem">צריך iOS 16.4 ומעלה. אחרי ההתקנה האתר נפתח כמו אפליקציה, בלי שורת הכתובת.</p>
   <div class="actions"><button class="btn pri" data-act="close">הבנתי</button></div>`}
-function render(){if(S.deep)deepOpen();if(isTyping()){S.pending=true;return}S.pending=false;renderTop();renderDrawer();document.body.classList.toggle('nx',(S.tab==='ceo'||S.tab==='gm')&&!S.pmode);$('#main').innerHTML=bcBannerHTML()+callsBannerHTML()+viewHTML();try{chipSelects($('#main'))}catch(e){}renderSheet();setTopH()}
+function render(){if(S.deep)deepOpen();if(isTyping()){S.pending=true;return}S.pending=false;renderTop();renderDrawer();document.body.classList.toggle('nx',(S.tab==='ceo'||S.tab==='gm')&&!S.pmode);$('#main').innerHTML=bcBannerHTML()+callsBannerHTML()+viewHTML();try{chipSelects($('#main'))}catch(e){}renderSheet();setTopH();if(S.deepHl)deepMark()}
 // height of the sticky top bar → --toph, so inner scroll boxes (price comparison table) fit under it and keep their sticky header row/date column (owner, Nov 9)
 function setTopH(){const t=document.querySelector('.top');if(t)document.documentElement.style.setProperty('--toph',t.offsetHeight+'px')}
 window.addEventListener('resize',()=>setTopH());
@@ -815,7 +816,7 @@ function renderTop(){
   $('#top').innerHTML=`${appBarHTML()}<div class="wrap top-in">
     <div class="brand"${S.isOwner&&S.ready?` data-act="brand" role="button" tabindex="0" style="cursor:pointer" title="${S.plat?'ניהול המערכת':'הגדרות רשת'}"`:''}><span class="mark">${BELL}</span><div><div class="b1">${esc(S.pmode?platName():appName())}</div><div class="b2">${S.pmode?'ניהול המערכת · כל הרשתות':S.auth==='in'&&!S.registering?`${esc(hotelName(S.hotel))} · ${S.station?'עמדת קבלה':S.admin?'ממשק מנהל':'ממשק עובד'}`:''}</div></div></div>
     ${nav?`<div class="weeknav"><button data-act="week" data-d="-7" aria-label="שבוע קודם">›</button><div class="wk"><span class="wk-l">שבוע</span><b class="mono">${weekLabel(S.week)}</b></div><button data-act="week" data-d="7" aria-label="שבוע הבא">‹</button></div>`:''}
-    ${S.auth==='in'?`<button class="burger" data-act="menu" aria-label="תפריט" aria-expanded="${!!S.menu}" style="position:relative">${S.ready&&alertCount()?`<span style="position:absolute;top:2px;inset-inline-end:2px;min-width:18px;height:18px;border-radius:9px;background:#c0392b;color:#fff;font:700 11px/18px system-ui;text-align:center;padding:0 4px">${alertCount()}</span>`:''}<svg width="26" height="26" viewBox="0 0 26 26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h18"/><path d="M4 13h14"/><path d="M4 19h10"/></svg></button>`:''}
+    ${S.auth==='in'?`<button class="burger" data-act="menu" aria-label="תפריט" aria-expanded="${!!S.menu}" style="position:relative">${S.ready&&alertCount()?`<span aria-label="יש דברים שמחכים לך" style="position:absolute;top:5px;inset-inline-end:5px;width:10px;height:10px;border-radius:5px;background:#c0392b"></span>`:''}<svg width="26" height="26" viewBox="0 0 26 26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h18"/><path d="M4 13h14"/><path d="M4 19h10"/></svg></button>`:''}
   </div>
   ${S.ready&&S.admin&&!APPTABS.includes(S.tab)&&visibleHotels().length>1?`<div class="wrap hotels" role="group" aria-label="בחירת מלון">${visibleHotels().map(h=>`<button class="hchip" data-act="hotel" data-h="${h}" aria-pressed="${h===S.hotel}">${esc(hotelName(h))}</button>`).join('')}</div>`:''}
   ${S.ready&&!S.registering&&S.auth==='in'&&!APPTABS.includes(S.tab)?`<nav class="wrap tabs" aria-label="ניווט">${tabs.map(([k,n])=>`<button data-act="tab" data-t="${k}" ${S.tab===k?'aria-current="page"':''}>${n}</button>`).join('')}</nav>`:''}<div id="topx"></div>`;
@@ -3101,9 +3102,10 @@ function alertsSub(){if(S.live.alerts||platAway())return;S.live.alerts=true;recA
       if(S.finSeen&&finPendingAll()>prev)toast('דוח סוף משמרת חדש ממתין לאישור ההפקדה');S.finSeen=true;alertTick()},()=>{})}
   // faults (all statuses): open count for managers, recurring rooms for managers and maintenance staff
   if(S.can.maint){const hs=scopeHs().slice(0,10);if(hs.length)S.db.collection('faults').where('hotel','in',hs).onSnapshot(q=>{const all=docsMap(q);S.alertFaultsAll=all;S.alertFaults=Object.fromEntries(Object.entries(all).filter(([,f])=>f.status!=='done'));alertTick()},()=>{})}}
-function alertTick(){const n=alertCount(),prev=S.alertPrev??n;S.alertPrev=n;try{document.title=(n?`(${n}) `:'')+appName()}catch(_){ }
+function alertTick(){const n=alertCount(),prev=S.alertPrev??n;S.alertPrev=n;try{document.title=appName()}catch(_){ }
   // red badge with the number on the app icon (installed app on the home screen / desktop)
-  try{if(navigator.setAppBadge){n?navigator.setAppBadge(n).catch(()=>{}):navigator.clearAppBadge().catch(()=>{})}}catch(_){ }
+  // no number on the app icon any more (owner, Nov 15: "I don't care that it's the 17th")
+  try{if(navigator.clearAppBadge)navigator.clearAppBadge().catch(()=>{})}catch(_){ }
   // items that just reached their minimum get their own notification (first load only records what is already low)
   // a room that just became a recurring-fault room gets its own notification
   if(S.can.maint&&S.alertFaultsAll){const rr=recurRooms(Object.values(S.alertFaultsAll)),firstR=!S.recSeen,freshR=rr.filter(x=>!(S.recSeen||new Set()).has(x.key));S.recSeen=new Set(rr.map(x=>x.key));
@@ -6032,13 +6034,39 @@ function applyHash(){const H=location.hash||'',hb=H.split('?')[0],qp=new URLSear
   if(hb==='#stock'&&S.can.stock)S.tab='stock';
   if(hb==='#mine'&&!S.admin&&!S.station)S.tab='mine';
   if(hb==='#sched'&&S.admin)S.tab='sched';
+  // notification links point at the item itself (owner, Nov 15): lead, spa booking, group, bar report, new employee, fault / complaint / purchase request row
+  const dp=(t,k)=>{const v=qp.get(k);if(v)S.deep={t,id:v,at:Date.now()}};
+  if(hb==='#leads'&&S.can.events){dp('lead','lead');if(qp.get('tasks'))S.leadF={...(S.leadF||{}),view:'tasks'}}
+  if(hb==='#spa'&&S.can.spa)dp('spa','b');
+  if(hb==='#grp'&&S.can.grp)dp('grp','g');
+  if(hb==='#bar'&&S.can.bar)dp('bar','r');
+  if(hb==='#hr'&&S.can.hr)dp('emp','e');
+  if(hb==='#maint'&&S.can.maint)dp('fault','f');
+  if(hb==='#cmp'&&S.can.cmp)dp('el','c');
+  if(hb==='#stock'&&S.can.stock)dp('el','pr');
   if(qp.get('inv'))S.deep={t:'inv',id:qp.get('inv'),at:Date.now()};
   if(qp.get('sr'))S.deep={t:'sr',id:qp.get('sr'),at:Date.now()};
   if(S.tab==='front')S.week=weekOf(todayISO());}
 function deepOpen(){const D=S.deep;if(!D||S.sheet)return;if(Date.now()-D.at>30000){S.deep=null;return}
   if(D.t==='inv'&&(S.invs||{})[D.id]){S.deep=null;setTimeout(()=>ACT['inv-open']({id:D.id}),0)}
-  else if(D.t==='sr'&&typeof srFind==='function'&&srFind(D.id)){S.deep=null;setTimeout(()=>{S.sheet={type:'srview',id:D.id};render()},0)}}
-window.addEventListener('hashchange',()=>{if(!S.ready)return;applyHash();render()});
+  else if(D.t==='sr'&&typeof srFind==='function'&&srFind(D.id)){S.deep=null;setTimeout(()=>{S.sheet={type:'srview',id:D.id};render()},0)}
+  else if(D.t==='lead'&&(S.leads||{})[D.id]){S.deep=null;setTimeout(()=>ACT['lead-open']({id:D.id}),0)}
+  else if(D.t==='spa'&&(S.spaBk||{})[D.id]){S.deep=null;const b=S.spaBk[D.id];if(b.date)S.spaW=weekOf(b.date);S.spaView='board';setTimeout(()=>ACT['spa-open']({id:D.id}),0)}
+  else if(D.t==='grp'&&(S.grps||{})[D.id]){S.deep=null;setTimeout(()=>ACT['grp-open']({id:D.id}),0)}
+  else if(D.t==='bar'&&typeof barFind==='function'&&barFind(D.id)){S.deep=null;setTimeout(()=>ACT['bar-view']({id:D.id}),0)}
+  else if(D.t==='emp'&&(S.emps||{})[D.id]){S.deep=null;const e=S.emps[D.id];if(e.hotel)S.hrH=e.hotel;setTimeout(()=>ACT['emp-open']({u:D.id}),0)}
+  else if(D.t==='fault'){const f=(S.alertFaultsAll||{})[D.id];if(f){if(f.hotel)S.hotel=f.hotel;S.deep={t:'el',id:D.id,at:D.at}}}
+  else if(D.t==='el'){S.deepHl={id:D.id,until:Date.now()+8000};S.deep=null}}
+// scroll to and outline the row a notification pointed at (stays marked for a few seconds across re-renders)
+function deepMark(){const H=S.deepHl;if(!H)return;if(Date.now()>H.until){S.deepHl=null;return}
+  const q=CSS.escape(H.id),el=document.querySelector(`#main [data-id="${q}"],#main [data-r="${q}"]`);
+  if(!el){if(!H.wait){H.wait=1;setTimeout(()=>{H.wait=0;deepMark()},700)}return}
+  const row=el.closest('.prow,tr,li,.card')||el;row.classList.add('deep-hl');if(!H.done){H.done=1;row.scrollIntoView({block:'center',behavior:'smooth'})}}
+// a tapped notification while the app is open: the service worker sends the link here (owner, Nov 15)
+try{navigator.serviceWorker&&navigator.serviceWorker.addEventListener('message',e=>{const m=e.data||{};if(m.type!=='sc-nav'||!m.url)return;
+  try{const u=new URL(m.url,location.href);if(u.pathname!==location.pathname){location.href=u.href;return}
+    if(u.hash&&u.hash!==location.hash)location.hash=u.hash;else if(S.ready){S.sheet=null;applyHash();render()}}catch(_){ }})}catch(_){ }
+window.addEventListener('hashchange',()=>{if(!S.ready)return;if(/[?&](lead|b|g|r|e|f|c|pr|inv|sr)=/.test(location.hash))S.sheet=null;applyHash();render()});
 async function start(u){
   S.db=makeDB();const db=S.db;
   S.uid=u.uid;S.meName=u.displayName||'';S.email=String(u.email||'').toLowerCase();S.phone=u.phoneNumber||'';

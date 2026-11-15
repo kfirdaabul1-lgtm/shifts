@@ -111,7 +111,7 @@ exports.onShiftReport = trig('shiftReports/{id}').onCreate(async (snap) => {
 // ---------- purchase request → hotel managers ----------
 exports.onPurchaseReq = trig('purchaseReqs/{id}').onCreate(async (snap) => {
   const r = snap.data() || {}; if (r.status !== 'pending') return;
-  return sendTo(await roleHolders(r.hotel, ['gm', 'shifts']), { title: 'דרישת רכש חדשה', body: `${r.itemName || ''} · ${r.qty || ''} ${r.unit || ''} · ${DEPT[r.dept] || ''}`, hash: '#stock', tag: 'pr-' + snap.id });
+  return sendTo(await roleHolders(r.hotel, ['gm', 'shifts']), { title: 'דרישת רכש חדשה', body: `${r.itemName || ''} · ${r.qty || ''} ${r.unit || ''} · ${DEPT[r.dept] || ''}`, hash: '#stock?pr=' + snap.id, tag: 'pr-' + snap.id });
 });
 
 // ---------- new fault → maintenance + hotel managers ----------
@@ -123,8 +123,8 @@ async function stationsOf(hotel) {
 exports.onFault = trig('faults/{id}').onCreate(async (snap) => {
   const f = snap.data() || {};
   const st = (await stationsOf(f.hotel)).filter((u) => u !== f.openedBy);
-  if (st.length) await sendTo(st, { title: 'נפתחה תקלה', body: `${f.room ? 'חדר ' + f.room + ' · ' : ''}${f.desc || ''}${f.openedByName ? ' · ' + f.openedByName : ''}`, hash: '#front', tag: 'ft-' + snap.id });
-  return sendTo(await roleHolders(f.hotel, ['maint', 'gm', 'shifts'], 'maintenance'), { title: 'תקלה חדשה', body: `${f.room ? 'חדר ' + f.room + ' · ' : ''}${f.desc || ''} · ${await hotelName(f.hotel)}`, hash: '#maint', tag: 'ft-' + snap.id });
+  if (st.length) await sendTo(st, { title: 'נפתחה תקלה', body: `${f.room ? 'חדר ' + f.room + ' · ' : ''}${f.desc || ''}${f.openedByName ? ' · ' + f.openedByName : ''}`, hash: '#front?f=' + snap.id, tag: 'ft-' + snap.id });
+  return sendTo(await roleHolders(f.hotel, ['maint', 'gm', 'shifts'], 'maintenance'), { title: 'תקלה חדשה', body: `${f.room ? 'חדר ' + f.room + ' · ' : ''}${f.desc || ''} · ${await hotelName(f.hotel)}`, hash: '#maint?f=' + snap.id, tag: 'ft-' + snap.id });
 });
 
 // ---------- stock item reached its minimum → hotel managers ----------
@@ -273,7 +273,7 @@ exports.onFaultDone = trig('faults/{id}').onUpdate(async (ch) => {
   if (na > nb && a.status !== 'done') { // an update was added to an open fault → maintenance / managers (not the writer)
     const u = a.upd[na - 1] || {};
     const to = (await roleHolders(a.hotel, ['maint', 'gm', 'shifts'], 'maintenance')).filter((x) => x !== u.by);
-    return sendTo(to, { title: 'עדכון לתקלה', body: `${a.room ? 'חדר ' + a.room + ' · ' : ''}${a.desc || ''}: ${u.text || ''}${u.byName ? ' · ' + u.byName : ''}`, hash: '#maint', tag: 'ft-' + ch.after.id });
+    return sendTo(to, { title: 'עדכון לתקלה', body: `${a.room ? 'חדר ' + a.room + ' · ' : ''}${a.desc || ''}: ${u.text || ''}${u.byName ? ' · ' + u.byName : ''}`, hash: '#maint?f=' + ch.after.id, tag: 'ft-' + ch.after.id });
   }
   if (a.status !== 'done' || b.status === 'done') return;
   await oooRelease(a, ch.after.id).catch((e) => console.error('oooRelease', e));
@@ -305,7 +305,7 @@ exports.onHkUpdate = trig('hk/{id}').onWrite(async (ch) => {
 exports.onTask = trig('tasks/{id}').onCreate(async (snap) => {
   const t = snap.data() || {};
   if (!t.owner || t.owner === t.createdBy) return;
-  return sendTo([t.owner], { title: 'משימה חדשה', body: `${t.title || ''}${t.due ? ' · עד ' + t.due.slice(8, 10) + '.' + t.due.slice(5, 7) : ''}${t.createdByName ? ' · מ' + t.createdByName : ''}`, hash: '#leads', tag: 'task-' + snap.id });
+  return sendTo([t.owner], { title: 'משימה חדשה', body: `${t.title || ''}${t.due ? ' · עד ' + t.due.slice(8, 10) + '.' + t.due.slice(5, 7) : ''}${t.createdByName ? ' · מ' + t.createdByName : ''}`, hash: t.leadId ? '#leads?lead=' + t.leadId : '#leads?tasks=1', tag: 'task-' + snap.id });
 });
 exports.crmMorning = functions.region(REGION).pubsub.schedule('30 8 * * *').timeZone('Asia/Jerusalem').onRun(async () => {
   const today = ilDate(new Date()), per = {};
@@ -328,7 +328,7 @@ exports.onBarReport = trig('barReports/{id}').onCreate(async (snap) => {
   const sh = { morning: 'בוקר', evening: 'ערב', night: 'לילה' }[r.shift] || '';
   const to = (await roleHolders(r.hotel, ['gm', 'shifts'], 'bar')).filter((u) => u !== r.by);
   const body = `${r.name || ''}${sh ? ' · ' + sh : ''} · מזומן ${ils(r.cash)} · אשראי ${ils(r.credit)} · טיפים מזומן ${ils(r.tipsCash)} · טיפים אשראי ${ils(r.tipsCredit)}${r.missing === 'yes' ? ' · ⚠️ חסר: ' + (r.missingNote || '') : ''}`;
-  return sendTo(to, { title: (r.missing === 'yes' ? '⚠️ ' : '') + 'דוח בר · ' + (await hotelName(r.hotel)), body, hash: '#bar', tag: 'bar-' + snap.id });
+  return sendTo(to, { title: (r.missing === 'yes' ? '⚠️ ' : '') + 'דוח בר · ' + (await hotelName(r.hotel)), body, hash: '#bar?r=' + snap.id, tag: 'bar-' + snap.id });
 });
 
 // ---------- site tours (Nov 4): tours/{id} scheduled from a lead → on the day: the person who scheduled it, the reception (desks + front) and the hotel manager ----------
@@ -514,14 +514,14 @@ async function metaLeads(cfg) {
       const ls = await graphAll(form.id + '/leads', pt, { fields: 'id,created_time,field_data,campaign_name,ad_name,platform', filtering: [{ field: 'time_created', operator: 'GREATER_THAN', value: since - 600 }], limit: '100' });
       for (const m of ls) {
         const ref = db.doc('leads/meta_' + m.id);
-        try { const doc = metaLeadDoc(m, form, p.name, cfg.conn); await ref.create(doc); fresh.push(doc); } catch (e) { /* already in */ }
+        try { const doc = metaLeadDoc(m, form, p.name, cfg.conn); await ref.create(doc); fresh.push({ ...doc, _id: 'meta_' + m.id }); } catch (e) { /* already in */ }
       }
     }
   }
   const byV = {}; for (const l of fresh) { const k = (l.venue || '') + '|' + (await leadKind(l)); (byV[k] = byV[k] || []).push(l); }
   for (const [vk, fl] of Object.entries(byV)) {
     const [v, kc] = vk.split('|'), who = await eventsPeople(v, true, kc);
-    await sendTo(who, { title: fl.length === 1 ? 'ליד חדש מ-Meta' : `${fl.length} לידים חדשים מ-Meta`, body: fl.slice(0, 3).map((l) => l.name + (l.campaign ? ' · ' + l.campaign : '')).join(' | '), hash: '#leads', tag: 'meta-leads-' + vk });
+    await sendTo(who, { title: fl.length === 1 ? 'ליד חדש מ-Meta' : `${fl.length} לידים חדשים מ-Meta`, body: fl.slice(0, 3).map((l) => l.name + (l.campaign ? ' · ' + l.campaign : '')).join(' | '), hash: fl.length === 1 && fl[0]._id ? '#leads?lead=' + fl[0]._id : '#leads', tag: 'meta-leads-' + vk });
   }
   return { pages: pages.map((p) => p.name), forms, newLeads: fresh.length, leadsAt: started };
 }
@@ -607,7 +607,7 @@ exports.onEmpNew = trig('employees/{uid}').onCreate(async (snap) => {
   rs.forEach((d) => { const r = d.data() || {}; if (r.station || !(r.apps && r.apps.hr)) return; const hs = r.hotels || []; if (!hs.length || hs.includes(h)) out.add(d.id); });
   const own = await ownTok(); own.forEach((d) => out.add(d.id));
   const hn = h === 'chain' ? 'עובדי רשת' : await hotelName(h);
-  return sendTo([...out], { title: 'עובד חדש נרשם', body: `${e.name || ''}${hn ? ' · ' + hn : ''}${h === 'chain' ? '' : ' · צריך לשייך מחלקה'}`, hash: '#hr', tag: 'empnew-' + snap.id });
+  return sendTo([...out], { title: 'עובד חדש נרשם', body: `${e.name || ''}${hn ? ' · ' + hn : ''}${h === 'chain' ? '' : ' · צריך לשייך מחלקה'}`, hash: '#hr?e=' + snap.id, tag: 'empnew-' + snap.id });
 });
 
 // ---------- spa: every new treatment pops up for everyone with the spa permission ----------
@@ -623,7 +623,7 @@ exports.onSpaHealth = trig('spaHealth/{id}').onUpdate(async (ch, ctx) => {
   rs.forEach((d) => { const r = d.data() || {}; if (!r.station && r.apps && r.apps.spa) out.add(d.id); });
   const own = await ownTok(); own.forEach((d) => out.add(d.id));
   const dd = String(bk.date || ''), dm = dd ? dd.slice(8, 10) + '.' + dd.slice(5, 7) : '';
-  return sendTo([...out], { title: b.flag ? '⚕️ הצהרת בריאות נחתמה · יש סימון רפואי' : '✅ הצהרת בריאות נחתמה', body: `${b.signName || ''} · ${dm} ${bk.time || ''} · ${bk.treatment || ''}${b.flag ? ' · כדאי לעבור על התשובות לפני הטיפול' : ''}`, hash: '#spa', tag: 'spah-' + ctx.params.id });
+  return sendTo([...out], { title: b.flag ? '⚕️ הצהרת בריאות נחתמה · יש סימון רפואי' : '✅ הצהרת בריאות נחתמה', body: `${b.signName || ''} · ${dm} ${bk.time || ''} · ${bk.treatment || ''}${b.flag ? ' · כדאי לעבור על התשובות לפני הטיפול' : ''}`, hash: '#spa?b=' + b.bookingId, tag: 'spah-' + ctx.params.id });
 });
 exports.onSpaNew = trig('spa/{id}').onCreate(async (snap) => {
   const b = snap.data() || {}; if (b.kind === 'block') return null;
@@ -636,7 +636,7 @@ exports.onSpaNew = trig('spa/{id}').onCreate(async (snap) => {
   const dd = String(b.date || ''), dm = dd ? dd.slice(8, 10) + '.' + dd.slice(5, 7) : '';
   const adds = (b.adds || []).filter((x) => +x.q > 0), tot = (+b.amount || 0) + adds.reduce((a, x) => a + (+x.p || 0) * (+x.q || 0), 0);
   const at = adds.map((x) => (+x.q > 1 ? x.q + '× ' : '') + x.n).join(', ');
-  return sendTo([...out], { title: b.status === 'request' ? '⏳ בקשת הזמנה לספא · צריך לאשר זמינות' : b.source === 'online' ? '🌐 הזמנה אונליין לספא' : 'טיפול ספא חדש', body: `${dm} ${b.time || ''} · ${b.name ? b.name + ' · ' : ''}${b.treatment || ''} · ${b.mins || 60} דק׳ · ${b.people || 1} אנשים${th ? ' · ' + th : ''}${at ? ' · + ' + at : ''}${tot ? ' · ₪' + tot : ''}`, hash: '#spa', tag: 'spa-' + snap.id });
+  return sendTo([...out], { title: b.status === 'request' ? '⏳ בקשת הזמנה לספא · צריך לאשר זמינות' : b.source === 'online' ? '🌐 הזמנה אונליין לספא' : 'טיפול ספא חדש', body: `${dm} ${b.time || ''} · ${b.name ? b.name + ' · ' : ''}${b.treatment || ''} · ${b.mins || 60} דק׳ · ${b.people || 1} אנשים${th ? ' · ' + th : ''}${at ? ' · + ' + at : ''}${tot ? ' · ₪' + tot : ''}`, hash: '#spa?b=' + snap.id, tag: 'spa-' + snap.id });
 });
 
 // ---------- every morning: spa treatments (today and later) whose therapist is not set / not confirmed → push the spa managers (spa app + owner) ----------
@@ -711,7 +711,7 @@ exports.onCmpNew = trig('hkComplaints/{id}').onCreate(async (snap) => {
   rs.forEach((d) => { const r = d.data() || {}; if (r.station || !(r.apps && r.apps.cmp)) return; const hs = r.hotels || []; if (!hs.length || hs.includes(h)) out.add(d.id); });
   const own = await ownTok(); own.forEach((d) => out.add(d.id));
   const hn = await hotelName(h);
-  return sendTo([...out], { title: `תלונת אורח · חדר ${c.room || ''}`, body: `${hn ? hn + ' · ' : ''}${c.note || ''}${c.cleanerName ? ' · ניקה: ' + c.cleanerName : ''}`.slice(0, 180), hash: '#cmp', tag: 'cmp-' + snap.id });
+  return sendTo([...out], { title: `תלונת אורח · חדר ${c.room || ''}`, body: `${hn ? hn + ' · ' : ''}${c.note || ''}${c.cleanerName ? ' · ניקה: ' + c.cleanerName : ''}`.slice(0, 180), hash: '#cmp?c=' + snap.id, tag: 'cmp-' + snap.id });
 });
 
 // ---------- invoice scan: the app writes invoiceScans/{id} {data: JPEG data URL, by}; Gemini (Vertex AI) reads it and writes back {status, result} ----------
@@ -1528,7 +1528,7 @@ exports.grpGuide = functions.region(REGION).https.onRequest(async (req, res) => 
           const pick = ((((await db.doc('waauto/main').get()).data() || {}).guide || {}).notify || {})[h] || [];
           const to = pick.length ? pick : await roleHolders(h, ['gm', 'grp']); // specific people chosen by the owner, else gm + groups holders
           const body = [g.name || '', Object.keys(pref).sort().map((d) => d.slice(8, 10) + '/' + d.slice(5, 7) + ' ' + ['bf', 'ln', 'dn'].filter((k) => pref[d][k]).map((k) => NM[k] + ' ' + pref[d][k]).join(', ')).join(' · '), note].filter(Boolean).join(' · ').slice(0, 220);
-          if (to.length) await sendTo(to, { title: (first ? '🧭 המדריך מילא את פרטי הקבוצה' : '🧭 המדריך עדכן את פרטי הקבוצה') + (g.ci ? ' · הגעה ' + g.ci.slice(8, 10) + '/' + g.ci.slice(5, 7) : ''), body, hash: '#grp', tag: 'gdpre-' + q.docs[0].id });
+          if (to.length) await sendTo(to, { title: (first ? '🧭 המדריך מילא את פרטי הקבוצה' : '🧭 המדריך עדכן את פרטי הקבוצה') + (g.ci ? ' · הגעה ' + g.ci.slice(8, 10) + '/' + g.ci.slice(5, 7) : ''), body, hash: '#grp?g=' + q.docs[0].id, tag: 'gdpre-' + q.docs[0].id });
         } catch (e) { console.warn('guide pre push', e.message); }
         res.json({ ok: true, pref, note, first });
         return;
@@ -1660,7 +1660,7 @@ exports.guidePreArrival = functions.region(REGION).pubsub.schedule('0 10 * * *')
         if (g.prePhoneWarn) continue;
         await d.ref.update({ prePhoneWarn: now });
         const to2 = [...new Set([...(await roleHolders(g.hotel || '', ['gm', 'grp', 'front']))])];
-        if (to2.length) await sendTo(to2, { title: '🧭 חסר טלפון של מדריך · ' + (g.name || 'קבוצה'), body: 'הקבוצה מגיעה ב-' + g.ci.slice(8, 10) + '/' + g.ci.slice(5, 7) + '. בלי טלפון של המדריך אי אפשר לשלוח לו את טופס הפרטים לפני ההגעה.', hash: '#grp', tag: 'gdph-' + d.id });
+        if (to2.length) await sendTo(to2, { title: '🧭 חסר טלפון של מדריך · ' + (g.name || 'קבוצה'), body: 'הקבוצה מגיעה ב-' + g.ci.slice(8, 10) + '/' + g.ci.slice(5, 7) + '. בלי טלפון של המדריך אי אפשר לשלוח לו את טופס הפרטים לפני ההגעה.', hash: '#grp?g=' + d.id, tag: 'gdph-' + d.id });
         continue;
       }
       const up = { preTried: now, guideWaReq: { at: now, kind: 'pre', msgId: '', by: '', byName: 'אוטומטי' } };

@@ -930,6 +930,8 @@ exports.onGreqReq = trig('guestReqs/{id}').onUpdate(async (ch, ctx) => {
   const a = ch.before.data() || {}, b = ch.after.data() || {}, q = b.req;
   if (!q || !q.at || (a.req && a.req.at === q.at) || (b.reqDone && b.reqDone.at === q.at)) return;
   const id = ctx.params.id, ref = ch.after.ref, now = Date.now(), h = b.hotel || '', by = String(q.by || ''), byName = String(q.byName || '').slice(0, 80);
+  if ((+b.reqN || 0) >= 40) return ref.set({ reqDone: { at: q.at, kind: q.kind, err: 'יותר מדי פעולות על הפנייה הזו' } }, { merge: true });
+  await ref.set({ reqN: admin.firestore.FieldValue.increment(1) }, { merge: true });
   const rid = (p) => p + now.toString(36) + Math.random().toString(36).slice(2, 6), done = (o) => ref.set({ reqDone: { at: q.at, ...o } }, { merge: true });
   try {
     if (q.kind === 'lead') {
@@ -949,7 +951,10 @@ exports.onGreqReq = trig('guestReqs/{id}').onUpdate(async (ch, ctx) => {
       return done({ kind: 'fault', id: fid });
     }
     if (q.kind === 'hk' || q.kind === 'pub') {
-      const cid = rid('hc'), to = String(q.to || ''), doc = { hotel: h, date: new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Jerusalem' }), room: q.kind === 'pub' ? '' : room, tasks, note, to, toName: to ? String(q.toName || '').slice(0, 80) : '', status: 'open', openedAt: now, openedBy: by, openedByName: byName, greqId: id };
+      // the worker must be an active employee of this hotel (a greq holder must not be able to push to anyone else)
+      let to = String(q.to || ''), toName = '';
+      if (to) { try { const e = (await db.doc('employees/' + to).get()).data(); if (e && (e.hotel || 'main') === h && e.active !== false) toName = String(e.name || '').slice(0, 80); else to = ''; } catch (e) { to = ''; } }
+      const cid = rid('hc'), doc = { hotel: h, date: new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Jerusalem' }), room: q.kind === 'pub' ? '' : room, tasks, note, to, toName, status: 'open', openedAt: now, openedBy: by, openedByName: byName, greqId: id };
       if (q.kind === 'pub') { doc.kind = 'pub'; doc.area = String(q.area || '').slice(0, 80) || 'שטח ציבורי'; }
       await db.doc('hkCalls/' + cid).set(doc);
       return done({ kind: q.kind, id: cid });

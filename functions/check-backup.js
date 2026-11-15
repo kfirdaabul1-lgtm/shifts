@@ -23,6 +23,7 @@ async function grant(fn = 'driveBackup') {
   let r = await call('wrong-key-check');
   note('Backup probe', `status ${r.s} · ${r.head.replace(/<[^>]+>/g, ' ').trim().slice(0, 60)}`);
   if (r.s !== 403 || r.head.trim() !== 'forbidden') { note('Backup invoker', await grant().catch((e) => 'grant failed: ' + e.message)); await new Promise((x) => setTimeout(x, 20000)); r = await call('wrong-key-check'); note('Backup probe 2', `status ${r.s} · ${r.head.replace(/<[^>]+>/g, ' ').trim().slice(0, 60)}`); }
+  try { const w = (await db.doc('wacfg/main').get()).data() || {}; note('WhatsApp security', `provider ${w.provider || 'meta'} · appSecret ${w.appSecret ? 'set' : 'MISSING (unsigned webhook POSTs are accepted)'}`); } catch (e) { note('WhatsApp security', 'read failed: ' + e.message); }
   // WhatsApp webhook must be public too (Meta calls it); without the verify token it answers our own 403 "forbidden"
   const W = 'https://europe-west1-hotel-shifts.cloudfunctions.net/waWebhook';
   let w = await fetch(W).then(async (x) => ({ s: x.status, b: (await x.text()).slice(0, 60) })).catch((e) => ({ s: 0, b: e.message }));

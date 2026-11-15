@@ -48,5 +48,10 @@ async function grant(fn = 'driveBackup') {
   const riProbe = () => fetch(RI).then(async (x) => ({ s: x.status, b: (await x.text()).slice(0, 40) })).catch((e) => ({ s: 0, b: e.message }));
   let ri = await riProbe(); note('Rates probe', 'status ' + ri.s);
   if (ri.s !== 405 || ri.b.trim() !== 'method') { note('Rates invoker', await grant('ratesIngest').catch((e) => 'grant failed: ' + e.message)); await new Promise((x) => setTimeout(x, 20000)); ri = await riProbe(); note('Rates probe 2', 'status ' + ri.s + ' · ' + ri.b.replace(/<[^>]+>/g, ' ').trim()); }
+  // Arsona e-mail endpoint must be public (the owner's Apps Script calls it with its key); GET answers our own 405 "method"
+  const AM = 'https://europe-west1-hotel-shifts.cloudfunctions.net/arsonaMail';
+  const amProbe = () => fetch(AM).then(async (x) => ({ s: x.status, b: (await x.text()).slice(0, 40) })).catch((e) => ({ s: 0, b: e.message }));
+  let am = await amProbe(); note('Arsona mail probe', 'status ' + am.s);
+  if (am.s !== 405 || am.b.trim() !== 'method') { note('Arsona mail invoker', await grant('arsonaMail').catch((e) => 'grant failed: ' + e.message)); await new Promise((x) => setTimeout(x, 20000)); am = await amProbe(); note('Arsona mail probe 2', 'status ' + am.s); }
   // no real call here: a real call would update lastAt and hide a broken Apps Script schedule
 })().catch((e) => { note('Backup check error', e.message); });

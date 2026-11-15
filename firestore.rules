@@ -876,6 +876,9 @@ service cloud.firestore {
     match /ratescfg/{id} {
       allow read, write: if isOwner();
     }
+    match /arscfg/{id} {
+      allow read, write: if isOwner();
+    }
     match /ratesLog/{id} {
       allow read: if isOwner() || canCeo() || gmIn(resource.data.hotel) || (hasRole() && roleApp('rates') && (roleHotels().size() == 0 || resource.data.hotel in roleHotels()));
       allow write: if false;

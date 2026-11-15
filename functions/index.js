@@ -900,9 +900,10 @@ function arsText(m) {
   const i = m.interactive || {}, x = (o) => (o && (o.body || o.text || o.caption)) || '';
   return String((m.text && m.text.body) || (i.body && i.body.text) || x(m.button) || x(m.image) || x(m.document) || x(m.video) || '');
 }
-async function arsonaIn(m) {
+async function arsonaIn(m, mail) {
   let cfg = {}; try { cfg = (await db.doc('waauto/main').get()).data() || {}; } catch (e) { }
-  const from = String(cfg.arsonaFrom || '').split(/[,;\s]+/).map(waIdFrom).filter(Boolean), fromArs = from.includes(m.from);
+  // mail = an Arsona e-mail forwarded by the owner's Apps Script (arsonaMail, key-checked) → always from Arsona
+  const from = String(cfg.arsonaFrom || '').split(/[,;\s]+/).map(waIdFrom).filter(Boolean), fromArs = !!mail || from.includes(m.from);
   const t = arsText(m), head = t.split('\n')[0] || '';
   const tm = /(agent required|potential lead|missing information)/i.exec(head) || (/קריאה חדשה/.test(head) && /(request for agent|agent required|potential lead|missing information)/i.exec(t));
   if (!tm || !/סוג הפנייה|שם האורח|אורח:|סיבה:/.test(t)) {
@@ -912,7 +913,7 @@ async function arsonaIn(m) {
     const ref = db.doc('guestReqs/ars_' + String(m.id).replace(/[^A-Za-z0-9_-]/g, '').slice(-60));
     const at = (+m.timestamp || Date.now() / 1000) * 1000;
     const doc = { type: 'agent', hotel: '', hotelTxt: '', at, status: 'open', assignee: '', assigneeName: '', leadId: '', from: m.from, createdAt: Date.now(), acts: [],
-      kind: 'הודעה מארסונה', reason: '', guest: '', phone: '', email: '', conf: '', room: '', channel: 'WhatsApp', when: '',
+      kind: mail ? 'מייל מארסונה' : 'הודעה מארסונה', reason: '', guest: '', phone: '', email: '', conf: '', room: '', channel: mail ? 'מייל' : 'WhatsApp', when: '',
       summary: t ? t.slice(0, 1500) : 'הודעה מארסונה שהוואטסאפ לא העביר את התוכן שלה למערכת (כנראה הודעה עם כפתורים). יש לפתוח אותה בארסונה או בוואטסאפ בטלפון.',
       raw: t.slice(0, 4000), unreadable: !t, msgType: String(m.type || ''), msgErr: JSON.stringify(m.errors || []).slice(0, 400) };
     try { await ref.create(doc); } catch (e) { return true; }
@@ -938,6 +939,7 @@ async function arsonaIn(m) {
   const at = (+m.timestamp || Date.now() / 1000) * 1000, ref = db.doc('guestReqs/ars_' + String(m.id).replace(/[^A-Za-z0-9_-]/g, '').slice(-60));
   const doc = { type, hotel, hotelTxt: String(f.hotelTxt || head.split('|')[1] || '').trim().slice(0, 80), at, status: 'open', assignee: '', assigneeName: '', leadId: '', from: m.from, raw: t.slice(0, 4000), createdAt: Date.now(), acts: [] };
   for (const k of ['kind', 'reason', 'guest', 'phone', 'email', 'conf', 'room', 'channel', 'when', 'summary']) doc[k] = String(f[k] || '').slice(0, 1500);
+  if (mail && !doc.channel) doc.channel = 'מייל';
   try { await ref.create(doc); } catch (e) { return true; } // webhook repeat
   const to = await roleHolders(hotel, ['greq']); // ONLY holders of the "פניות אורחים" permission (+ the owner) (owner, Nov 15)
   const L = { agent: '🔴 נדרש נציג', lead: '🟢 ליד פוטנציאלי', missing: '🟡 חסר מידע' }[type];
@@ -1981,6 +1983,29 @@ exports.adsJob = functions.region(REGION).runWith({ timeoutSeconds: 540, memory:
 // ---------- price comparison (Nov 7, owner: page "השוואת מחירים") ----------
 // The owner's scheduled price agent POSTs {hotel, rows:[{src booking|site, checkin, room, orig, price, bf, left, note}]} with header x-rates-key.
 // Key in ratescfg/main.key (owner only in rules). Writes ratesLog/{hotel}__{ilDate}; clients never write there.
+// Arsona alerts by e-mail (owner, Nov 15): WhatsApp messages from Arsona's API number reach our API number only as 'unsupported' (no text),
+// so the owner opened a mailbox for Arsona's alerts; an Apps Script in that mailbox POSTs new mails here with x-ars-key = arscfg/main.key.
+exports.arsonaMail = functions.region(REGION).https.onRequest(async (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*'); res.set('Access-Control-Allow-Headers', 'Content-Type, x-ars-key'); res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
+  if (req.method !== 'POST') { res.status(405).send('method'); return; }
+  try {
+    if (await pwRate(req, 120)) { res.status(429).json({ error: 'rate' }); return; }
+    const cfg = await db.doc('arscfg/main').get(), key = cfg.exists ? String(cfg.data().key || '') : '';
+    const got = String(req.get('x-ars-key') || '');
+    if (!key || key.length < 24 || got.length !== key.length || !crypto.timingSafeEqual(Buffer.from(got), Buffer.from(key))) { res.status(403).json({ error: 'forbidden' }); return; }
+    const b = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
+    const items = (Array.isArray(b.items) ? b.items : []).slice(0, 20); let n = 0;
+    for (const it of items) {
+      const id = String(it.id || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 60); if (!id) continue;
+      const subj = String(it.subject || '').replace(/\s+/g, ' ').trim().slice(0, 200), body = String(it.text || '').replace(/\r/g, '').slice(0, 6000);
+      const at = Date.parse(it.date || '') || Date.now();
+      if (await arsonaIn({ id: 'mail_' + id, from: 'mail', timestamp: Math.round(at / 1000), type: 'text', text: { body: (subj ? subj + '\n' : '') + body } }, true)) n++;
+    }
+    await db.doc('arscfg/main').set({ lastAt: Date.now(), lastCount: n }, { merge: true });
+    res.json({ ok: true, n });
+  } catch (e) { console.warn('arsonaMail', e.message); res.status(500).json({ error: 'server' }); }
+});
 exports.ratesIngest = functions.region(REGION).https.onRequest(async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*'); res.set('Access-Control-Allow-Headers', 'Content-Type, x-rates-key'); res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
   if (req.method === 'OPTIONS') { res.status(204).send(''); return; }

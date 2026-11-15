@@ -1949,7 +1949,46 @@ function greqCallHTML(id,r){const h=r.hotel||'',g=(k,d)=>dv('greqc',k,d),kind=g(
     <div class="actions"><button class="btn pri sm" data-act="greq-csend" data-id="${id}">שליחת הקריאה</button><button class="btn sm ghost" data-act="greq-call" data-id="">ביטול</button></div></div>`}
 function arsCfgHTML(){if(!S.isOwner)return '';waAutoSub();const v=dv('arsf','v',(S.waAuto||{}).arsonaFrom||'');
   return `<div class="card"><h3>מספרי ארסונה (לא חובה)</h3><p class="muted" style="font-size:.85rem">התראות של ארסונה שמגיעות למספר המערכת נכנסות לעמוד "פניות אורחים" ולא נפתחות כשיחה או ליד. אפשר לרשום כאן את המספרים שארסונה שולחת מהם, ואז רק הודעות מהם ייחשבו להתראות. ריק = כל הודעה במבנה של ארסונה.</p>
-    <div class="actions"><input type="text" data-f="arsf.v" value="${esc(v)}" placeholder="למשל 050-0000000, 052-0000000" style="flex:1"><button class="btn sm pri" data-act="ars-save">שמירה</button></div></div>`}
+    <div class="actions"><input type="text" data-f="arsf.v" value="${esc(v)}" placeholder="למשל 050-0000000, 052-0000000" style="flex:1"><button class="btn sm pri" data-act="ars-save">שמירה</button></div></div>${arsMailHTML()}`}
+// Arsona alerts by e-mail (owner, Nov 15): WhatsApp from Arsona's API number reaches us without text, so a mailbox + Apps Script forwards each mail to function arsonaMail
+const ARS_MAIL_URL='https://europe-west1-hotel-shifts.cloudfunctions.net/arsonaMail';
+function arsCfgSub(){if(S.live.arscfg)return;S.live.arscfg=true;S.db.doc('arscfg/main').onSnapshot(d=>{S.arsCfg=d.exists?d.data():{};render()},()=>{S.arsCfg={}})}
+function arsMailScript(key){return `// ${appName()} – פניות ארסונה מהמייל אל עמוד "פניות אורחים"
+const URL = '${ARS_MAIL_URL}';
+const KEY = '${key}';
+const FROM = ''; // לא חובה: כתובת המייל שארסונה שולחת ממנה (ריק = כל מייל חדש בתיבה)
+
+// מריצים פעם אחת: יוצר בדיקה אוטומטית כל דקה
+function setup() {
+  ScriptApp.getProjectTriggers().forEach(function (t) { ScriptApp.deleteTrigger(t); });
+  ScriptApp.newTrigger('check').timeBased().everyMinutes(1).create();
+  check();
+}
+
+function check() {
+  var label = GmailApp.getUserLabelByName('ארסונה נקלט') || GmailApp.createLabel('ארסונה נקלט');
+  var q = 'in:inbox -label:"ארסונה נקלט" newer_than:3d' + (FROM ? ' from:' + FROM : '');
+  var threads = GmailApp.search(q, 0, 10);
+  if (!threads.length) return;
+  var items = [];
+  threads.forEach(function (t) { t.getMessages().forEach(function (m) {
+    items.push({ id: m.getId(), from: m.getFrom(), subject: m.getSubject(), date: m.getDate().toISOString(), text: m.getPlainBody().slice(0, 6000) });
+  }); });
+  var r = UrlFetchApp.fetch(URL, { method: 'post', contentType: 'application/json', headers: { 'x-ars-key': KEY }, payload: JSON.stringify({ items: items.slice(-20) }), muteHttpExceptions: true });
+  if (r.getResponseCode() === 200) threads.forEach(function (t) { t.addLabel(label); });
+  else console.log(r.getResponseCode() + ' ' + r.getContentText());
+}
+`}
+function arsMailHTML(){if(!S.isOwner)return '';arsCfgSub();const c=S.arsCfg||{},k=c.key||'';
+  const last=c.lastAt?`<p class="muted" style="font-size:.85rem">מייל אחרון נקלט: ${new Date(c.lastAt).toLocaleString('he-IL',{dateStyle:'short',timeStyle:'short'})}</p>`:'';
+  return `<div class="card"><h3>📧 פניות ארסונה במייל</h3><p class="muted" style="font-size:.85rem">וואטסאפ לא מעביר למערכת את התוכן של הודעות ארסונה, לכן מקבלים אותן במייל. פותחים תיבת ג׳ימייל לזה, מבקשים מארסונה לשלוח אליה עותק של כל התראה, ומדביקים בתיבה את הקוד הזה. כל מייל חדש ייכנס לעמוד "פניות אורחים" תוך דקה.</p>
+    ${k?`<ol style="font-size:.88rem;line-height:1.7;padding-inline-start:20px;margin:6px 0">
+      <li>נכנסים עם תיבת הג׳ימייל החדשה ל-<a href="https://script.google.com" target="_blank" rel="noopener">script.google.com</a> ← "פרויקט חדש".</li>
+      <li>מוחקים את מה שכתוב שם ומדביקים את הקוד (כפתור "העתקת הקוד").</li>
+      <li>שומרים, בוחרים למעלה את הפונקציה <b>setup</b> ולוחצים "הפעלה". מאשרים את ההרשאות שגוגל מבקשת.</li>
+      <li>מבקשים מארסונה לשלוח עותק של כל התראה לכתובת המייל הזו.</li></ol>
+      <div class="actions" style="gap:8px;flex-wrap:wrap"><button class="btn sm pri" data-act="ars-mcopy">העתקת הקוד</button><button class="btn sm" data-act="ars-mkey">${S.confirm==='arsmk'?'לחיצה נוספת להחלפה (הקוד הישן יפסיק לעבוד)':'החלפת מפתח'}</button></div>${last}`
+    :`<button class="btn sm pri" data-act="ars-mkey">יצירת קוד לתיבת המייל</button>`}</div>`}
 function vGreq(){greqSub();const F=S.greqF||(S.greqF={st:'act',t:'all',h:'all'});
   const all=Object.entries(S.greq||{}),hs=[...new Set([...(greqHs()||hotelIds()),...all.map(([,r])=>r.hotel||'')])]; // owner, Nov 15: always pick a hotel when there are several, with open counts
   const hCnt=h=>all.filter(([,r])=>(r.hotel||'')===h&&r.status!=='done').length;
@@ -1983,7 +2022,7 @@ function vGreq(){greqSub();const F=S.greqF||(S.greqF={st:'act',t:'all',h:'all'})
         :`${r.note?`<small>📝 ${esc(r.note)}</small>`:''}<div><button class="btn sm ghost" data-act="greq-reopen" data-id="${id}">פתיחה מחדש</button></div>`}
       ${(r.acts||[]).length?`<small class="muted">${r.acts.slice(-4).map(a=>`${new Date(a.at).toLocaleString('he-IL',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})} ${esc(a.byName||'')}: ${esc(a.text||'')}`).join(' · ')}</small>`:''}
     </div>`};
-  return wrap(head+`<div class="card"><h3>פניות · ${list.length}</h3>${list.length?`<div class="plist">${list.map(card).join('')}</div>`:'<p class="muted">אין פניות כאן 🎉</p>'}</div>`)}
+  return wrap(head+`<div class="card"><h3>פניות · ${list.length}</h3>${list.length?`<div class="plist">${list.map(card).join('')}</div>`:'<p class="muted">אין פניות כאן 🎉</p>'}</div>`+(S.isOwner?foldCard(arsMailHTML(),'arsm'):''))}
 /* ---------- employees page (hr app): the only place employees are created and edited; new self-registered employees have no department until hr sets it ---------- */
 const hrHotels=()=>{const all=hotelIds();if(S.isOwner||!(S.role&&Array.isArray(S.role.hotels)&&S.role.hotels.length))return all;return all.filter(h=>S.role.hotels.includes(h))};
 const hrNoDept=()=>S.can&&S.can.hr?Object.entries(S.emps||{}).filter(([u,e])=>hrHotels().includes(e.hotel||'main')&&!(e.depts||[]).length&&!e.mgmt&&(e.hotel||'main')!==CHAIN).length:0;
@@ -5478,6 +5517,10 @@ const ACT={
   'greq-aiok':D=>greqAiOk(D.id),
   'greq-aino':D=>{S.greqAiNo=S.greqAiNo===D.id?null:D.id;render()},
   'greq-aifb':D=>{const note=String(dv('greqai',D.id,'')).trim().slice(0,300);S.greqAiNo=null;greqUp(D.id,{aiFb:{ok:false,note,at:Date.now(),by:S.uid,byName:S.meName||empName(S.uid)||''}},'תיקון לאליאנה')},
+  'ars-mkey':async()=>{if(!S.isOwner)return;if((S.arsCfg||{}).key&&S.confirm!=='arsmk'){S.confirm='arsmk';render();return}S.confirm=null;
+    const a=new Uint8Array(20);crypto.getRandomValues(a);const key=[...a].map(x=>x.toString(16).padStart(2,'0')).join('');
+    try{await fdb.doc('arscfg/main').set({key,createdAt:Date.now(),by:S.uid},{merge:true});S.arsCfg={...(S.arsCfg||{}),key};render();toast('נוצר קוד. עכשיו מעתיקים אותו לתיבת המייל')}catch(e){toast('לא נשמר: '+errMsg(mapErr(e)))}},
+  'ars-mcopy':async()=>{const k=(S.arsCfg||{}).key;if(!k)return;try{await navigator.clipboard.writeText(arsMailScript(k));toast('הקוד הועתק')}catch(_){toast('ההעתקה נכשלה')}},
   'ars-save':async()=>{const v=String(dv('arsf','v',(S.waAuto||{}).arsonaFrom||'')).trim();try{await fdb.doc('waauto/main').set({arsonaFrom:v},{merge:true});toast('נשמר')}catch(e){toast('לא נשמר: '+errMsg(mapErr(e)))}},
   'app-vch':()=>{S.menu=false;setTab('vch')},
   'hr-hotel':D=>{S.hrH=D.h;render()},

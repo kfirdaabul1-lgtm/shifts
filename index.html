@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202611151800"></script>
+<script src="i18n.js?v=202611151830"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1910,12 +1910,24 @@ const greqOpenN=()=>Object.values(S.greq||{}).filter(r=>r.status!=='done').lengt
 const greqPeople=h=>{const out=Object.entries(S.roles||{}).filter(([,r])=>r&&!r.station&&r.apps&&r.apps.greq&&(!(r.hotels||[]).length||(h&&r.hotels.includes(h)))).map(([u])=>u);if(S.isOwner&&!out.includes(S.uid))out.push(S.uid);return out};
 function greqUp(id,up,txt){const r=(S.greq||{})[id];if(!r)return;const now=Date.now();up.acts=[...(r.acts||[]),{at:now,by:S.uid,byName:S.meName||empName(S.uid)||'',text:txt}].slice(-30);up.updatedAt=now;
   const old={...r};S.greq[id]={...r,...up};render();fdb.doc('guestReqs/'+id).update(up).then(()=>toast(txt),e=>{S.greq[id]=old;render();toast('לא נשמר: '+errMsg(mapErr(e)))})}
-async function greqLead(id){const r=(S.greq||{})[id];if(!r||r.leadId)return;const venue=((S.settingsAll||{})[r.hotel]||{}).venues?.[0]||'';
-  if(!venue&&leadScope()){toast('לא ידוע לאיזה מקום הפנייה שייכת, אי אפשר לפתוח ליד');return}
-  const now=Date.now(),lid='l'+now.toString(36)+Math.random().toString(36).slice(2,6),me=S.meName||empName(S.uid)||'';
-  const o={name:r.guest||'אורח ארסונה',phone:r.phone||'',email:r.email||'',company:'',type:'',date:'',guests:0,venue,source:'arsona',campaign:'',stage:'new',owner:'',ownerName:'',nextAt:todayISO(),value:0,
-    notes:[r.summary,r.reason,r.conf&&'הזמנה '+r.conf,r.room].filter(Boolean).join('\n'),createdAt:now,createdBy:S.uid,updatedAt:now,acts:[{at:now,by:S.uid,byName:me,kind:'note',text:'נוצר מפניית ארסונה'}]};
-  try{await fdb.doc('leads/'+lid).set(o);S.leads=S.leads||{};S.leads[lid]=o;greqUp(id,{leadId:lid},'נפתח ליד')}catch(e){toast('הליד לא נפתח: '+errMsg(mapErr(e)))}}
+// lead / calls from a guest request (owner, Nov 15): every greq holder; the client only writes guestReqs.req and the server (onGreqReq) creates the lead / fault / call
+function greqReq(id,req,up,txt){const me=S.meName||empName(S.uid)||'';greqUp(id,{...(up||{}),req:{...req,at:Date.now(),by:S.uid,byName:me}},txt)}
+function greqLead(id){const r=(S.greq||{})[id];if(!r||r.leadId)return;const me=S.meName||empName(S.uid)||'';
+  greqReq(id,{kind:'lead'},{status:'done',doneBy:S.uid,doneByName:me,doneAt:Date.now(),note:'הועבר ללידים'},'הועבר ללידים')}
+const GREQ_CK=[['hk','🧹 משק'],['fault','🛠 אחזקה'],['pub','🏛 שטחים ציבוריים']];
+function greqCallHTML(id,r){const h=r.hotel||'',g=(k,d)=>dv('greqc',k,d),kind=g('kind','hk'),t=(S.drafts.greqc||{}).tasks||[];
+  if(!h)return `<div class="notice">לא ידוע לאיזה מלון הפנייה שייכת, אי אפשר לפתוח קריאה.</div>`;
+  const canCrew=hkFullHs().includes(h),crew0=canCrew&&kind!=='fault'?crewOf(h,todayISO(),kind==='pub'?['public','housekeeping']:['housekeeping','public']):{on:[],others:[]},real=u=>!String(u).startsWith('m_');
+  const on=crew0.on.filter(x=>real(x.u)),oth=crew0.others.filter(real),opt=u=>`<option value="${u}" ${g('to','')===u?'selected':''}>${esc(empName(u))}</option>`;
+  const sel=`<label class="f">למי שולחים<select data-f="greqc.to"><option value="">הקבלה תבחר עובד</option>${on.length?`<optgroup label="במשמרת עכשיו">${on.map(x=>opt(x.u)).join('')}</optgroup>`:''}${oth.length?`<optgroup label="לא במשמרת">${oth.map(opt).join('')}</optgroup>`:''}</select></label>`;
+  const areas=pubAreas(h),tl=kind==='pub'?PUB_CALL:HK_CALL;
+  return `<div class="card" style="margin:4px 0;padding:10px;background:var(--sunk)"><div class="chips" data-nosel style="gap:6px">${GREQ_CK.map(([k,n])=>`<button class="dchip ${kind===k?'':'off'}" data-act="greq-ck" data-k="${k}">${n}</button>`).join('')}</div>
+    ${kind==='pub'?`<label class="f">איזה שטח${areas.length?`<select data-f="greqc.area"><option value="">בוחרים שטח…</option>${areas.map(a=>`<option ${g('area','')===a?'selected':''}>${esc(a)}</option>`).join('')}</select>`:`<input type="text" data-f="greqc.area" value="${esc(g('area',''))}" placeholder="למשל לובי, חדר אוכל">`}</label>`
+      :`<label class="f" style="max-width:160px">מספר חדר<input type="text" data-f="greqc.room" value="${esc(g('room',r.room||''))}" inputmode="numeric"></label>`}
+    ${kind!=='fault'?`<div class="f"><span>מה נדרש לעשות</span><div class="chips" data-nosel style="gap:6px;margin-top:6px">${tl.filter(([k])=>k!=='other').map(([k,n])=>`<button class="dchip ${t.includes(k)?'':'off'}" data-act="greq-ct" data-k="${k}">${n}</button>`).join('')}</div></div>`:''}
+    <label class="f">${kind==='fault'?'מה התקלה':'פירוט'}<textarea data-f="greqc.note" rows="2">${esc(g('note',kind==='fault'?(r.reason||''):''))}</textarea></label>
+    ${kind!=='fault'?sel:''}
+    <div class="actions"><button class="btn pri sm" data-act="greq-csend" data-id="${id}">שליחת הקריאה</button><button class="btn sm ghost" data-act="greq-call" data-id="">ביטול</button></div></div>`}
 function arsCfgHTML(){if(!S.isOwner)return '';waAutoSub();const v=dv('arsf','v',(S.waAuto||{}).arsonaFrom||'');
   return `<div class="card"><h3>מספרי ארסונה (לא חובה)</h3><p class="muted" style="font-size:.85rem">התראות של ארסונה שמגיעות למספר המערכת נכנסות לעמוד "פניות אורחים" ולא נפתחות כשיחה או ליד. אפשר לרשום כאן את המספרים שארסונה שולחת מהם, ואז רק הודעות מהם ייחשבו להתראות. ריק = כל הודעה במבנה של ארסונה.</p>
     <div class="actions"><input type="text" data-f="arsf.v" value="${esc(v)}" placeholder="למשל 050-0000000, 052-0000000" style="flex:1"><button class="btn sm pri" data-act="ars-save">שמירה</button></div></div>`}
@@ -1942,7 +1954,10 @@ function vGreq(){greqSub();const F=S.greqF||(S.greqF={st:'act',t:'all',h:'all'})
       <div class="actions" style="align-items:center;flex-wrap:wrap"><span class="pill ${r.status==='done'?'ok':r.status==='taken'?'warn':'bad'}">${GREQ_ST[r.status]||''}${r.status==='taken'&&r.assigneeName?' · '+esc(r.assigneeName):''}${r.status==='done'&&r.doneByName?' · '+esc(r.doneByName):''}</span>
         ${r.status!=='done'&&r.assignee!==S.uid?`<button class="btn sm pri" data-act="greq-take" data-id="${id}">אני מטפל/ת</button>`:''}
         ${r.phone?`<a class="btn sm" href="tel:${esc(r.phone)}">📞 ${esc(r.phone)}</a>`:''}${wa&&ev?`<a class="btn sm" href="#leads?wa=${wa}">💬 וואטסאפ</a>`:''}${r.email?`<a class="btn sm" href="mailto:${esc(r.email)}">✉️ מייל</a>`:''}
-        ${r.leadId?(ev?`<a class="btn sm ghost" href="#leads?lead=${esc(r.leadId)}">פתח ליד</a>`:''):ev?`<button class="btn sm" data-act="greq-lead" data-id="${id}">הפוך לליד</button>`:''}</div>
+        ${r.leadId?(ev?`<a class="btn sm ghost" href="#leads?lead=${esc(r.leadId)}">פתח ליד</a>`:''):r.req&&r.req.kind==='lead'&&!r.reqDone?'<span class="pill">יוצר ליד…</span>':`<button class="btn sm" data-act="greq-lead" data-id="${id}">הפוך לליד</button>`}
+        ${r.status!=='done'?`<button class="btn sm" data-act="greq-call" data-id="${S.greqCall===id?'':id}">🛠 פתיחת קריאה</button>`:''}</div>
+      ${r.reqDone&&r.reqDone.err&&r.req&&r.reqDone.at===r.req.at?`<div class="notice">הפעולה האחרונה לא הצליחה: ${esc(r.reqDone.err)}</div>`:''}
+      ${S.greqCall===id&&r.status!=='done'?greqCallHTML(id,r):''}
       ${boss&&r.status!=='done'&&ppl.length>1?`<div class="actions" style="align-items:center"><select data-f="greqa.${id}"><option value="">שיוך לעובד…</option>${ppl.map(u=>`<option value="${esc(u)}" ${dv('greqa',id,'')===u?'selected':''}>${esc(empName(u)||'ללא שם')}</option>`).join('')}</select><button class="btn sm" data-act="greq-asg" data-id="${id}">שיוך</button></div>`:''}
       ${r.status!=='done'?`<div class="actions" style="align-items:center"><input type="text" data-f="greqn.${id}" value="${esc(dv('greqn',id,''))}" placeholder="הערה (לא חובה)" style="flex:1"><button class="btn sm" data-act="greq-done" data-id="${id}">טופל ✓</button></div>`
         :`${r.note?`<small>📝 ${esc(r.note)}</small>`:''}<div><button class="btn sm ghost" data-act="greq-reopen" data-id="${id}">פתיחה מחדש</button></div>`}
@@ -3661,9 +3676,12 @@ function callsCardHTML(h){const C=callsSub(h),g=(k,d)=>dv('call',k,d),t=(S.draft
   const done=list.filter(([,c])=>c.status==='done'),avg=done.length?Math.round(done.reduce((a,[,c])=>a+(+c.mins||0),0)/done.length):0;
   return `<div class="card"><h3>קריאה למשק</h3>${form}
     <h3 style="margin-top:14px">קריאות היום${done.length?` · זמן טיפול ממוצע ${minsTxt(avg)}`:''}</h3>${!C?'<p class="muted">טוען…</p>':C.__err?`<p class="muted">אין גישה לקריאות: ${esc(C.__err)}</p>`:rows?`<div class="plist">${rows}</div>`:'<p class="muted">אין קריאות היום.</p>'}</div>`}
+// a call opened from a guest request without a worker: the reception desk picks one (owner, Nov 15)
+function callAsgHTML(h,id,c){const crew0=crewOf(h,todayISO(),c.kind==='pub'?['public','housekeeping']:['housekeeping','public']),real=u=>!String(u).startsWith('m_'),on=crew0.on.filter(x=>real(x.u)),oth=crew0.others.filter(real),cur=dv('casg',id,''),opt=u=>`<option value="${u}" ${cur===u?'selected':''}>${esc(empName(u))}</option>`;
+  return `<span class="actions" style="align-items:center"><span class="pill bad">צריך לבחור עובד</span><select data-f="casg.${id}"><option value="">בוחרים עובד…</option>${on.length?`<optgroup label="במשמרת עכשיו">${on.map(x=>opt(x.u)).join('')}</optgroup>`:''}${oth.length?`<optgroup label="לא במשמרת">${oth.map(opt).join('')}</optgroup>`:''}</select><button class="btn sm pri" data-act="call-asg" data-id="${id}" data-h="${h}">שליחה</button></span>`}
 function callRow(h,id,c){const open=c.status!=='done',m=Math.max(0,Math.round(((open?Date.now():c.doneAt||0)-(c.openedAt||0))/60000));
-    return `<div class="prow" style="flex-wrap:wrap"><span class="who"><b>${esc(callWhere(c))} · ${esc(callTasks(c))}</b><small>אל ${esc(c.toName||'')} · נפתחה ${new Date(c.openedAt||0).toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'})}${c.openedByName?' · '+esc(c.openedByName):''}</small></span>
-      ${open?`<span class="pill ${m>=30?'bad':'warn'}">פתוחה ${minsTxt(m)}</span><button class="btn sm ghost" data-act="call-del" data-id="${id}" data-h="${h}">${S.confirm==='cx:'+id?'לחיצה נוספת תבטל':'ביטול'}</button>`:`<span class="pill ok">טופל אחרי ${minsTxt(+c.mins||m)}</span>`}</div>`}
+    return `<div class="prow" style="flex-wrap:wrap"><span class="who"><b>${esc(callWhere(c))} · ${esc(callTasks(c))}</b><small>${c.toName?'אל '+esc(c.toName):'ממתין לשיבוץ'} · נפתחה ${new Date(c.openedAt||0).toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'})}${c.openedByName?' · '+esc(c.openedByName):''}</small></span>
+      ${open&&!c.to?callAsgHTML(h,id,c):''}${open?`<span class="pill ${m>=30?'bad':'warn'}">פתוחה ${minsTxt(m)}</span><button class="btn sm ghost" data-act="call-del" data-id="${id}" data-h="${h}">${S.confirm==='cx:'+id?'לחיצה נוספת תבטל':'ביטול'}</button>`:`<span class="pill ok">טופל אחרי ${minsTxt(+c.mins||m)}</span>`}</div>`}
 // public areas call card (reception page + public areas page): area from the hotel settings list + details + ready tasks
 function pubCardHTML(h){const C=callsSub(h);hkSub(h,todayISO());const g=(k,d)=>dv('pcall',k,d),t=(S.drafts.pcall||{}).tasks||[],areas=pubAreas(h);
   const crew0=crewOf(h,todayISO(),['public','housekeeping']),real=u=>!String(u).startsWith('m_'),crew={on:crew0.on.filter(x=>real(x.u)),others:crew0.others.filter(real)};
@@ -5391,6 +5409,14 @@ const ACT={
   'greq-f':D=>{S.greqF={...(S.greqF||{st:'act',t:'all',h:'all'}),[D.k]:D.v};render()},
   'greq-take':D=>greqUp(D.id,{status:'taken',assignee:S.uid,assigneeName:S.meName||empName(S.uid)||'',assignedAt:Date.now()},'לקח/ה לטיפול'),
   'greq-asg':D=>{const u=dv('greqa',D.id,'');if(!u){toast('צריך לבחור למי');return}const n=empName(u)||'';greqUp(D.id,{status:'taken',assignee:u,assigneeName:n,assignedAt:Date.now()},'שויך ל'+n)},
+  'greq-call':D=>{if(S.greqCall!==D.id)S.drafts.greqc=null;S.greqCall=D.id||null;render()},
+  'greq-ck':D=>{S.drafts.greqc={...(S.drafts.greqc||{}),kind:D.k,tasks:[]};render()},
+  'greq-ct':D=>{const c=S.drafts.greqc||(S.drafts.greqc={}),t=c.tasks||[];c.tasks=t.includes(D.k)?t.filter(x=>x!==D.k):[...t,D.k];render()},
+  'greq-csend':D=>{const r=(S.greq||{})[D.id];if(!r)return;const g=k=>String(dv('greqc',k,'')).trim(),c=S.drafts.greqc||{},kind=c.kind||'hk',tasks=c.tasks||[];
+    const room=String(dv('greqc','room',r.room||'')).trim(),note=String(dv('greqc','note',kind==='fault'?(r.reason||''):'')).trim(),area=g('area'),to=g('to');
+    if(kind!=='pub'&&!room&&kind==='hk'){toast('צריך לרשום מספר חדר');return}if(kind==='pub'&&!area){toast('צריך לבחור שטח');return}
+    if(kind==='fault'&&!note){toast('צריך לכתוב מה התקלה');return}if(kind!=='fault'&&!tasks.length&&!note){toast('צריך לבחור מה נדרש לעשות או לפרט');return}
+    const n=(GREQ_CK.find(x=>x[0]===kind)||[])[1]||'';greqReq(D.id,{kind,room,area,tasks,note,to,toName:to?empName(to):''},null,'נפתחה קריאה · '+n.replace(/^\S+\s/,''));S.greqCall=null;S.drafts.greqc=null},
   'greq-done':D=>greqUp(D.id,{status:'done',doneBy:S.uid,doneByName:S.meName||empName(S.uid)||'',doneAt:Date.now(),note:String(dv('greqn',D.id,'')).trim().slice(0,500)},'טופל'),
   'greq-reopen':D=>greqUp(D.id,{status:'open'},'נפתח מחדש'),
   'greq-lead':D=>greqLead(D.id),
@@ -5723,6 +5749,8 @@ const ACT={
     const doc={hotel:h,date:todayISO(),room,tasks,note,to,toName:empName(to),status:'open',openedAt:now,openedBy:S.uid,openedByName:S.meName||(S.station?'עמדת קבלה':empName(S.uid))||''};
     S.calls[h]={...(S.calls[h]||{}),[id]:doc};S.drafts.call=null;render();
     fdb.doc('hkCalls/'+id).set(doc).then(()=>toast(`הקריאה נשלחה ל${doc.toName}`),e=>{toast('השליחה נכשלה: '+errMsg(mapErr(e)));const x={...S.calls[h]};delete x[id];S.calls[h]=x;render()})},
+  'call-asg':D=>{const to=String(dv('casg',D.id,''));if(!to){toast('צריך לבחור עובד');return}const up={to,toName:empName(to)};
+    S.calls[D.h]={...(S.calls[D.h]||{}),[D.id]:{...((S.calls[D.h]||{})[D.id]||{}),...up}};render();fdb.doc('hkCalls/'+D.id).update(up).then(()=>toast('הקריאה נשלחה ל'+up.toName),e=>toast('לא הצלחתי: '+errMsg(mapErr(e))))},
   'call-del':D=>{if(S.confirm!=='cx:'+D.id){S.confirm='cx:'+D.id;render();return}S.confirm=null;const x={...(S.calls[D.h]||{})};delete x[D.id];S.calls[D.h]=x;render();fdb.doc('hkCalls/'+D.id).delete().then(()=>toast('הקריאה בוטלה'),e=>toast('לא הצלחתי: '+errMsg(mapErr(e))))},
   'call-done':D=>{const c=(S.myCalls||{})[D.id];if(!c)return;const now=Date.now(),mins=Math.max(0,Math.round((now-(c.openedAt||now))/60000));
     S.myCalls={...S.myCalls,[D.id]:{...c,status:'done',doneAt:now,mins}};render();

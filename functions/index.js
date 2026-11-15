@@ -579,8 +579,12 @@ exports.onHkCall = trig('hkCalls/{id}').onWrite(async (ch, ctx) => {
   const a = ch.before.exists ? ch.before.data() : null, b = ch.after.exists ? ch.after.data() : null;
   if (!b) return;
   const what = HK_CALL_TXT(b), where = b.kind === 'pub' ? (b.area || 'שטח ציבורי') : 'חדר ' + (b.room || '');
-  if (!a && b.status === 'open' && b.to) {
+  if (b.status === 'open' && b.to && (!a || a.to !== b.to)) {
     return sendTo([b.to], { title: b.kind === 'pub' ? `קריאת שטחים ציבוריים · ${where}` : `קריאה למשק · ${where}`, body: what + (b.openedByName ? ` · מ${b.openedByName}` : ''), hash: '', tag: 'call-' + ctx.params.id });
+  }
+  if (!a && b.status === 'open' && !b.to) { // opened from a guest request without a worker → the reception desk assigns it
+    const st = await stationsOf(b.hotel), fr = await roleHolders(b.hotel, ['front']);
+    return sendTo([...new Set([...st, ...fr])].filter((u) => u !== b.openedBy), { title: `קריאה ממתינה לשיבוץ · ${where}`, body: what + (b.openedByName ? ` · מ${b.openedByName}` : '') + ' · צריך לבחור עובד', hash: '#front', tag: 'call-' + ctx.params.id });
   }
   if (a && a.status !== 'done' && b.status === 'done') {
     const st = await stationsOf(b.hotel);
@@ -920,6 +924,38 @@ async function arsonaIn(m) {
   await sendTo(to, { title: `${L} · ${(hotel && await hotelName(hotel)) || doc.hotelTxt || 'ארסונה'}`, body: [doc.guest, doc.kind, doc.reason || doc.summary].filter(Boolean).join(' · ').slice(0, 170), hash: '#greq?r=' + ref.id, tag: 'greq-' + ref.id });
   return true;
 }
+// ---------- actions from a guest request (owner, Nov 15): every greq holder may turn it into a lead or open a housekeeping / maintenance / public-areas call.
+// The client only writes guestReqs.req {kind, room, area, tasks, note, to, toName, at, by, byName} (rules: greq holders of the hotel, req.by == uid); the server creates the doc.
+exports.onGreqReq = trig('guestReqs/{id}').onUpdate(async (ch, ctx) => {
+  const a = ch.before.data() || {}, b = ch.after.data() || {}, q = b.req;
+  if (!q || !q.at || (a.req && a.req.at === q.at) || (b.reqDone && b.reqDone.at === q.at)) return;
+  const id = ctx.params.id, ref = ch.after.ref, now = Date.now(), h = b.hotel || '', by = String(q.by || ''), byName = String(q.byName || '').slice(0, 80);
+  const rid = (p) => p + now.toString(36) + Math.random().toString(36).slice(2, 6), done = (o) => ref.set({ reqDone: { at: q.at, ...o } }, { merge: true });
+  try {
+    if (q.kind === 'lead') {
+      if (b.leadId) return done({ kind: 'lead', id: b.leadId });
+      let venue = ''; try { const st = (await db.doc('settings/' + h).get()).data() || {}; venue = (st.venues || [])[0] || ''; } catch (e) { }
+      const lid = rid('l');
+      await db.doc('leads/' + lid).set({ name: b.guest || 'אורח ארסונה', phone: b.phone || '', email: b.email || '', company: '', type: '', date: '', guests: 0, venue, source: 'arsona', campaign: '', stage: 'new', owner: '', ownerName: '', nextAt: new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Jerusalem' }), value: 0,
+        notes: [b.summary, b.reason, b.conf && 'הזמנה ' + b.conf, b.room && 'חדר ' + b.room].filter(Boolean).join('\n'), createdAt: now, createdBy: by, updatedAt: now, greqId: id, acts: [{ at: now, by, byName, kind: 'note', text: 'נוצר מפניית ארסונה' }] });
+      await ref.set({ leadId: lid }, { merge: true });
+      return done({ kind: 'lead', id: lid });
+    }
+    const room = String(q.room || '').trim().slice(0, 20), note = String(q.note || '').trim().slice(0, 500), tasks = (Array.isArray(q.tasks) ? q.tasks : []).map(String).slice(0, 10);
+    if (!h) return done({ kind: q.kind, err: 'המלון של הפנייה לא ידוע' });
+    if (q.kind === 'fault') {
+      const fid = rid('f');
+      await db.doc('faults/' + fid).set({ hotel: h, room, desc: note || b.reason || 'בקשת אורח', status: 'open', openedAt: now, openedBy: by, openedByName: byName, source: 'greq', greqId: id });
+      return done({ kind: 'fault', id: fid });
+    }
+    if (q.kind === 'hk' || q.kind === 'pub') {
+      const cid = rid('hc'), to = String(q.to || ''), doc = { hotel: h, date: new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Jerusalem' }), room: q.kind === 'pub' ? '' : room, tasks, note, to, toName: to ? String(q.toName || '').slice(0, 80) : '', status: 'open', openedAt: now, openedBy: by, openedByName: byName, greqId: id };
+      if (q.kind === 'pub') { doc.kind = 'pub'; doc.area = String(q.area || '').slice(0, 80) || 'שטח ציבורי'; }
+      await db.doc('hkCalls/' + cid).set(doc);
+      return done({ kind: q.kind, id: cid });
+    }
+  } catch (e) { console.warn('greq req', e.message); return done({ kind: q.kind, err: e.message.slice(0, 200) }); }
+});
 async function waIncoming(m, name, push) {
   if (m.type === 'text' && await arsonaIn(m)) return; // Arsona alert → guestReqs, not a chat/lead
   const chat = m.from, at = (+m.timestamp || Date.now() / 1000) * 1000, text = waText(m);
@@ -1160,7 +1196,7 @@ exports.waTplSync = functions.region(REGION).pubsub.schedule('every 30 minutes')
 const waIdFrom = (p) => { let d = String(p || '').replace(/\D/g, ''); if (d.startsWith('00')) d = d.slice(2); if (d.startsWith('0')) d = '972' + d.slice(1); else if (d.length === 9 && d[0] === '5') d = '972' + d; return d.length >= 11 && d.length <= 15 ? d : ''; };
 exports.onLeadAuto = trig('leads/{id}').onCreate(async (snap) => {
   const l = snap.data() || {}, id = snap.id;
-  if (l.source === 'whatsapp' || l.waAutoAt || /^wa_/.test(id)) return;
+  if (l.source === 'whatsapp' || l.source === 'arsona' || l.waAutoAt || /^wa_/.test(id)) return; // Arsona guests are handled by a person, never an automatic template
   if (l.createdAt && Date.now() - l.createdAt > 2 * 864e5) return; // old leads that arrive late (backfills) are not messaged
   const a = (await db.doc('waauto/main').get()).data() || {}; if (!a.on) return;
   if (a.metaOnly && !/^meta_/.test(id)) return;

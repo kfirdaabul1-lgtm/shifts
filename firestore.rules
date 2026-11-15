@@ -742,8 +742,9 @@ service cloud.firestore {
     match /guestReqs/{id} {
       allow read: if greqIn(resource.data.hotel);
       allow update: if greqIn(resource.data.hotel)
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'assignee', 'assigneeName', 'assignedAt', 'leadId', 'doneBy', 'doneByName', 'doneAt', 'note', 'acts', 'updatedAt'])
-        && request.resource.data.status in ['open', 'taken', 'done'];
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'assignee', 'assigneeName', 'assignedAt', 'doneBy', 'doneByName', 'doneAt', 'note', 'acts', 'updatedAt', 'req'])
+        && request.resource.data.status in ['open', 'taken', 'done']
+        && (!('req' in request.resource.data.diff(resource.data).affectedKeys()) || request.resource.data.req.by == request.auth.uid);
       allow delete: if isOwner();
     }
     match /hkComplaints/{id} {

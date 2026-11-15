@@ -390,7 +390,7 @@ const PAGE_OK = {
   bar: (c) => ['shifts', 'gm'].some((a) => app(c, a)) || (c.depts || []).includes('bar'),
   maint: (c) => ['maint', 'shifts', 'gm'].some((a) => app(c, a)) || (app(c, 'dept') && (c.depts || []).includes('maintenance')),
   stock: (c) => ['shifts', 'gm', 'dept'].some((a) => app(c, a)),
-  cmp: (c) => app(c, 'cmp'), vch: (c) => app(c, 'vch') || app(c, 'vchr'), spa: (c) => app(c, 'spa'),
+  cmp: (c) => app(c, 'cmp'), greq: (c) => app(c, 'greq'), vch: (c) => app(c, 'vch') || app(c, 'vchr'), spa: (c) => app(c, 'spa'),
   grp: (c) => app(c, 'grp') || app(c, 'front'), leads: (c) => app(c, 'events'), events: (c) => app(c, 'events'),
 };
 const HELP_TOOLS = [

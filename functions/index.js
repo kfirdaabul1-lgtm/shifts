@@ -140,7 +140,7 @@ exports.onStock = trig('inventory/{id}').onWrite(async (ch) => {
 // A small Google Apps Script in the owner's own Drive calls this once a day with the key stored in backupcfg/main
 // (only the owner can read or change it) and saves the JSON it gets into a Drive folder. Same format as the
 // "גיבוי" button on the Permissions page, so the Import card can restore it. Invoice images are left out (size).
-const BACKUP_COLLS = ['broadcasts', 'waauto', 'waChats', 'srImgs', 'shiftKinds', 'signs', 'receipts', 'orgcfg', 'groups', 'agents', 'priceLists', 'jobRoles', 'vchCodes', 'hkday', 'faultsAck', 'srDrafts', 'vchcfg', 'hotels', 'settings', 'employees', 'mgr', 'avail', 'shifts', 'schedule', 'requests', 'roles', 'joinCodes', 'config', 'menus', 'contracts', 'quotes', 'campaigns', 'suppliers', 'invoices', 'expcfg', 'inventory', 'purchaseReqs', 'shiftReports', 'faults', 'hk', 'hkcfg', 'hkLog', 'hkComplaints', 'leads', 'tasks', 'clients', 'hkCalls', 'spa', 'spacfg', 'vouchers'];
+const BACKUP_COLLS = ['guestReqs', 'broadcasts', 'waauto', 'waChats', 'srImgs', 'shiftKinds', 'signs', 'receipts', 'orgcfg', 'groups', 'agents', 'priceLists', 'jobRoles', 'vchCodes', 'hkday', 'faultsAck', 'srDrafts', 'vchcfg', 'hotels', 'settings', 'employees', 'mgr', 'avail', 'shifts', 'schedule', 'requests', 'roles', 'joinCodes', 'config', 'menus', 'contracts', 'quotes', 'campaigns', 'suppliers', 'invoices', 'expcfg', 'inventory', 'purchaseReqs', 'shiftReports', 'faults', 'hk', 'hkcfg', 'hkLog', 'hkComplaints', 'leads', 'tasks', 'clients', 'hkCalls', 'spa', 'spacfg', 'vouchers'];
 const plain = (v) => {
   if (v instanceof admin.firestore.Timestamp) return { seconds: v.seconds, nanoseconds: v.nanoseconds };
   if (Array.isArray(v)) return v.map(plain);
@@ -875,7 +875,53 @@ async function waSave(chatId, msgId, data, chatUp) {
   await cref.set({ waId: chatId, phone: waLocal(chatId), ...chatUp }, { merge: true });
   return true;
 }
+// Arsona AI guest-messaging alerts (owner, Nov 15). Optional waauto/main.arsonaFrom = "05x..., 05y..." limits the sender numbers.
+const ARS_T = { 'agent required': 'agent', 'potential lead': 'lead', 'missing information': 'missing' };
+const ARS_F = [['סוג הפנייה', 'kind'], ['סיבת הפנייה', 'reason'], ['פרטי המקרה', 'reason'], ['שם האורח', 'guest'], ['טלפון', 'phone'], ['אימייל', 'email'], ['מייל', 'email'], ['מספר הזמנה', 'conf'], ['חדר', 'room'], ['יחידה', 'room'], ['ערוץ', 'channel'], ['מועד', 'when'], ['סיכום', 'summary'], ['מלון', 'hotelTxt']];
+async function arsHotel(txt) {
+  const s = String(txt || '').toLowerCase();
+  const A = [[/seas|סיז|blueberry|בלובר/, 'sevenseas'], [/gutman|גוטמן|boheme/, 'boheme'], [/hostel|הוסטל|180|קפסול/, 'hostel'], [/7even|seven|סבן|beach|sola/, 'sola']];
+  const hs = await db.collection('hotels').get();
+  // the regex names a venue; the hotel is the one whose settings.venues has it, else the one whose name matches
+  const st = await db.collection('settings').get(), byVen = {};
+  st.forEach((d) => (d.data().venues || []).forEach((v) => { if (!byVen[v]) byVen[v] = d.id; }));
+  for (const [re, ven] of A) if (re.test(s)) {
+    const d = hs.docs.find((x) => re.test(String(x.data().name || '').toLowerCase())); if (d) return d.id;
+    if (byVen[ven]) return byVen[ven];
+  }
+  return '';
+}
+async function arsonaIn(m) {
+  const t = String((m.text && m.text.body) || ''), head = t.split('\n')[0] || '';
+  const tm = /(agent required|potential lead|missing information)/i.exec(head);
+  if (!tm || !/סוג הפנייה|שם האורח/.test(t)) return false;
+  let cfg = {}; try { cfg = (await db.doc('waauto/main').get()).data() || {}; } catch (e) { }
+  const from = String(cfg.arsonaFrom || '').split(/[,;\s]+/).map(waIdFrom).filter(Boolean);
+  if (from.length && !from.includes(m.from)) return false;
+  const f = {}; let cur = null;
+  for (const ln of t.split('\n').slice(1)) {
+    const x = ln.replace(/^[^\p{L}\d]+/u, '').trim(); if (!x) continue;
+    const i = x.indexOf(':'), lab = i > 0 ? x.slice(0, i) : '', hit = lab && ARS_F.find(([w]) => lab.includes(w));
+    if (hit) { cur = hit[1]; const v = x.slice(i + 1).trim(); if (v && v !== '-') f[cur] = (f[cur] ? f[cur] + '\n' : '') + v; }
+    else if (cur) f[cur] = (f[cur] ? f[cur] + '\n' : '') + x;
+  }
+  // shifted fields: take e-mail / phone from anywhere; a number in the e-mail line is the confirmation
+  const em = /[\w.+-]+@[\w-]+\.[\w.-]+/.exec(t), ph = /(\+?972|0)5\d[\s-]?\d{3}[\s-]?\d{4}/.exec(t);
+  if (f.email && !f.email.includes('@')) { if (!f.conf && /^\d{5,}$/.test(f.email)) f.conf = f.email; f.email = ''; }
+  if (!f.email && em) f.email = em[0];
+  if (!/\d{7,}/.test(String(f.phone || '').replace(/\D/g, ''))) f.phone = ph ? ph[0].replace(/[\s-]/g, '') : '';
+  const hotel = await arsHotel((head.split('|')[1] || '') + ' ' + (f.hotelTxt || '')), type = ARS_T[tm[1].toLowerCase()] || 'agent';
+  const at = (+m.timestamp || Date.now() / 1000) * 1000, ref = db.doc('guestReqs/ars_' + String(m.id).replace(/[^A-Za-z0-9_-]/g, '').slice(-60));
+  const doc = { type, hotel, hotelTxt: String(f.hotelTxt || head.split('|')[1] || '').trim().slice(0, 80), at, status: 'open', assignee: '', assigneeName: '', leadId: '', from: m.from, raw: t.slice(0, 4000), createdAt: Date.now(), acts: [] };
+  for (const k of ['kind', 'reason', 'guest', 'phone', 'email', 'conf', 'room', 'channel', 'when', 'summary']) doc[k] = String(f[k] || '').slice(0, 1500);
+  try { await ref.create(doc); } catch (e) { return true; } // webhook repeat
+  const to = await roleHolders(hotel, ['greq']); // ONLY holders of the "פניות אורחים" permission (+ the owner) (owner, Nov 15)
+  const L = { agent: '🔴 נדרש נציג', lead: '🟢 ליד פוטנציאלי', missing: '🟡 חסר מידע' }[type];
+  await sendTo(to, { title: `${L} · ${(hotel && await hotelName(hotel)) || doc.hotelTxt || 'ארסונה'}`, body: [doc.guest, doc.kind, doc.reason || doc.summary].filter(Boolean).join(' · ').slice(0, 170), hash: '#greq?r=' + ref.id, tag: 'greq-' + ref.id });
+  return true;
+}
 async function waIncoming(m, name, push) {
+  if (m.type === 'text' && await arsonaIn(m)) return; // Arsona alert → guestReqs, not a chat/lead
   const chat = m.from, at = (+m.timestamp || Date.now() / 1000) * 1000, text = waText(m);
   const cref = db.doc('waChats/' + chat), cs = await cref.get(), c = cs.exists ? cs.data() : {};
   const up = { lastAt: at, lastText: text.slice(0, 200), lastDir: 'in', lastInAt: at, unread: admin.firestore.FieldValue.increment(1), status: 'open' };

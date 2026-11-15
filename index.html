@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202611151600"></script>
+<script src="i18n.js?v=202611151730"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -529,7 +529,7 @@ function kindsFor(dept){const k=(cfg().deptKinds||{})[dept],base=Array.isArray(k
   return [...new Set(base.concat(KINDS.filter(x=>x.custom&&(x.depts||[]).includes(dept)).map(x=>x.k)))]}
 const hrsOf=(a,b)=>{a=toMin(a);b=toMin(b);if(b<=a)b+=1440;return (b-a)/60};
 const openWeek=()=>cfg().openWeek||addDays(weekOf(todayISO()),7);
-const APPTABS=['pchains','pperms','pjobs','pbk','org','grp','pub','bar','rates','cfg','vch','cmp','spa','hr','perms','ceo','mkt','exp','gm','stock','brief','front','maint','fin','hk','leads'];
+const APPTABS=['greq','pchains','pperms','pjobs','pbk','org','grp','pub','bar','rates','cfg','vch','cmp','spa','hr','perms','ceo','mkt','exp','gm','stock','brief','front','maint','fin','hk','leads'];
 const deptOk=k=>!S.deptOnly||S.myDepts.includes(k);
 const myDEPTS=()=>DEPTS.filter(d=>deptOk(d.k));
 const isActive=u=>S.mgr[u]?.active!==false;
@@ -822,7 +822,7 @@ function renderTop(){
   ${S.ready&&!S.registering&&S.auth==='in'&&!APPTABS.includes(S.tab)?`<nav class="wrap tabs" aria-label="ניווט">${tabs.map(([k,n])=>`<button data-act="tab" data-t="${k}" ${S.tab===k?'aria-current="page"':''}>${n}</button>`).join('')}</nav>`:''}<div id="topx"></div>`;
 }
 function renderDrawer(){const el=$('#drawer');if(!S.menu||S.auth!=='in'){el.innerHTML='';return}
-  const items=S.pmode?[['org','רשתות ומלונות','data-act="ptab" data-t="pchains"',S.tab==='pchains'],['perms','הרשאות רשתות','data-act="ptab" data-t="pperms"',S.tab==='pperms'],['hr','תפקידים','data-act="ptab" data-t="pjobs"',S.tab==='pjobs'],['ceo','גיבויים','data-act="ptab" data-t="pbk"',S.tab==='pbk']]:S.registering?[]:S.station?[['front','קבלה','data-act="app-front"',S.tab==='front'],['hk','משק','data-act="app-hk"',S.tab==='hk'],['pub','שטחים ציבוריים','data-act="app-pub"',S.tab==='pub'],['grp','קבוצות','data-act="app-grp"',S.tab==='grp']].filter(x=>S.can[x[0]]||(x[0]==='grp'&&grpFOk())):[['shifts','סידור עבודה','data-act="app-shifts"',!APPTABS.includes(S.tab)],S.can.hr&&['hr','עובדים','data-act="app-hr"',S.tab==='hr'],S.can.events&&['events','אירועים','href="events.html"',false],S.can.spa&&['spa','ספא','data-act="app-spa"',S.tab==='spa'],(S.can.grp||grpFOk())&&['grp','קבוצות','data-act="app-grp"',S.tab==='grp'],S.can.events&&['leads','לידים ומכירות'+(()=>{const n=S.can&&S.can.events?waUnread()+myTasksDue()+myLateLeads():0;return n?` (${n})`:''})(),'data-act="app-leads"',S.tab==='leads'],S.can.front&&['front','קבלה','data-act="app-front"',S.tab==='front'],S.can.brief&&['brief','בריף יומי','data-act="app-brief"',S.tab==='brief'],S.can.gm&&['gm','מנהל מלון','data-act="app-gm"',S.tab==='gm'],S.can.ceo&&['ceo','מבט מנכ״ל','data-act="app-ceo"',S.tab==='ceo'],S.can.fin&&['fin','כספים'+(finPendingAll()?` (${finPendingAll()})`:''),'data-act="app-fin"',S.tab==='fin'],S.can.hk&&['hk','משק','data-act="app-hk"',S.tab==='hk'],S.can.pub&&['pub','שטחים ציבוריים','data-act="app-pub"',S.tab==='pub'],S.can.bar&&['bar','בר','data-act="app-bar"',S.tab==='bar'],S.can.rates&&['ceo','השוואת מחירים','data-act="app-rates"',S.tab==='rates'],S.can.cmp&&['cmp','תלונות אורחים','data-act="app-cmp"',S.tab==='cmp'],(S.can.vch||S.can.vchr)&&['vch','שוברים','data-act="app-vch"',S.tab==='vch'],S.can.maint&&['maint','אחזקה'+(()=>{const o=(S.can.gm||S.can.shifts||S.isOwner)?openFaultsN():0,r=S.can.maint?recurRooms(Object.values(S.alertFaultsAll||{})).length:0;return o||r?` (${[o?o+' פתוחות':'',r?r+' חוזרת':''].filter(Boolean).join(' · ')})`:''})(),'data-act="app-maint"',S.tab==='maint'],S.can.stock&&['stock','מלאי'+((S.can.gm||S.can.shifts||S.isOwner)&&lowItems().length?` (${lowItems().length} במינימום)`:''),'data-act="app-stock"',S.tab==='stock'],S.can.mkt&&['mkt','סושיאל מדיה','data-act="app-mkt"',S.tab==='mkt'],S.can.exp&&['exp','הוצאות','data-act="app-exp"',S.tab==='exp'],(S.isOwner||S.can.shifts)&&['cfg','הגדרות מלון','data-act="app-cfg"',S.tab==='cfg'],(S.isOwner||S.can.perms)&&['org','הגדרות רשת','data-act="app-org"',S.tab==='org']].filter(Boolean);
+  const items=S.pmode?[['org','רשתות ומלונות','data-act="ptab" data-t="pchains"',S.tab==='pchains'],['perms','הרשאות רשתות','data-act="ptab" data-t="pperms"',S.tab==='pperms'],['hr','תפקידים','data-act="ptab" data-t="pjobs"',S.tab==='pjobs'],['ceo','גיבויים','data-act="ptab" data-t="pbk"',S.tab==='pbk']]:S.registering?[]:S.station?[['front','קבלה','data-act="app-front"',S.tab==='front'],['hk','משק','data-act="app-hk"',S.tab==='hk'],['pub','שטחים ציבוריים','data-act="app-pub"',S.tab==='pub'],['grp','קבוצות','data-act="app-grp"',S.tab==='grp']].filter(x=>S.can[x[0]]||(x[0]==='grp'&&grpFOk())):[['shifts','סידור עבודה','data-act="app-shifts"',!APPTABS.includes(S.tab)],S.can.hr&&['hr','עובדים','data-act="app-hr"',S.tab==='hr'],S.can.events&&['events','אירועים','href="events.html"',false],S.can.spa&&['spa','ספא','data-act="app-spa"',S.tab==='spa'],(S.can.grp||grpFOk())&&['grp','קבוצות','data-act="app-grp"',S.tab==='grp'],S.can.events&&['leads','לידים ומכירות'+(()=>{const n=S.can&&S.can.events?waUnread()+myTasksDue()+myLateLeads():0;return n?` (${n})`:''})(),'data-act="app-leads"',S.tab==='leads'],S.can.front&&['front','קבלה','data-act="app-front"',S.tab==='front'],S.can.brief&&['brief','בריף יומי','data-act="app-brief"',S.tab==='brief'],S.can.gm&&['gm','מנהל מלון','data-act="app-gm"',S.tab==='gm'],S.can.ceo&&['ceo','מבט מנכ״ל','data-act="app-ceo"',S.tab==='ceo'],S.can.fin&&['fin','כספים'+(finPendingAll()?` (${finPendingAll()})`:''),'data-act="app-fin"',S.tab==='fin'],S.can.hk&&['hk','משק','data-act="app-hk"',S.tab==='hk'],S.can.pub&&['pub','שטחים ציבוריים','data-act="app-pub"',S.tab==='pub'],S.can.bar&&['bar','בר','data-act="app-bar"',S.tab==='bar'],S.can.rates&&['ceo','השוואת מחירים','data-act="app-rates"',S.tab==='rates'],S.can.cmp&&['cmp','תלונות אורחים','data-act="app-cmp"',S.tab==='cmp'],S.can.greq&&['cmp','פניות אורחים'+(()=>{greqSub();const n=greqOpenN();return n?` (${n})`:''})(),'data-act="app-greq"',S.tab==='greq'],(S.can.vch||S.can.vchr)&&['vch','שוברים','data-act="app-vch"',S.tab==='vch'],S.can.maint&&['maint','אחזקה'+(()=>{const o=(S.can.gm||S.can.shifts||S.isOwner)?openFaultsN():0,r=S.can.maint?recurRooms(Object.values(S.alertFaultsAll||{})).length:0;return o||r?` (${[o?o+' פתוחות':'',r?r+' חוזרת':''].filter(Boolean).join(' · ')})`:''})(),'data-act="app-maint"',S.tab==='maint'],S.can.stock&&['stock','מלאי'+((S.can.gm||S.can.shifts||S.isOwner)&&lowItems().length?` (${lowItems().length} במינימום)`:''),'data-act="app-stock"',S.tab==='stock'],S.can.mkt&&['mkt','סושיאל מדיה','data-act="app-mkt"',S.tab==='mkt'],S.can.exp&&['exp','הוצאות','data-act="app-exp"',S.tab==='exp'],(S.isOwner||S.can.shifts)&&['cfg','הגדרות מלון','data-act="app-cfg"',S.tab==='cfg'],(S.isOwner||S.can.perms)&&['org','הגדרות רשת','data-act="app-org"',S.tab==='org']].filter(Boolean);
   el.innerHTML=`<div class="drawer-bg" data-act="menu-close"></div><nav class="drawer" aria-label="אפליקציות">
     <div class="drawer-h"><b>${esc(S.pmode?platName():appName())}</b><button class="x" data-act="menu-close" aria-label="סגירה">×</button></div>
     <div class="drawer-who">${esc(S.meName||'')}${S.meName&&(S.email||S.phone)?'<br>':''}<bdi>${esc(String(S.email||S.phone||'').replace('@'+USER_DOMAIN,''))}</bdi></div>
@@ -846,7 +846,7 @@ function viewHTML(){
   if(!S.admin&&S.tab!=='mine'&&myPending().length){const b=`<div class="wrap" style="padding-top:12px"><div class="notice" style="display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap"><span>יש לך ${myPending().length} בקשות מהמנהל לשינוי משמרות</span><button class="btn sm pri" data-act="tab" data-t="mine">לצפייה ואישור</button></div></div>`;const v=viewInner();return b+v}
   return viewInner()}
 function viewInner(){
-  switch(S.tab){case 'sched':return vSched();case 'shifts':return vShifts();case 'staff':case 'hr':return S.can.hr?vHr():'';case 'spa':return S.can.spa?vSpa():'';case 'rates':return S.can.rates?vRates():'';case 'bar':return S.can.bar?vBar():'';case 'cmp':return S.can.cmp?vCmp():'';case 'vch':return S.can.vch||S.can.vchr?vVch():'';case 'costs':return vCosts();case 'settings':return vSettings();case 'perms':return S.can.perms?vPerms():'';case 'cfg':return S.isOwner||S.can.shifts?vCfg():'';case 'org':return S.isOwner||S.can.perms?vOrg():'';case 'pchains':return S.plat?vPChains():'';case 'pperms':return S.plat?vPPerms():'';case 'pjobs':return S.plat?vPJobs():'';case 'pbk':return S.plat?vPBk():'';case 'ceo':return S.can.ceo?vCeo():'';case 'mkt':return S.can.mkt?vMkt():'';case 'exp':return S.can.exp?vExp():'';case 'gm':return S.can.gm?vGm():'';case 'brief':return S.can.brief?vBrief():'';case 'front':return S.can.front?vFront():'';case 'maint':return S.can.maint?vMaint():'';case 'hk':return S.can.hk?vHk():'';case 'pub':return S.can.pub?vPub():'';case 'grp':return S.can.grp?vGrp():grpFOk()?vGrpFront():'';case 'leads':return S.can.events?vLeads():'';case 'fin':return S.can.fin?vFin():'';case 'stock':return S.can.stock?vStock():'';
+  switch(S.tab){case 'sched':return vSched();case 'shifts':return vShifts();case 'staff':case 'hr':return S.can.hr?vHr():'';case 'spa':return S.can.spa?vSpa():'';case 'rates':return S.can.rates?vRates():'';case 'bar':return S.can.bar?vBar():'';case 'cmp':return S.can.cmp?vCmp():'';case 'greq':return S.can.greq?vGreq():'';case 'vch':return S.can.vch||S.can.vchr?vVch():'';case 'costs':return vCosts();case 'settings':return vSettings();case 'perms':return S.can.perms?vPerms():'';case 'cfg':return S.isOwner||S.can.shifts?vCfg():'';case 'org':return S.isOwner||S.can.perms?vOrg():'';case 'pchains':return S.plat?vPChains():'';case 'pperms':return S.plat?vPPerms():'';case 'pjobs':return S.plat?vPJobs():'';case 'pbk':return S.plat?vPBk():'';case 'ceo':return S.can.ceo?vCeo():'';case 'mkt':return S.can.mkt?vMkt():'';case 'exp':return S.can.exp?vExp():'';case 'gm':return S.can.gm?vGm():'';case 'brief':return S.can.brief?vBrief():'';case 'front':return S.can.front?vFront():'';case 'maint':return S.can.maint?vMaint():'';case 'hk':return S.can.hk?vHk():'';case 'pub':return S.can.pub?vPub():'';case 'grp':return S.can.grp?vGrp():grpFOk()?vGrpFront():'';case 'leads':return S.can.events?vLeads():'';case 'fin':return S.can.fin?vFin():'';case 'stock':return S.can.stock?vStock():'';
     case 'avail':return vAvail();case 'mine':return vMine();case 'daily':return vDailyEmp();case 'profile':return vProfile()}
   return '';
 }
@@ -1894,6 +1894,56 @@ function vCmp(){const hs=modHs('cmp',cmpHotels());if(!hs.length)return wrap(empt
       ${c.voucherId?`<button class="btn sm ghost" data-act="cmp-vch-open" data-v="${esc(c.voucherId)}" ${S.can.vch||S.can.vchr?'':'disabled'}>🎁 שובר ${esc(c.voucherCode||'')}</button>`:S.can.vch?`<button class="btn sm" data-act="cmp-vch" data-id="${id}">🎁 שובר פיצוי</button>`:''}${c.status==='done'?`<span class="pill ok">טופל</span><button class="btn sm ghost" data-act="cmp-reopen" data-id="${id}">פתיחה מחדש</button>`:`<input type="text" data-f="cmpn.${id}" value="${esc(dv('cmpn',id,''))}" placeholder="מה נעשה? (לא חובה)" style="max-width:220px"><button class="btn sm pri" data-act="cmp-done" data-id="${id}">סימון שטופל</button>`}</div>`).join('');
   const srCards=(S.cmpH==='all'?hs:[S.cmpH]).map(h=>srPubMonthHTML(h,'דוחות סוף משמרת'+(hs.length>1?' · '+hotelName(h):''))).join('');
   return wrap(head+k+`<div class="card"><h3>תלונות · ${list.length}</h3>${tabs}${rows?`<div class="plist">${rows}</div>`:'<p class="muted">אין תלונות בחודש הזה 🎉</p>'}<p class="muted" style="font-size:.8rem;margin-top:8px">התלונות נפתחות בעמוד הקבלה, בכרטיס "תלונת אורח".</p></div>`+srCards)}
+/* ---------- guest requests from Arsona (greq app, owner Nov 15): only greq holders + the owner ---------- */
+const GREQ_T={agent:['🔴 נדרש נציג','#E23022'],lead:['🟢 ליד פוטנציאלי','#16A34A'],missing:['🟡 חסר מידע','#D97706']};
+const GREQ_ST={open:'פתוחה',taken:'בטיפול',done:'טופלה'};
+const greqHs=()=>S.isOwner||!(S.role&&Array.isArray(S.role.hotels)&&S.role.hotels.length)?null:S.role.hotels.slice(0,10);
+function greqSub(){if(!S.can||!S.can.greq||S.live.greq)return;S.live.greq=true;S.greq=S.greq||{};const hs=greqHs();
+  let q=fdb.collection('guestReqs');if(hs)q=q.where('hotel','in',hs.length?hs:['-']);
+  q.onSnapshot(x=>{S.greq=docsMap(x);S.greqErr='';render()},e=>{S.greqErr=errMsg(mapErr(e));render()})}
+const greqOpenN=()=>Object.values(S.greq||{}).filter(r=>r.status!=='done').length;
+// people who may take a request of hotel h: greq holders whose hotels include it (owner too)
+const greqPeople=h=>{const out=Object.entries(S.roles||{}).filter(([,r])=>r&&!r.station&&r.apps&&r.apps.greq&&(!(r.hotels||[]).length||(h&&r.hotels.includes(h)))).map(([u])=>u);if(S.isOwner&&!out.includes(S.uid))out.push(S.uid);return out};
+function greqUp(id,up,txt){const r=(S.greq||{})[id];if(!r)return;const now=Date.now();up.acts=[...(r.acts||[]),{at:now,by:S.uid,byName:S.meName||empName(S.uid)||'',text:txt}].slice(-30);up.updatedAt=now;
+  const old={...r};S.greq[id]={...r,...up};render();fdb.doc('guestReqs/'+id).update(up).then(()=>toast(txt),e=>{S.greq[id]=old;render();toast('לא נשמר: '+errMsg(mapErr(e)))})}
+async function greqLead(id){const r=(S.greq||{})[id];if(!r||r.leadId)return;const venue=((S.settingsAll||{})[r.hotel]||{}).venues?.[0]||'';
+  if(!venue&&leadScope()){toast('לא ידוע לאיזה מקום הפנייה שייכת, אי אפשר לפתוח ליד');return}
+  const now=Date.now(),lid='l'+now.toString(36)+Math.random().toString(36).slice(2,6),me=S.meName||empName(S.uid)||'';
+  const o={name:r.guest||'אורח ארסונה',phone:r.phone||'',email:r.email||'',company:'',type:'',date:'',guests:0,venue,source:'arsona',campaign:'',stage:'new',owner:'',ownerName:'',nextAt:todayISO(),value:0,
+    notes:[r.summary,r.reason,r.conf&&'הזמנה '+r.conf,r.room].filter(Boolean).join('\n'),createdAt:now,createdBy:S.uid,updatedAt:now,acts:[{at:now,by:S.uid,byName:me,kind:'note',text:'נוצר מפניית ארסונה'}]};
+  try{await fdb.doc('leads/'+lid).set(o);S.leads=S.leads||{};S.leads[lid]=o;greqUp(id,{leadId:lid},'נפתח ליד')}catch(e){toast('הליד לא נפתח: '+errMsg(mapErr(e)))}}
+function arsCfgHTML(){if(!S.isOwner)return '';waAutoSub();const v=dv('arsf','v',(S.waAuto||{}).arsonaFrom||'');
+  return `<div class="card"><h3>מספרי ארסונה (לא חובה)</h3><p class="muted" style="font-size:.85rem">התראות של ארסונה שמגיעות למספר המערכת נכנסות לעמוד "פניות אורחים" ולא נפתחות כשיחה או ליד. אפשר לרשום כאן את המספרים שארסונה שולחת מהם, ואז רק הודעות מהם ייחשבו להתראות. ריק = כל הודעה במבנה של ארסונה.</p>
+    <div class="actions"><input type="text" data-f="arsf.v" value="${esc(v)}" placeholder="למשל 050-0000000, 052-0000000" style="flex:1"><button class="btn sm pri" data-act="ars-save">שמירה</button></div></div>`}
+function vGreq(){greqSub();const F=S.greqF||(S.greqF={st:'act',t:'all',h:'all'});
+  const all=Object.entries(S.greq||{}),hs=[...new Set(all.map(([,r])=>r.hotel||''))];
+  const hn=h=>h?hotelName(h):'מלון לא מזוהה',chip=(k,v,n)=>`<button class="dchip ${F[k]===v?'':'off'}" data-act="greq-f" data-k="${k}" data-v="${v}">${n}</button>`;
+  const head=`<section class="head"><div class="head-t"><h1>פניות אורחים</h1></div><p class="lede">התראות מארסונה: אורח שצריך נציג, ליד פוטנציאלי או מידע חסר. לוקחים לטיפול, יוצרים קשר עם האורח ומסמנים שטופל.</p>
+    <div class="chips" style="gap:6px">${chip('st','act','פתוחות')}${chip('st','taken','בטיפול')}${chip('st','done','טופלו')}${chip('st','all','הכל')}</div>
+    <div class="chips" style="gap:6px;margin-top:6px">${chip('t','all','כל הסוגים')}${Object.entries(GREQ_T).map(([k,[n]])=>chip('t',k,n)).join('')}</div>
+    ${hs.length>1?`<div class="chips" style="gap:6px;margin-top:6px">${chip('h','all','כל המלונות')}${hs.map(h=>chip('h',h,esc(hn(h)))).join('')}</div>`:''}</section>`;
+  if(S.greqErr)return wrap(head+`<div class="notice">לא הצלחתי לטעון: ${esc(S.greqErr)}</div>`);
+  const list=all.filter(([,r])=>(F.st==='all'||(F.st==='act'?r.status!=='done':r.status===F.st))&&(F.t==='all'||r.type===F.t)&&(F.h==='all'||(r.hotel||'')===F.h)).sort(([,a],[,b])=>(b.at||0)-(a.at||0));
+  const boss=S.isOwner||S.can.perms,ev=S.can.events;
+  const card=([id,r])=>{const [tl,col]=GREQ_T[r.type]||GREQ_T.agent,txt=r.reason||r.summary||'',wa=r.phone&&waIdOf(r.phone);
+    const ppl=boss?greqPeople(r.hotel):[];
+    return `<div class="prow" style="flex-direction:column;align-items:stretch;gap:4px;border-inline-start:5px solid ${col};padding-inline-start:10px">
+      <div class="actions" style="justify-content:space-between;align-items:center"><b style="color:${col}">${tl}</b><small class="muted">${esc(r.hotel?hotelName(r.hotel):r.hotelTxt||'')} · לפני ${ageText(r.at||r.createdAt||Date.now())}</small></div>
+      <b style="font-size:1.05rem">${esc(r.guest||'אורח')}</b>
+      <small class="muted">${[r.conf&&'הזמנה '+r.conf,r.room&&'חדר '+r.room,r.channel&&'ערוץ '+r.channel,r.kind].filter(Boolean).map(esc).join(' · ')}</small>
+      ${txt?`<div style="display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;white-space:pre-wrap">${esc(txt)}</div>`:''}
+      ${r.summary&&r.reason?`<small class="muted" style="white-space:pre-wrap">💡 ${esc(r.summary)}</small>`:''}
+      <details><summary class="muted" style="font-size:.82rem;cursor:pointer">טקסט מלא</summary><pre style="white-space:pre-wrap;font:inherit;font-size:.85rem;margin:4px 0">${esc(r.raw||'')}</pre></details>
+      <div class="actions" style="align-items:center;flex-wrap:wrap"><span class="pill ${r.status==='done'?'ok':r.status==='taken'?'warn':'bad'}">${GREQ_ST[r.status]||''}${r.status==='taken'&&r.assigneeName?' · '+esc(r.assigneeName):''}${r.status==='done'&&r.doneByName?' · '+esc(r.doneByName):''}</span>
+        ${r.status!=='done'&&r.assignee!==S.uid?`<button class="btn sm pri" data-act="greq-take" data-id="${id}">אני מטפל/ת</button>`:''}
+        ${r.phone?`<a class="btn sm" href="tel:${esc(r.phone)}">📞 ${esc(r.phone)}</a>`:''}${wa&&ev?`<a class="btn sm" href="#leads?wa=${wa}">💬 וואטסאפ</a>`:''}${r.email?`<a class="btn sm" href="mailto:${esc(r.email)}">✉️ מייל</a>`:''}
+        ${r.leadId?(ev?`<a class="btn sm ghost" href="#leads?lead=${esc(r.leadId)}">פתח ליד</a>`:''):ev?`<button class="btn sm" data-act="greq-lead" data-id="${id}">הפוך לליד</button>`:''}</div>
+      ${boss&&r.status!=='done'&&ppl.length>1?`<div class="actions" style="align-items:center"><select data-f="greqa.${id}"><option value="">שיוך לעובד…</option>${ppl.map(u=>`<option value="${esc(u)}" ${dv('greqa',id,'')===u?'selected':''}>${esc(empName(u)||'ללא שם')}</option>`).join('')}</select><button class="btn sm" data-act="greq-asg" data-id="${id}">שיוך</button></div>`:''}
+      ${r.status!=='done'?`<div class="actions" style="align-items:center"><input type="text" data-f="greqn.${id}" value="${esc(dv('greqn',id,''))}" placeholder="הערה (לא חובה)" style="flex:1"><button class="btn sm" data-act="greq-done" data-id="${id}">טופל ✓</button></div>`
+        :`${r.note?`<small>📝 ${esc(r.note)}</small>`:''}<div><button class="btn sm ghost" data-act="greq-reopen" data-id="${id}">פתיחה מחדש</button></div>`}
+      ${(r.acts||[]).length?`<small class="muted">${r.acts.slice(-4).map(a=>`${new Date(a.at).toLocaleString('he-IL',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})} ${esc(a.byName||'')}: ${esc(a.text||'')}`).join(' · ')}</small>`:''}
+    </div>`};
+  return wrap(head+`<div class="card"><h3>פניות · ${list.length}</h3>${list.length?`<div class="plist">${list.map(card).join('')}</div>`:'<p class="muted">אין פניות כאן 🎉</p>'}</div>`)}
 /* ---------- employees page (hr app): the only place employees are created and edited; new self-registered employees have no department until hr sets it ---------- */
 const hrHotels=()=>{const all=hotelIds();if(S.isOwner||!(S.role&&Array.isArray(S.role.hotels)&&S.role.hotels.length))return all;return all.filter(h=>S.role.hotels.includes(h))};
 const hrNoDept=()=>S.can&&S.can.hr?Object.entries(S.emps||{}).filter(([u,e])=>hrHotels().includes(e.hotel||'main')&&!(e.depts||[]).length&&!e.mgmt&&(e.hotel||'main')!==CHAIN).length:0;
@@ -2170,7 +2220,7 @@ function sheetCamp(){const id=S.sheet.id,c=(S.camps||{})[id]||{},g=k=>dv('camp',
    "יצירת הצעת מחיר" hands the lead to events.html through localStorage (sc_leadPrefill) and the saved quote keeps leadId. */
 const LEAD_STAGES=[['new','ליד חדש'],['contacted','נוצר קשר'],['meeting','פגישה / סיור'],['quote','נשלחה הצעה'],['won','נסגר'],['lost','לא נסגר'],['junk','לא רלוונטי']];
 const LSTG=Object.fromEntries(LEAD_STAGES),LSTG_I=Object.fromEntries(LEAD_STAGES.map(([k],i)=>[k,i]));
-const LEAD_SRC=[['instagram','אינסטגרם'],['facebook','פייסבוק'],['google','גוגל'],['tiktok','טיקטוק'],['website','אתר'],['whatsapp','וואטסאפ'],['phone','טלפון'],['email','מייל'],['referral','המלצה'],['returning','לקוח חוזר'],['walkin','הגיע למקום'],['other','אחר']];
+const LEAD_SRC=[['arsona','ארסונה'],['instagram','אינסטגרם'],['facebook','פייסבוק'],['google','גוגל'],['tiktok','טיקטוק'],['website','אתר'],['whatsapp','וואטסאפ'],['phone','טלפון'],['email','מייל'],['referral','המלצה'],['returning','לקוח חוזר'],['walkin','הגיע למקום'],['other','אחר']];
 const LSRC=Object.fromEntries(LEAD_SRC);
 const LEAD_ACTS=[['call','שיחה'],['whatsapp','וואטסאפ'],['email','מייל'],['meeting','פגישה / סיור'],['note','הערה']];
 const LACT=Object.fromEntries(LEAD_ACTS);
@@ -2584,7 +2634,7 @@ function waListHTML(f){waSub();leadCatsLive();const W=S.wapub||{},q=String(S.waQ
   const pass=([id,c])=>{const L=waLeadOf(id,c);if((F==='arch')!==waArch(id,c))return false;if(F==='wait'&&!waWait(c))return false;if(F==='unread'&&!(+c.unread>0))return false;if(F==='open'&&c.status==='done')return false;if(F==='done'&&c.status!=='done')return false;if(F==='win'&&!waOpenWin(c))return false;if(F==='lead'&&!L)return false;if(F==='nolead'&&L)return false;
     return !q||String(c.name||'').toLowerCase().includes(q)||(L&&String(L[1].name||'').toLowerCase().includes(q))||(qt.length>=4&&leadTel(waLocalOf(id)).includes(qt))||String(c.lastText||'').toLowerCase().includes(q)};
   const rows=all.filter(pass);
-  const head=(S.isOwner&&(S.waCfgOpen||!W.on)?waCfgHTML():'')+(!W.on?`<div class="notice">${S.isOwner?'וואטסאפ עוד לא מחובר. ממלאים את "חיבור וואטסאפ" למעלה.':'וואטסאפ עוד לא חובר למערכת. הבעלים מחבר אותו מהעמוד הזה.'}</div>`:'');
+  const head=(S.isOwner&&(S.waCfgOpen||!W.on)?waCfgHTML()+arsCfgHTML():'')+(!W.on?`<div class="notice">${S.isOwner?'וואטסאפ עוד לא מחובר. ממלאים את "חיבור וואטסאפ" למעלה.':'וואטסאפ עוד לא חובר למערכת. הבעלים מחבר אותו מהעמוד הזה.'}</div>`:'');
   if(S.waErr)return head+`<div class="notice bad">לא הצלחתי לטעון שיחות: ${esc(S.waErr)}</div>`;
   if(!S.waReady)return head+'<p class="muted">טוען שיחות…</p>';
   const wide=waWide(),sel=wide?S.waSel:'';
@@ -4461,7 +4511,7 @@ function joinCodeHTML(){const c={...cfg(),joinCode:validCode()};
   <p class="muted" style="font-size:.85rem">עובד חדש נכנס לאפליקציה, מתחבר ומקליד את הקוד, וכך הוא משויך ל${esc(hotelName(S.hotel))}. אפשר להחליף קוד בכל זמן, והקוד הישן מפסיק לעבוד.</p>
   <div class="actions" style="align-items:center">${c.joinCode?`<b class="code">${esc(c.joinCode)}</b>`:'<span class="muted">עוד אין קוד</span>'}<button class="btn" data-act="join-new">${c.joinCode?'החלפת קוד':'יצירת קוד'}</button></div>`}
 // full backup (owner): every collection to one JSON file in the same format the import reads
-const BACKUP_COLLS=['fixedExp','hkBlocks','barReports','barImgs','tours','spaShifts','spaHealth','spaQuotes','leadcats','broadcasts','waauto','waChats','srImgs','shiftKinds','signs','receipts','orgcfg','groups','agents','priceLists','jobRoles','vchCodes','hkday','faultsAck','srDrafts','vchcfg','hotels','settings','employees','mgr','avail','shifts','schedule','requests','roles','joinCodes','config','menus','contracts','quotes','campaigns','suppliers','invoices','expcfg','inventory','purchaseReqs','shiftReports','faults','hk','hkcfg','hkLog','hkComplaints','leads','tasks','clients','hkCalls','spa','spacfg','vouchers'];
+const BACKUP_COLLS=['guestReqs','fixedExp','hkBlocks','barReports','barImgs','tours','spaShifts','spaHealth','spaQuotes','leadcats','broadcasts','waauto','waChats','srImgs','shiftKinds','signs','receipts','orgcfg','groups','agents','priceLists','jobRoles','vchCodes','hkday','faultsAck','srDrafts','vchcfg','hotels','settings','employees','mgr','avail','shifts','schedule','requests','roles','joinCodes','config','menus','contracts','quotes','campaigns','suppliers','invoices','expcfg','inventory','purchaseReqs','shiftReports','faults','hk','hkcfg','hkLog','hkComplaints','leads','tasks','clients','hkCalls','spa','spacfg','vouchers'];
 const lastBackup=()=>{let l=0;try{l=+localStorage.getItem('scLastBackup')||0}catch(_){ }bkCfgLoad();return Math.max(l,+(S.bkCfg&&S.bkCfg.lastAt)||0)};
 // daily automatic backup to the owner's Google Drive: an Apps Script in their Drive calls the driveBackup function with the key in backupcfg/main
 const BK_FN='https://europe-west1-'+((CFG.firebase&&CFG.firebase.projectId)||'hotel-shifts')+'.cloudfunctions.net/driveBackup';
@@ -4595,9 +4645,9 @@ function roleHTML(u,e,isNew){if(!S.can.perms||isNew||e.manual||u===S.uid)return 
   return `<div class="sep"></div><h3>הרשאות</h3><p class="muted" style="font-size:.85rem">${r?esc(permSummary(r)):'עובד רגיל, בלי הרשאות ניהול.'}</p><div><button class="btn" data-act="perm-open" data-u="${u}">עריכת הרשאות</button></div>`}
 
 /* ---------- permissions page ---------- */
-const APPS=[['shifts','ניהול סידור עבודה','סידור, משמרות ועלויות במלונות שנבחרו'],['rates','השוואת מחירים','מחירי Booking Genius מול אתר הבית לכל מלון, מהסוכן שבודק מחירים. רואים רק את המלונות של העובד'],['vch','הנפקת שוברים','הנפקת שוברי פיצוי ושוברי מתנה (כספי, אחוזי הנחה או לשירות), שליחה לאורח עם קוד ו-QR, וביטול שובר'],['vchr','מימוש שוברים','מימוש שובר לפי קוד או סריקת QR, כולל מימוש חלקי של שובר כספי'],['cmp','תלונות אורחים','עמוד שמרכז את תלונות האורחים מדוחות סוף משמרת, לפי מלון. כל תלונה חדשה קופצת כהתראה'],['grp','קבוצות','עמוד הקבוצות: כל הקבוצות לפי תאריכים עם ההצעה של כל קבוצה (סוכן, מחיר ללילה, סה״כ), וניהול הסוכנים'],['spa','ספא','יומן הטיפולים בספא: הזנת טיפולים וצפייה בגריד השבועי. כל טיפול חדש קופץ כהתראה לכל מי שיש לו הרשאת ספא'],['hr','עובדים','עמוד העובדים: הקמת עובדים, שיוך למחלקות, שכר ופרטים. רק מי שיש לו את ההרשאה הזו מקים ועורך עובדים'],['events','אירועים','כל ההצעות, התפריטים והחוזים'],['perms','ניהול הרשאות','יכול לתת לאחרים רק הרשאות שיש לו בעצמו'],['front','קבלת המלון','רואה את סידור העבודה והאירועים של המלון ומזין את נתוני 10days'],['hk','משק','עמוד החדרים: עדכון מצב ניקיון ותחזוקה של החדרים. עובדי מחלקת משק מקבלים אותו אוטומטית, והקבלה מעדכנת גם את מצב ההזמנה'],['hkchk','בודק חדרים','בודק את החדרים שהחדרנים סימנו כנקיים, ומאשר אותם (VI → VC) או מחזיר לניקוי'],['maint','אחזקה','עמוד התקלות של המלונות שנבחרו: פתיחה, תאריך תיקון וסגירה'],['fin','כספים','מקבל התראה על כל דוח סוף משמרת ומאשר שהמזומן שהופקד הוא הסכום שנכתב'],['brief','בריף יומי','נתוני 10days, האירועים ומי במשמרת, לכל יום במלונות שנבחרו'],['gm','מנהל מלון','עמוד מנהל מלון עם כל נתוני המלונות שנבחרו, אישור דרישות רכש. לא נספר בהגשת משמרות'],['ceo','מנכ״ל','מבט מנכ״ל: עלויות עובדים, הוצאות והכנסות לפי חודש. לא נספר בהגשת משמרות'],['dept','מנהל מחלקה','מסדר רק את המחלקות שנבחרו, בלי שכר ועלויות'],['mkt','סושיאל מדיה','דוחות שבועיים של הרשתות: השקעה, לידים והכנסות'],['exp','הוצאות','ספקים, חשבוניות ומעקב אחרי מחירים']];
+const APPS=[['shifts','ניהול סידור עבודה','סידור, משמרות ועלויות במלונות שנבחרו'],['greq','פניות אורחים (ארסונה)','התראות מארסונה על אורחים שצריכים נציג, לידים פוטנציאליים ומידע חסר. רק מי שיש לו את ההרשאה הזו רואה את הפניות ומקבל עליהן התראה'],['rates','השוואת מחירים','מחירי Booking Genius מול אתר הבית לכל מלון, מהסוכן שבודק מחירים. רואים רק את המלונות של העובד'],['vch','הנפקת שוברים','הנפקת שוברי פיצוי ושוברי מתנה (כספי, אחוזי הנחה או לשירות), שליחה לאורח עם קוד ו-QR, וביטול שובר'],['vchr','מימוש שוברים','מימוש שובר לפי קוד או סריקת QR, כולל מימוש חלקי של שובר כספי'],['cmp','תלונות אורחים','עמוד שמרכז את תלונות האורחים מדוחות סוף משמרת, לפי מלון. כל תלונה חדשה קופצת כהתראה'],['grp','קבוצות','עמוד הקבוצות: כל הקבוצות לפי תאריכים עם ההצעה של כל קבוצה (סוכן, מחיר ללילה, סה״כ), וניהול הסוכנים'],['spa','ספא','יומן הטיפולים בספא: הזנת טיפולים וצפייה בגריד השבועי. כל טיפול חדש קופץ כהתראה לכל מי שיש לו הרשאת ספא'],['hr','עובדים','עמוד העובדים: הקמת עובדים, שיוך למחלקות, שכר ופרטים. רק מי שיש לו את ההרשאה הזו מקים ועורך עובדים'],['events','אירועים','כל ההצעות, התפריטים והחוזים'],['perms','ניהול הרשאות','יכול לתת לאחרים רק הרשאות שיש לו בעצמו'],['front','קבלת המלון','רואה את סידור העבודה והאירועים של המלון ומזין את נתוני 10days'],['hk','משק','עמוד החדרים: עדכון מצב ניקיון ותחזוקה של החדרים. עובדי מחלקת משק מקבלים אותו אוטומטית, והקבלה מעדכנת גם את מצב ההזמנה'],['hkchk','בודק חדרים','בודק את החדרים שהחדרנים סימנו כנקיים, ומאשר אותם (VI → VC) או מחזיר לניקוי'],['maint','אחזקה','עמוד התקלות של המלונות שנבחרו: פתיחה, תאריך תיקון וסגירה'],['fin','כספים','מקבל התראה על כל דוח סוף משמרת ומאשר שהמזומן שהופקד הוא הסכום שנכתב'],['brief','בריף יומי','נתוני 10days, האירועים ומי במשמרת, לכל יום במלונות שנבחרו'],['gm','מנהל מלון','עמוד מנהל מלון עם כל נתוני המלונות שנבחרו, אישור דרישות רכש. לא נספר בהגשת משמרות'],['ceo','מנכ״ל','מבט מנכ״ל: עלויות עובדים, הוצאות והכנסות לפי חודש. לא נספר בהגשת משמרות'],['dept','מנהל מחלקה','מסדר רק את המחלקות שנבחרו, בלי שכר ועלויות'],['mkt','סושיאל מדיה','דוחות שבועיים של הרשתות: השקעה, לידים והכנסות'],['exp','הוצאות','ספקים, חשבוניות ומעקב אחרי מחירים']];
 const roleApps=r=>r?(r.apps||{shifts:true}):{};
-function myApps(){if(S.isOwner)return {shifts:true,events:true,perms:true,ceo:true,dept:true,mkt:true,exp:true,gm:true,brief:true,front:true,maint:true,fin:true,hk:true,hkchk:true,hr:true,spa:true,grp:true,cmp:true,vch:true,vchr:true,rates:true};const a={...roleApps(S.role)};if(a.shifts)a.dept=true;if(a.gm||a.ceo)a.rates=true;return a}
+function myApps(){if(S.isOwner)return {shifts:true,events:true,perms:true,ceo:true,dept:true,mkt:true,exp:true,gm:true,brief:true,front:true,maint:true,fin:true,hk:true,hkchk:true,hr:true,spa:true,grp:true,cmp:true,vch:true,vchr:true,rates:true,greq:true};const a={...roleApps(S.role)};if(a.shifts)a.dept=true;if(a.gm||a.ceo)a.rates=true;return a}
 const grantDepts=()=>S.isOwner||roleApps(S.role).shifts?DEPTS:DEPTS.filter(d=>((S.role&&S.role.depts)||[]).includes(d.k));
 const allHotelsP=()=>S.isOwner||!(S.role&&Array.isArray(S.role.hotels)&&S.role.hotels.length);
 function grantableHotels(){return allHotelsP()?hotelIds():hotelIds().filter(h=>S.role.hotels.includes(h))}
@@ -5327,6 +5377,14 @@ const ACT={
     S.hkCmp[h+'|'+m]={...S.hkCmp[h+'|'+m],[D.id]:{...c,...up}};if(S.drafts.cmpn)delete S.drafts.cmpn[D.id];render();fdb.doc('hkComplaints/'+D.id).set(up,{merge:true}).then(()=>toast('סומן שטופל'),e=>toast('לא הצלחתי: '+errMsg(mapErr(e))))},
   'cmp-reopen':D=>{const [h,m,c]=cmpFind(D.id);if(!c)return;S.hkCmp[h+'|'+m]={...S.hkCmp[h+'|'+m],[D.id]:{...c,status:'open'}};render();fdb.doc('hkComplaints/'+D.id).set({status:'open'},{merge:true}).catch(e=>toast('לא הצלחתי: '+errMsg(mapErr(e))))},
   'app-cmp':()=>{S.menu=false;setTab('cmp')},
+  'app-greq':()=>{S.menu=false;setTab('greq')},
+  'greq-f':D=>{S.greqF={...(S.greqF||{st:'act',t:'all',h:'all'}),[D.k]:D.v};render()},
+  'greq-take':D=>greqUp(D.id,{status:'taken',assignee:S.uid,assigneeName:S.meName||empName(S.uid)||'',assignedAt:Date.now()},'לקח/ה לטיפול'),
+  'greq-asg':D=>{const u=dv('greqa',D.id,'');if(!u){toast('צריך לבחור למי');return}const n=empName(u)||'';greqUp(D.id,{status:'taken',assignee:u,assigneeName:n,assignedAt:Date.now()},'שויך ל'+n)},
+  'greq-done':D=>greqUp(D.id,{status:'done',doneBy:S.uid,doneByName:S.meName||empName(S.uid)||'',doneAt:Date.now(),note:String(dv('greqn',D.id,'')).trim().slice(0,500)},'טופל'),
+  'greq-reopen':D=>greqUp(D.id,{status:'open'},'נפתח מחדש'),
+  'greq-lead':D=>greqLead(D.id),
+  'ars-save':async()=>{const v=String(dv('arsf','v',(S.waAuto||{}).arsonaFrom||'')).trim();try{await fdb.doc('waauto/main').set({arsonaFrom:v},{merge:true});toast('נשמר')}catch(e){toast('לא נשמר: '+errMsg(mapErr(e)))}},
   'app-vch':()=>{S.menu=false;setTab('vch')},
   'hr-hotel':D=>{S.hrH=D.h;render()},
   'app-brief':()=>{S.menu=false;setTab('brief')},
@@ -6020,6 +6078,7 @@ function applyHash(){const H=location.hash||'',hb=H.split('?')[0],qp=new URLSear
   if(hb==='#bar'&&S.can.bar)S.tab='bar';
   if(hb==='#rates'&&S.can.rates)S.tab='rates';
   if(hb==='#cmp'&&S.can.cmp)S.tab='cmp';
+  if(hb==='#greq'&&S.can.greq)S.tab='greq';
   if(H.startsWith('#vch')&&(S.can.vch||S.can.vchr)){S.tab='vch';const m=H.match(/[?&]c=([A-Za-z0-9-]+)/);if(m)S.vchQ=m[1]}
   if(hb==='#ceo'&&S.can.ceo)S.tab='ceo';
   if(hb==='#mkt'&&S.can.mkt)S.tab='mkt';
@@ -6043,6 +6102,7 @@ function applyHash(){const H=location.hash||'',hb=H.split('?')[0],qp=new URLSear
   if(hb==='#hr'&&S.can.hr)dp('emp','e');
   if(hb==='#maint'&&S.can.maint)dp('fault','f');
   if(hb==='#cmp'&&S.can.cmp)dp('el','c');
+  if(hb==='#greq'&&S.can.greq&&qp.get('r')){dp('el','r');S.greqF={st:'all',t:'all',h:'all'}}
   if(hb==='#stock'&&S.can.stock)dp('el','pr');
   if(qp.get('inv'))S.deep={t:'inv',id:qp.get('inv'),at:Date.now()};
   if(qp.get('sr'))S.deep={t:'sr',id:qp.get('sr'),at:Date.now()};
@@ -6087,7 +6147,7 @@ async function start(u){
     if(hh){const hs=hh===CHAIN?[]:[...new Set([hh,...(S.role.extraHotels||[]).filter(x=>x&&x!==CHAIN)])];S.role={...S.role,hotels:hs,expHotels:(S.role.apps||{}).exp?hs.slice():[]}}}catch(_){ }}
   // what this person may use: managing shifts, the quotes app, managing permissions (set in the permissions page)
   const apps=S.role?(S.role.apps||{shifts:true}):{};
-  S.can={hkchk:S.isOwner||!!apps.hkchk,vch:S.isOwner||!!apps.vch,vchr:S.isOwner||!!apps.vchr,cmp:S.isOwner||!!apps.cmp,spa:S.isOwner||!!apps.spa,grp:S.isOwner||!!apps.grp,hr:S.isOwner||!!apps.hr,shifts:S.isOwner||!!apps.shifts,events:S.isOwner||!!apps.events,perms:S.isOwner||!!apps.perms,ceo:S.isOwner||!!apps.ceo,mkt:S.isOwner||!!apps.mkt,exp:S.isOwner||!!apps.exp,gm:S.isOwner||!!apps.gm,brief:S.isOwner||!!apps.brief||!!apps.gm,front:S.isOwner||!!apps.front,dept:!S.isOwner&&!apps.shifts&&!!apps.dept};
+  S.can={greq:S.isOwner||!!apps.greq,hkchk:S.isOwner||!!apps.hkchk,vch:S.isOwner||!!apps.vch,vchr:S.isOwner||!!apps.vchr,cmp:S.isOwner||!!apps.cmp,spa:S.isOwner||!!apps.spa,grp:S.isOwner||!!apps.grp,hr:S.isOwner||!!apps.hr,shifts:S.isOwner||!!apps.shifts,events:S.isOwner||!!apps.events,perms:S.isOwner||!!apps.perms,ceo:S.isOwner||!!apps.ceo,mkt:S.isOwner||!!apps.mkt,exp:S.isOwner||!!apps.exp,gm:S.isOwner||!!apps.gm,brief:S.isOwner||!!apps.brief||!!apps.gm,front:S.isOwner||!!apps.front,dept:!S.isOwner&&!apps.shifts&&!!apps.dept};
   // department manager: schedules only their departments, never sees pay
   S.deptOnly=S.can.dept;S.myDepts=S.deptOnly?((S.role&&S.role.depts)||[]):[];
   // department and hotel managers (without the shifts app) add manual employees to any department of their hotel, without pay
@@ -6103,7 +6163,7 @@ async function start(u){
   // employees, reception and department managers can't select or copy what's on screen (typing in fields still works); managers keep copy for WhatsApp etc.
   S.noCopy=!S.isOwner&&!(S.can.shifts||S.can.gm||S.can.ceo||S.can.fin||S.can.exp||S.can.perms||S.can.events||S.can.mkt);
   document.body.classList.toggle('nocopy',S.noCopy);
-  if(S.station){S.can={...S.can,hkchk:false,vch:false,vchr:false,cmp:false,spa:false,hr:false,front:true,brief:false,stock:false,events:false,perms:false,maint:false,fin:false};S.admin=false;S.deptOnly=false;S.myHotel=((S.role.hotels||[])[0])||'main';S.hotel=S.myHotel;S.meName=S.role.name||'קבלה';S.email=S.role.login||''}
+  if(S.station){S.can={...S.can,greq:false,hkchk:false,vch:false,vchr:false,cmp:false,spa:false,hr:false,front:true,brief:false,stock:false,events:false,perms:false,maint:false,fin:false};S.admin=false;S.deptOnly=false;S.myHotel=((S.role.hotels||[])[0])||'main';S.hotel=S.myHotel;S.meName=S.role.name||'קבלה';S.email=S.role.login||''}
   else if(!S.role&&S.email.endsWith('@'+STATION_DOMAIN)){S.stationOff=true;S.tab='front';S.ready=true;render();return}
   else if(!S.admin){let me=null;try{const m=await db.doc('employees/'+u.uid).get();if(m.exists)me=m.data()}catch(_){ }
     if(!me&&S.plat){S.pmode=true;S.tab='pchains';S.ready=true;render();return}
@@ -6124,7 +6184,7 @@ async function start(u){
   catch(e){onErr(e)}
   S.week=openWeek();
   let t=null;try{t=localStorage.getItem('hs_tab')}catch(_){ }
-  const allowed=S.station?['front','hk'].concat(grpFOk()?['grp']:[]):((S.admin?(S.deptOnly?['sched','shifts']:['sched','shifts','costs','settings']):S.myHotel===CHAIN||S.myMgmt?['profile']:['avail','mine','profile']).concat(S.can.hr?['hr']:[]).concat(S.can.spa?['spa']:[]).concat(S.can.grp||grpFOk()?['grp']:[]).concat(S.can.pub?['pub']:[]).concat(S.can.bar?['bar']:[]).concat(S.can.rates?['rates']:[]).concat(S.can.cmp?['cmp']:[]).concat(S.can.vch||S.can.vchr?['vch']:[]).concat(S.can.perms?['perms']:[]).concat(S.isOwner||S.can.shifts?['cfg']:[]).concat(S.isOwner||S.can.perms?['org']:[]).concat(S.can.ceo?['ceo']:[]).concat(S.can.mkt?['mkt']:[]).concat(S.can.exp?['exp']:[]).concat(S.can.gm?['gm']:[]).concat(S.can.stock?['stock']:[]).concat(S.can.brief?['brief']:[]).concat(S.can.front?['front']:[]).concat(S.can.maint?['maint']:[]).concat(S.can.fin?['fin']:[]).concat(S.can.hk&&!S.station?['hk']:[]).concat(S.can.events?['leads']:[]));S.tab=allowed.includes(t)?t:allowed[0];
+  const allowed=S.station?['front','hk'].concat(grpFOk()?['grp']:[]):((S.admin?(S.deptOnly?['sched','shifts']:['sched','shifts','costs','settings']):S.myHotel===CHAIN||S.myMgmt?['profile']:['avail','mine','profile']).concat(S.can.hr?['hr']:[]).concat(S.can.spa?['spa']:[]).concat(S.can.grp||grpFOk()?['grp']:[]).concat(S.can.pub?['pub']:[]).concat(S.can.bar?['bar']:[]).concat(S.can.rates?['rates']:[]).concat(S.can.cmp?['cmp']:[]).concat(S.can.greq?['greq']:[]).concat(S.can.vch||S.can.vchr?['vch']:[]).concat(S.can.perms?['perms']:[]).concat(S.isOwner||S.can.shifts?['cfg']:[]).concat(S.isOwner||S.can.perms?['org']:[]).concat(S.can.ceo?['ceo']:[]).concat(S.can.mkt?['mkt']:[]).concat(S.can.exp?['exp']:[]).concat(S.can.gm?['gm']:[]).concat(S.can.stock?['stock']:[]).concat(S.can.brief?['brief']:[]).concat(S.can.front?['front']:[]).concat(S.can.maint?['maint']:[]).concat(S.can.fin?['fin']:[]).concat(S.can.hk&&!S.station?['hk']:[]).concat(S.can.events?['leads']:[]));S.tab=allowed.includes(t)?t:allowed[0];
   applyHash();
   // the reception page always opens on the current week (today's 10days)
   if(S.tab==='front')S.week=weekOf(todayISO());
@@ -6186,6 +6246,6 @@ async function start(u){
   window.addEventListener('focus',()=>setTimeout(tick,300));
 })();
 </script>
-<script src="assistant-ui.js?v=18" defer></script>
+<script src="assistant-ui.js?v=19" defer></script>
 </body>
 </html>

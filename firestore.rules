@@ -97,6 +97,8 @@ service cloud.firestore {
     function gmRole() { return hasRole() && roleApp('gm'); }
     // בריף יומי: רואה את האירועים (קריאה בלבד)
     // עמוד תלונות אורחים: רואה ומסמן טיפול בתלונות של המלונות שבהרשאה
+    // פניות אורחים מארסונה (owner, Nov 15): רק מי שיש לו greq (ובעל המערכת)
+    function greqIn(h) { return isOwner() || (hasRole() && roleApp('greq') && (roleHotels().size() == 0 || h in roleHotels())); }
     function cmpIn(h) { return isOwner() || (hasRole() && roleApp('cmp') && (roleHotels().size() == 0 || h in roleHotels())); }
     // שוברים: מנפיקים, רואים ומממשים. עמוד השובר לאורח קורא שובר אחד לפי המזהה הסודי שלו (get בלבד, בלי רשימה)
     function canVch() { return isOwner() || (hasRole() && roleApp('vch')); }
@@ -173,11 +175,12 @@ service cloud.firestore {
         && (!a.get('vch', false) || roleApp('vch'))
         && (!a.get('vchr', false) || roleApp('vchr'))
         && (!a.get('hkchk', false) || roleApp('hkchk') || roleApp('gm') || roleApp('shifts'))
-        && (!a.get('rates', false) || roleApp('rates') || roleApp('gm') || roleApp('ceo'));
+        && (!a.get('rates', false) || roleApp('rates') || roleApp('gm') || roleApp('ceo'))
+        && (!a.get('greq', false) || roleApp('greq'));
     }
     function grantOk(n) {
       return n.apps is map
-        && n.apps.keys().hasOnly(['shifts', 'events', 'perms', 'ceo', 'dept', 'mkt', 'exp', 'gm', 'brief', 'front', 'maint', 'fin', 'hk', 'hr', 'spa', 'grp', 'cmp', 'vch', 'vchr', 'hkchk', 'rates'])
+        && n.apps.keys().hasOnly(['shifts', 'events', 'perms', 'ceo', 'dept', 'mkt', 'exp', 'gm', 'brief', 'front', 'maint', 'fin', 'hk', 'hr', 'spa', 'grp', 'cmp', 'vch', 'vchr', 'hkchk', 'rates', 'greq'])
         && n.get('hotels', []) is list
         && n.get('depts', []) is list
         && (isOwner() || roleApp('shifts') || n.get('depts', []).hasOnly(roleDepts()))
@@ -194,7 +197,7 @@ service cloud.firestore {
     function chainTarget(uid) { return exists(/databases/$(database)/documents/employees/$(uid)) && get(/databases/$(database)/documents/employees/$(uid)).data.get('hotel', 'main') == 'chain'; }
     function chainGrantOk(n) {
       return n.apps is map
-        && n.apps.keys().hasOnly(['shifts', 'events', 'perms', 'ceo', 'dept', 'mkt', 'exp', 'gm', 'brief', 'front', 'maint', 'fin', 'hk', 'hr', 'spa', 'grp', 'cmp', 'vch', 'vchr', 'hkchk', 'rates'])
+        && n.apps.keys().hasOnly(['shifts', 'events', 'perms', 'ceo', 'dept', 'mkt', 'exp', 'gm', 'brief', 'front', 'maint', 'fin', 'hk', 'hr', 'spa', 'grp', 'cmp', 'vch', 'vchr', 'hkchk', 'rates', 'greq'])
         && n.get('hotels', []) is list && n.get('hotels', []).size() == 0
         && n.get('depts', []) is list
         && (isOwner() || roleApp('shifts') || n.get('depts', []).hasOnly(roleDepts()))
@@ -736,6 +739,13 @@ service cloud.firestore {
       allow delete: if manages(resource.data.hotel) || gmIn(resource.data.hotel);
     }
     // תלונות אורחים על חדר (מדוח סיכום משמרת), נרשמות על המנקה: הקבלה כותבת, רק מנהלים קוראים
+    match /guestReqs/{id} {
+      allow read: if greqIn(resource.data.hotel);
+      allow update: if greqIn(resource.data.hotel)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'assignee', 'assigneeName', 'assignedAt', 'leadId', 'doneBy', 'doneByName', 'doneAt', 'note', 'acts', 'updatedAt'])
+        && request.resource.data.status in ['open', 'taken', 'done'];
+      allow delete: if isOwner();
+    }
     match /hkComplaints/{id} {
       allow read: if manages(resource.data.hotel) || gmIn(resource.data.hotel) || canCeo() || cmpIn(resource.data.hotel) || frontIn(resource.data.hotel) || briefIn(resource.data.hotel);
       allow create: if isOwner() || ((frontIn(request.resource.data.hotel) || manages(request.resource.data.hotel) || gmIn(request.resource.data.hotel))

@@ -200,7 +200,7 @@
   // Opens an allowed page and draws a ring around each button with Sharon's line. It only NAVIGATES (a whitelist of menu
   // actions) and never clicks anything else: the person presses the buttons themselves.
   const NAV = { avail: ['tab', 'avail'], mine: ['tab', 'mine'], profile: ['tab', 'profile'], sched: ['tab', 'sched'], shifts: ['tab', 'shifts'], costs: ['tab', 'costs'] };
-  ['hr', 'org', 'cfg', 'front', 'brief', 'gm', 'ceo', 'fin', 'exp', 'mkt', 'rates', 'hk', 'pub', 'bar', 'maint', 'stock', 'cmp', 'vch', 'spa', 'grp', 'leads'].forEach((p) => { NAV[p] = ['app-' + p]; });
+  ['hr', 'org', 'cfg', 'front', 'brief', 'gm', 'ceo', 'fin', 'exp', 'mkt', 'rates', 'hk', 'pub', 'bar', 'maint', 'stock', 'cmp', 'greq', 'vch', 'spa', 'grp', 'leads'].forEach((p) => { NAV[p] = ['app-' + p]; });
   const fire = (act, t) => { const b = document.createElement('button'); b.type = 'button'; b.hidden = true; b.dataset.act = act; if (t) b.dataset.t = t; document.body.appendChild(b); try { b.click(); } finally { b.remove(); } };
   // the events app is a separate page (events.html): a tour that needs the other page is saved and resumed there after it loads
   const onEv = () => /events\.html$/.test(location.pathname);

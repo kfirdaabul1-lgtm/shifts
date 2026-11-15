@@ -930,6 +930,7 @@ exports.onGreqReq = trig('guestReqs/{id}').onUpdate(async (ch, ctx) => {
   const a = ch.before.data() || {}, b = ch.after.data() || {}, q = b.req;
   if (!q || !q.at || (a.req && a.req.at === q.at) || (b.reqDone && b.reqDone.at === q.at)) return;
   const id = ctx.params.id, ref = ch.after.ref, now = Date.now(), h = b.hotel || '', by = String(q.by || ''), byName = String(q.byName || '').slice(0, 80);
+  // a req by 'aliana' is written only by the server (opsGreqTriage, auto mode) — clients must set req.by to their own uid (rules)
   if ((+b.reqN || 0) >= 40) return ref.set({ reqDone: { at: q.at, kind: q.kind, err: 'יותר מדי פעולות על הפנייה הזו' } }, { merge: true });
   await ref.set({ reqN: admin.firestore.FieldValue.increment(1) }, { merge: true });
   const rid = (p) => p + now.toString(36) + Math.random().toString(36).slice(2, 6), done = (o) => ref.set({ reqDone: { at: q.at, ...o } }, { merge: true });
@@ -938,7 +939,7 @@ exports.onGreqReq = trig('guestReqs/{id}').onUpdate(async (ch, ctx) => {
       if (b.leadId) return done({ kind: 'lead', id: b.leadId });
       let venue = ''; try { const st = (await db.doc('settings/' + h).get()).data() || {}; venue = (st.venues || [])[0] || ''; } catch (e) { }
       const lid = rid('l');
-      await db.doc('leads/' + lid).set({ name: b.guest || 'אורח ארסונה', phone: b.phone || '', email: b.email || '', company: '', type: '', date: '', guests: 0, venue, source: 'arsona', campaign: '', stage: 'new', owner: '', ownerName: '', nextAt: new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Jerusalem' }), value: 0,
+      await db.doc('leads/' + lid).set({ name: b.guest || 'אורח ארסונה', phone: b.phone || '', email: b.email || '', company: '', type: '', date: '', guests: 0, venue, cat: ['events', 'rooms', 'spa', 'bride'].includes(q.cat) ? q.cat : 'rooms', source: 'arsona', campaign: '', stage: 'new', owner: '', ownerName: '', nextAt: new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Jerusalem' }), value: 0,
         notes: [b.summary, b.reason, b.conf && 'הזמנה ' + b.conf, b.room && 'חדר ' + b.room].filter(Boolean).join('\n'), createdAt: now, createdBy: by, updatedAt: now, greqId: id, acts: [{ at: now, by, byName, kind: 'note', text: 'נוצר מפניית ארסונה' }] });
       await ref.set({ leadId: lid }, { merge: true });
       return done({ kind: 'lead', id: lid });
@@ -1903,6 +1904,8 @@ exports.opsRunNow = ops.opsRunNow;
 exports.opsWatch = ops.opsWatch;
 exports.opsJob = ops.opsJob;
 exports.opsChat = ops.opsChat;
+exports.opsGreqTriage = ops.opsGreqTriage;
+exports.opsGreqLearn = ops.opsGreqLearn;
 // weekly FX rates for foreign-currency groups (owner, Nov 7): Sunday 16:45 Israel; fxRunNow (owner only) fills past weeks: POST {from:'YYYY-MM-DD'}
 const fx = require('./fx.js');
 exports.fxWeekly = functions.region(REGION).pubsub.schedule('45 16 * * 0').timeZone('Asia/Jerusalem').onRun(async () => { try { await fx.fxSync(); } catch (e) { console.error('fxWeekly', e); } return null; });

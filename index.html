@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202611152030"></script>
+<script src="i18n.js?v=202611152100"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1915,6 +1915,25 @@ function greqReq(id,req,up,txt){const me=S.meName||empName(S.uid)||'';greqUp(id,
 function greqLead(id){const r=(S.greq||{})[id];if(!r||r.leadId)return;const me=S.meName||empName(S.uid)||'';
   greqReq(id,{kind:'lead'},{status:'done',doneBy:S.uid,doneByName:me,doneAt:Date.now(),note:'הועבר ללידים'},'הועבר ללידים')}
 const GREQ_CK=[['hk','🧹 משק'],['fault','🛠 אחזקה'],['pub','🏛 שטחים ציבוריים']];
+// Aliana's suggestion (owner only while she learns — reception sorts by itself so she learns from them; Nov 15)
+const GREQ_AIK={fault:'🛠 קריאה לאחזקה',hk:'🧹 קריאה למשק',pub:'🏛 קריאה לשטחים ציבוריים',lead:'🛏️ ליד להזמנות חדרים',general:'💬 שאלה כללית · הקבלה עונה לאורח'};
+function greqAiHTML(id,r){const a=r.ai,lab=GREQ_AIK[a.kind]||a.kind,tl=a.kind==='hk'?HK_CALL:a.kind==='pub'?PUB_CALL:[],tn=(a.tasks||[]).map(t=>(tl.find(x=>x[0]===t)||[0,t])[1]).join(', ');
+  const did=r.req&&r.req.at?(r.req.kind):(r.status==='done'&&!r.leadId?'general':''),fb=r.aiFb;
+  const res=did&&r.req&&r.req.src==='ai'?`<small style="color:#15803d">✓ אליאנה פתחה אוטומטית</small>`:did?(did===a.kind?`<small style="color:#15803d">✓ אליאנה צדקה</small>`:`<small style="color:#b91c1c">✗ בפועל: ${esc((GREQ_AIK[did]||did).replace(/^\S+\s/,''))}</small>`):'';
+  const open=r.status!=='done'&&!(r.req&&r.req.at)&&!fb;
+  return `<div style="background:var(--sunk);border-radius:8px;padding:8px 10px;border-inline-start:3px solid var(--gold)">
+    <div class="actions" style="justify-content:space-between;align-items:center"><b>🗂 אליאנה מציעה: ${esc(lab)}</b><small class="muted">ביטחון ${Math.round((a.conf||0)*100)}%</small></div>
+    <small>${[a.room&&'חדר '+a.room,a.area,tn,a.note].filter(Boolean).map(esc).join(' · ')}</small>
+    ${a.why?`<div><small class="muted">${esc(a.why)}</small></div>`:''}
+    ${res?`<div>${res}</div>`:''}${fb?`<div><small class="muted">${fb.ok?'✓ אישרת':'✗ סימנת שלא נכון'}${fb.note?' · '+esc(fb.note):''}</small></div>`:''}
+    ${open?`<div class="actions" style="margin-top:6px;flex-wrap:wrap"><button class="btn sm pri" data-act="greq-aiok" data-id="${id}">${a.kind==='general'?'✓ נכון':'✓ לאשר ולפתוח'}</button><button class="btn sm" data-act="greq-aino" data-id="${id}">✗ לא נכון</button></div>
+      ${S.greqAiNo===id?`<div class="actions" style="margin-top:6px"><input type="text" data-f="greqai.${id}" value="${esc(dv('greqai',id,''))}" placeholder="מה היה נכון? (לא חובה)" style="flex:1"><button class="btn sm" data-act="greq-aifb" data-id="${id}">שליחה</button></div>`:''}`:''}
+  </div>`}
+function greqAiOk(id){const r=(S.greq||{})[id];if(!r||!r.ai)return;const a=r.ai,me=S.meName||empName(S.uid)||'',now=Date.now(),fb={ok:true,note:'',at:now,by:S.uid,byName:me};
+  if(a.kind==='general'){greqUp(id,{aiFb:fb},'אישר/ה את הצעת אליאנה');return}
+  if(!r.hotel&&a.kind!=='lead'){toast('לא ידוע לאיזה מלון הפנייה שייכת, אי אפשר לפתוח קריאה.');return}
+  if(a.kind==='lead'){greqReq(id,{kind:'lead',cat:'rooms',src:'ai-ok'},{aiFb:fb,status:'done',doneBy:S.uid,doneByName:me,doneAt:now,note:'הועבר ללידים'},'הועבר ללידים (הצעת אליאנה)');return}
+  greqReq(id,{kind:a.kind,room:a.room||'',area:a.area||'',tasks:a.tasks||[],note:a.note||'',to:'',toName:'',src:'ai-ok'},{aiFb:fb},'אושרה הצעת אליאנה · '+(GREQ_AIK[a.kind]||'').replace(/^\S+\s/,''))}
 function greqCallHTML(id,r){const h=r.hotel||'',g=(k,d)=>dv('greqc',k,d),kind=g('kind','hk'),t=(S.drafts.greqc||{}).tasks||[];
   if(!h)return `<div class="notice">לא ידוע לאיזה מלון הפנייה שייכת, אי אפשר לפתוח קריאה.</div>`;
   const canCrew=hkFullHs().includes(h),crew0=canCrew&&kind!=='fault'?crewOf(h,todayISO(),kind==='pub'?['public','housekeeping']:['housekeeping','public']):{on:[],others:[]},real=u=>!String(u).startsWith('m_');
@@ -1950,6 +1969,7 @@ function vGreq(){greqSub();const F=S.greqF||(S.greqF={st:'act',t:'all',h:'all'})
       <small class="muted">${[r.conf&&'הזמנה '+r.conf,r.room&&'חדר '+r.room,r.channel&&'ערוץ '+r.channel,r.kind].filter(Boolean).map(esc).join(' · ')}</small>
       ${txt?`<div style="display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;white-space:pre-wrap">${esc(txt)}</div>`:''}
       ${r.summary&&r.reason?`<small class="muted" style="white-space:pre-wrap">💡 ${esc(r.summary)}</small>`:''}
+      ${S.isOwner&&r.ai?greqAiHTML(id,r):''}
       <details><summary class="muted" style="font-size:.82rem;cursor:pointer">טקסט מלא</summary><pre style="white-space:pre-wrap;font:inherit;font-size:.85rem;margin:4px 0">${esc(r.raw||'')}</pre></details>
       <div class="actions" style="align-items:center;flex-wrap:wrap"><span class="pill ${r.status==='done'?'ok':r.status==='taken'?'warn':'bad'}">${GREQ_ST[r.status]||''}${r.status==='taken'&&r.assigneeName?' · '+esc(r.assigneeName):''}${r.status==='done'&&r.doneByName?' · '+esc(r.doneByName):''}</span>
         ${r.status!=='done'&&r.assignee!==S.uid?`<button class="btn sm pri" data-act="greq-take" data-id="${id}">אני מטפל/ת</button>`:''}
@@ -5437,6 +5457,9 @@ const ACT={
   'greq-done':D=>greqUp(D.id,{status:'done',doneBy:S.uid,doneByName:S.meName||empName(S.uid)||'',doneAt:Date.now(),note:String(dv('greqn',D.id,'')).trim().slice(0,500)},'טופל'),
   'greq-reopen':D=>greqUp(D.id,{status:'open'},'נפתח מחדש'),
   'greq-lead':D=>greqLead(D.id),
+  'greq-aiok':D=>greqAiOk(D.id),
+  'greq-aino':D=>{S.greqAiNo=S.greqAiNo===D.id?null:D.id;render()},
+  'greq-aifb':D=>{const note=String(dv('greqai',D.id,'')).trim().slice(0,300);S.greqAiNo=null;greqUp(D.id,{aiFb:{ok:false,note,at:Date.now(),by:S.uid,byName:S.meName||empName(S.uid)||''}},'תיקון לאליאנה')},
   'ars-save':async()=>{const v=String(dv('arsf','v',(S.waAuto||{}).arsonaFrom||'')).trim();try{await fdb.doc('waauto/main').set({arsonaFrom:v},{merge:true});toast('נשמר')}catch(e){toast('לא נשמר: '+errMsg(mapErr(e)))}},
   'app-vch':()=>{S.menu=false;setTab('vch')},
   'hr-hotel':D=>{S.hrH=D.h;render()},

@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202611151930"></script>
+<script src="i18n.js?v=202611152030"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -3488,7 +3488,7 @@ POST ${RATES_URL}
 גוף:
 {"hotel":"Gutman","rows":[{"src":"booking","checkin":"YYYY-MM-DD","room":"שם החדר","orig":0,"price":0,"bf":true,"left":null,"note":""},{"src":"site","checkin":"YYYY-MM-DD","room":"שם החדר","price":0,"bf":false},{"src":"comp","comp":"שם המתחרה","checkin":"YYYY-MM-DD","price":0,"bf":false}]}
 src = booking (מחיר Genius ב-price, המחיר המקורי ב-orig) או site (אתר הבית) או comp (מתחרה: שם המלון המתחרה ב-comp, המחיר הכי זול שלו ב-Booking ב-price, room לא חובה). מחיר ריק = אזל. עד 1500 שורות. התשובה {"ok":true} מאשרת שנשמר.`}
-const RT_CW_MIN=10;
+const RT_CW_MIN=10,RT_DORM=/dorm|דורם|מיטה במעונות|bed in|beds|mixed|female|male|מעורב|נשים בלבד|גברים בלבד/i;
 function vRates(){const hs=ratesHs();if(!hs.length)return wrap(emptyBox('אין מלון','אין לך מלון בהרשאות.'));
   if(!S.ratesH||!hs.includes(S.ratesH))S.ratesH=hs.includes(S.hotel)?S.hotel:hs[0];const h=S.ratesH,R=ratesSub(h);
   const chips=hs.length>1?`<div class="chips">${hs.map(x=>`<button class="dchip ${x===h?'':'off'}" data-act="rates-h" data-h="${x}">${esc(hotelName(x))}</button>`).join('')}</div>`:'';
@@ -3501,8 +3501,13 @@ function vRates(){const hs=ratesHs();if(!hs.length)return wrap(emptyBox('אין 
   const older=R.runs.filter(r=>(r.runAt||0)<=(run.runAt||0)),m0=String(run.runDate||todayISO()).slice(0,7)+'-01',srcOf={};
   older.forEach(r=>(r.rows||[]).forEach(x=>{if(x.checkin>=m0&&!(x.checkin in srcOf))srcOf[x.checkin]=r}));
   const rows=view==='room'?(run.rows||[]):older.flatMap(r=>(r.rows||[]).filter(x=>srcOf[x.checkin]===r));
-  const own=rows.filter(r=>r.src!=='comp'),comp=rows.filter(r=>r.src==='comp');
+  // owner, Nov 15: the hostel has a dorms wing and a private wing -> two separate comparisons
+  const hst=isHostel(h),rk=hst&&S.ratesK==='priv'?'priv':'dorm',isDorm=t=>RT_DORM.test(String(t||''));
+  const kOk=r=>!hst||(rk==='dorm')===isDorm(r.src==='comp'?(r.comp||'')+' '+(r.room||''):r.room);
+  const own=rows.filter(r=>r.src!=='comp'&&kOk(r)),comp=rows.filter(r=>r.src==='comp'&&kOk(r));
+  const kseg=hst?`<div class="rtm-w" style="margin-bottom:10px"><b>איזה אגף?</b><div class="seg rtm" role="group" aria-label="איזה אגף"><button data-act="rates-k" data-v="dorm" aria-pressed="${rk==='dorm'}">🛏️ חדרי דורמס</button><button data-act="rates-k" data-v="priv" aria-pressed="${rk==='priv'}">🚪 חדרים פרטיים</button></div></div>`:'';
   const dates=[...new Set(own.map(r=>r.checkin))].sort(),rooms=[...new Set(own.map(r=>r.room||'חדר'))];
+  if(hst&&!dates.length)return wrap(head+kseg+emptyBox(rk==='dorm'?'אין נתונים לחדרי דורמס':'אין נתונים לחדרים פרטיים','בריצה הזו לא נמצאו חדרים מהאגף הזה. שמות חדרי דורמס מזוהים לפי מילים כמו Dorm / Bed / מיטה.'));
   const pick=(src,d,rm)=>own.find(r=>r.src===src&&r.checkin===d&&(r.room||'חדר')===rm);
   const minOf=(src,d)=>{const l=own.filter(r=>r.src===src&&r.checkin===d&&r.price!=null);return l.length?l.reduce((a,r)=>+r.price<+a.price?r:a):null};
   const at=run.runAt?new Date(run.runAt):null,dw=d=>['א׳','ב׳','ג׳','ד׳','ה׳','ו׳','ש׳'][new Date(d+'T12:00').getDay()];
@@ -3529,14 +3534,14 @@ function vRates(){const hs=ratesHs();if(!hs.length)return wrap(emptyBox('אין 
   if(view==='sum'){ // owner, Nov 12: the summary is its own tab next to calendar / by room
     const cwD=hasComp?dates.filter(d=>day(d).cw):[];
     const list=cwD.length?`<div class="rtsum-t" style="margin-top:14px">ימים שמתחרה זול ביותר מ-₪10</div>${cwD.map(d=>{const x=day(d);return `<button class="rtsum-r rtsum-d" data-act="rates-day" data-go="1" data-d="${d}"><span>${dw(d)} ${esc(fmtDM(d).slice(0,5))} · <span>אנחנו</span> ₪${Math.round(x.best)} · ${esc(x.cw.n)} ₪${Math.round(x.cw.v)}</span><b style="color:#C2410C">₪${Math.round(x.cw.d)}</b></button>`}).join('')}`:'';
-    return wrap(head+tabs+`<div class="card">${top}<div class="rtsum rtsum-big">${sumRows.map(([l,v,c])=>`<div class="rtsum-r"><span>${l}</span><b${c?` style="color:${c}"`:''}>${v}</b></div>`).join('')}${list}</div></div>`)}
+    return wrap(head+kseg+tabs+`<div class="card">${top}<div class="rtsum rtsum-big">${sumRows.map(([l,v,c])=>`<div class="rtsum-r"><span>${l}</span><b${c?` style="color:${c}"`:''}>${v}</b></div>`).join('')}${list}</div></div>`)}
   if(view==='room'){
     const table=`<div class="card">${top}${kpisH}
     <p class="muted" style="font-size:.8rem"><span>לילה אחד, 2 מבוגרים. ירוק = אתר הבית זול מ-Booking Genius, אדום = Booking Genius זול מאתר הבית. ☕ = כולל ארוחת בוקר (ב-Booking Genius יש ארוחת בוקר ובאתר הבית לא, ולכן ההשוואה לא שווה לגמרי).</span></p>
     <div class="rt-wrap"><table class="rt"><thead><tr><th class="rt-d">תאריך</th><th>הכי זול</th>${rooms.map(r=>`<th>${esc(r)}</th>`).join('')}</tr></thead><tbody>
     ${dates.map(d=>`<tr><th class="rt-d">${esc(fmtDM(d).slice(0,5))}<small>${dw(d)}</small></th>${ratesCell(minOf('booking',d),minOf('site',d))}${rooms.map(rm=>ratesCell(pick('booking',d,rm),pick('site',d,rm))).join('')}</tr>`).join('')}
     </tbody></table></div></div>`;
-    return wrap(head+tabs+table)}
+    return wrap(head+kseg+tabs+table)}
   // calendar (owner, Nov 7: the main view): weeks Sunday–Saturday from the first to the last date of the run
   const today=todayISO(),sel=dates.includes(S.ratesD)?S.ratesD:(dates.find(d=>d>=today)||dates[0]);
   // owner, Nov 15 (sketch א׳): one question at a time — 'comp' (vs competitors) or 'bk' (site vs Booking); one colour per cell
@@ -3565,7 +3570,7 @@ function vRates(){const hs=ratesHs();if(!hs.length)return wrap(emptyBox('אין 
   const cal=`<div class="card">${top}
     <p class="muted" style="font-size:.8rem;margin:6px 0 0">המחיר בכל משבצת = החדר הכי זול שלנו באותו לילה. לחיצה על יום מציגה את כל המחירים.</p>
     <div class="rtm-w">${hasComp?`<b>מה בודקים?</b><div class="seg rtm" role="group" aria-label="מה בודקים"><button data-act="rates-m" data-v="comp" aria-pressed="${mode==='comp'}">מול המתחרים</button><button data-act="rates-m" data-v="bk" aria-pressed="${mode==='bk'}">אתר מול Booking</button></div>`:''}<div class="rtm-lg">${(mode==='bk'?[['var(--ok-bg)','var(--ok)','האתר שלנו זול או שווה'],['var(--bad-bg)','var(--bad)','Booking זול מהאתר']]:[['var(--ok-bg)','var(--ok)','אנחנו הכי זולים'],['var(--surface)','var(--line)','כמעט שווה (עד ₪10)'],['rgb(234 88 12 / .14)','#C2410C','מתחרה זול מאיתנו']]).map(([b,c,t])=>`<span><i class="rtm-sw" style="background:${b};border-color:${c}"></i>${t}</span>`).join('')}</div></div><div class="rtcal-w"><div class="rtcal"><div class="rtcal-dw">${['א׳','ב׳','ג׳','ד׳','ה׳','ו׳','ש׳'].map(x=>`<span>${x}</span>`).join('')}</div><div class="rtcal-g">${cells}</div></div>${detail}</div></div>`;
-  return wrap(head+tabs+cal)}
+  return wrap(head+kseg+tabs+cal)}
 function vBar(){const hs=modHs('bar',barHs());if(!hs.length)return wrap(emptyBox('אין מלון','צריך להיות רשום במלון ובמחלקת בר.'));
   if(!hs.includes(S.barH))S.barH=hs.includes(S.myHotel)?S.myHotel:hs[0];const h=S.barH,boss=barBoss(h),M=S.barM||(S.barM=todayISO().slice(0,7));
   if(!S.live['bemps:'+h]){S.live['bemps:'+h]=true;S.db.collection('employees').where('hotel','==',h).onSnapshot(q=>{S.emps={...S.emps,...docsMap(q)};render()},()=>{})}
@@ -5737,6 +5742,7 @@ const ACT={
   'rates-h':D=>{S.ratesH=D.h;S.ratesRun='';render()},
   'rates-v':D=>{S.ratesV=D.v;render()},
   'rates-m':D=>{S.ratesM=D.v;render()},
+  'rates-k':D=>{S.ratesK=D.v;S.ratesD=null;render()},
   'rates-day':D=>{S.ratesD=D.d;if(D.go)S.ratesV='cal';render()},
   'rates-key':async()=>{if(!S.isOwner)return;if((S.ratesCfg||{}).key&&S.confirm!=='rkey'){S.confirm='rkey';render();setTimeout(()=>{if(S.confirm==='rkey'){S.confirm='';render()}},4000);return}S.confirm='';const a=new Uint8Array(24);crypto.getRandomValues(a);const k='r'+[...a].map(x=>x.toString(16).padStart(2,'0')).join('');try{await fdb.doc('ratescfg/main').set({key:k,at:Date.now(),by:S.uid},{merge:true});toast('המפתח נשמר')}catch(err){toast('שמירה נכשלה: '+(err.message||''))}},
   'rates-copy':async()=>{try{await navigator.clipboard.writeText(ratesAgentText());toast('ההוראות הועתקו. הדבק אותן בשיחה של סוכן המחירים.')}catch(e){toast('ההעתקה נכשלה')}},

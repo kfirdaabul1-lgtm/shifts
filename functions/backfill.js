@@ -9,7 +9,7 @@ const KEYS = ['hotel', 'month', 'date', 'shift', 'name', 'empUid', 'ooo', 'fault
   try {
     { const wa = db.doc('waauto/main'); const ws = await wa.get(); if (!String((ws.exists && ws.data().arsonaFrom) || '').trim()) { await wa.set({ arsonaFrom: '+972795157779' }, { merge: true }); console.log('::notice title=Arsona::sender number set'); } }
     { const rs = await db.collection('ratesLog').where('hotel', '==', 'main').get(); let last = null; rs.forEach(d => { const x = d.data(); if (!last || (x.runAt || 0) > (last.runAt || 0)) last = x; });
-      if (last) { const rx = /dorm|דורם|מיטה במעונות|bed in|beds|mixed|female|male|מעורב|נשים בלבד|גברים בלבד/i; const own = [...new Set((last.rows || []).filter(r => r.src !== 'comp').map(r => r.room || ''))]; const cmp = [...new Set((last.rows || []).filter(r => r.src === 'comp').map(r => r.comp || ''))];
+      if (last) { const rx = /do+rm|דורם|מיטה במעונות|bed in|beds|mixed|female|male|מעורב|נשים בלבד|גברים בלבד/i; const own = [...new Set((last.rows || []).filter(r => r.src !== 'comp').map(r => r.room || ''))]; const cmp = [...new Set((last.rows || []).filter(r => r.src === 'comp').map(r => r.comp || ''))];
         console.log('::notice title=Hostel rooms::' + own.map(n => (rx.test(n) ? '[D] ' : '[P] ') + n).join(' | ').slice(0, 1500));
         console.log('::notice title=Hostel comps::' + cmp.map(n => (rx.test(n) ? '[D] ' : '[P] ') + n).join(' | ').slice(0, 1500)); } else console.log('::notice title=Hostel rooms::no runs'); }
     const cr = db.doc('agentcfg/reply');

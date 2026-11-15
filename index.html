@@ -3488,7 +3488,7 @@ POST ${RATES_URL}
 גוף:
 {"hotel":"Gutman","rows":[{"src":"booking","checkin":"YYYY-MM-DD","room":"שם החדר","orig":0,"price":0,"bf":true,"left":null,"note":""},{"src":"site","checkin":"YYYY-MM-DD","room":"שם החדר","price":0,"bf":false},{"src":"comp","comp":"שם המתחרה","checkin":"YYYY-MM-DD","price":0,"bf":false}]}
 src = booking (מחיר Genius ב-price, המחיר המקורי ב-orig) או site (אתר הבית) או comp (מתחרה: שם המלון המתחרה ב-comp, המחיר הכי זול שלו ב-Booking ב-price, room לא חובה). מחיר ריק = אזל. עד 1500 שורות. התשובה {"ok":true} מאשרת שנשמר.`}
-const RT_CW_MIN=10,RT_DORM=/dorm|דורם|מיטה במעונות|bed in|beds|mixed|female|male|מעורב|נשים בלבד|גברים בלבד/i;
+const RT_CW_MIN=10,RT_DORM=/do+rm|דורם|מיטה במעונות|bed in|beds|mixed|female|male|מעורב|נשים בלבד|גברים בלבד/i;
 function vRates(){const hs=ratesHs();if(!hs.length)return wrap(emptyBox('אין מלון','אין לך מלון בהרשאות.'));
   if(!S.ratesH||!hs.includes(S.ratesH))S.ratesH=hs.includes(S.hotel)?S.hotel:hs[0];const h=S.ratesH,R=ratesSub(h);
   const chips=hs.length>1?`<div class="chips">${hs.map(x=>`<button class="dchip ${x===h?'':'off'}" data-act="rates-h" data-h="${x}">${esc(hotelName(x))}</button>`).join('')}</div>`:'';

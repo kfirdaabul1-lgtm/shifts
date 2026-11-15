@@ -1920,12 +1920,13 @@ function arsCfgHTML(){if(!S.isOwner)return '';waAutoSub();const v=dv('arsf','v',
   return `<div class="card"><h3>מספרי ארסונה (לא חובה)</h3><p class="muted" style="font-size:.85rem">התראות של ארסונה שמגיעות למספר המערכת נכנסות לעמוד "פניות אורחים" ולא נפתחות כשיחה או ליד. אפשר לרשום כאן את המספרים שארסונה שולחת מהם, ואז רק הודעות מהם ייחשבו להתראות. ריק = כל הודעה במבנה של ארסונה.</p>
     <div class="actions"><input type="text" data-f="arsf.v" value="${esc(v)}" placeholder="למשל 050-0000000, 052-0000000" style="flex:1"><button class="btn sm pri" data-act="ars-save">שמירה</button></div></div>`}
 function vGreq(){greqSub();const F=S.greqF||(S.greqF={st:'act',t:'all',h:'all'});
-  const all=Object.entries(S.greq||{}),hs=[...new Set(all.map(([,r])=>r.hotel||''))];
+  const all=Object.entries(S.greq||{}),hs=[...new Set([...(greqHs()||hotelIds()),...all.map(([,r])=>r.hotel||'')])]; // owner, Nov 15: always pick a hotel when there are several, with open counts
+  const hCnt=h=>all.filter(([,r])=>(r.hotel||'')===h&&r.status!=='done').length;
   const hn=h=>h?hotelName(h):'מלון לא מזוהה',chip=(k,v,n)=>`<button class="dchip ${F[k]===v?'':'off'}" data-act="greq-f" data-k="${k}" data-v="${v}">${n}</button>`;
   const head=`<section class="head"><div class="head-t"><h1>פניות אורחים</h1></div><p class="lede">התראות מארסונה: אורח שצריך נציג, ליד פוטנציאלי או מידע חסר. לוקחים לטיפול, יוצרים קשר עם האורח ומסמנים שטופל.</p>
     <div class="chips" style="gap:6px">${chip('st','act','פתוחות')}${chip('st','taken','בטיפול')}${chip('st','done','טופלו')}${chip('st','all','הכל')}</div>
     <div class="chips" style="gap:6px;margin-top:6px">${chip('t','all','כל הסוגים')}${Object.entries(GREQ_T).map(([k,[n]])=>chip('t',k,n)).join('')}</div>
-    ${hs.length>1?`<div class="chips" style="gap:6px;margin-top:6px">${chip('h','all','כל המלונות')}${hs.map(h=>chip('h',h,esc(hn(h)))).join('')}</div>`:''}</section>`;
+    ${hs.length>1?`<div class="chips" style="gap:6px;margin-top:6px">${chip('h','all','כל המלונות')}${hs.map(h=>chip('h',h,esc(hn(h))+(hCnt(h)?' ('+hCnt(h)+')':''))).join('')}</div>`:''}</section>`;
   if(S.greqErr)return wrap(head+`<div class="notice">לא הצלחתי לטעון: ${esc(S.greqErr)}</div>`);
   const list=all.filter(([,r])=>(F.st==='all'||(F.st==='act'?r.status!=='done':r.status===F.st))&&(F.t==='all'||r.type===F.t)&&(F.h==='all'||(r.hotel||'')===F.h)).sort(([,a],[,b])=>(b.at||0)-(a.at||0));
   const boss=S.isOwner||S.can.perms,ev=S.can.events;

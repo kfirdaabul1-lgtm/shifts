@@ -53,5 +53,10 @@ async function grant(fn = 'driveBackup') {
   const amProbe = () => fetch(AM).then(async (x) => ({ s: x.status, b: (await x.text()).slice(0, 40) })).catch((e) => ({ s: 0, b: e.message }));
   let am = await amProbe(); note('Arsona mail probe', 'status ' + am.s);
   if (am.s !== 405 || am.b.trim() !== 'method') { note('Arsona mail invoker', await grant('arsonaMail').catch((e) => 'grant failed: ' + e.message)); await new Promise((x) => setTimeout(x, 20000)); am = await amProbe(); note('Arsona mail probe 2', 'status ' + am.s); }
+  // PMS booking mails endpoint must be public too (the owner's Apps Script calls it with its key); GET answers our own 405 "method"
+  const BI = 'https://europe-west1-hotel-shifts.cloudfunctions.net/bookingsIngest';
+  const biProbe = () => fetch(BI).then(async (x) => ({ s: x.status, b: (await x.text()).slice(0, 40) })).catch((e) => ({ s: 0, b: e.message }));
+  let bi = await biProbe(); note('Bookings probe', 'status ' + bi.s);
+  if (bi.s !== 405 || bi.b.trim() !== 'method') { note('Bookings invoker', await grant('bookingsIngest').catch((e) => 'grant failed: ' + e.message)); await new Promise((x) => setTimeout(x, 20000)); bi = await biProbe(); note('Bookings probe 2', 'status ' + bi.s); }
   // no real call here: a real call would update lastAt and hide a broken Apps Script schedule
 })().catch((e) => { note('Backup check error', e.message); });

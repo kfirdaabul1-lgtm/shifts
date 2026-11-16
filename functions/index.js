@@ -140,7 +140,7 @@ exports.onStock = trig('inventory/{id}').onWrite(async (ch) => {
 // A small Google Apps Script in the owner's own Drive calls this once a day with the key stored in backupcfg/main
 // (only the owner can read or change it) and saves the JSON it gets into a Drive folder. Same format as the
 // "גיבוי" button on the Permissions page, so the Import card can restore it. Invoice images are left out (size).
-const BACKUP_COLLS = ['guestReqs', 'broadcasts', 'waauto', 'waChats', 'srImgs', 'shiftKinds', 'signs', 'receipts', 'orgcfg', 'groups', 'agents', 'priceLists', 'jobRoles', 'vchCodes', 'hkday', 'faultsAck', 'srDrafts', 'vchcfg', 'hotels', 'settings', 'employees', 'mgr', 'avail', 'shifts', 'schedule', 'requests', 'roles', 'joinCodes', 'config', 'menus', 'contracts', 'quotes', 'campaigns', 'suppliers', 'invoices', 'expcfg', 'inventory', 'purchaseReqs', 'shiftReports', 'faults', 'hk', 'hkcfg', 'hkLog', 'hkComplaints', 'leads', 'tasks', 'clients', 'hkCalls', 'spa', 'spacfg', 'vouchers'];
+const BACKUP_COLLS = ['bookings', 'bkMails', 'guestReqs', 'broadcasts', 'waauto', 'waChats', 'srImgs', 'shiftKinds', 'signs', 'receipts', 'orgcfg', 'groups', 'agents', 'priceLists', 'jobRoles', 'vchCodes', 'hkday', 'faultsAck', 'srDrafts', 'vchcfg', 'hotels', 'settings', 'employees', 'mgr', 'avail', 'shifts', 'schedule', 'requests', 'roles', 'joinCodes', 'config', 'menus', 'contracts', 'quotes', 'campaigns', 'suppliers', 'invoices', 'expcfg', 'inventory', 'purchaseReqs', 'shiftReports', 'faults', 'hk', 'hkcfg', 'hkLog', 'hkComplaints', 'leads', 'tasks', 'clients', 'hkCalls', 'spa', 'spacfg', 'vouchers'];
 const plain = (v) => {
   if (v instanceof admin.firestore.Timestamp) return { seconds: v.seconds, nanoseconds: v.nanoseconds };
   if (Array.isArray(v)) return v.map(plain);
@@ -946,6 +946,79 @@ async function arsonaIn(m, mail) {
   await sendTo(to, { title: `${L} · ${(hotel && await hotelName(hotel)) || doc.hotelTxt || 'ארסונה'}`, body: [doc.guest, doc.kind, doc.reason || doc.summary].filter(Boolean).join(' · ').slice(0, 170), hash: '#greq?r=' + ref.id, tag: 'greq-' + ref.id });
   return true;
 }
+// ---------- PMS booking e-mails (owner, Nov 16; patch doc claude/pms-mail-bookings-patch.md) ----------
+// bkcfg/main (owner only) {on, key (≥24 chars), aiModel, stats:{tpl, ai, err}, lastAt}. An Apps Script in the PMS Gmail box posts each mail here.
+// Kept per booking ONLY: hotel, guest name, dates, number of people, room type, meals RO/BB/HB/FB (+ conf/action/status to update or cancel it). No prices, phones or e-mails.
+const BK_SCHEMA = { type: 'OBJECT', properties: {
+  action: { type: 'STRING', description: 'new | modify | cancel' }, conf: { type: 'STRING', description: 'booking / confirmation number' },
+  hotel: { type: 'STRING' }, guest: { type: 'STRING' },
+  ci: { type: 'STRING', description: 'YYYY-MM-DD' }, co: { type: 'STRING', description: 'YYYY-MM-DD' },
+  rooms: { type: 'ARRAY', items: { type: 'OBJECT', properties: { type: { type: 'STRING' }, people: { type: 'NUMBER', description: 'adults + children + infants' }, board: { type: 'STRING', description: 'meal plan: RO (room only) | BB (breakfast) | HB (half board) | FB (full board)' } } } } },
+  required: ['action', 'conf'] };
+// fixed template: Optima PMS mails "New Reservation from Simple Booking. Hotel: …" — "Label: value" rows, per room "Room N". Returns null when unsure → AI.
+const BK_LAB = ['Optima Master ID', 'Voucher', 'Agent IATA', 'Agent', 'Company', 'Booking Contact', 'Total in Optima Net \\(not including tax\\)', 'Total in Optima \\([^)]*\\)', 'Allocation Name', 'Guest Comments',
+  'Status', 'Guest Name', 'Arrival Date', 'Departure Date', 'Nights', 'Adults', 'Children', 'Infants', 'Room Type', 'Allocation Left', 'Inventory Left', 'Price Code - Plan', 'Promotion', 'External Rate Plan', 'Daily Rates', 'Total Price per Room', 'Phone', 'Telephone', 'Mobile', 'E-?mail'];
+function bkFields(s) {
+  const re = new RegExp('(?:^|\\n|\\s)(' + BK_LAB.join('|') + ')\\s*:', 'gi'), hits = []; let m;
+  while ((m = re.exec(s))) hits.push({ k: m[1].toLowerCase().replace(/\s*\(.*$/, '').replace(/[^a-z]+/g, '_'), a: m.index, b: re.lastIndex });
+  const f = {}; hits.forEach((h, i) => { const v = s.slice(h.b, i + 1 < hits.length ? hits[i + 1].a : s.length).replace(/\s+/g, ' ').trim().replace(/^[|\s]+|[|\s]+$/g, ''); if (!(h.k in f)) f[h.k] = v; });
+  return f;
+}
+const bkBoard = (x) => { x = String(x || ''); return /full\s*board|\bFB\b|פנסיון מלא/i.test(x) ? 'FB' : /half\s*board|\bHB\b|חצי פנסיון/i.test(x) ? 'HB' : /room\s*only|\bRO\b|ללא ארוח|לינה בלבד/i.test(x) ? 'RO' : /breakfast|B\s*&\s*B|\bBB\b|ארוחת בוקר/i.test(x) ? 'BB' : ''; };
+const bkDate = (s) => { const m = String(s || '').match(/(\d{4})-(\d{1,2})-(\d{1,2})/), d = String(s || '').match(/(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})/);
+  if (m) return `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`; if (d) return `${d[3].length === 2 ? '20' + d[3] : d[3]}-${d[2].padStart(2, '0')}-${d[1].padStart(2, '0')}`; return ''; };
+function bkTpl(subject, text) {
+  const all = String(subject || '') + '\n' + String(text || '');
+  if (!/Optima Master ID/i.test(all)) return null;
+  const ttl = String(subject || '') + ' ' + ((String(text || '').match(/[^\n]*Reservation[^\n]*/i) || [''])[0]);
+  const action = /cancel/i.test(ttl) ? 'cancel' : /modif|change|amend|update/i.test(ttl) ? 'modify' : /new reservation/i.test(ttl) ? 'new' : '';
+  if (!action) return null;
+  const parts = String(text).split(/\n\s*Room\s+\d+\s*\n/i), H = bkFields(parts[0]);
+  const conf = (H.optima_master_id || '').match(/\d+/); if (!conf) return null;
+  const hotel = (all.match(/Hotel:\s*([^\n|]+)/i) || [])[1] || '';
+  const rooms = parts.slice(1).map((p) => { const R = bkFields(p); return { R, type: R.room_type || '', people: (+R.adults || 0) + (+R.children || 0) + (+R.infants || 0), board: bkBoard((R.price_code_plan || '') + ' ' + (R.external_rate_plan || '')) }; });
+  const R0 = (rooms[0] || {}).R || {};
+  if (action !== 'cancel' && !(R0.arrival_date && R0.departure_date)) return null;
+  return { action, conf: conf[0], hotel: hotel.trim(), guest: R0.guest_name || H.booking_contact || '', ci: R0.arrival_date || '', co: R0.departure_date || '', rooms: rooms.map(({ R, ...x }) => x) };
+}
+async function bkAi(cfg, subject, text) {
+  if (cfg.aiModel && !aiModelOk) aiModelOk = String(cfg.aiModel);
+  const { j } = await aiGenerate({ contents: [{ role: 'user', parts: [{ text: 'Hotel PMS e-mail (Hebrew or English). Extract the booking. action: new, modify or cancel. Dates YYYY-MM-DD. Leave unknown fields empty.\nSubject: ' + subject + '\n\n' + text.slice(0, 12000) }] }],
+    generationConfig: { temperature: 0, responseMimeType: 'application/json', responseSchema: BK_SCHEMA } });
+  return JSON.parse((((j.candidates || [])[0] || {}).content || { parts: [] }).parts.map((p) => p.text || '').join('') || '{}');
+}
+exports.bookingsIngest = functions.region(REGION).runWith({ timeoutSeconds: 120 }).https.onRequest(async (req, res) => {
+  if (req.method !== 'POST') { res.status(405).send('method'); return; }
+  try {
+    const cs = await db.doc('bkcfg/main').get(), cfg = cs.exists ? cs.data() : {}, key = String(cfg.key || ''), got = String(req.get('x-bk-key') || '');
+    if (!cfg.on || key.length < 24 || got.length !== key.length || !crypto.timingSafeEqual(Buffer.from(got), Buffer.from(key))) { res.status(403).json({ error: 'forbidden' }); return; }
+    const b = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
+    const mid = String(b.id || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 80), subject = String(b.subject || '').slice(0, 300), text = String(b.text || '').slice(0, 30000);
+    if (!mid || !text) { res.status(400).json({ error: 'bad' }); return; }
+    const mref = db.doc('bkMails/' + mid); if ((await mref.get()).exists) { res.json({ ok: true, dup: true }); return; }
+    let p = null, by = 'tpl';
+    try { p = bkTpl(subject, text); } catch (e) { p = null; }
+    if (!p || !p.conf) { by = 'ai'; try { p = await bkAi(cfg, subject, text); } catch (e) { p = {}; by = 'err'; console.warn('bookingsIngest ai', e.message); } }
+    const conf = String(p.conf || '').replace(/[^\w-]/g, '').slice(0, 40), hotel = await arsHotel([p.hotel, subject].join(' '));
+    const act = ['new', 'modify', 'cancel'].includes(p.action) ? p.action : 'new', now = Date.now();
+    const why = !conf ? 'no conf' : !hotel ? 'no hotel' : '';
+    // only the mail's subject and date are kept (for the owner's "unread mails" list), never its text
+    await mref.set({ at: now, subject, date: String(b.date || '').slice(0, 40), by, conf, hotel, ok: !why, why });
+    await db.doc('bkcfg/main').set({ stats: { [why ? 'err' : by]: admin.firestore.FieldValue.increment(1) }, lastAt: now }, { merge: true });
+    if (why) { res.json({ ok: false, why, by }); return; }
+    const ref = db.doc('bookings/' + hotel + '__' + conf), cur = await ref.get();
+    const up = { hotel, conf, updatedAt: now, by, hist: admin.firestore.FieldValue.arrayUnion({ at: now, action: act }) };
+    if (act === 'cancel') up.status = 'cancelled';
+    else {
+      const rooms = (p.rooms || []).slice(0, 20).map((r) => ({ type: String(r.type || '').slice(0, 60), people: Math.max(0, Math.min(99, +r.people || 0)), board: ['RO', 'BB', 'HB', 'FB'].includes(String(r.board || '').toUpperCase()) ? String(r.board).toUpperCase() : bkBoard(r.board) }));
+      Object.assign(up, { status: 'booked', guest: String(p.guest || '').slice(0, 100), ci: bkDate(p.ci), co: bkDate(p.co), rooms,
+        board: [...new Set(rooms.map((r) => r.board).filter(Boolean))].join('/'), people: rooms.reduce((a, r) => a + r.people, 0) });
+      if (!cur.exists) up.createdAt = now;
+    }
+    await ref.set(up, { merge: true });
+    res.json({ ok: true, id: ref.id, action: act, by });
+  } catch (e) { console.error('bookingsIngest', e); res.status(500).json({ error: String(e.message || e).slice(0, 200) }); }
+});
 // ---------- actions from a guest request (owner, Nov 15): every greq holder may turn it into a lead or open a housekeeping / maintenance / public-areas call.
 // The client only writes guestReqs.req {kind, room, area, tasks, note, to, toName, at, by, byName} (rules: greq holders of the hotel, req.by == uid); the server creates the doc.
 exports.onGreqReq = trig('guestReqs/{id}').onUpdate(async (ch, ctx) => {

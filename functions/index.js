@@ -973,13 +973,22 @@ function bkSkel(text) {
   const keep = new RegExp('^(?:' + BK_LAB.join('|') + '|Room|Hotel|Reservation|New|Modified|Cancel(?:led|lation)?|Arrival|Departure|Date|Adults?|Children|Infants?|Nights?|Board|Breakfast|Plan|Type|Total|Guest|Name|Status)$', 'i');
   return String(text || '').slice(0, 6000).split(/(\s+)/).map((w) => /^\s+$/.test(w) ? w : keep.test(w.replace(/[:.,()]+$/, '')) ? w : w.replace(/[0-9]/g, '9').replace(/[^\s9:./()\-|,]+/g, (x) => 'A'.repeat(Math.min(3, x.length)))).join('').slice(0, 4000);
 }
+// HTML mail → text with one table row per line ("Label:<TAB>value") — the plain-text part of the Optima mails stops before the room rows (Nov 16)
+function bkHtmlText(h) {
+  return String(h || '').slice(0, 300000).replace(/<(script|style|head)[\s\S]*?<\/\1>/gi, ' ').replace(/<br\s*\/?>/gi, '\n').replace(/<\/(tr|p|div|h\d|li|table)>/gi, '\n')
+    .replace(/<\/t[dh]>/gi, '\t').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/gi, ' ').replace(/&amp;/gi, '&').replace(/&lt;/gi, '<').replace(/&gt;/gi, '>').replace(/&quot;/gi, '"').replace(/&#(\d+);/g, (m, n) => String.fromCharCode(+n))
+    .replace(/[ \u00a0]+/g, ' ').replace(/ *\t */g, '\t').replace(/\t+\n/g, '\n').replace(/\n\s*\n+/g, '\n').trim();
+}
 function bkTpl(subject, text) {
-  const all = String(subject || '') + '\n' + String(text || '');
+  // forwarded / replied mails quote every line with '>' and HTML tables may add '*' or '|' around cells (Nov 16: the first real mails fell back to AI)
+  text = String(text || '').replace(/\r/g, '').replace(/^[ \t]*(?:>[ \t]?)+/gm, '').replace(/^[ \t*|]+|[ \t*|]+$/gm, '');
+  const all = String(subject || '') + '\n' + text;
   if (!/Optima Master ID/i.test(all)) return null;
   const ttl = String(subject || '') + ' ' + ((String(text || '').match(/[^\n]*Reservation[^\n]*/i) || [''])[0]);
   const action = /cancel/i.test(ttl) ? 'cancel' : /modif|change|amend|update/i.test(ttl) ? 'modify' : /new reservation/i.test(ttl) ? 'new' : '';
   if (!action) return null;
-  const parts = String(text).split(/\n\s*Room\s+\d+\s*\n/i), H = bkFields(parts[0]);
+  let parts = text.split(/\n\s*Room\s+\d+\s*\n/i); if (parts.length < 2) { const i = text.search(/\n\s*Status\s*[:\t\n]/i); parts = i > 0 ? [text.slice(0, i), text.slice(i)] : [text, text]; }
+  const H = bkFields(parts[0]);
   const conf = (H.optima_master_id || '').match(/\d+/); if (!conf) return null;
   const hotel = (all.match(/Hotel:\s*([^\n|]+)/i) || [])[1] || '';
   const rooms = parts.slice(1).map((p) => { const R = bkFields(p); return { R, type: R.room_type || '', people: (+R.adults || 0) + (+R.children || 0) + (+R.infants || 0), board: bkBoard((R.price_code_plan || '') + ' ' + (R.external_rate_plan || '')) }; });
@@ -999,7 +1008,8 @@ exports.bookingsIngest = functions.region(REGION).runWith({ timeoutSeconds: 120 
     const cs = await db.doc('bkcfg/main').get(), cfg = cs.exists ? cs.data() : {}, key = String(cfg.key || ''), got = String(req.get('x-bk-key') || '');
     if (!cfg.on || key.length < 24 || got.length !== key.length || !crypto.timingSafeEqual(Buffer.from(got), Buffer.from(key))) { res.status(403).json({ error: 'forbidden' }); return; }
     const b = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
-    const mid = String(b.id || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 80), subject = String(b.subject || '').slice(0, 300), text = String(b.text || '').slice(0, 30000);
+    const mid = String(b.id || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 80), subject = String(b.subject || '').slice(0, 300);
+    const ht = b.html ? bkHtmlText(b.html) : '', text = (ht.length > String(b.text || '').length ? ht : String(b.text || '')).slice(0, 30000);
     if (!mid || !text) { res.status(400).json({ error: 'bad' }); return; }
     const mref = db.doc('bkMails/' + mid), prev = await mref.get(); if (prev.exists && prev.data().full === true) { res.json({ ok: true, dup: true }); return; }
     let p = null, by = 'tpl';
@@ -1013,6 +1023,8 @@ exports.bookingsIngest = functions.region(REGION).runWith({ timeoutSeconds: 120 
     await db.doc('bkcfg/main').set({ stats: { [why ? 'err' : by]: admin.firestore.FieldValue.increment(1) }, lastAt: now }, { merge: true });
     if (why) { res.json({ ok: false, why, by }); return; }
     const ref = db.doc('bookings/' + hotel + '__' + conf), cur = await ref.get();
+    // a mail read again (after a better parse) that now gives another booking number: drop the booking made from the earlier wrong reading of this same mail
+    if (prev.exists) { const pv = prev.data() || {}, oid = pv.hotel && pv.conf ? pv.hotel + '__' + pv.conf : ''; if (oid && oid !== ref.id) { const od = await db.doc('bookings/' + oid).get(); if (od.exists && (od.data().hist || []).length <= 1) await od.ref.delete(); } }
     const up = { hotel, conf, updatedAt: now, by, hist: admin.firestore.FieldValue.arrayUnion({ at: now, action: act }) };
     if (act === 'cancel') up.status = 'cancelled';
     else {

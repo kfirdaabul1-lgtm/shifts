@@ -1930,7 +1930,7 @@ function run() {
     var ok = true;
     th.getMessages().forEach(function (m) {
       var r = UrlFetchApp.fetch(URL, { method: 'post', contentType: 'application/json', muteHttpExceptions: true, headers: { 'x-bk-key': KEY },
-        payload: JSON.stringify({ id: m.getId(), subject: m.getSubject(), date: m.getDate().toISOString(), text: m.getPlainBody() }) });
+        payload: JSON.stringify({ id: m.getId(), subject: m.getSubject(), date: m.getDate().toISOString(), text: m.getPlainBody(), html: m.getBody() }) });
       if (r.getResponseCode() !== 200) { ok = false; console.log(r.getResponseCode() + ' ' + r.getContentText()); }
     });
     if (ok) th.addLabel(done);

@@ -3244,7 +3244,7 @@ function alertTick(){const n=alertCount(),prev=S.alertPrev??n;S.alertPrev=n;try{
   const low=lowItems(),first=!S.lowSeen;S.lowSeen=S.lowSeen||new Set();const fresh=low.filter(([id])=>!S.lowSeen.has(id));S.lowSeen=new Set(low.map(([id])=>id));
   if(!first&&fresh.length){const t=fresh.map(([,x])=>`${x.name} (${hotelName(x.hotel)}): ${+x.qty||0}${x.unit?' '+x.unit:''}`).join(', ');toast('הגיע למינימום במלאי: '+t);
     if(window.Notification&&Notification.permission==='granted'){try{new Notification(appName()+' · מלאי',{body:'הגיע לרף המינימום: '+t,tag:'sc-low'})}catch(_){ }}}
-  else if(n>prev&&window.Notification&&Notification.permission==='granted'){try{new Notification(appName(),{body:n===1?'יש בקשה שמחכה לאישור שלך':`יש ${n} בקשות שמחכות לאישור שלך`,tag:'sc-pending'})}catch(_){ }}
+  // owner, Nov 16: no "you have n requests" count notification — each item already gets its own push from the server
   render()}
 
 /* ---------- stock: items per hotel and department, minimum level, purchase requests ---------- */

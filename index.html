@@ -1991,7 +1991,7 @@ function roomCatHTML(){const hs=visibleHotels().filter(rcCan);if(!hs.length)retu
     <div class="actions" style="margin-top:6px"><button class="btn sm" data-act="rc-new" data-h="${esc(h)}">+ קטגוריה חדשה</button></div>`}).join('')}</div>`}
 function rcUnmatched(h){const t=new Set();Object.values(S.bks||{}).forEach(b=>{if(b.hotel===h)(b.rooms||[]).forEach(r=>{if(r.type&&!rcMatch(h,r.type))t.add(r.type)})});return [...t]}
 function sheetRoomCat(){const D=S.rcD,h=S.sheet.h;if(!D)return sheetHead('קטגוריית חדרים','');
-  const all=(()=>{const R=hkRooms(h);return R.rooms.concat(R.dorms)})(),sel=new Set(D.rooms.map(r=>r.n)),other={};((S.roomCfg||{})[h]||[]).forEach(c=>{if(c.id!==D.id)(c.rooms||[]).forEach(r=>other[r.n]=c.name)});
+  const all=hkRooms(h).units,sel=new Set(D.rooms.map(r=>r.n)),other={};((S.roomCfg||{})[h]||[]).forEach(c=>{if(c.id!==D.id)(c.rooms||[]).forEach(r=>other[r.n]=c.name)});
   const un=rcUnmatched(h).filter(x=>!rcNames(D).includes(rcNorm(x)));
   return sheetHead(D.name?esc(D.name):'קטגוריה חדשה',esc(hotelName(h)))+`<label class="f">שם הקטגוריה<input type="text" data-rc="name" value="${esc(D.name||'')}" placeholder="למשל: Deluxe Balcony"></label>
   <label class="f">שמות נוספים כמו שהם מופיעים במייל ההזמנה (מופרדים בפסיק)<input type="text" data-rc="alias" value="${esc(D.alias||'')}" placeholder="למשל: Gutman Balcony, Balcony Room"></label>
@@ -4111,7 +4111,7 @@ const HK_CN=Object.fromEntries(HK_CLEAN.map(x=>[x[0],x])),HK_ON=Object.fromEntri
 function hkPreset(h){if(!LEGACY)return {rooms:''};const n=String(hotelName(h)||'').toLowerCase();
   if(/סיז|seas/.test(n))return {rooms:'101-119 -113 -117\n201-219 -213 -217\n301-314 -313\n401-403'};
   if(/גוטמן|gutman|gutmann/.test(n))return {rooms:'101-107 -104\n200-210\n300-312 -306'};
-  if(/הוסטל|hostel|180/.test(n))return {rooms:'201-206\n301-311',dorms:'101-111 -108',beds:8};
+  if(/הוסטל|hostel|180/.test(n))return {rooms:'201-206\n301-311',dorms:'101-111 -108 -110',beds:8};
   if(/סבן|7even|seven/.test(n))return {rooms:'401-429\n501-528\n601-625'};
   return {rooms:''}}
 // "101-119 -113 -117, 201" → ['101',…]; a leading minus removes a room

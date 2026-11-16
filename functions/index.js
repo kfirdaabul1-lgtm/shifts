@@ -953,7 +953,8 @@ const BK_SCHEMA = { type: 'OBJECT', properties: {
   action: { type: 'STRING', description: 'new | modify | cancel' }, conf: { type: 'STRING', description: 'booking / confirmation number' },
   hotel: { type: 'STRING' }, guest: { type: 'STRING' },
   ci: { type: 'STRING', description: 'YYYY-MM-DD' }, co: { type: 'STRING', description: 'YYYY-MM-DD' },
-  rooms: { type: 'ARRAY', items: { type: 'OBJECT', properties: { type: { type: 'STRING' }, people: { type: 'NUMBER', description: 'adults + children + infants' }, board: { type: 'STRING', description: 'meal plan: RO (room only) | BB (breakfast) | HB (half board) | FB (full board)' } } } } },
+  nights: { type: 'NUMBER', description: 'number of nights, if written' },
+  rooms: { type: 'ARRAY', items: { type: 'OBJECT', properties: { type: { type: 'STRING', description: 'room type / category name' }, adults: { type: 'NUMBER' }, children: { type: 'NUMBER' }, infants: { type: 'NUMBER' }, people: { type: 'NUMBER', description: 'adults + children + infants in this room' }, board: { type: 'STRING', description: 'meal plan: RO (room only) | BB (breakfast) | HB (half board) | FB (full board)' } } } } },
   required: ['action', 'conf'] };
 // fixed template: Optima PMS mails "New Reservation from Simple Booking. Hotel: …" — "Label: value" rows, per room "Room N". Returns null when unsure → AI.
 const BK_LAB = ['Optima Master ID', 'Voucher', 'Agent IATA', 'Agent', 'Company', 'Booking Contact', 'Total in Optima Net \\(not including tax\\)', 'Total in Optima \\([^)]*\\)', 'Allocation Name', 'Guest Comments',
@@ -983,7 +984,7 @@ function bkTpl(subject, text) {
 }
 async function bkAi(cfg, subject, text) {
   if (cfg.aiModel && !aiModelOk) aiModelOk = String(cfg.aiModel);
-  const { j } = await aiGenerate({ contents: [{ role: 'user', parts: [{ text: 'Hotel PMS e-mail (Hebrew or English). Extract the booking. action: new, modify or cancel. Dates YYYY-MM-DD. Leave unknown fields empty.\nSubject: ' + subject + '\n\n' + text.slice(0, 12000) }] }],
+  const { j } = await aiGenerate({ contents: [{ role: 'user', parts: [{ text: 'Hotel PMS e-mail (Hebrew or English; may be a forwarded / replied mail — use the booking details inside it). Extract the booking. action: new, modify or cancel. conf = the reservation / confirmation / master id number. ci = arrival (check-in) date, co = departure (check-out) date, both YYYY-MM-DD; dates written like 20/11/2026 are day/month/year. If only the number of nights is given, fill nights. One rooms[] entry per room with its type, adults, children, infants and meal plan (breakfast included = BB). Leave unknown fields empty.\nSubject: ' + subject + '\n\n' + text.slice(0, 12000) }] }],
     generationConfig: { temperature: 0, responseMimeType: 'application/json', responseSchema: BK_SCHEMA } });
   return JSON.parse((((j.candidates || [])[0] || {}).content || { parts: [] }).parts.map((p) => p.text || '').join('') || '{}');
 }
@@ -995,7 +996,7 @@ exports.bookingsIngest = functions.region(REGION).runWith({ timeoutSeconds: 120 
     const b = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
     const mid = String(b.id || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 80), subject = String(b.subject || '').slice(0, 300), text = String(b.text || '').slice(0, 30000);
     if (!mid || !text) { res.status(400).json({ error: 'bad' }); return; }
-    const mref = db.doc('bkMails/' + mid); if ((await mref.get()).exists) { res.json({ ok: true, dup: true }); return; }
+    const mref = db.doc('bkMails/' + mid), prev = await mref.get(); if (prev.exists && prev.data().full === true) { res.json({ ok: true, dup: true }); return; }
     let p = null, by = 'tpl';
     try { p = bkTpl(subject, text); } catch (e) { p = null; }
     if (!p || !p.conf) { by = 'ai'; try { p = await bkAi(cfg, subject, text); } catch (e) { p = {}; by = 'err'; console.warn('bookingsIngest ai', e.message); } }
@@ -1010,13 +1011,17 @@ exports.bookingsIngest = functions.region(REGION).runWith({ timeoutSeconds: 120 
     const up = { hotel, conf, updatedAt: now, by, hist: admin.firestore.FieldValue.arrayUnion({ at: now, action: act }) };
     if (act === 'cancel') up.status = 'cancelled';
     else {
-      const rooms = (p.rooms || []).slice(0, 20).map((r) => ({ type: String(r.type || '').slice(0, 60), people: Math.max(0, Math.min(99, +r.people || 0)), board: ['RO', 'BB', 'HB', 'FB'].includes(String(r.board || '').toUpperCase()) ? String(r.board).toUpperCase() : bkBoard(r.board) }));
-      Object.assign(up, { status: 'booked', guest: String(p.guest || '').slice(0, 100), ci: bkDate(p.ci), co: bkDate(p.co), rooms,
+      const rooms = (p.rooms || []).slice(0, 20).map((r) => ({ type: String(r.type || '').slice(0, 60), people: Math.max(0, Math.min(99, (+r.people || 0) || ((+r.adults || 0) + (+r.children || 0) + (+r.infants || 0)))), board: ['RO', 'BB', 'HB', 'FB'].includes(String(r.board || '').toUpperCase()) ? String(r.board).toUpperCase() : bkBoard(r.board) }));
+      const ci = bkDate(p.ci), nn = Math.round(+p.nights || 0); let co = bkDate(p.co);
+      if (!co && ci && nn > 0 && nn < 60) { const d = new Date(ci + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + nn); co = d.toISOString().slice(0, 10); }
+      Object.assign(up, { status: 'booked', guest: String(p.guest || '').slice(0, 100), ci, co, rooms,
         board: [...new Set(rooms.map((r) => r.board).filter(Boolean))].join('/'), people: rooms.reduce((a, r) => a + r.people, 0) });
       if (!cur.exists) up.createdAt = now;
     }
     await ref.set(up, { merge: true });
-    res.json({ ok: true, id: ref.id, action: act, by });
+    const full = act === 'cancel' || !!(up.ci && up.co && up.people > 0);
+    await mref.set({ full }, { merge: true });
+    res.json({ ok: true, id: ref.id, action: act, by, full });
   } catch (e) { console.error('bookingsIngest', e); res.status(500).json({ error: String(e.message || e).slice(0, 200) }); }
 });
 // ---------- actions from a guest request (owner, Nov 15): every greq holder may turn it into a lead or open a housekeeping / maintenance / public-areas call.

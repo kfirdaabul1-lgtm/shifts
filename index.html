@@ -1955,7 +1955,7 @@ function vBk(){bkSub();const F=S.bkF||(S.bkF={h:'all',st:'booked',from:todayISO(
     ${hs.length>1?`<div class="chips" style="gap:6px">${chip('h','all','כל המלונות')}${hs.map(h=>chip('h',h,esc(hotelName(h)))).join('')}</div>`:''}
     <div class="actions" style="gap:8px;align-items:end;flex-wrap:wrap;margin-top:6px"><label class="f" style="margin:0">מתאריך<input type="date" data-bkd="from" value="${esc(F.from)}"></label><label class="f" style="margin:0">עד תאריך<input type="date" data-bkd="to" value="${esc(F.to)}"></label>
       <div class="chips" style="gap:6px">${chip('st','booked','פעילות')}${chip('st','cancelled','בוטלו')}${chip('st','all','הכל')}</div></div></section>`;
-  if(S.bkErr)return wrap(head+`<div class="notice">לא הצלחתי לטעון: ${esc(S.bkErr)}</div>`+bkCfgHTML());
+  if(S.bkErr)return wrap(head+`<div class="notice">לא הצלחתי לטעון: ${esc(S.bkErr)}</div>`+foldCard(bkCfgHTML(),'pmsc'));
   const list=Object.entries(S.bks||{}).filter(([,b])=>(F.h==='all'||b.hotel===F.h)&&(F.st==='all'||(b.status||'booked')===F.st)&&(!b.ci||!F.to||b.ci<=F.to)&&(!b.co||!F.from||b.co>=F.from)).sort(([,a],[,b])=>String(a.ci||'').localeCompare(String(b.ci||'')));
   const nights=(a,b)=>a&&b?Math.round((new Date(b)-new Date(a))/864e5):0,dd=d=>d?d.slice(8,10)+'/'+d.slice(5,7):'—';
   const row=([id,b])=>{const cx=b.status==='cancelled',bs=String(b.board||'').split('/').filter(Boolean),n=nights(b.ci,b.co),types=[...new Set((b.rooms||[]).map(r=>r.type).filter(Boolean))];
@@ -1963,7 +1963,7 @@ function vBk(){bkSub();const F=S.bkF||(S.bkF={h:'all',st:'booked',from:todayISO(
       <small>${esc(hotelName(b.hotel))} · ${dd(b.ci)}–${dd(b.co)}${n?` (${n} לילות)`:''} · 👤 ${+b.people||0}${(b.rooms||[]).length>1?` · ${(b.rooms||[]).length} חדרים`:''}${types.length?' · '+types.map(esc).join(', '):''}</small></span>
       <span class="actions" style="gap:4px">${bs.map(x=>`<span class="pill" style="background:${(BK_BOARD[x]||['', '#64748B'])[1]};color:#fff">${x}</span>`).join('')}${cx?'<span class="pill">בוטלה</span>':''}</span></div>`};
   const ppl=list.filter(([,b])=>b.status!=='cancelled').reduce((a,[,b])=>a+(+b.people||0),0);
-  return wrap(head+`<div class="card"><h3>הזמנות · ${list.length}${ppl?` · 👤 ${ppl}`:''}</h3>${list.length?`<div class="plist">${list.map(row).join('')}</div>`:'<p class="muted">אין הזמנות בטווח הזה.</p>'}</div>`+bkCfgHTML())}
+  return wrap(head+`<div class="card"><h3>הזמנות · ${list.length}${ppl?` · 👤 ${ppl}`:''}</h3>${list.length?`<div class="plist">${list.map(row).join('')}</div>`:'<p class="muted">אין הזמנות בטווח הזה.</p>'}</div>`+foldCard(bkCfgHTML(),'pmsc'))}
 function sheetBkView(){const id=S.sheet.id,b=(S.bks||{})[id];if(!b)return sheetHead('הזמנה','')+'<p class="muted">ההזמנה לא נמצאה</p>';
   const dd=d=>d?d.slice(8,10)+'/'+d.slice(5,7)+'/'+d.slice(0,4):'—',n=b.ci&&b.co?Math.round((new Date(b.co)-new Date(b.ci))/864e5):0,cx=b.status==='cancelled';
   const ACT={new:'הזמנה חדשה',modify:'שינוי בהזמנה',cancel:'ביטול'},tm=t=>new Date(t).toLocaleString('he-IL',{dateStyle:'short',timeStyle:'short'});

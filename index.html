@@ -1908,9 +1908,9 @@ function bkHs(){const hs=S.isOwner?hotelIds():(S.role&&S.role.hotels&&S.role.hot
 function bkSub(){if(S.live.bk)return;S.live.bk=true;S.bks={};
   const all=S.isOwner||!(S.role&&S.role.hotels&&S.role.hotels.length),on=q=>q.onSnapshot(x=>{x.docChanges().forEach(c=>{if(c.type==='removed')delete S.bks[c.doc.id];else S.bks[c.doc.id]=c.doc.data()});render()},e=>{S.bkErr=errMsg(mapErr(e));render()});
   if(all)on(fdb.collection('bookings'));else{const hs=bkHs();for(let i=0;i<hs.length;i+=10)on(fdb.collection('bookings').where('hotel','in',hs.slice(i,i+10)))}}
-function bkCfgSub(){if(S.live.bkcfg||!S.isOwner)return;S.live.bkcfg=true;fdb.doc('bkcfg/main').onSnapshot(d=>{S.bkCfg=d.exists?d.data():{};render()},()=>{S.bkCfg={}});
+function bkCfgSub(){if(S.live.bkcfg||!S.isOwner)return;S.live.bkcfg=true;fdb.doc('bkcfg/main').onSnapshot(d=>{S.pmsCfg=d.exists?d.data():{};render()},()=>{S.pmsCfg={}});
   fdb.collection('bkMails').where('ok','==',false).onSnapshot(q=>{S.bkBad=q.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.at||0)-(a.at||0));render()},()=>{S.bkBad=[]})}
-function bkScript(key){return `// ${appName()} – הזמנות מהמיילים של מערכת ההזמנות (PMS) אל עמוד "הזמנות"
+function pmsScript(key){return `// ${appName()} – הזמנות מהמיילים של מערכת ההזמנות (PMS) אל עמוד "הזמנות"
 const URL = '${BK_URL()}';
 const KEY = '${key||'מפתח'}';
 
@@ -1935,17 +1935,17 @@ function run() {
   });
 }
 `}
-function bkCfgHTML(){if(!S.isOwner)return '';bkCfgSub();const c=S.bkCfg||{},k=c.key||'',st=c.stats||{},bad=S.bkBad||[];
-  const mdl=c.aiModel||'',mb=(v,n)=>`<button class="dchip ${mdl===v?'':'off'}" data-act="bk-model" data-v="${v}">${n}</button>`;
+function bkCfgHTML(){if(!S.isOwner)return '';bkCfgSub();const c=S.pmsCfg||{},k=c.key||'',st=c.stats||{},bad=S.bkBad||[];
+  const mdl=c.aiModel||'',mb=(v,n)=>`<button class="dchip ${mdl===v?'':'off'}" data-act="pms-model" data-v="${v}">${n}</button>`;
   return `<div class="card"><h3>⚙️ הזמנות מה-PMS במייל</h3>
     <p class="muted" style="font-size:.85rem">מערכת ההזמנות שולחת מייל על כל הזמנה לתיבת ג׳ימייל, וסקריפט של גוגל מעביר את המיילים לכאן. נשמרים רק מלון, שם האורח, תאריכים, כמות אנשים, סוג חדר וארוחות. בלי מחירים, טלפונים ומיילים של אורחים.</p>
-    <div class="actions" style="align-items:center;gap:8px;flex-wrap:wrap"><button class="btn sm ${c.on?'':'pri'}" data-act="bk-on">${c.on?'⏸ כיבוי הקליטה':'▶ הפעלת הקליטה'}</button><span class="pill ${c.on?'ok':''}">${c.on?'פעיל':'כבוי'}</span>
-      ${k?`<button class="btn sm" data-act="bk-key">${S.confirm==='bkkey'?'לחיצה נוספת להחלפה (הסקריפט הישן יפסיק לעבוד)':'החלפת מפתח'}</button>`:`<button class="btn sm pri" data-act="bk-key">יצירת מפתח</button>`}</div>
+    <div class="actions" style="align-items:center;gap:8px;flex-wrap:wrap"><button class="btn sm ${c.on?'':'pri'}" data-act="pms-on">${c.on?'⏸ כיבוי הקליטה':'▶ הפעלת הקליטה'}</button><span class="pill ${c.on?'ok':''}">${c.on?'פעיל':'כבוי'}</span>
+      ${k?`<button class="btn sm" data-act="pms-key">${S.confirm==='bkkey'?'לחיצה נוספת להחלפה (הסקריפט הישן יפסיק לעבוד)':'החלפת מפתח'}</button>`:`<button class="btn sm pri" data-act="pms-key">יצירת מפתח</button>`}</div>
     <div style="margin-top:8px"><small class="muted">כשהתבנית הקבועה לא מזהה מייל, בינה מלאכותית קוראת אותו:</small><div class="chips" data-nosel style="gap:6px;margin-top:4px">${mb('','אוטומטי')}${mb('gemini-2.5-flash','Gemini 2.5 Flash')}${mb('gemini-3-flash','Gemini 3 Flash')}</div></div>
     <p class="muted" style="font-size:.85rem;margin:8px 0 0">נקלטו בתבנית: <b>${+st.tpl||0}</b> · בבינה מלאכותית: <b>${+st.ai||0}</b> · לא נקראו: <b>${+st.err||0}</b>${c.lastAt?` · מייל אחרון: ${new Date(c.lastAt).toLocaleString('he-IL',{dateStyle:'short',timeStyle:'short'})}`:''}</p>
     ${k?`<h4 style="margin:12px 0 4px">סקריפט לגוגל</h4><p class="muted" style="font-size:.85rem;margin:0 0 6px">כתובת הפונקציה: <span dir="ltr" style="word-break:break-all">${esc(BK_URL())}</span></p>
-      <pre dir="ltr" data-i18n-skip style="white-space:pre-wrap;word-break:break-all;font-size:.75rem;background:var(--paper,#f6f1e7);border:1px solid var(--line);border-radius:6px;padding:10px;max-height:320px;overflow:auto;margin:0">${esc(bkScript(k))}</pre>
-      <div class="actions" style="margin-top:6px"><button class="btn sm pri" data-act="bk-copy">העתקת הסקריפט</button></div>`:''}
+      <pre dir="ltr" data-i18n-skip style="white-space:pre-wrap;word-break:break-all;font-size:.75rem;background:var(--paper,#f6f1e7);border:1px solid var(--line);border-radius:6px;padding:10px;max-height:320px;overflow:auto;margin:0">${esc(pmsScript(k))}</pre>
+      <div class="actions" style="margin-top:6px"><button class="btn sm pri" data-act="pms-copy">העתקת הסקריפט</button></div>`:''}
     ${bad.length?`<h4 style="margin:12px 0 4px">מיילים שלא נקראו (${bad.length})</h4><div class="plist">${bad.slice(0,20).map(m=>`<div class="prow"><span class="who"><b>${esc(m.subject||'(בלי נושא)')}</b><small>${m.at?new Date(m.at).toLocaleString('he-IL',{dateStyle:'short',timeStyle:'short'}):''} · ${m.why==='no conf'?'לא נמצא מספר הזמנה':m.why==='no hotel'?'לא זוהה המלון':esc(m.why||'')}</small></span></div>`).join('')}</div><p class="muted" style="font-size:.8rem">שלח לי דוגמה של מייל כזה ואתאים את התבנית.</p>`:''}</div>`}
 function vBk(){bkSub();const F=S.bkF||(S.bkF={h:'all',st:'booked',from:todayISO(),to:addDays(todayISO(),7)}),hs=bkHs();
   const chip=(k,v,n)=>`<button class="dchip ${F[k]===v?'':'off'}" data-act="bk-f" data-k="${k}" data-v="${v}">${n}</button>`;
@@ -5574,12 +5574,12 @@ const ACT={
   'app-greq':()=>{S.menu=false;setTab('greq')},
   'app-bk':()=>{S.menu=false;setTab('bk')},
   'bk-f':D=>{S.bkF={...S.bkF,[D.k]:D.v};render()},
-  'bk-on':async()=>{if(!S.isOwner)return;const on=!(S.bkCfg||{}).on;if(on&&!(S.bkCfg||{}).key){toast('קודם יוצרים מפתח');return}try{await fdb.doc('bkcfg/main').set({on},{merge:true});toast(on?'הקליטה הופעלה':'הקליטה כובתה')}catch(e){toast('לא נשמר: '+errMsg(mapErr(e)))}},
-  'bk-key':async()=>{if(!S.isOwner)return;if((S.bkCfg||{}).key&&S.confirm!=='bkkey'){S.confirm='bkkey';render();return}S.confirm=null;
+  'pms-on':async()=>{if(!S.isOwner)return;const on=!(S.pmsCfg||{}).on;if(on&&!(S.pmsCfg||{}).key){toast('קודם יוצרים מפתח');return}try{await fdb.doc('bkcfg/main').set({on},{merge:true});toast(on?'הקליטה הופעלה':'הקליטה כובתה')}catch(e){toast('לא נשמר: '+errMsg(mapErr(e)))}},
+  'pms-key':async()=>{if(!S.isOwner)return;if((S.pmsCfg||{}).key&&S.confirm!=='bkkey'){S.confirm='bkkey';render();return}S.confirm=null;
     const a=new Uint8Array(20);crypto.getRandomValues(a);const key=[...a].map(x=>x.toString(16).padStart(2,'0')).join('');
-    try{await fdb.doc('bkcfg/main').set({key,keyAt:Date.now(),by:S.uid},{merge:true});S.bkCfg={...(S.bkCfg||{}),key};render();toast('נוצר מפתח. עכשיו מעתיקים את הסקריפט')}catch(e){toast('לא נשמר: '+errMsg(mapErr(e)))}},
-  'bk-copy':async()=>{const k=(S.bkCfg||{}).key;if(!k)return;try{await navigator.clipboard.writeText(bkScript(k));toast('הסקריפט הועתק')}catch(_){toast('ההעתקה נכשלה')}},
-  'bk-model':async D=>{if(!S.isOwner)return;try{await fdb.doc('bkcfg/main').set({aiModel:D.v||''},{merge:true})}catch(e){toast('לא נשמר: '+errMsg(mapErr(e)))}},
+    try{await fdb.doc('bkcfg/main').set({key,keyAt:Date.now(),by:S.uid},{merge:true});S.pmsCfg={...(S.pmsCfg||{}),key};render();toast('נוצר מפתח. עכשיו מעתיקים את הסקריפט')}catch(e){toast('לא נשמר: '+errMsg(mapErr(e)))}},
+  'pms-copy':async()=>{const k=(S.pmsCfg||{}).key;if(!k)return;try{await navigator.clipboard.writeText(pmsScript(k));toast('הסקריפט הועתק')}catch(_){toast('ההעתקה נכשלה')}},
+  'pms-model':async D=>{if(!S.isOwner)return;try{await fdb.doc('bkcfg/main').set({aiModel:D.v||''},{merge:true})}catch(e){toast('לא נשמר: '+errMsg(mapErr(e)))}},
   'greq-f':D=>{S.greqF={...(S.greqF||{st:'act',t:'all',h:'all'}),[D.k]:D.v};render()},
   'greq-take':D=>greqUp(D.id,{status:'taken',assignee:S.uid,assigneeName:S.meName||empName(S.uid)||'',assignedAt:Date.now()},'לקח/ה לטיפול'),
   'greq-asg':D=>{const u=dv('greqa',D.id,'');if(!u){toast('צריך לבחור למי');return}const n=empName(u)||'';greqUp(D.id,{status:'taken',assignee:u,assigneeName:n,assignedAt:Date.now()},'שויך ל'+n)},

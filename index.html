@@ -772,7 +772,7 @@ function sheetIosPush(){const fx=S.sheet&&S.sheet.fix,host=(()=>{try{return new 
   <ol style="padding-inline-start:20px;line-height:1.9"><li>פותחים את האתר ב-<b>Safari</b>.</li><li>לוחצים על כפתור השיתוף <b>⎙</b> (ריבוע עם חץ למעלה) בתחתית המסך.</li><li>בוחרים <b>"הוסף למסך הבית"</b> ולוחצים "הוסף".</li><li>פותחים את <b>${esc(appName())}</b> מהאייקון החדש במסך הבית.</li><li>בתפריט לוחצים <b>"הפעלת התראות"</b> ומאשרים.</li></ol>
   <p class="muted" style="font-size:.85rem">צריך iOS 16.4 ומעלה. אחרי ההתקנה האתר נפתח כמו אפליקציה, בלי שורת הכתובת.</p>
   <div class="actions"><button class="btn pri" data-act="close">הבנתי</button></div>`}
-function render(){if(S.deep)deepOpen();if(isTyping()){S.pending=true;return}S.pending=false;renderTop();renderDrawer();document.body.classList.toggle('nx',(S.tab==='ceo'||S.tab==='gm')&&!S.pmode);$('#main').innerHTML=bcBannerHTML()+callsBannerHTML()+viewHTML();try{chipSelects($('#main'))}catch(e){}renderSheet();setTopH();try{arsPlace()}catch(e){}if(S.deepHl)deepMark()}
+function render(){if(S.deep)deepOpen();if(isTyping()){S.pending=true;return}S.pending=false;renderTop();renderDrawer();document.body.classList.toggle('nx',(S.tab==='ceo'||S.tab==='gm')&&!S.pmode);$('#main').innerHTML=bcBannerHTML()+callsBannerHTML()+viewHTML();try{chipSelects($('#main'))}catch(e){}renderSheet();setTopH();if(S.deepHl)deepMark()}
 // height of the sticky top bar → --toph, so inner scroll boxes (price comparison table) fit under it and keep their sticky header row/date column (owner, Nov 9)
 function setTopH(){const t=document.querySelector('.top');if(t)document.documentElement.style.setProperty('--toph',t.offsetHeight+'px')}
 window.addEventListener('resize',()=>setTopH());
@@ -781,7 +781,7 @@ window.addEventListener('resize',()=>setTopH());
 const FSEL_SKIP=/-view$|^exp-tab$|^call-t$|^pcall-t$|^kc-dept$|^job-dept$|^perm-|^emp-dept$|^pf-dept$|^vchn-vh$|^pl-ag$|^pl-m$|^lead-catset$|^spa-mins$|^lead-stage$/;
 // owner, Nov 4: like the schedule pages, every page's hotel picker and sub-page switch live in the navy top bar.
 // The page still renders its own chip rows; liftTop moves the first hotel row and the first view row into #topx (buttons keep their actions).
-const TOP_HOTEL_ACTS=['bar-h','rates-h','gm-hotel','cmp-hotel','hk-hotel','hr-hotel','pub-h','photel'],TOP_VIEW_ACTS=['greq-view','rates-v','grp-view','lead-view','mkt-view','spa-view','exp-tab'];
+const TOP_HOTEL_ACTS=['bar-h','rates-h','gm-hotel','cmp-hotel','hk-hotel','hr-hotel','pub-h','photel'],TOP_VIEW_ACTS=['rates-v','grp-view','lead-view','mkt-view','spa-view','exp-tab'];
 function liftTop(root){const tx=$('#topx');if(!tx)return;tx.innerHTML='';if(!APPTABS.includes(S.tab))return;
   const rowOf=acts=>[...root.querySelectorAll('.chips,.seg')].find(b=>{if(b.closest('.sheet,.card'))return false;const bs=[...b.children];return bs.length>1&&bs.every(x=>x.tagName==='BUTTON'&&acts.includes(x.dataset.act)&&x.dataset.act===bs[0].dataset.act)});
   const on=x=>x.getAttribute('aria-pressed')==='true'||(!x.classList.contains('off')&&x.getAttribute('aria-pressed')!=='false');
@@ -1989,32 +1989,11 @@ function arsMailHTML(){if(!S.isOwner)return '';arsCfgSub();const c=S.arsCfg||{},
       <li>מבקשים מארסונה לשלוח עותק של כל התראה לכתובת המייל הזו.</li></ol>
       <div class="actions" style="gap:8px;flex-wrap:wrap"><button class="btn sm pri" data-act="ars-mcopy">העתקת הקוד</button><button class="btn sm" data-act="ars-mkey">${S.confirm==='arsmk'?'לחיצה נוספת להחלפה (הקוד הישן יפסיק לעבוד)':'החלפת מפתח'}</button></div>${last}`
     :`<button class="btn sm pri" data-act="ars-mkey">יצירת קוד לתיבת המייל</button>`}</div>`}
-// embedded Arsona (owner, Nov 16): tab "מערכת ארסונה" = the Arsona web app in an iframe. The frame lives outside #main (#arsBox, absolutely
-// placed over the page's #arsSlot by arsPlace after every render) so re-renders never reload it or drop its login.
-const ARS_DEF='https://chat.ersona.co';
-function arsUrl(){const u=String((S.waAuto||{}).arsonaUrl||'').trim();return /^https:\/\/[^\s"'<>]+$/.test(u)?u:ARS_DEF}
-function arsPlace(){const slot=document.getElementById('arsSlot');let box=document.getElementById('arsBox');
-  if(!slot||S.tab!=='greq'){if(box)box.style.display='none';return}
-  if(!box){box=document.createElement('div');box.id='arsBox';box.style.cssText='position:absolute;z-index:5;background:#fff;border:1px solid var(--line);border-radius:6px;overflow:hidden';
-    const f=document.createElement('iframe');f.title='מערכת ארסונה';f.setAttribute('allow','clipboard-write; microphone; camera');f.style.cssText='width:100%;height:100%;border:0;display:block';f.src=arsUrl();box.appendChild(f);document.body.appendChild(box)}
-  const f=box.firstChild,u=arsUrl();if(f.dataset.u!==u){if(f.dataset.u)f.src=u;f.dataset.u=u}
-  const r=slot.getBoundingClientRect();Object.assign(box.style,{display:'',top:(r.top+scrollY)+'px',left:(r.left+scrollX)+'px',width:r.width+'px',height:r.height+'px'})}
-window.addEventListener('resize',()=>{try{arsPlace()}catch(e){}});
-// Arsona's login page (Auth0) refuses to load inside another site (owner's screenshot, Nov 16), so the tab opens Arsona in its own window.
-// A named window ('arsona') is reused: tapping again brings the same window back instead of opening another one.
-function vGreqArs(tabs){waAutoSub();const u=arsUrl();
-  return wrap(`<section class="head"><div class="head-t"><h1>פניות אורחים</h1></div>${tabs}</section>
-    <div class="card" style="text-align:center;padding:28px 16px"><div style="font-size:2.4rem" aria-hidden="true">💬</div><h3 style="margin:6px 0">מערכת ארסונה</h3>
-      <p class="muted" style="max-width:520px;margin:6px auto 14px">מסך הכניסה של ארסונה לא מאפשר לפתוח אותה בתוך האפליקציה, ולכן היא נפתחת בחלון משלה. אחרי הכניסה הראשונה החלון נשאר מחובר, ולחיצה נוספת מחזירה אליו.</p>
-      <button class="btn pri" data-act="ars-open" style="font-size:1.05rem;padding:12px 22px">פתיחת מערכת ארסונה ↗</button></div>
-    ${S.isOwner?`<div class="card" style="margin-top:10px"><h3>כתובת מערכת ארסונה</h3><div class="actions"><input type="url" data-f="arsu.v" value="${esc(dv('arsu','v',u))}" placeholder="${ARS_DEF}" style="flex:1" dir="ltr"><button class="btn sm pri" data-act="ars-url">שמירה</button></div></div>`:''}`)}
-function vGreq(){const gv=S.greqV==='ars'?'ars':'list',tabs=`<div class="seg" role="group" aria-label="תצוגה"><button class="dchip ${gv==='list'?'':'off'}" data-act="greq-view" data-v="list" aria-pressed="${gv==='list'}">פניות</button><button class="dchip ${gv==='ars'?'':'off'}" data-act="greq-view" data-v="ars" aria-pressed="${gv==='ars'}">מערכת ארסונה</button></div>`;
-  if(gv==='ars')return vGreqArs(tabs);
-  greqSub();const F=S.greqF||(S.greqF={st:'act',t:'all',h:'all'});
+function vGreq(){greqSub();const F=S.greqF||(S.greqF={st:'act',t:'all',h:'all'});
   const all=Object.entries(S.greq||{}),hs=[...new Set([...(greqHs()||hotelIds()),...all.map(([,r])=>r.hotel||'')])]; // owner, Nov 15: always pick a hotel when there are several, with open counts
   const hCnt=h=>all.filter(([,r])=>(r.hotel||'')===h&&r.status!=='done').length;
   const hn=h=>h?hotelName(h):'מלון לא מזוהה',chip=(k,v,n)=>`<button class="dchip ${F[k]===v?'':'off'}" data-act="greq-f" data-k="${k}" data-v="${v}">${n}</button>`;
-  const head=`<section class="head"><div class="head-t"><h1>פניות אורחים</h1></div>${tabs}<p class="lede">התראות מארסונה: אורח שצריך נציג, ליד פוטנציאלי או מידע חסר. לוקחים לטיפול, יוצרים קשר עם האורח ומסמנים שטופל.</p>
+  const head=`<section class="head"><div class="head-t"><h1>פניות אורחים</h1></div><p class="lede">התראות מארסונה: אורח שצריך נציג, ליד פוטנציאלי או מידע חסר. לוקחים לטיפול, יוצרים קשר עם האורח ומסמנים שטופל.</p>
     <div class="chips" style="gap:6px">${chip('st','act','פתוחות')}${chip('st','taken','בטיפול')}${chip('st','done','טופלו')}${chip('st','all','הכל')}</div>
     <div class="chips" style="gap:6px;margin-top:6px">${chip('t','all','כל הסוגים')}${Object.entries(GREQ_T).map(([k,[n]])=>chip('t',k,n)).join('')}</div>
     ${hs.length>1?`<div class="chips" style="gap:6px;margin-top:6px">${chip('h','all','כל המלונות')}${hs.map(h=>chip('h',h,esc(hn(h))+(hCnt(h)?' ('+hCnt(h)+')':''))).join('')}</div>`:''}</section>`;
@@ -5528,9 +5507,6 @@ const ACT={
   'cmp-reopen':D=>{const [h,m,c]=cmpFind(D.id);if(!c)return;S.hkCmp[h+'|'+m]={...S.hkCmp[h+'|'+m],[D.id]:{...c,status:'open'}};render();fdb.doc('hkComplaints/'+D.id).set({status:'open'},{merge:true}).catch(e=>toast('לא הצלחתי: '+errMsg(mapErr(e))))},
   'app-cmp':()=>{S.menu=false;setTab('cmp')},
   'app-greq':()=>{S.menu=false;setTab('greq')},
-  'greq-view':D=>{S.greqV=D.v==='ars'?'ars':'list';render()},
-  'ars-open':()=>{const w=Math.min(1300,screen.availWidth||1300),h=Math.min(900,screen.availHeight||900);const win=window.open(arsUrl(),'arsona',`width=${w},height=${h}`);if(win)try{win.focus()}catch(e){}else window.open(arsUrl(),'_blank','noopener')},
-  'ars-url':async()=>{if(!S.isOwner)return;const v=String(dv('arsu','v','')).trim();if(v&&!/^https:\/\/[^\s"'<>]+$/.test(v)){toast('הכתובת חייבת להתחיל ב-https://');return}try{await fdb.doc('waauto/main').set({arsonaUrl:v},{merge:true});S.drafts.arsu=null;toast('נשמר')}catch(e){toast('לא נשמר: '+errMsg(mapErr(e)))}},
   'greq-f':D=>{S.greqF={...(S.greqF||{st:'act',t:'all',h:'all'}),[D.k]:D.v};render()},
   'greq-take':D=>greqUp(D.id,{status:'taken',assignee:S.uid,assigneeName:S.meName||empName(S.uid)||'',assignedAt:Date.now()},'לקח/ה לטיפול'),
   'greq-asg':D=>{const u=dv('greqa',D.id,'');if(!u){toast('צריך לבחור למי');return}const n=empName(u)||'';greqUp(D.id,{status:'taken',assignee:u,assigneeName:n,assignedAt:Date.now()},'שויך ל'+n)},

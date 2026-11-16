@@ -475,7 +475,7 @@ service cloud.firestore {
       allow write: if canEvents();
     }
     match /waauto/{id} {
-      allow read: if canEvents() || (id == 'main' && hasRole() && roleApp('greq'));
+      allow read: if canEvents();
       allow write: if isOwner();
     }
     match /wapub/{id} {

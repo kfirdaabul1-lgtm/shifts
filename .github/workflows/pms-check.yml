@@ -1,6 +1,8 @@
 name: PMS bookings check
 on:
   workflow_dispatch:
+    inputs:
+      clean: { description: '1 = delete incomplete AI bookings', required: false, default: '0' }
 jobs:
   run:
     runs-on: ubuntu-latest
@@ -12,6 +14,7 @@ jobs:
       - run: cd functions && npm install --omit=dev
       - env:
           KEY: ${{ secrets.FIREBASE_DEPLOY_KEY }}
+          CLEAN: ${{ inputs.clean }}
           
         run: |
           echo "$KEY" > "$RUNNER_TEMP/key.json"

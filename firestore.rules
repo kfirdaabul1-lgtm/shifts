@@ -746,6 +746,7 @@ service cloud.firestore {
     match /bkcfg/{id} { allow read, write: if isOwner(); }
     match /bkMails/{id} { allow read: if isOwner(); }
     match /bookings/{id} { allow read: if bkIn(resource.data.hotel); }
+    match /roomcfg/{h} { allow read: if signedIn() && (manages(h) || bkIn(h)); allow write: if manages(h); }
     match /guestReqs/{id} {
       allow read: if greqIn(resource.data.hotel);
       allow update: if greqIn(resource.data.hotel)

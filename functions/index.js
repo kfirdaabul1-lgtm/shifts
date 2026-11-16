@@ -140,7 +140,7 @@ exports.onStock = trig('inventory/{id}').onWrite(async (ch) => {
 // A small Google Apps Script in the owner's own Drive calls this once a day with the key stored in backupcfg/main
 // (only the owner can read or change it) and saves the JSON it gets into a Drive folder. Same format as the
 // "גיבוי" button on the Permissions page, so the Import card can restore it. Invoice images are left out (size).
-const BACKUP_COLLS = ['bookings', 'bkMails', 'guestReqs', 'broadcasts', 'waauto', 'waChats', 'srImgs', 'shiftKinds', 'signs', 'receipts', 'orgcfg', 'groups', 'agents', 'priceLists', 'jobRoles', 'vchCodes', 'hkday', 'faultsAck', 'srDrafts', 'vchcfg', 'hotels', 'settings', 'employees', 'mgr', 'avail', 'shifts', 'schedule', 'requests', 'roles', 'joinCodes', 'config', 'menus', 'contracts', 'quotes', 'campaigns', 'suppliers', 'invoices', 'expcfg', 'inventory', 'purchaseReqs', 'shiftReports', 'faults', 'hk', 'hkcfg', 'hkLog', 'hkComplaints', 'leads', 'tasks', 'clients', 'hkCalls', 'spa', 'spacfg', 'vouchers'];
+const BACKUP_COLLS = ['roomcfg', 'bookings', 'bkMails', 'guestReqs', 'broadcasts', 'waauto', 'waChats', 'srImgs', 'shiftKinds', 'signs', 'receipts', 'orgcfg', 'groups', 'agents', 'priceLists', 'jobRoles', 'vchCodes', 'hkday', 'faultsAck', 'srDrafts', 'vchcfg', 'hotels', 'settings', 'employees', 'mgr', 'avail', 'shifts', 'schedule', 'requests', 'roles', 'joinCodes', 'config', 'menus', 'contracts', 'quotes', 'campaigns', 'suppliers', 'invoices', 'expcfg', 'inventory', 'purchaseReqs', 'shiftReports', 'faults', 'hk', 'hkcfg', 'hkLog', 'hkComplaints', 'leads', 'tasks', 'clients', 'hkCalls', 'spa', 'spacfg', 'vouchers'];
 const plain = (v) => {
   if (v instanceof admin.firestore.Timestamp) return { seconds: v.seconds, nanoseconds: v.nanoseconds };
   if (Array.isArray(v)) return v.map(plain);
@@ -960,7 +960,7 @@ const BK_SCHEMA = { type: 'OBJECT', properties: {
 const BK_LAB = ['Optima Master ID', 'Voucher', 'Agent IATA', 'Agent', 'Company', 'Booking Contact', 'Total in Optima Net \\(not including tax\\)', 'Total in Optima \\([^)]*\\)', 'Allocation Name', 'Guest Comments',
   'Status', 'Guest Name', 'Arrival Date', 'Departure Date', 'Nights', 'Adults', 'Children', 'Infants', 'Room Type', 'Allocation Left', 'Inventory Left', 'Price Code - Plan', 'Promotion', 'External Rate Plan', 'Daily Rates', 'Total Price per Room', 'Phone', 'Telephone', 'Mobile', 'E-?mail'];
 function bkFields(s) {
-  const re = new RegExp('(?:^|\\n|\\s)(' + BK_LAB.join('|') + ')\\s*:', 'gi'), hits = []; let m;
+  const re = new RegExp('(?:^|\\n|\\s)(' + BK_LAB.join('|') + ')[ \\t]*(?::|\\t|\\n)', 'gi'), hits = []; let m;
   while ((m = re.exec(s))) hits.push({ k: m[1].toLowerCase().replace(/\s*\(.*$/, '').replace(/[^a-z]+/g, '_'), a: m.index, b: re.lastIndex });
   const f = {}; hits.forEach((h, i) => { const v = s.slice(h.b, i + 1 < hits.length ? hits[i + 1].a : s.length).replace(/\s+/g, ' ').trim().replace(/^[|\s]+|[|\s]+$/g, ''); if (!(h.k in f)) f[h.k] = v; });
   return f;
@@ -968,6 +968,11 @@ function bkFields(s) {
 const bkBoard = (x) => { x = String(x || ''); return /full\s*board|\bFB\b|פנסיון מלא/i.test(x) ? 'FB' : /half\s*board|\bHB\b|חצי פנסיון/i.test(x) ? 'HB' : /room\s*only|\bRO\b|ללא ארוח|לינה בלבד/i.test(x) ? 'RO' : /breakfast|B\s*&\s*B|\bBB\b|ארוחת בוקר/i.test(x) ? 'BB' : ''; };
 const bkDate = (s) => { const m = String(s || '').match(/(\d{4})-(\d{1,2})-(\d{1,2})/), d = String(s || '').match(/(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})/);
   if (m) return `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`; if (d) return `${d[3].length === 2 ? '20' + d[3] : d[3]}-${d[2].padStart(2, '0')}-${d[1].padStart(2, '0')}`; return ''; };
+// privacy-safe shape of a mail (owner, Nov 16: to fix the template without storing guest data): known labels kept, every other word → 'A…', digits → 9
+function bkSkel(text) {
+  const keep = new RegExp('^(?:' + BK_LAB.join('|') + '|Room|Hotel|Reservation|New|Modified|Cancel(?:led|lation)?|Arrival|Departure|Date|Adults?|Children|Infants?|Nights?|Board|Breakfast|Plan|Type|Total|Guest|Name|Status)$', 'i');
+  return String(text || '').slice(0, 6000).split(/(\s+)/).map((w) => /^\s+$/.test(w) ? w : keep.test(w.replace(/[:.,()]+$/, '')) ? w : w.replace(/[0-9]/g, '9').replace(/[^\s9:./()\-|,]+/g, (x) => 'A'.repeat(Math.min(3, x.length)))).join('').slice(0, 4000);
+}
 function bkTpl(subject, text) {
   const all = String(subject || '') + '\n' + String(text || '');
   if (!/Optima Master ID/i.test(all)) return null;
@@ -1004,7 +1009,7 @@ exports.bookingsIngest = functions.region(REGION).runWith({ timeoutSeconds: 120 
     const act = ['new', 'modify', 'cancel'].includes(p.action) ? p.action : 'new', now = Date.now();
     const why = !conf ? 'no conf' : !hotel ? 'no hotel' : '';
     // only the mail's subject and date are kept (for the owner's "unread mails" list), never its text
-    await mref.set({ at: now, subject, date: String(b.date || '').slice(0, 40), by, conf, hotel, ok: !why, why });
+    await mref.set({ at: now, subject, date: String(b.date || '').slice(0, 40), by, conf, hotel, ok: !why, why, skel: bkSkel(text), len: text.length });
     await db.doc('bkcfg/main').set({ stats: { [why ? 'err' : by]: admin.firestore.FieldValue.increment(1) }, lastAt: now }, { merge: true });
     if (why) { res.json({ ok: false, why, by }); return; }
     const ref = db.doc('bookings/' + hotel + '__' + conf), cur = await ref.get();

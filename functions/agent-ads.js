@@ -167,7 +167,7 @@ let AUDIT_KB = ''; try { AUDIT_KB = '\n\nCHECKLIST FOR REVIEWING THE AGENCY (Met
 function system(kb, scope, kind) {
   const who = scope.hotel ? `the manager of ${scope.name}` : 'the chain management (owner / CEO)';
   const rules = `Your name is Adi (עדי, a woman). You are the paid-advertising analyst of the Seven Collection hotels; when asked who you are, say you are Adi (7EVEN / Sola, The Gutman with its spa, 7seas, Hostel 180). The ads are not only for events: they also promote rooms, the spa, brides and hiring (a hostel has no event hall and advertises rooms and jobs). Today is ${C.ilDate(new Date())}.
-You write a ${kind === 'weekly' ? 'WEEKLY CAMPAIGN REPORT' : 'DAILY ANALYSIS'} for ${who}, for scope "${scope.name}". It is a document the manager READS in the app, not a chat: write it so it can be read in under a minute and acted on.
+You write a ${kind === 'weekly' ? 'WEEKLY CAMPAIGN REPORT' : kind === 'mid' ? 'MID-WEEK CAMPAIGN REPORT' : 'DAILY ANALYSIS'} for ${who}, for scope "${scope.name}". It is a document the manager READS in the app, not a chat: write it so it can be read in under a minute and acted on.
 
 YOUR ROLE: you are the owner's independent expert on paid social (Meta: Facebook/Instagram/WhatsApp ads), on the OWNER'S side, reviewing the work of the external social media agency that runs the campaigns. You think like a senior performance-marketing lead: you know how Meta campaigns should be built (objective, optimisation event, campaign/ad-set structure, budgets and learning phase, audiences, placements, creative and copy, testing, frequency, landing/WhatsApp flow, lead quality) and you JUDGE whether what the agency did is right for these hotels and goals. Give clear verdicts ("נכון", "לא נכון", "לא בטוח") with the reason and the numbers, and say what the owner should ask or demand from the agency. Do not hide behind "I only read data": the owner wants your professional opinion.
 You do not touch the ad accounts yourself (read only) and never say that you changed anything; the agency executes.
@@ -180,7 +180,7 @@ How to work:
 - The current week is partial (see dayOfWeek): never call a partial week a drop without saying it is partial.
 - Flag campaigns over the cost-per-lead limit, big changes against the previous weeks, and leads with no campaign name (we cannot learn from them).
 - Small samples (under 10 leads or under 3 won) prove nothing: say the data is thin and what you would watch next.
-- ${kind === 'weekly' ? 'Weekly report: what happened this week against the previous weeks, which campaigns earned their budget and which did not, and up to 3 directions you suggest for next week. Build on the daily headlines you are given.' : 'Daily analysis: what changed since the previous analysis, and what needs attention today. If nothing important changed, say so in one line; do not repeat the previous analysis.'}
+- ${kind === 'weekly' ? 'Weekly report: what happened this week against the previous weeks, which campaigns earned their budget and which did not, and up to 3 directions you suggest for next week. Build on the daily headlines you are given.' : kind === 'mid' ? 'Mid-week report (Thursday): a summary of Sunday–Wednesday of this week against the same days of last week and against the previous weeks, which campaigns are on track and which are wasting budget, and up to 3 directions for the rest of this week and the weekend. Say clearly that the week is partial.' : 'Daily analysis: what changed since the previous analysis, and what needs attention today. If nothing important changed, say so in one line; do not repeat the previous analysis.'}
 - Directions: specific (which campaign, which number, what to do, why), at most 3, ranked. No generic marketing advice.
 - Review the agency's work too: look at campaign_structure and agency_changes, and when something they built or changed is wrong (or very right) for the goal, say so as a highlight or direction (what to ask the agency).
 - Write in Hebrew. Short. Numbers with ₪. Never invent a number.
@@ -219,6 +219,9 @@ async function runScope(scope, kind, cfg, today, force) {
     week = C.addDays(M.weekStart, -7); // the week that just ended
     const days = await previousReports(scope, [0, 1, 2, 3, 4, 5, 6].map((i) => 'daily_' + scope.key + '_' + C.addDays(week, i)));
     ctxTxt = `Weekly report for the week ${week} to ${C.addDays(week, 6)} (Sunday to Saturday), compared with the weeks before it. It is now ${today}, so that week is complete; use campaign_weeks / campaign_totals with from=${week} and to=${C.addDays(week, 6)} for it.\nDaily headlines of that week (yours, from the daily analyses): ${JSON.stringify(days)}`;
+  } else if (kind === 'mid') {
+    const pw = await previousReports(scope, ['weekly_' + scope.key + '_' + C.addDays(M.weekStart, -7), 'mid_' + scope.key + '_' + C.addDays(M.weekStart, -7)]);
+    ctxTxt = `Mid-week report for the week ${M.weekStart} to ${C.addDays(M.weekStart, 6)}; it is now ${today} (Thursday), so the week is PARTIAL (Sunday–Wednesday). Compare with the same days of last week (campaign_weeks / campaign_totals from=${C.addDays(M.weekStart, -7)} to=${C.addDays(M.weekStart, -4)}).\nLast weekly report and last mid-week report: ${JSON.stringify(pw)}`;
   } else {
     const prev = await previousReports(scope, [1, 2, 3].map((i) => 'daily_' + scope.key + '_' + C.addDays(today, -i)));
     const pw = await previousReports(scope, ['weekly_' + scope.key + '_' + C.addDays(M.weekStart, -7)]);
@@ -227,9 +230,9 @@ async function runScope(scope, kind, cfg, today, force) {
   let saved = null;
   const tools = [...readTools(scope), { ...SAVE_REPORT, run: async (a) => { saved = cleanReport(a || {}); return { saved: true }; } }];
   const model = cfg.model || SMART;
-  const out = await C.runLoop({ model, system: system(await C.loadKB('ads'), scope, kind), tools, messages: [{ role: 'user', content: ctxTxt + notesTxt(await notesFor(scope)) + '\n\nMETRICS (computed by the system):\n' + JSON.stringify(M) }], maxTurns: kind === 'weekly' ? 10 : 8, maxTokens: 4000 }); // Hebrew reports need room (1500 cut them off)
+  const out = await C.runLoop({ model, system: system(await C.loadKB('ads'), scope, kind), tools, messages: [{ role: 'user', content: ctxTxt + notesTxt(await notesFor(scope)) + '\n\nMETRICS (computed by the system):\n' + JSON.stringify(M) }], maxTurns: kind === 'daily' ? 8 : 10, maxTokens: 12000 }); // Hebrew reports + the model's thinking need room (4000 could end empty)
   if (!saved) { const t = String(out.text || '').trim(); if (!t) { await C.logRun('ads', { scope: scope.key, kind, model, usage: out.U, error: 'no report produced' }); return { scope: scope.key, skipped: 'no report' }; } saved = cleanReport({ headline: t.split('\n')[0], summary: t }); }
-  const id = kind + '_' + scope.key + '_' + (kind === 'weekly' ? week : today);
+  const id = kind + '_' + scope.key + '_' + (kind === 'daily' ? today : week);
   await db.doc('adReports/' + id).set({ kind, hotel: scope.hotel, scopeKey: scope.key, scopeName: scope.name, date: today, week, ...saved, metrics: { thisWeek: M.thisWeek, lastWeek: M.lastWeek, dayOfWeek: M.dayOfWeek, crm90d: M.crm90d }, at: Date.now(), model, by: 'ai' });
   await sref.set({ digest, at: Date.now() });
   await C.logRun('ads', { scope: scope.key, kind, model, usage: out.U, tools: out.used, report: id });
@@ -255,7 +258,8 @@ async function runAll(kind, force) {
   if (kind === 'daily') await cleanupDaily(cfg);
   return done;
 }
-exports.adsDaily = functions.region(REGION).runWith({ timeoutSeconds: 540, memory: '512MB' }).pubsub.schedule('0 7 * * *').timeZone('Asia/Jerusalem').onRun(async () => { await runAll('daily', false); return null; });
+// Owner (Nov 16): reports twice a week — Sunday 08:00 (the week that ended) and Thursday 08:00 (mid-week, Sun–Wed). The export keeps its old name.
+exports.adsDaily = functions.region(REGION).runWith({ timeoutSeconds: 540, memory: '512MB' }).pubsub.schedule('0 8 * * 4').timeZone('Asia/Jerusalem').onRun(async () => { await runAll('mid', false); return null; });
 exports.adsWeekly = functions.region(REGION).runWith({ timeoutSeconds: 540, memory: '512MB' }).pubsub.schedule('0 8 * * 0').timeZone('Asia/Jerusalem').onRun(async () => { await runAll('weekly', false); return null; });
 
 // ---------- owner-only: run now / chat with the data ----------
@@ -276,7 +280,7 @@ const http = (name, timeout, fn) => functions.region(REGION).runWith({ timeoutSe
   } catch (e) { console.error(name, e); res.status(500).json({ error: 'משהו השתבש. נסו שוב בעוד רגע.' }); }
 });
 exports.adsRunNow = http('adsRunNow', 540, async (req, res) => {
-  const kind = (req.body || {}).kind === 'weekly' ? 'weekly' : 'daily';
+  const k = (req.body || {}).kind, kind = ['weekly', 'mid'].includes(k) ? k : 'daily';
   res.json({ kind, results: await runAll(kind, true) });
 });
 // chat with the ads agent (owner, Nov 7): managers ask questions about THEIR scope; runs on Haiku (cfg.chatModel), reports stay on Sonnet.

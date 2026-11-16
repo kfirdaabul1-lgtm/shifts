@@ -27,6 +27,9 @@ const KEYS = ['hotel', 'month', 'date', 'shift', 'name', 'empUid', 'ooo', 'fault
     if (!(await cr.get()).exists) { await cr.set({ enabled: false, name: 'אדם', mode: 'draft', scope: ['events'], createdAt: Date.now(), createdBy: 'setup' }); console.log('::notice title=Adam::agentcfg/reply created (off, draft)'); }
     const kr = db.doc('agentKB/reply');
     if (!(await kr.get()).exists) { const t = require('fs').readFileSync(require('path').join(__dirname, 'kb', 'reply-seed.md'), 'utf8').trim(); await kr.set({ text: t, updatedAt: Date.now(), updatedBy: 'setup', updatedByName: 'הזנה ראשונה' }); console.log('::notice title=Adam::agentKB/reply created, ' + t.length + ' chars'); }
+    // Adi's campaign reports (Nov 16, owner: a report every Sunday and Thursday for the chain and every hotel): turn them on once
+    { const ar = db.doc('agentcfg/ads'), ad = (await ar.get()).data() || {};
+      if (ad.enabled !== true && !ad.onNov16) { await ar.set({ enabled: true, onNov16: Date.now() }, { merge: true }); console.log('::notice title=Adi::campaign reports turned on'); } }
     // Guy, the yield agent (Nov 12, owner asked to turn it on): create agentcfg/yield enabled, ONLY when missing
     const yr = db.doc('agentcfg/yield');
     if (!(await yr.get()).exists) { await yr.set({ enabled: true, name: 'גיא', createdAt: Date.now(), createdBy: 'setup' }); console.log('::notice title=Guy::agentcfg/yield created (on)'); }

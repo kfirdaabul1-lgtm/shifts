@@ -77,12 +77,12 @@ async function tenDays(h, from, n) { // the 10days numbers reception enters: sch
   return out;
 }
 async function people(hotel) { // routing table for one hotel
-  const rs = await db.collection('roles').get(), P = { gm: [], sched: [], reception: [], spa: [], maint: [], dept: {} };
+  const rs = await db.collection('roles').get(), P = { gm: [], sched: [], reception: [], spa: [], maint: [], greq: [], dept: {} };
   rs.forEach((d) => {
     const r = d.data() || {}, a = r.apps || { shifts: true }, hs = r.hotels || [], inH = !hs.length || hs.includes(hotel);
     if (r.station) { if (hs.includes(hotel)) P.reception.push(d.id); return; }
     if (!inH) return;
-    if (a.gm) P.gm.push(d.id); if (a.shifts) P.sched.push(d.id); if (a.front) P.reception.push(d.id); if (a.spa) P.spa.push(d.id); if (a.maint) P.maint.push(d.id);
+    if (a.gm) P.gm.push(d.id); if (a.shifts) P.sched.push(d.id); if (a.front) P.reception.push(d.id); if (a.spa) P.spa.push(d.id); if (a.maint) P.maint.push(d.id); if (a.greq) P.greq.push(d.id);
     if (a.dept && hs.includes(hotel)) for (const k of r.depts || []) (P.dept[k] = P.dept[k] || []).push(d.id);
   });
   return P;
@@ -439,7 +439,31 @@ function handoffDue(at, cfg) {
   const start = ilEpoch(hr >= cfg.quietFrom ? C.addDays(d, 1) : d, cfg.quietTo); // the next working day starts at quietTo
   return start + cfg.handoffMorningMins * 60e3;
 }
+// Arsona guest requests nobody took (owner, Nov 16): after greqNagMins (10) Aliana nags reception every 10 minutes until someone
+// takes or closes it; from 30 minutes the hotel manager too. Runs day and night and does NOT depend on cfg.push (guests write 24/7).
+// cfg.greqNag === false turns it off. Requests older than 4 hours are left alone.
+async function greqNag(cfg) {
+  if (cfg.greqNag === false) return 0;
+  const now = Date.now(), first = Math.max(1, +cfg.greqNagMins || 10), every = Math.max(5, +cfg.greqNagEvery || 10), ref = db.doc('opsWatch/greqNag'), st = (await ref.get()).data() || {}, sent = st.sent || {};
+  const L = (await q('guestReqs', ['status', '==', 'open'])).filter((r) => (+r.at || 0) > now - 4 * 36e5 && now - (+r.at || now) >= first * 60e3);
+  let n = 0; const P = {}, pp = async (h) => P[h] || (P[h] = await people(h)), all = async () => { const out = []; (await db.collection('roles').get()).forEach((d) => { const r = d.data() || {}; if (!r.station && r.apps && r.apps.greq && !(r.hotels || []).length) out.push(d.id); }); return out; };
+  const names = {};
+  for (const r of L) {
+    const mins = Math.floor((now - (+r.at || now)) / 60e3), step = Math.floor((mins - first) / every);
+    if ((sent[r.id] ?? -1) >= step) continue;
+    let to = [], hn = '';
+    if (r.hotel) { const p = await pp(r.hotel); to = [...p.reception, ...p.greq, ...(mins >= 30 ? p.gm : [])]; hn = names[r.hotel] || (names[r.hotel] = (((await docData('hotels/' + r.hotel)) || {}).name) || ''); }
+    else to = await all();
+    const who = [r.guest, r.room && 'חדר ' + r.room].filter(Boolean).join(' · ') || 'אורח';
+    await sendPush(to, { title: `🗂 אליאנה · פנייה מארסונה מחכה ${mins} דק׳`, body: clip(`${hn ? hn + ': ' : ''}${who} — ${r.summary || r.reason || r.kind || ''}. מישהו בקבלה צריך לקחת את הפנייה ולענות ללקוח עכשיו.`, 300), hash: '#greq?r=' + r.id, tag: 'opsg-' + r.id });
+    sent[r.id] = step; n++;
+  }
+  const keep = {}; for (const [k, v] of Object.entries(sent)) if (L.some((r) => r.id === k)) keep[k] = v;
+  await ref.set({ sent: keep, at: now });
+  return n;
+}
 async function runWatch(cfg) {
+  try { await greqNag(cfg); } catch (e) { console.error('greqNag', e.message); }
   const now = Date.now(), hr = ilHour(now); if (!cfg.push || cfg.watch === false || hr >= cfg.quietFrom || hr < cfg.quietTo) return { quiet: true };
   const today = C.ilDate(new Date(now)), sref = db.doc('opsWatch/' + today), sent = new Set(((await sref.get()).data() || {}).keys || []), fresh = [];
   const H = {}, ctx = async (h) => { if (!H[h]) { const st = await staffing(h, [today]); H[h] = { P: await people(h), duty: [...new Set(st.filter((s) => s.dept === 'ops').flatMap((s) => s.who))], name: (((await docData('hotels/' + h)) || {}).name) || h, hk: null }; } return H[h]; };
@@ -652,7 +676,7 @@ async function opsCore(c, hist, extra) {
   const cfg = { ...DEFAULTS, ...(await C.cfg('ops')) }, kb = await C.loadKB('ops'), today = C.ilDate(new Date());
   const sys = `Your name is Aliana (אליאנה, a woman). You are the operations manager agent of the Seven Collection hotels (Israel). You are chatting with ${c.name || 'the owner'}, the owner of the chain. Today is ${today} (${DOW[dowOf(today)]}), Israel time.
 ${OPS_KNOW}
-WHAT YOU DO: every morning at 07:15 you check every hotel (staffing, 10days, housekeeping, maintenance, tours, spa, groups, events, back office) and write reports; at 14:00 you check what is not ready for check-in; every 5 minutes you watch calls and faults; on Sunday you prepare a staffing draft for next week. Notifications to managers are ${cfg.push ? 'ON' : 'OFF (reports only) until the owner turns them on'}. Every Arsona guest request (guestReqs) is sorted by you: maintenance call / housekeeping call / public areas call / lead in ROOM bookings / general question. While you learn (agentcfg/ops.greq 'learn') you only suggest to the owner and learn from what reception actually does; guest_requests_learning shows how often you were right. You also supervise the other agents: Adi (campaigns), Guy (yield) and Adam (events replies, not answering customers yet). In agents_health "enabled:false" for Adi/Guy means only their AUTOMATIC REPORTS are off — chatting with them still works (see "meaning"); never say an agent is "off" because of it. Sharon (שרון) is the managers' assistant INSIDE the app (✦ button): she answers managers/employees from the app's data and explains how to use the app; you don't supervise her and have no log of her answers.
+WHAT YOU DO: every morning at 07:15 you check every hotel (staffing, 10days, housekeeping, maintenance, tours, spa, groups, events, back office) and write reports; at 14:00 you check what is not ready for check-in; every 5 minutes you watch calls and faults; on Sunday you prepare a staffing draft for next week. Notifications to managers are ${cfg.push ? 'ON' : 'OFF (reports only) until the owner turns them on'}. Arsona guest requests that nobody took for 10 minutes: you nag reception every 10 minutes (from 30 minutes the hotel manager too) until someone takes it (greqNag; agentcfg/ops.greqNag false turns it off). Every Arsona guest request (guestReqs) is sorted by you: maintenance call / housekeeping call / public areas call / lead in ROOM bookings / general question. While you learn (agentcfg/ops.greq 'learn') you only suggest to the owner and learn from what reception actually does; guest_requests_learning shows how often you were right. You also supervise the other agents: Adi (campaigns), Guy (yield) and Adam (events replies, not answering customers yet). In agents_health "enabled:false" for Adi/Guy means only their AUTOMATIC REPORTS are off — chatting with them still works (see "meaning"); never say an agent is "off" because of it. Sharon (שרון) is the managers' assistant INSIDE the app (✦ button): she answers managers/employees from the app's data and explains how to use the app; you don't supervise her and have no log of her answers.
 COORDINATING THE AGENTS IS PART OF YOUR JOB: you can ask Adi, Guy, Adam and Sharon questions (ask_agent) and give standing directions to Adi and Guy (direct_agent, only when the owner asked or agreed). When a question touches another agent's field, ask that agent yourself and combine the answers — don't send the owner to them. When agents disagree or one's work affects another's (e.g. a hotel with empty dates → Adi should push ads there, Guy should check prices), say so and propose who does what. Tell the owner which agent said what. (The owner can also talk with each one directly: on the agents' WhatsApp by writing only the name "עדי" / "גיא" / "אדם", "אליאנה" back to you; in the app each one has a tab.)
 Google Ads: leads are NOT sent to or marked in Google by the system; Google Ads data only comes in (spend, clicks, conversions counted by Google itself). A lead's status in the app changes only by people, the WhatsApp/quote automations or Meta forms — check its activity lines with leads_lookup.
 RULES

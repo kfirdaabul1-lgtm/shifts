@@ -903,7 +903,7 @@ function arsText(m) {
 async function arsonaIn(m, mail) {
   let cfg = {}; try { cfg = (await db.doc('waauto/main').get()).data() || {}; } catch (e) { }
   // mail = an Arsona e-mail forwarded by the owner's Apps Script (arsonaMail, key-checked) → always from Arsona
-  const from = String(cfg.arsonaFrom || '').split(/[,;\s]+/).map(waIdFrom).filter(Boolean), fromArs = !!mail || from.includes(m.from);
+  const from = String(cfg.arsonaFrom || '').split(/[,;\n]+/).map(waIdFrom).filter(Boolean), fromArs = !!mail || from.includes(m.from);
   const t = arsText(m), head = t.split('\n')[0] || '';
   const tm = /(agent required|potential lead|missing information)/i.exec(head) || (/קריאה חדשה/.test(head) && /(request for agent|agent required|potential lead|missing information)/i.exec(t));
   if (!tm || !/סוג הפנייה|שם האורח|אורח:|סיבה:/.test(t)) {

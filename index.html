@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202611171210"></script>
+<script src="i18n.js?v=202611171230"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1971,6 +1971,7 @@ function sheetBkView(){const id=S.sheet.id,b=(S.bks||{})[id];if(!b)return sheetH
   return sheetHead(esc(b.guest||'אורח'),esc(hotelName(b.hotel))+(cx?' · בוטלה':''))+`<table class="plain"><tbody>
     <tr><td>מספר הזמנה</td><td>${esc(b.conf||id.split('__')[1]||'—')}</td></tr>
     <tr><td>ערוץ</td><td>${b.channel?esc(b.channel):'<span class="muted">לא צוין במייל</span>'}</td></tr>
+    ${b.comment?`<tr><td>הערות האורח</td><td style="white-space:pre-wrap">${esc(b.comment)}</td></tr>`:''}
     <tr><td>הגעה</td><td>${dd(b.ci)}</td></tr><tr><td>עזיבה</td><td>${dd(b.co)}</td></tr>
     ${n?`<tr><td>לילות</td><td>${n}</td></tr>`:''}<tr><td>כמות אנשים</td><td>${+b.people||0}</td></tr>
     <tr><td>ארוחות</td><td>${esc(b.board||'—')}</td></tr><tr><td>סטטוס</td><td>${cx?'בוטלה':'פעילה'}</td></tr></tbody></table>
@@ -1991,6 +1992,7 @@ function frontBkHTML(h){const all=frontBkList(h);if(!all.length)return '';roomCf
   const todo=all.filter(([,b])=>bkMiss(b)),L=F==='todo'?todo:all;
   const row=([id,b])=>{const rs=b.rooms||[];
     return `<div class="prow"><span class="who"><b>${esc(b.guest||'אורח')}</b><small>${b.channel?`<span class="pill" style="${bkIsCom(b)?'background:#003580;color:#fff':''}">${esc(b.channel)}</span> `:''}${b.ci<=t?'בבית / מגיע היום':'מגיע מחר'} · ${dm(b.ci)}${b.co?'–'+dm(b.co):''}${+b.people?' · 👤 '+(+b.people):''}${b.board?' · '+esc(b.board):''}</small>
+      ${b.comment?`<small>💬 ${esc(b.comment.length>140?b.comment.slice(0,140)+'…':b.comment)}</small>`:''}
       <small>${rs.length?rs.map(r=>`${esc(r.type||'חדר')}${+r.people?' 👤'+(+r.people):''} → ${r.room?'<b>🚪 '+esc(r.room)+'</b>':'<span class="bad-t">לא שובץ</span>'}`).join(' · '):'לא פורטו חדרים'}</small></span>
       ${rs.length?`<button class="btn sm ${bkMiss(b)?'pri':''}" data-act="bka-open" data-id="${esc(id)}" data-h="${esc(h)}">${bkMiss(b)?'שיבוץ חדר':'שינוי'}</button>`:''}</div>`};
   return `<div class="card"><h3>שיבוץ חדרים להזמנות · היום ומחר</h3><p class="muted" style="font-size:.85rem;margin:0 0 6px">הזמנות שמגיעות היום ומחר ומי שכבר במלון. הזמנה מבוקינג מקבלת אוטומטית את התג Booking בלוח המשק.</p>
@@ -2006,6 +2008,7 @@ function sheetBkAsg(){const {id,h}=S.sheet,M=(S.bkH||{})[h]||{},b=M[id];if(!b)re
     return `<label class="f"><span><b>${esc(r.type||'חדר '+(i+1))}</b>${+r.people?' · 👤 '+(+r.people):''}${r.board?' · '+esc(r.board):''}${c?' · קטגוריה '+esc(c.name):''}</span>
       <select data-bkasg="${i}"><option value="">— בחירת חדר —</option>${fit.length?`<optgroup label="מתאימים לקטגוריה ולכמות האנשים">${fit.map(x=>opt(x,i)).join('')}</optgroup>`:''}<optgroup label="${fit.length?'שאר החדרים':'כל החדרים'}">${rest.map(x=>opt(x,i)).join('')}</optgroup></select></label>`};
   return sheetHead('שיבוץ חדר · '+esc(b.guest||'אורח'),esc(hotelName(h))+' · '+dm(b.ci)+(b.co?'–'+dm(b.co):'')+(b.channel?' · '+esc(b.channel):''))+
+    (b.comment?`<div class="notice" style="margin-bottom:8px">💬 <b>הערות האורח:</b> ${esc(b.comment)}</div>`:'')+
     (units.length?rs.map(line).join(''):'<p class="muted">עוד לא הוגדרה רשימת חדרים למלון הזה.</p>')+
     (bkIsCom(b)?'<p class="muted" style="font-size:.82rem">הזמנה מבוקינג: החדר יסומן בלוח המשק בתג Booking בכל ימי השהייה.</p>':'')+
     `<div class="actions" style="margin-top:12px"><button class="btn pri" data-act="bka-save">שמירה</button><button class="btn ghost" data-act="close">ביטול</button></div>`}

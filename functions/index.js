@@ -952,7 +952,7 @@ async function arsonaIn(m, mail) {
 // Kept per booking ONLY: hotel, guest name, dates, number of people, room type, meals RO/BB/HB/FB (+ conf/action/status to update or cancel it). No prices, phones or e-mails.
 const BK_SCHEMA = { type: 'OBJECT', properties: {
   action: { type: 'STRING', description: 'new | modify | cancel' }, conf: { type: 'STRING', description: 'booking / confirmation number' },
-  hotel: { type: 'STRING' }, guest: { type: 'STRING' }, channel: { type: 'STRING', description: 'where the booking came from: Booking.com, Expedia, Airbnb, Agoda, the hotel website / booking engine, phone, travel agent name…' },
+  hotel: { type: 'STRING' }, guest: { type: 'STRING' }, comment: { type: 'STRING', description: 'the guest comments / special requests of the booking, as written' }, channel: { type: 'STRING', description: 'where the booking came from: Booking.com, Expedia, Airbnb, Agoda, the hotel website / booking engine, phone, travel agent name…' },
   ci: { type: 'STRING', description: 'YYYY-MM-DD' }, co: { type: 'STRING', description: 'YYYY-MM-DD' },
   nights: { type: 'NUMBER', description: 'number of nights, if written' },
   rooms: { type: 'ARRAY', items: { type: 'OBJECT', properties: { type: { type: 'STRING', description: 'room type / category name' }, adults: { type: 'NUMBER' }, children: { type: 'NUMBER' }, infants: { type: 'NUMBER' }, people: { type: 'NUMBER', description: 'adults + children + infants in this room' }, board: { type: 'STRING', description: 'meal plan: RO (room only) | BB (breakfast) | HB (half board) | FB (full board)' } } } } },
@@ -1006,11 +1006,12 @@ function bkTpl(subject, text) {
   const R0 = (rooms[0] || {}).R || {};
   if (action !== 'cancel' && !(R0.arrival_date && R0.departure_date)) return null;
   const chan = ((ttl.match(/Reservation\s+from\s+([^\n.|]+?)(?:\.|\s+Hotel:|$)/i) || [])[1] || H.agent || H.channel || H.source || '').trim();
-  return { action, conf: conf[0], hotel: hotel.trim(), channel: chan, guest: R0.guest_name || H.booking_contact || '', ci: R0.arrival_date || '', co: R0.departure_date || '', rooms: rooms.map(({ R, ...x }) => x) };
+  const comment = String(H.guest_comments || H.comments || '').trim();
+  return { action, conf: conf[0], hotel: hotel.trim(), channel: chan, comment, guest: R0.guest_name || H.booking_contact || '', ci: R0.arrival_date || '', co: R0.departure_date || '', rooms: rooms.map(({ R, ...x }) => x) };
 }
 async function bkAi(cfg, subject, text) {
   if (cfg.aiModel && !aiModelOk) aiModelOk = String(cfg.aiModel);
-  const { j } = await aiGenerate({ contents: [{ role: 'user', parts: [{ text: 'Hotel PMS e-mail (Hebrew or English; may be a forwarded / replied mail — use the booking details inside it). Extract the booking. action: new, modify or cancel. conf = the reservation / confirmation / master id number. ci = arrival (check-in) date, co = departure (check-out) date, both YYYY-MM-DD; dates written like 20/11/2026 are day/month/year. If only the number of nights is given, fill nights. One rooms[] entry per room with its type, adults, children, infants and meal plan (breakfast included = BB). channel = the source / agent / channel the reservation came from (e.g. "New Reservation from Booking.com", Agent: Expedia, hotel website). Leave unknown fields empty.\nSubject: ' + subject + '\n\n' + text.slice(0, 12000) }] }],
+  const { j } = await aiGenerate({ contents: [{ role: 'user', parts: [{ text: 'Hotel PMS e-mail (Hebrew or English; may be a forwarded / replied mail — use the booking details inside it). Extract the booking. action: new, modify or cancel. conf = the reservation / confirmation / master id number. ci = arrival (check-in) date, co = departure (check-out) date, both YYYY-MM-DD; dates written like 20/11/2026 are day/month/year. If only the number of nights is given, fill nights. One rooms[] entry per room with its type, adults, children, infants and meal plan (breakfast included = BB). channel = the source / agent / channel the reservation came from (e.g. "New Reservation from Booking.com", Agent: Expedia, hotel website). comment = the guest comments / special requests text. Leave unknown fields empty.\nSubject: ' + subject + '\n\n' + text.slice(0, 12000) }] }],
     generationConfig: { temperature: 0, responseMimeType: 'application/json', responseSchema: BK_SCHEMA } });
   return JSON.parse((((j.candidates || [])[0] || {}).content || { parts: [] }).parts.map((p) => p.text || '').join('') || '{}');
 }
@@ -1040,7 +1041,8 @@ exports.bookingsIngest = functions.region(REGION).runWith({ timeoutSeconds: 120 
     // order by the mail's own time (owner, Nov 17: a re-sent "new" mail undid a later cancel)
     const mt = Date.parse(String(b.date || '')) || now, cd = cur.exists ? cur.data() : {};
     const chan = bkChan(p.channel);
-    const up = { hotel, conf, updatedAt: now, by, ...(chan ? { channel: chan } : {}), hist: admin.firestore.FieldValue.arrayUnion({ at: now, mt, action: act }) };
+    const cmt = String(p.comment || '').replace(/\s+/g, ' ').trim().slice(0, 600); // guest comments (owner, Nov 17)
+    const up = { hotel, conf, updatedAt: now, by, ...(chan ? { channel: chan } : {}), ...(cmt ? { comment: cmt } : {}), hist: admin.firestore.FieldValue.arrayUnion({ at: now, mt, action: act }) };
     if (act === 'cancel') { up.status = 'cancelled'; up.cancelMt = Math.max(mt, +cd.cancelMt || 0); }
     else {
       const rooms = (p.rooms || []).slice(0, 20).map((r) => ({ type: String(r.type || '').slice(0, 60), people: Math.max(0, Math.min(99, (+r.people || 0) || ((+r.adults || 0) + (+r.children || 0) + (+r.infants || 0)))), board: ['RO', 'BB', 'HB', 'FB'].includes(String(r.board || '').toUpperCase()) ? String(r.board).toUpperCase() : bkBoard(r.board) }));

@@ -951,7 +951,7 @@ async function arsonaIn(m, mail) {
 // Kept per booking ONLY: hotel, guest name, dates, number of people, room type, meals RO/BB/HB/FB (+ conf/action/status to update or cancel it). No prices, phones or e-mails.
 const BK_SCHEMA = { type: 'OBJECT', properties: {
   action: { type: 'STRING', description: 'new | modify | cancel' }, conf: { type: 'STRING', description: 'booking / confirmation number' },
-  hotel: { type: 'STRING' }, guest: { type: 'STRING' },
+  hotel: { type: 'STRING' }, guest: { type: 'STRING' }, channel: { type: 'STRING', description: 'where the booking came from: Booking.com, Expedia, Airbnb, Agoda, the hotel website / booking engine, phone, travel agent name…' },
   ci: { type: 'STRING', description: 'YYYY-MM-DD' }, co: { type: 'STRING', description: 'YYYY-MM-DD' },
   nights: { type: 'NUMBER', description: 'number of nights, if written' },
   rooms: { type: 'ARRAY', items: { type: 'OBJECT', properties: { type: { type: 'STRING', description: 'room type / category name' }, adults: { type: 'NUMBER' }, children: { type: 'NUMBER' }, infants: { type: 'NUMBER' }, people: { type: 'NUMBER', description: 'adults + children + infants in this room' }, board: { type: 'STRING', description: 'meal plan: RO (room only) | BB (breakfast) | HB (half board) | FB (full board)' } } } } },
@@ -979,6 +979,16 @@ function bkHtmlText(h) {
     .replace(/<\/t[dh]>/gi, '\t').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/gi, ' ').replace(/&amp;/gi, '&').replace(/&lt;/gi, '<').replace(/&gt;/gi, '>').replace(/&quot;/gi, '"').replace(/&#(\d+);/g, (m, n) => String.fromCharCode(+n))
     .replace(/[ \u00a0]+/g, ' ').replace(/ *\t */g, '\t').replace(/\t+\n/g, '\n').replace(/\n\s*\n+/g, '\n').trim();
 }
+// booking channel (owner, Nov 17): Booking.com / Expedia / the hotel's own site … from "New Reservation from X" or the Agent line
+function bkChan(v) {
+  const t = String(v || '').trim().slice(0, 60); if (!t) return '';
+  const l = t.toLowerCase();
+  if (/booking\.?com|^booking$/.test(l)) return 'Booking.com';
+  if (/expedia/.test(l)) return 'Expedia'; if (/hotels\.com/.test(l)) return 'Hotels.com';
+  if (/airbnb/.test(l)) return 'Airbnb'; if (/agoda/.test(l)) return 'Agoda'; if (/trip\.?com|ctrip/.test(l)) return 'Trip.com';
+  if (/home\s*site|website|web\s*site|booking engine|\bibe\b|direct|optima.*engine|אתר/.test(l)) return 'אתר המלון';
+  return t;
+}
 function bkTpl(subject, text) {
   // forwarded / replied mails quote every line with '>' and HTML tables may add '*' or '|' around cells (Nov 16: the first real mails fell back to AI)
   text = String(text || '').replace(/\r/g, '').replace(/^[ \t]*(?:>[ \t]?)+/gm, '').replace(/^[ \t*|]+|[ \t*|]+$/gm, '');
@@ -994,11 +1004,12 @@ function bkTpl(subject, text) {
   const rooms = parts.slice(1).map((p) => { const R = bkFields(p); return { R, type: R.room_type || '', people: (+R.adults || 0) + (+R.children || 0) + (+R.infants || 0), board: bkBoard((R.price_code_plan || '') + ' ' + (R.external_rate_plan || '')) }; });
   const R0 = (rooms[0] || {}).R || {};
   if (action !== 'cancel' && !(R0.arrival_date && R0.departure_date)) return null;
-  return { action, conf: conf[0], hotel: hotel.trim(), guest: R0.guest_name || H.booking_contact || '', ci: R0.arrival_date || '', co: R0.departure_date || '', rooms: rooms.map(({ R, ...x }) => x) };
+  const chan = ((ttl.match(/Reservation\s+from\s+([^\n.|]+?)(?:\.|\s+Hotel:|$)/i) || [])[1] || H.agent || H.channel || H.source || '').trim();
+  return { action, conf: conf[0], hotel: hotel.trim(), channel: chan, guest: R0.guest_name || H.booking_contact || '', ci: R0.arrival_date || '', co: R0.departure_date || '', rooms: rooms.map(({ R, ...x }) => x) };
 }
 async function bkAi(cfg, subject, text) {
   if (cfg.aiModel && !aiModelOk) aiModelOk = String(cfg.aiModel);
-  const { j } = await aiGenerate({ contents: [{ role: 'user', parts: [{ text: 'Hotel PMS e-mail (Hebrew or English; may be a forwarded / replied mail — use the booking details inside it). Extract the booking. action: new, modify or cancel. conf = the reservation / confirmation / master id number. ci = arrival (check-in) date, co = departure (check-out) date, both YYYY-MM-DD; dates written like 20/11/2026 are day/month/year. If only the number of nights is given, fill nights. One rooms[] entry per room with its type, adults, children, infants and meal plan (breakfast included = BB). Leave unknown fields empty.\nSubject: ' + subject + '\n\n' + text.slice(0, 12000) }] }],
+  const { j } = await aiGenerate({ contents: [{ role: 'user', parts: [{ text: 'Hotel PMS e-mail (Hebrew or English; may be a forwarded / replied mail — use the booking details inside it). Extract the booking. action: new, modify or cancel. conf = the reservation / confirmation / master id number. ci = arrival (check-in) date, co = departure (check-out) date, both YYYY-MM-DD; dates written like 20/11/2026 are day/month/year. If only the number of nights is given, fill nights. One rooms[] entry per room with its type, adults, children, infants and meal plan (breakfast included = BB). channel = the source / agent / channel the reservation came from (e.g. "New Reservation from Booking.com", Agent: Expedia, hotel website). Leave unknown fields empty.\nSubject: ' + subject + '\n\n' + text.slice(0, 12000) }] }],
     generationConfig: { temperature: 0, responseMimeType: 'application/json', responseSchema: BK_SCHEMA } });
   return JSON.parse((((j.candidates || [])[0] || {}).content || { parts: [] }).parts.map((p) => p.text || '').join('') || '{}');
 }
@@ -1011,7 +1022,7 @@ exports.bookingsIngest = functions.region(REGION).runWith({ timeoutSeconds: 120 
     const mid = String(b.id || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 80), subject = String(b.subject || '').slice(0, 300);
     const ht = b.html ? bkHtmlText(b.html) : '', text = (ht.length > String(b.text || '').length ? ht : String(b.text || '')).slice(0, 30000);
     if (!mid || !text) { res.status(400).json({ error: 'bad' }); return; }
-    const mref = db.doc('bkMails/' + mid), prev = await mref.get(); if (prev.exists && prev.data().full === true) { res.json({ ok: true, dup: true }); return; }
+    const mref = db.doc('bkMails/' + mid), prev = await mref.get(); if (prev.exists && prev.data().full === true && prev.data().v >= 2) { res.json({ ok: true, dup: true }); return; }
     let p = null, by = 'tpl';
     try { p = bkTpl(subject, text); } catch (e) { p = null; }
     if (!p || !p.conf) { by = 'ai'; try { p = await bkAi(cfg, subject, text); } catch (e) { p = {}; by = 'err'; console.warn('bookingsIngest ai', e.message); } }
@@ -1027,7 +1038,8 @@ exports.bookingsIngest = functions.region(REGION).runWith({ timeoutSeconds: 120 
     if (prev.exists) { const pv = prev.data() || {}, oid = pv.hotel && pv.conf ? pv.hotel + '__' + pv.conf : ''; if (oid && oid !== ref.id) { const od = await db.doc('bookings/' + oid).get(); if (od.exists && (od.data().hist || []).length <= 1) await od.ref.delete(); } }
     // order by the mail's own time (owner, Nov 17: a re-sent "new" mail undid a later cancel)
     const mt = Date.parse(String(b.date || '')) || now, cd = cur.exists ? cur.data() : {};
-    const up = { hotel, conf, updatedAt: now, by, hist: admin.firestore.FieldValue.arrayUnion({ at: now, mt, action: act }) };
+    const chan = bkChan(p.channel);
+    const up = { hotel, conf, updatedAt: now, by, ...(chan ? { channel: chan } : {}), hist: admin.firestore.FieldValue.arrayUnion({ at: now, mt, action: act }) };
     if (act === 'cancel') { up.status = 'cancelled'; up.cancelMt = Math.max(mt, +cd.cancelMt || 0); }
     else {
       const rooms = (p.rooms || []).slice(0, 20).map((r) => ({ type: String(r.type || '').slice(0, 60), people: Math.max(0, Math.min(99, (+r.people || 0) || ((+r.adults || 0) + (+r.children || 0) + (+r.infants || 0)))), board: ['RO', 'BB', 'HB', 'FB'].includes(String(r.board || '').toUpperCase()) ? String(r.board).toUpperCase() : bkBoard(r.board) }));
@@ -1040,7 +1052,7 @@ exports.bookingsIngest = functions.region(REGION).runWith({ timeoutSeconds: 120 
     }
     await ref.set(up, { merge: true });
     const full = act === 'cancel' || !!(up.ci && up.co && up.people > 0);
-    await mref.set({ full }, { merge: true });
+    await mref.set({ full, v: 2 }, { merge: true });
     res.json({ ok: true, id: ref.id, action: act, by, full });
   } catch (e) { console.error('bookingsIngest', e); res.status(500).json({ error: String(e.message || e).slice(0, 200) }); }
 });

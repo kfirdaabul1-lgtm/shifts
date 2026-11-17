@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202611162330"></script>
+<script src="i18n.js?v=202611171120"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1960,7 +1960,7 @@ function vBk(){bkSub();const F=S.bkF||(S.bkF={h:'all',st:'booked',from:todayISO(
   const nights=(a,b)=>a&&b?Math.round((new Date(b)-new Date(a))/864e5):0,dd=d=>d?d.slice(8,10)+'/'+d.slice(5,7):'—';
   const row=([id,b])=>{const cx=b.status==='cancelled',bs=String(b.board||'').split('/').filter(Boolean),n=nights(b.ci,b.co),types=[...new Set((b.rooms||[]).map(r=>r.type).filter(Boolean))];
     return `<div class="prow" role="button" tabindex="0" data-act="bkv-open" data-id="${esc(id)}" style="cursor:pointer;${cx?'opacity:.55':''}"><span class="who"><b style="${cx?'text-decoration:line-through':''}">${esc(b.guest||'אורח')}</b>
-      <small>${esc(hotelName(b.hotel))} · ${dd(b.ci)}–${dd(b.co)}${n?` (${n} לילות)`:''} · 👤 ${+b.people||0}${(b.rooms||[]).length>1?` · ${(b.rooms||[]).length} חדרים`:''}${types.length?' · '+types.map(esc).join(', '):''}</small></span>
+      <small>${b.channel?`<b>${esc(b.channel)}</b> · `:''}${esc(hotelName(b.hotel))} · ${dd(b.ci)}–${dd(b.co)}${n?` (${n} לילות)`:''} · 👤 ${+b.people||0}${(b.rooms||[]).length>1?` · ${(b.rooms||[]).length} חדרים`:''}${types.length?' · '+types.map(esc).join(', '):''}</small></span>
       <span class="actions" style="gap:4px">${bs.map(x=>`<span class="pill" style="background:${(BK_BOARD[x]||['', '#64748B'])[1]};color:#fff">${x}</span>`).join('')}${cx?'<span class="pill">בוטלה</span>':''}</span></div>`};
   const ppl=list.filter(([,b])=>b.status!=='cancelled').reduce((a,[,b])=>a+(+b.people||0),0);
   return wrap(head+`<div class="card"><h3>הזמנות · ${list.length}${ppl?` · 👤 ${ppl}`:''}</h3>${list.length?`<div class="plist">${list.map(row).join('')}</div>`:'<p class="muted">אין הזמנות בטווח הזה.</p>'}</div>`+foldCard(bkCfgHTML(),'pmsc'))}
@@ -1969,6 +1969,7 @@ function sheetBkView(){const id=S.sheet.id,b=(S.bks||{})[id];if(!b)return sheetH
   const ACT={new:'הזמנה חדשה',modify:'שינוי בהזמנה',cancel:'ביטול'},tm=t=>new Date(t).toLocaleString('he-IL',{dateStyle:'short',timeStyle:'short'});
   return sheetHead(esc(b.guest||'אורח'),esc(hotelName(b.hotel))+(cx?' · בוטלה':''))+`<table class="plain"><tbody>
     <tr><td>מספר הזמנה</td><td>${esc(b.conf||id.split('__')[1]||'—')}</td></tr>
+    <tr><td>ערוץ</td><td>${b.channel?esc(b.channel):'<span class="muted">לא צוין במייל</span>'}</td></tr>
     <tr><td>הגעה</td><td>${dd(b.ci)}</td></tr><tr><td>עזיבה</td><td>${dd(b.co)}</td></tr>
     ${n?`<tr><td>לילות</td><td>${n}</td></tr>`:''}<tr><td>כמות אנשים</td><td>${+b.people||0}</td></tr>
     <tr><td>ארוחות</td><td>${esc(b.board||'—')}</td></tr><tr><td>סטטוס</td><td>${cx?'בוטלה':'פעילה'}</td></tr></tbody></table>

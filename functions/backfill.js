@@ -25,6 +25,9 @@ const KEYS = ['hotel', 'month', 'date', 'shift', 'name', 'empUid', 'ooo', 'fault
     }
     const cr = db.doc('agentcfg/reply');
     if (!(await cr.get()).exists) { await cr.set({ enabled: false, name: 'אדם', mode: 'draft', scope: ['events'], createdAt: Date.now(), createdBy: 'setup' }); console.log('::notice title=Adam::agentcfg/reply created (off, draft)'); }
+    // Nov 17 (owner: "Adam should start answering event leads and keep them warm"): switch him ON once, sending by himself (auto),
+    // filling empty lead fields, moving Gutman leads by the hotel rule and following up inside the 24h window. Later changes by the owner are kept.
+    { const c = await cr.get(); if (c.exists && !c.data().onNov17) { await cr.set({ enabled: true, mode: 'auto', writeLead: true, route: true, follow: true, onNov17: Date.now() }, { merge: true }); console.log('::notice title=Adam::switched ON (auto, follow-ups, routing)'); } }
     const kr = db.doc('agentKB/reply');
     if (!(await kr.get()).exists) { const t = require('fs').readFileSync(require('path').join(__dirname, 'kb', 'reply-seed.md'), 'utf8').trim(); await kr.set({ text: t, updatedAt: Date.now(), updatedBy: 'setup', updatedByName: 'הזנה ראשונה' }); console.log('::notice title=Adam::agentKB/reply created, ' + t.length + ' chars'); }
     // Adi's campaign reports (Nov 16, owner: a report every Sunday and Thursday for the chain and every hotel): turn them on once

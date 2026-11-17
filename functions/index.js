@@ -2145,6 +2145,11 @@ async function leadVenue(id) { if (!id) return null; try { const d = await db.do
 exports.waChatVenue = trig('waChats/{id}').onWrite(async (ch) => {
   if (!ch.after.exists) return;
   const a = ch.after.data() || {}, b = ch.before.exists ? ch.before.data() || {} : {};
+  // Adam asked for a person (aiAgent.handoff, owner Nov 17: he now answers event leads by himself) → push the events people of the chat's place
+  const ha = a.aiAgent || {}, hb = b.aiAgent || {};
+  if (ha.handoff && ha.at && ha.at !== hb.at && !hb.handoff) { try { let lead = null; if (a.leadId) { const s = await db.doc('leads/' + a.leadId).get(); lead = s.exists ? s.data() : null; }
+    const to = a.agent ? [a.agent] : await eventsPeople(lead ? lead.venue || '' : (a.venue || ''), lead || true, 'events');
+    await sendTo(to, { title: (ha.urgency === 'urgent' ? '🔴 ' : '') + '🤵 אדם מבקש נציג בוואטסאפ', body: [(lead && lead.name) || a.name || ('+' + ch.after.id), ha.reason].filter(Boolean).join(' · '), hash: '#leads?wa=' + ch.after.id, tag: 'wa-' + ch.after.id }); } catch (e) { console.error('handoff push', e); } }
   // every chat carries `agent` ('' = nobody took it yet), so employees can query agent in ['', me] (Nov 8)
   if (a.agent === undefined) await ch.after.ref.set({ agent: '' }, { merge: true });
   if (ch.before.exists && a.leadId === b.leadId && a.venue !== undefined) return;
@@ -2162,6 +2167,10 @@ exports.leadVenueSync = trig('leads/{id}').onUpdate(async (ch, ctx) => {
   const a = ch.after.data() || {}, b = ch.before.data() || {};
   if ((a.venue || '') === (b.venue || '')) return;
   const v = String(a.venue || ''), id = ctx.params.id;
+  // Adam moved a Gutman lead to 7EVEN (wedding / over 80 guests, owner Nov 17) → tell the 7EVEN events people
+  const ra = a.routed || {}, rb = b.routed || {};
+  if (ra.at && ra.at !== rb.at && ra.to === v) { try { const g = a.guestsTxt || a.guests;
+    await sendTo(await eventsPeople(v, a, 'events'), { title: '🤵 אדם העביר ליד מגוטמן ל-7EVEN', body: [a.name || 'ליד', a.type, g && g + ' אורחים', ra.why].filter(Boolean).join(' · '), hash: '#leads?lead=' + id, tag: 'route-' + id }); } catch (e) { console.error('route push', e); } }
   for (const col of ['waChats', 'tasks']) {
     const q = await db.collection(col).where('leadId', '==', id).get();
     for (const d of q.docs) if ((d.data().venue || '') !== v) await d.ref.set({ venue: v }, { merge: true });
@@ -2215,6 +2224,8 @@ exports.onAliCfg = ali.onAliCfg;
 // Adam, the events reply agent (Nov 9): deployed OFF; acts only when agentcfg/reply.enabled === true. Writes aiAgent, never waChats.agent.
 exports.agentReply = require('./agent-reply.js').agentReply;
 exports.adamChat = require('./agent-reply.js').adamChat; // owner talks with Adam (teach + rehearse), Nov 9
+exports.adamFollow = require('./agent-reply.js').adamFollow; // keeps event leads warm: one follow-up inside the 24h window (Nov 17)
+exports.adamRouteNew = require('./agent-reply.js').adamRouteNew; // Gutman → 7EVEN rule on new event leads (Nov 17)
 // Meta campaign structure for the ads agent (Nov 7, owner): read-only, once a day → metaStruct/{campaignId}
 async function metaStructAll() {
   const m = (await db.doc('metacfg/main').get()).data() || {}, out = [], S = require('./meta-struct.js');

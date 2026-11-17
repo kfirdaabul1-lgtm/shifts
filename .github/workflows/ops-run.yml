@@ -2,7 +2,7 @@ name: Operations agent run
 on:
   workflow_dispatch:
     inputs:
-      kind: { description: 'check / morning / checkin / weekly (always without pushes)', required: false, default: 'check' }
+      kind: { description: 'check / morning / checkin / weekly / hkplan (always without pushes)', required: false, default: 'check' }
 jobs:
   run:
     runs-on: ubuntu-latest

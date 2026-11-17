@@ -561,9 +561,151 @@ exports.opsRunNow = functions.region(REGION).runWith({ timeoutSeconds: 540, memo
 });
 // admin-started run: opsJobs/{id} {kind, push?} created by functions/ops-run.js (clients cannot write opsJobs: no rules match)
 exports.opsJob = functions.region(REGION).runWith({ timeoutSeconds: 540, memory: '512MB' }).firestore.document('opsJobs/{id}').onCreate(async (snap) => {
-  const j = snap.data() || {}, kind = ['checkin', 'weekly'].includes(j.kind) ? j.kind : 'morning';
+  const j0 = snap.data() || {};
+  if (j0.kind === 'hkplan') { try { const day = C.isoOk(j0.day) ? j0.day : C.addDays(C.ilDate(new Date()), 1); await snap.ref.set({ status: 'done', done: await hkPlanRun(day, { hotel: String(j0.hotel || ''), push: j0.push === true, by: 'job' }), day, doneAt: Date.now() }, { merge: true }); } catch (e) { await snap.ref.set({ status: 'error', error: clip(e.message || e, 300) }, { merge: true }); } return null; }
+  const j = j0, kind = ['checkin', 'weekly'].includes(j.kind) ? j.kind : 'morning';
   try { const done = await runAll(kind, { force: true, hotel: String(j.hotel || ''), push: j.push === true }); await snap.ref.set({ status: 'done', done, doneAt: Date.now() }, { merge: true }); }
   catch (e) { console.error('opsJob', e); await snap.ref.set({ status: 'error', error: clip(e.message || e, 300) }, { merge: true }); }
+  return null;
+});
+
+// ================= Housekeeping plan by Aliana (owner, Nov 17): "from tomorrow the housekeeping plan is made by Aliana from the bookings,
+// single bookings and groups; Booking.com and VIP rooms first; check with reception in the morning that the room assignment is right" =================
+// hkPlanBuild(h, day): rooms that need work that day (turn = departure+arrival, co = departure, arr = arrival not yet ready, so = stayover,
+// vd = dirty room with no booking) → split between the housekeeping people on shift that day (contiguous by room number, balanced by weight),
+// written to hk/{h}__{day}: asg/asgName/asgAt + pri for Booking.com / VIP rooms. aliPlan {room: uid} = what SHE assigned: a room a person
+// assigned (asg differs from aliPlan) is never touched; aliPri = the pri marks she set (removed when no longer needed).
+// hkPlan/{h}__{day} {builtAt, summary, askedAt, confirmedAt/By/ByName, autoAt}. Runs: opsHkPlanNight 20:00 (tomorrow), opsHkPlanMorning
+// (every 10 min 06–09: ask reception at 06:30 to confirm today's room assignment; build anyway at 07:30), opsHkPlanConfirm (reception confirmed → rebuild).
+const HKW = { turn: 1.2, co: 1, arr: 1, vd: 1, so: 0.5 };
+const HKK = { turn: 'עזיבה + הגעה', co: 'עזיבה', arr: 'הגעה', vd: 'מלוכלך', so: 'שהייה' };
+const roomNum = (r) => { const m = String(r).match(/\d+/); return m ? +m[0] : 1e9; };
+function roomsSpec(spec) {
+  const add = [], del = new Set();
+  String(spec || '').split(/[\s,;]+/).filter(Boolean).forEach((t) => {
+    const neg = t.startsWith('-'), x = neg ? t.slice(1) : t, m = x.match(/^(\d+)-(\d+)$/);
+    if (m) { let a = +m[1], b = +m[2]; if (b < a) [a, b] = [b, a]; for (let i = a; i <= b && i - a < 500; i++) (neg ? del.add(String(i)) : add.push(String(i))); }
+    else if (/^\d+[A-Za-z]?$/.test(x)) (neg ? del.add(x) : add.push(x));
+  });
+  return [...new Set(add)].filter((r) => !del.has(r));
+}
+async function hkPlanBuild(h, day, opt = {}) {
+  const today = C.ilDate(new Date()), board = ((await docData('hkday/' + h)) || {}).date || today;
+  const ref = db.doc('hk/' + h + '__' + day), D = (await docData('hk/' + h + '__' + day)) || {};
+  // clean status of the day: the doc's own, else (planning ahead) the forecast from the board's current day (VC→VI, OC→OD, like the client hkProj)
+  const clean = { ...(day > board ? Object.fromEntries(Object.entries(((await docData('hk/' + h + '__' + board)) || {}).clean || {}).map(([r, c]) => [r, c === 'vc' ? 'vi' : c === 'oc' ? 'od' : c])) : {}), ...(D.clean || {}) };
+  const blocks = new Set((await q('hkBlocks', ['hotel', '==', h])).filter((b) => (!b.from || b.from <= day) && (!b.until || b.until >= day)).map((b) => String(b.room)));
+  const R = {}, pri = new Set(), why = {}; let noRoom = 0, arrivals = 0;
+  const put = (r, k, w) => { r = String(r); const o = R[r]; if (!o) R[r] = { k, w }; else if ((o.k === 'co' && k === 'arr') || (o.k === 'arr' && k === 'co')) R[r] = { k: 'turn', w: o.w || w }; else if (o.k === 'so' && k !== 'so') R[r] = { k, w }; };
+  for (const b of await q('bookings', ['hotel', '==', h])) {
+    if (b.status === 'cancelled' || !b.ci || b.ci > day || (b.co && b.co < day) || (!b.co && b.ci !== day)) continue;
+    const isBk = /booking/i.test(String(b.channel || '')), vip = /\bvip\b/i.test(String(b.comment || ''));
+    for (const l of b.rooms || []) {
+      if (b.ci === day) arrivals++;
+      if (!l.room) { if (b.ci === day) noRoom++; continue; }
+      const k = b.ci === day ? 'arr' : b.co === day ? 'co' : 'so'; put(l.room, k);
+      if (k !== 'co' && (isBk || vip)) { pri.add(String(l.room)); why[l.room] = vip ? 'VIP' : 'Booking'; }
+    }
+  }
+  for (const g of await q('groups', ['hotel', '==', h])) {
+    if (!['confirmed', 'option'].includes(g.status) || g.coAt || !g.ci || g.ci > day || (g.co || g.ci) < day) continue;
+    for (const r of roomsSpec(g.guideRooms)) put(r, g.ci === day ? 'arr' : g.co === day ? 'co' : 'so');
+  }
+  for (const [r, c] of Object.entries(clean)) if (c === 'vd' && !R[r]) put(r, 'vd');
+  for (const r of Object.keys(D.bk || {}).concat(Object.keys(D.vip || {}))) if (R[r] && R[r].k !== 'co') { pri.add(r); why[r] = why[r] || ((D.vip || {})[r] ? 'VIP' : 'Booking'); }
+  // what is NOT work: OOO / OOS rooms, arrivals already clean, rooms already started / done today, stayovers already serviced (OC)
+  for (const r of Object.keys(R)) {
+    const c = clean[r] || '', k = R[r].k;
+    if (c === 'ooo' || blocks.has(r) || (D.done || {})[r] || (D.start || {})[r] || (k === 'arr' && ['vc', 'vi'].includes(c)) || (k === 'so' && ['oc', 'vc'].includes(c))) delete R[r];
+  }
+  for (const r of [...pri]) if (!R[r]) pri.delete(r);
+  // crew = housekeeping people on shift that day (+ names)
+  const crew = [...new Set((await staffing(h, [day])).filter((s) => s.dept === 'housekeeping').flatMap((s) => s.who))];
+  const names = {}; for (const u of crew) { const e = (await docData('employees/' + u)) || {}; if (e.active === false || ['gm', 'ceo'].includes(e.mgmt)) continue; names[u] = e.name || 'עובד/ת'; }
+  const W = crew.filter((u) => names[u]);
+  const asg = D.asg || {}, mine = D.aliPlan || {}, keep = {}; // rooms a person assigned stay as they are
+  for (const [r, u] of Object.entries(asg)) if (u && mine[r] !== u) keep[r] = u;
+  const load = Object.fromEntries(W.map((u) => [u, 0])); for (const [r, u] of Object.entries(keep)) if (R[r] && u in load) load[u] += HKW[R[r].k];
+  const todo = Object.keys(R).filter((r) => !keep[r]).sort((a, b) => roomNum(a) - roomNum(b) || a.localeCompare(b));
+  const total = todo.reduce((s, r) => s + HKW[R[r].k], 0) + Object.values(load).reduce((a, b) => a + b, 0), avg = W.length ? total / W.length : 0;
+  const plan = {}; let wi = 0;
+  for (const r of todo) {
+    if (!W.length) break;
+    while (wi < W.length - 1 && load[W[wi]] + HKW[R[r].k] / 2 > avg) wi++;
+    plan[r] = W[wi]; load[W[wi]] += HKW[R[r].k];
+  }
+  const now = Date.now(), FV = admin.firestore.FieldValue, o = { hotel: h, date: day, asg: {}, asgName: {}, asgAt: {}, aliPlan: {}, pri: {}, aliPri: {}, lastBy: 'aliana', updatedAt: now };
+  for (const [r, u] of Object.entries(plan)) { if (asg[r] !== u) { o.asg[r] = u; o.asgName[r] = names[u]; o.asgAt[r] = now; } o.aliPlan[r] = u; }
+  for (const r of Object.keys(mine)) if (!plan[r] && !keep[r]) { o.aliPlan[r] = FV.delete(); if (asg[r] === mine[r]) { o.asg[r] = FV.delete(); o.asgName[r] = FV.delete(); o.asgAt[r] = FV.delete(); } }
+  for (const r of pri) { if (!(D.pri || {})[r]) { o.pri[r] = true; o.aliPri[r] = true; } }
+  for (const r of Object.keys(D.aliPri || {})) if (!pri.has(r)) { o.aliPri[r] = FV.delete(); if ((D.pri || {})[r]) o.pri[r] = FV.delete(); }
+  for (const k of Object.keys(o)) if (o[k] && typeof o[k] === 'object' && !Object.keys(o[k]).length) delete o[k];
+  if (!opt.dry) await ref.set(o, { merge: true });
+  const per = {}; for (const [r, u] of Object.entries({ ...plan, ...keep })) if (names[u] && R[r]) (per[u] = per[u] || []).push(r);
+  const cnt = {}; Object.values(R).forEach((x) => { cnt[x.k] = (cnt[x.k] || 0) + 1; });
+  const target = +opt.target || 14, need = Math.ceil(total / target);
+  const summary = { rooms: Object.keys(R).length, kinds: cnt, crew: W.length, pri: pri.size, priRooms: [...pri].sort((a, b) => roomNum(a) - roomNum(b)).slice(0, 30), unassigned: W.length ? 0 : Object.keys(R).length,
+    noRoom, arrivals, shortage: Math.max(0, need - W.length), weight: Math.round(total * 10) / 10, per: Object.fromEntries(Object.entries(per).map(([u, L]) => [names[u], L.length])) };
+  if (!opt.dry) await db.doc('hkPlan/' + h + '__' + day).set({ hotel: h, date: day, builtAt: now, summary, by: opt.by || 'aliana' }, { merge: true });
+  return summary;
+}
+function hkPlanText(s, day, today) {
+  const dn = day === today ? 'היום' : 'מחר';
+  if (!s.rooms) return `אין חדרים לסדר ${dn} לפי ההזמנות.`;
+  let t = `${s.rooms} חדרים ל${dn}` + (s.crew ? ` חולקו ל-${s.crew} עובדי משק` : ' · אין עובדי משק משובצים, החדרים לא חולקו') + '.';
+  if (s.pri) t += ` ❗ ${s.pri} בעדיפות (Booking/VIP): ${s.priRooms.slice(0, 12).join(', ')}.`;
+  if (s.shortage) t += ` חסרים בערך ${s.shortage} עובדי משק לפי ${Object.values(s.kinds || {}).reduce((a, b) => a + b, 0)} חדרים.`;
+  if (s.noRoom) t += ` ${s.noRoom} חדרים בהזמנות שמגיעות עוד לא שובצו לחדר.`;
+  return t;
+}
+async function hkPlanRun(day, opt = {}) {
+  const cfg = { ...DEFAULTS, ...(await C.cfg('ops')) }; if (cfg.enabled !== true || cfg.hkPlan === false) return [];
+  const today = C.ilDate(new Date()), out = [];
+  for (const ht of await loadHotels()) {
+    if (opt.hotel && opt.hotel !== ht.id) continue;
+    try {
+      const s = await hkPlanBuild(ht.id, day, { target: cfg.hkTarget, by: opt.by });
+      out.push({ hotel: ht.id, rooms: s.rooms, crew: s.crew, pri: s.pri, shortage: s.shortage, noRoom: s.noRoom });
+      if (opt.push !== false && cfg.hkPlanPush !== false && (s.rooms || s.noRoom)) {
+        const P = await people(ht.id);
+        await sendPush([...(P.dept.housekeeping || []), ...P.gm, ...P.sched, ...(opt.reception ? P.reception : [])], { title: `🗂 אליאנה · סידור המשק ל${day === today ? 'היום' : 'מחר'} · ${ht.name}`, body: clip(hkPlanText(s, day, today) + (opt.note ? ' ' + opt.note : ''), 300), hash: '#hk', tag: 'hkplan-' + ht.id + '-' + day });
+      }
+    } catch (e) { console.error('hkPlan', ht.id, e); out.push({ hotel: ht.id, error: clip(e.message, 200) }); }
+  }
+  log({ kind: 'hkplan', hotel: opt.hotel || 'all', day, items: out.length, by: opt.by || 'aliana' });
+  return out;
+}
+// morning: ask reception to confirm today's room assignment (06:30), build anyway at 07:30
+async function hkPlanMorning() {
+  const cfg = { ...DEFAULTS, ...(await C.cfg('ops')) }; if (cfg.enabled !== true || cfg.hkPlan === false) return;
+  const now = Date.now(), today = C.ilDate(new Date(now)), hm = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Jerusalem', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(now)).replace(/^24/, '00');
+  const askAt = cfg.hkPlanAsk || '06:30', autoAt = cfg.hkPlanAuto || '07:30';
+  for (const ht of await loadHotels()) {
+    const pref = db.doc('hkPlan/' + ht.id + '__' + today), p = (await pref.get()).data() || {};
+    if (p.confirmedAt || p.autoAt) continue;
+    if (hm >= autoAt) {
+      await pref.set({ hotel: ht.id, date: today, autoAt: now }, { merge: true });
+      await hkPlanRun(today, { hotel: ht.id, note: 'הקבלה עוד לא אישרה את שיבוץ החדרים, סידרתי לפי מה שיש עכשיו.' });
+      continue;
+    }
+    if (hm >= askAt && !p.askedAt) {
+      const bs = (await q('bookings', ['hotel', '==', ht.id])).filter((b) => b.status !== 'cancelled' && b.ci === today);
+      const gs = (await q('groups', ['hotel', '==', ht.id])).filter((g) => ['confirmed', 'option'].includes(g.status) && g.ci === today && !g.coAt);
+      if (!bs.length && !gs.length) { await pref.set({ hotel: ht.id, date: today, askedAt: now, nothing: true }, { merge: true }); continue; }
+      const miss = bs.reduce((n, b) => n + (b.rooms || []).filter((l) => !l.room).length, 0), gmiss = gs.filter((g) => !roomsSpec(g.guideRooms).length).length;
+      const P = await people(ht.id), crew = await recNow(ht.id);
+      await sendPush([...P.reception, ...crew], { title: '🗂 אליאנה · בוקר טוב, לבדוק את שיבוץ החדרים', body: clip(`${ht.name}: היום מגיעות ${bs.length} הזמנות${gs.length ? ' ו-' + gs.length + ' קבוצות' : ''}.${miss ? ` ${miss} חדרים עוד לא שובצו.` : ''}${gmiss ? ` ${gmiss} קבוצות בלי חדרים.` : ''} נא לבדוק שהשיבוץ נכון וללחוץ "השיבוץ נכון" בעמוד הקבלה, ואז אסדר את המשק.`, 300), hash: '#front', tag: 'hkask-' + ht.id + '-' + today });
+      await pref.set({ hotel: ht.id, date: today, askedAt: now, miss, gmiss }, { merge: true });
+    }
+  }
+}
+exports.opsHkPlanNight = functions.region(REGION).runWith({ timeoutSeconds: 300, memory: '512MB' }).pubsub.schedule('0 20 * * *').timeZone('Asia/Jerusalem').onRun(async () => { await hkPlanRun(C.addDays(C.ilDate(new Date()), 1)); return null; });
+exports.opsHkPlanMorning = functions.region(REGION).runWith({ timeoutSeconds: 300, memory: '512MB' }).pubsub.schedule('*/10 6-9 * * *').timeZone('Asia/Jerusalem').onRun(async () => { await hkPlanMorning(); return null; });
+// reception pressed "the room assignment is right" (or pressed it again after a change) → rebuild that day and tell housekeeping
+exports.opsHkPlanConfirm = functions.region(REGION).runWith({ timeoutSeconds: 300, memory: '512MB' }).firestore.document('hkPlan/{id}').onWrite(async (ch) => {
+  const a = ch.after.exists ? ch.after.data() : null, b = ch.before.exists ? ch.before.data() : {};
+  if (!a || !a.confirmedAt || a.confirmedAt === b.confirmedAt || !a.hotel || !a.date || a.date < C.ilDate(new Date())) return null;
+  await hkPlanRun(a.date, { hotel: a.hotel, reception: false, by: 'confirm', note: a.confirmedByName ? `(אחרי אישור השיבוץ ע״י ${a.confirmedByName})` : '' });
   return null;
 });
 
@@ -760,4 +902,4 @@ exports.opsChat = functions.region(REGION).runWith({ timeoutSeconds: 300, memory
   } catch (e) { console.error('opsChat', e); res.status(500).json({ error: 'משהו השתבש. נסו שוב בעוד רגע.' }); }
 });
 
-exports._t = { opsOk, opsCore, opsRate, OPS_NO, handoffDue, ilEpoch, runWatch, staffing, tenDays, people, route, hotelChecks, notify, suggest, codeReport, agentsHealth, writeDirection, runAll, DEFAULTS };
+exports._t = { hkPlanBuild, hkPlanRun, opsOk, opsCore, opsRate, OPS_NO, handoffDue, ilEpoch, runWatch, staffing, tenDays, people, route, hotelChecks, notify, suggest, codeReport, agentsHealth, writeDirection, runAll, DEFAULTS };

@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202611171530"></script>
+<script src="i18n.js?v=202611172100"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -2019,9 +2019,15 @@ function frontBkHTML(h){const all=frontBkList(h);if(!all.length)return '';roomCf
       ${b.comment?`<small>💬 ${esc(b.comment.length>140?b.comment.slice(0,140)+'…':b.comment)}</small>`:''}
       <small>${rs.length?rs.map(r=>`${esc(r.type||'חדר')}${+r.people?' 👤'+(+r.people):''} → ${r.room?'<b>🚪 '+esc(r.room)+'</b>':'<span class="bad-t">לא שובץ</span>'}`).join(' · '):'לא פורטו חדרים'}</small></span>
       ${rs.length?`<button class="btn sm ${bkMiss(b)?'pri':''}" data-act="bka-open" data-id="${esc(id)}" data-h="${esc(h)}">${bkMiss(b)?'שיבוץ חדר':'שינוי'}</button>`:''}</div>`};
-  return `<div class="card"><h3>שיבוץ חדרים להזמנות · היום ומחר</h3><p class="muted" style="font-size:.85rem;margin:0 0 6px">הזמנות שמגיעות היום ומחר ומי שכבר במלון. הזמנה מבוקינג מקבלת אוטומטית את התג Booking בלוח המשק.</p>
+  return `<div class="card"><h3>שיבוץ חדרים להזמנות · היום ומחר</h3><p class="muted" style="font-size:.85rem;margin:0 0 6px">הזמנות שמגיעות היום ומחר ומי שכבר במלון. הזמנה מבוקינג מקבלת אוטומטית את התג Booking בלוח המשק.</p>${hkPlanBoxHTML(h,todo.length)}
     <div class="chips" data-nosel style="gap:6px;margin-bottom:6px"><button class="dchip ${F==='todo'?'':'off'}" data-act="bka-f" data-v="todo">צריכים שיבוץ (${todo.length})</button><button class="dchip ${F==='all'?'':'off'}" data-act="bka-f" data-v="all">כל ההזמנות (${all.length})</button></div>
     ${L.length?`<div class="plist">${L.map(row).join('')}</div>`:'<p class="muted">כל ההזמנות שובצו ✓</p>'}</div>`}
+// Aliana's housekeeping plan (Nov 17): hkPlan/{hotel}__{date} — reception confirms the room assignment, then she rebuilds the plan
+function hkPlanSub(h,d){const k=h+'__'+d;S.hkPlan=S.hkPlan||{};if(S.live['hkp:'+k])return S.hkPlan[k];S.live['hkp:'+k]=true;fdb.doc('hkPlan/'+k).onSnapshot(x=>{S.hkPlan[k]=x.exists?x.data():null;render()},()=>{S.hkPlan[k]=null});return S.hkPlan[k]}
+function hkPlanBoxHTML(h,miss){const t=todayISO(),p=hkPlanSub(h,t),s=(p&&p.summary)||null,hm=x=>x?new Date(x).toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'}):'';
+  const info=s?`${s.rooms} חדרים${s.crew?' · '+s.crew+' עובדי משק':''}${s.pri?' · ❗ '+s.pri+' בעדיפות (Booking/VIP)':''}`:'';
+  return `<div class="notice" style="margin:6px 0 10px">🗂 <b>אליאנה מסדרת את המשק לפי שיבוץ החדרים.</b> ${p&&p.confirmedAt?`השיבוץ אושר ב-${hm(p.confirmedAt)}${p.confirmedByName?' ע״י '+esc(p.confirmedByName):''} ✓`:'בדקו שהשיבוץ של היום נכון ולחצו כאן, ואליאנה תסדר את המשק מחדש.'}${info?`<br><small>הסידור האחרון${p.builtAt?' ('+hm(p.builtAt)+')':''}: ${info}</small>`:''}
+    <div style="margin-top:6px"><button class="btn sm ${p&&p.confirmedAt?'':'pri'}" data-act="hkp-ok" data-h="${esc(h)}">${p&&p.confirmedAt?'↻ השיבוץ השתנה · לסדר את המשק שוב':'✓ השיבוץ נכון · אליאנה יכולה לסדר את המשק'}</button>${miss?` <small class="bad-t">עוד ${miss} הזמנות בלי חדר</small>`:''}</div></div>`}
 // what the server (onBookingHk) will mark on the housekeeping board for this booking — same word lists as functions/index.js bkMarks
 const BK_TWIN=/twin|separate\s*beds?|split|2\s*single|two\s*single|2\s*beds|two\s*beds|מיטות\s*נפרדות|מיטות\s*נפרד|נפרדות|שתי\s*מיטות|2\s*מיטות|טווין/i,BK_COT=/\bcots?\b|\bcrib\b|baby\s*bed|infant\s*bed|baby\s*cot|עריסה|לול|מיטת\s*תינוק|מיטה\s*לתינוק/i,BK_GRP=/\bgroups?\b|קבוצ/i;
 function bkHkPrevHTML(b){const cm=String(b.comment||''),t=[];if(bkIsCom(b))t.push('Booking');if(BK_GRP.test(cm+' '+(b.guest||''))||(b.rooms||[]).length>=5)t.push('קבוצה');t.push('👤 כמות האורחים בכל חדר');
@@ -5759,6 +5765,7 @@ const ACT={
   'bkv-open':D=>{S.sheet={type:'bkview',id:D.id};render()},
   'bka-open':D=>{S.sheet={type:'bkasg',id:D.id,h:D.h};S.bkSel=null;render()},
   'bka-f':D=>{S.bkAsgF=D.v;render()},
+  'hkp-ok':async D=>{const h=D.h,t=todayISO();try{await fdb.doc('hkPlan/'+h+'__'+t).set({hotel:h,date:t,confirmedAt:Date.now(),confirmedBy:S.uid,confirmedByName:S.meName||''},{merge:true});toast('תודה! אליאנה מסדרת עכשיו את המשק')}catch(e){toast(errMsg(mapErr(e)))}},
   'bka-save':async()=>{const {id,h}=S.sheet||{},b=((S.bkH||{})[h]||{})[id];if(!b)return;const sel=S.bkSel||[];
     const rooms=(b.rooms||[]).map((r,i)=>{const x={...r},v=String(sel[i]||'').trim();if(v)x.room=v;else delete x.room;return x});
     try{await fdb.doc('bookings/'+id).update({rooms,asgAt:Date.now(),asgBy:S.uid,asgByName:S.meName||''});toast('השיבוץ נשמר');S.sheet=null;S.bkSel=null;render()}catch(e){toast(errMsg(mapErr(e)))}},

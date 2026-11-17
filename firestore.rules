@@ -738,6 +738,14 @@ service cloud.firestore {
             || (isEmployee() && myHotel() == h
                 && 'housekeeping' in get(/databases/$(database)/documents/employees/$(request.auth.uid)).data.get('depts', []))));
     }
+    // Aliana's housekeeping plan (Nov 17): the server writes it; reception / managers only confirm the room assignment
+    match /hkPlan/{id} {
+      allow read: if signedIn() && (hkFullIn(id.split('__')[0]) || hkLeadIn(id.split('__')[0]));
+      allow create, update: if request.resource.data.hotel == id.split('__')[0]
+        && (frontIn(request.resource.data.hotel) || manages(request.resource.data.hotel) || gmIn(request.resource.data.hotel))
+        && request.resource.data.diff(resource == null ? {} : resource.data).affectedKeys().hasOnly(['hotel', 'date', 'confirmedAt', 'confirmedBy', 'confirmedByName'])
+        && request.resource.data.confirmedBy == request.auth.uid;
+    }
     match /hk/{id} {
       allow read: if signedIn() && (hkWorkIn(id.split('__')[0]) || maintIn(id.split('__')[0]) || briefIn(id.split('__')[0]));
       allow create: if request.resource.data.hotel == id.split('__')[0] && hkWriteOk(request.resource.data.hotel, request.resource.data.keys());

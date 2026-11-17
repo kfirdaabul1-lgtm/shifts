@@ -449,15 +449,16 @@ exports.adamCallbackRun = functions.region(REGION).runWith({ timeoutSeconds: 300
 });
 // one-off for chats Adam already warmed (Nov 17): a time range in the customer's last words → a callback
 async function cbBackfill() {
-  const q = await db.collection('waChats').where('aiAgent.warmAt', '>', 0).get(); let n = 0;
+  const q = await db.collection('waChats').where('aiAgent.warmAt', '>', 0).get(); const st = { chats: q.size, n: 0, had: 0, noIn: 0, noMatch: [], err: [] };
   for (const d of q.docs) {
-    const c = d.data() || {}; if ((c.aiAgent || {}).cbAt) continue;
+    const c = d.data() || {}; if ((c.aiAgent || {}).cbAt) { st.had++; continue; }
     const ins = (await d.ref.collection('msgs').orderBy('at', 'desc').limit(10).get()).docs.map((x) => x.data()).filter((m) => m.dir === 'in');
-    const p = ins.length ? cbFromText(ins[0].text) : null; if (!p) continue;
+    if (!ins.length) { st.noIn++; continue; }
+    const t = String(ins[0].text || ''), p = cbFromText(t); if (!p) { if (ins[0].type === 'button') st.noMatch.push(JSON.stringify(t).slice(0, 80)); else st.noMatch.push(ins[0].type); continue; }
     const r = await cbSave(d.id, c.leadId || '', { from: p.from, to: p.to, date: p.tomorrow ? C.addDays(C.ilDate(new Date()), 1) : '' }, 'backfill');
-    if (r.ok) n++;
+    if (r.ok) st.n++; else st.err.push(r.error);
   }
-  return n;
+  return st;
 }
 exports._t.cbSave = cbSave; exports._t.cbFromText = cbFromText; exports._t.cbBackfill = cbBackfill;
 

@@ -238,6 +238,7 @@ exports.adamFollow = functions.region(REGION).runWith({ timeoutSeconds: 300, mem
   if (cfg.enabled !== true || cfg.mode !== 'auto' || cfg.follow === false) return null;
   const hr = +new Intl.DateTimeFormat('en-GB', { hour: 'numeric', hourCycle: 'h23', timeZone: 'Asia/Jerusalem' }).format(new Date());
   if (hr < cfg.followFrom || hr >= cfg.followTo) return null;
+  try { await warmPending(cfg); } catch (e) { console.error('warmPending', e); }
   const now = Date.now(), q = await db.collection('waChats').where('lastDir', '==', 'out').get();
   let campCat = {}; try { const s = await db.doc('leadcats/main').get(); campCat = (s.exists && s.data().campCat) || {}; } catch (e) { }
   const kb = await C.loadKB('reply'), scope = (Array.isArray(cfg.scope) ? cfg.scope : DEFAULTS.scope).filter((k) => KINDS.includes(k));
@@ -284,6 +285,89 @@ exports.adamRouteNew = functions.region(REGION).firestore.document('leads/{id}')
 });
 
 exports._t = { isHuman, catOf, historyOf, systemBlocks, leadBrief, DEFAULTS, routeFor };
+// ---------- warm-up of recent event leads (owner, Nov 17: "Adam should write to everyone who left a lead yesterday, to warm the lead
+// and so they can reply and renew the 24 hours") ----------
+// warmRun({days}): event leads created since the start of (today − days) Israel time, still open (new/contacted), whose WhatsApp chat has
+// no staff member (agent '' and no human message) and was not warmed before (aiAgent.warmAt). Inside the 24 h window (customer wrote in
+// the last 23 h) Adam writes a personal free-text message from the chat history; otherwise the approved template `cfg.warmTpl`
+// (default 'adam_warm_up', Marketing, {{1}} first name, {{2}} hotel, quick replies) — while it isn't approved yet the chat gets
+// aiAgent.warmPend and adamFollow sends it once Meta approves it (09–21). A reply (also a quick-reply button) reaches agentReply as usual.
+const WARM_TPL = 'adam_warm_up';
+const VENUE_NAME = { boheme: 'The Gutman', sola: '7EVEN · גג הסולה', sevenseas: '7SEAS' };
+const waIdOf = (p) => { let d = String(p || '').replace(/\D/g, ''); if (d.startsWith('00')) d = d.slice(2); if (d.startsWith('0')) d = '972' + d.slice(1); else if (d.length === 9 && d[0] === '5') d = '972' + d; return d.length >= 11 && d.length <= 15 ? d : ''; };
+const tplTxt = (t, ps) => String(t.body || '').replace(/\{\{(\w+)\}\}/g, (m0, k) => { const i = /^\d+$/.test(k) ? +k - 1 : (t.names || []).indexOf(k); return i >= 0 && ps[i] ? ps[i] : m0; });
+async function warmTemplate(cfg) {
+  const pub = (await db.doc('wapub/main').get()).data() || {};
+  return (pub.templates || []).find((x) => x.name === (cfg.warmTpl || WARM_TPL)) || null;
+}
+async function warmSendTpl(cfg, cref, c, lead, t) {
+  const first = String((lead && lead.name) || c.name || '').trim().split(/\s+/)[0] || '';
+  const hotel = VENUE_NAME[(lead && lead.venue) || c.venue || ''] || 'המלון';
+  const params = Array.from({ length: t.n || 0 }, (_, i) => (i === 0 ? first : i === 1 ? hotel : '') || '-');
+  const now = Date.now(), text = tplTxt(t, params);
+  await cref.collection('msgs').add({ dir: 'out', type: 'template', tpl: { name: t.name, lang: t.lang, params, ...(t.names && t.names.length ? { names: t.names } : {}) }, text, status: 'queued', by: 'ai', byName: cfg.name || DEFAULTS.name, at: now, src: 'system', warm: true });
+  await cref.set({ lastAt: now, lastText: text.slice(0, 200), lastDir: 'out', aiAgent: { warmAt: now, warmHow: 'template', warmPend: admin.firestore.FieldValue.delete() } }, { merge: true });
+}
+async function warmRun(opt = {}) {
+  const cfg = { ...DEFAULTS, ...(await C.cfg('reply')) }, out = { open: 0, tpl: 0, pend: 0, skip: {}, err: 0 };
+  const skip = (k) => { out.skip[k] = (out.skip[k] || 0) + 1; };
+  if (cfg.enabled !== true || cfg.mode !== 'auto') { out.off = true; return out; }
+  const now = Date.now(), from = C.addDays(C.ilDate(new Date()), -(opt.days == null ? 1 : +opt.days));
+  const ls = (await db.collection('leads').where('createdAt', '>=', now - ((+opt.days || 1) + 2) * 864e5).get()).docs.filter((d) => C.ilDate(new Date(+d.data().createdAt || 0)) >= from);
+  let campCat = {}; try { const s = await db.doc('leadcats/main').get(); campCat = (s.exists && s.data().campCat) || {}; } catch (e) { }
+  const scope = (Array.isArray(cfg.scope) ? cfg.scope : DEFAULTS.scope).filter((k) => KINDS.includes(k));
+  const kb = await C.loadKB('reply'), tpl = await warmTemplate(cfg);
+  for (const ld of ls) {
+    const l = ld.data() || {};
+    if (!['new', 'contacted', '', undefined].includes(l.stage)) { skip('stage'); continue; }
+    const cat = catOf({}, l, campCat) || 'events'; if (!scope.includes(cat)) { skip('kind'); continue; }
+    const wid = waIdOf(l.phone); if (!wid) { skip('phone'); continue; }
+    const cref = db.doc('waChats/' + wid), cs = await cref.get();
+    if (!cs.exists) { skip('nochat'); continue; }
+    const c = cs.data() || {}, ai = c.aiAgent || {};
+    if (c.guide || c.agent || ai.off || ai.skip || ai.handoff) { skip('person'); continue; }
+    if (ai.warmAt) { skip('done'); continue; }
+    const rows = (await cref.collection('msgs').orderBy('at', 'desc').limit(14).get()).docs.map((x) => ({ id: x.id, ...x.data() }));
+    if (rows.some((r) => isHuman(r))) { skip('person'); continue; }
+    if (rows.some((r) => r.by === 'ai')) { skip('adam'); continue; } // Adam already talks with this customer
+    try {
+      const lastIn = +c.lastInAt || 0;
+      if (lastIn && now - lastIn < 23 * 3600e3) {
+        const hist = historyOf(rows);
+        const msgs = (hist.length ? hist : [{ role: 'user', content: '(no text)' }]).concat(hist.length && hist[hist.length - 1].role === 'user' ? [] : []);
+        const note = `[NOTE FROM THE SYSTEM, not from the customer: this customer left an events inquiry (a form / a quick reply) and nobody from the team has answered yet. Write ONE warm, short WhatsApp message in the customer's language: introduce yourself by name, thank them, acknowledge what they wrote (e.g. a convenient time for a call — a team member will get back to them in that time; never promise an exact time), and ask ONE easy question that moves forward (date, number of guests or type of event) so they reply. No prices, nothing that is not in the knowledge base. If writing makes no sense (they asked to stop), reply with exactly SKIP.]`;
+        const last = msgs[msgs.length - 1]; if (last.role === 'user') last.content += '\n\n' + note; else msgs.push({ role: 'user', content: note });
+        const j = await C.claude({ model: cfg.model || SMART, max_tokens: 3000, system: systemBlocks(kb, 'auto', C.ilDate(new Date()), leadBrief(l), scope, cfg.name), messages: msgs });
+        const text = (j.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('\n').replace(/\*\*(.+?)\*\*/g, '*$1*').trim().slice(0, 800);
+        if (!text || /^SKIP\b/i.test(text)) { skip('model-skip'); await cref.set({ aiAgent: { warmAt: now, warmHow: 'skip' } }, { merge: true }); continue; }
+        if (opt.dry) { out.open++; continue; }
+        const t = Date.now();
+        await cref.collection('msgs').add({ dir: 'out', type: 'text', text, status: 'queued', by: 'ai', byName: cfg.name || DEFAULTS.name, at: t, src: 'system', warm: true });
+        await cref.set({ lastAt: t, lastText: text.slice(0, 200), lastDir: 'out', aiAgent: { warmAt: t, warmHow: 'text', fuFor: lastIn } }, { merge: true });
+        out.open++;
+      } else if (tpl) { if (!opt.dry) await warmSendTpl(cfg, cref, c, l, tpl); out.tpl++; }
+      else { if (!opt.dry) await cref.set({ aiAgent: { warmPend: now } }, { merge: true }); out.pend++; }
+    } catch (e) { console.error('warm', e); out.err++; }
+  }
+  await C.logRun('reply', { warm: true, ...out, skip: JSON.stringify(out.skip) });
+  return out;
+}
+// chats waiting for the warm-up template (aiAgent.warmPend): send once Meta approved it — called by adamFollow (09–21)
+async function warmPending(cfg) {
+  const t = await warmTemplate(cfg); if (!t) return 0;
+  const q = await db.collection('waChats').where('aiAgent.warmPend', '>', 0).get(); let n = 0;
+  for (const d of q.docs) {
+    const c = d.data() || {}, ai = c.aiAgent || {};
+    if (c.agent || ai.off || ai.skip || ai.handoff || ai.warmAt) { await d.ref.set({ aiAgent: { warmPend: admin.firestore.FieldValue.delete() } }, { merge: true }); continue; }
+    let lead = null; if (c.leadId) { try { const s = await db.doc('leads/' + c.leadId).get(); lead = s.exists ? s.data() : null; } catch (e) { } }
+    if (lead && !['new', 'contacted', ''].includes(lead.stage || '')) { await d.ref.set({ aiAgent: { warmPend: admin.firestore.FieldValue.delete() } }, { merge: true }); continue; }
+    await warmSendTpl(cfg, d.ref, c, lead, t); n++;
+  }
+  if (n) await C.logRun('reply', { warm: true, tpl: n, from: 'pending' });
+  return n;
+}
+exports._t.warmRun = warmRun;
+
 
 // ================= Talking with Adam (owner, Nov 9: "I want to talk with Adam like with Sharon and Aliana") =================
 // HTTP adamChat: the owner, or people with employees/{uid}.ai.adam (owner, Nov 9: "more people will train him"; data limited to their hotels' venues). Adam here talks with the owner, not with customers: he reads his

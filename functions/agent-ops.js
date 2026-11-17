@@ -563,6 +563,7 @@ exports.opsRunNow = functions.region(REGION).runWith({ timeoutSeconds: 540, memo
 // admin-started run: opsJobs/{id} {kind, push?} created by functions/ops-run.js (clients cannot write opsJobs: no rules match)
 exports.opsJob = functions.region(REGION).runWith({ timeoutSeconds: 540, memory: '512MB' }).firestore.document('opsJobs/{id}').onCreate(async (snap) => {
   const j0 = snap.data() || {};
+  if (j0.kind === 'adamwarm') { try { const r = await require('./agent-reply.js')._t.warmRun({ days: j0.days == null ? 1 : +j0.days, dry: j0.dry === true }); await snap.ref.set({ status: 'done', warm: r, doneAt: Date.now() }, { merge: true }); } catch (e) { await snap.ref.set({ status: 'error', error: clip(e.message || e, 300) }, { merge: true }); } return null; }
   if (j0.kind === 'hkplan') { try { const day = C.isoOk(j0.day) ? j0.day : C.addDays(C.ilDate(new Date()), 1); await snap.ref.set({ status: 'done', done: await hkPlanRun(day, { hotel: String(j0.hotel || ''), push: j0.push === true, by: 'job' }), day, doneAt: Date.now() }, { merge: true }); } catch (e) { await snap.ref.set({ status: 'error', error: clip(e.message || e, 300) }, { merge: true }); } return null; }
   const j = j0, kind = ['checkin', 'weekly'].includes(j.kind) ? j.kind : 'morning';
   try { const done = await runAll(kind, { force: true, hotel: String(j.hotel || ''), push: j.push === true }); await snap.ref.set({ status: 'done', done, doneAt: Date.now() }, { merge: true }); }

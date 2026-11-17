@@ -46,6 +46,20 @@ const KEYS = ['hotel', 'month', 'date', 'shift', 'name', 'empUid', 'ooo', 'fault
         console.log('::notice title=greq template::' + (r.ok ? 'created, status ' + (j.status || '?') : ok ? 'already exists' : 'failed: ' + String(((j.error || {}).message) || r.status).slice(0, 150)));
       }
     } catch (e) { console.log('::notice title=greq template::error ' + String(e.message).slice(0, 120)); }
+    // Adam's warm-up template for event leads whose 24h window is closed (owner, Nov 17): Marketing, quick replies, create once
+    try {
+      const W = (await db.doc('wacfg/main').get()).data() || {}, ar = db.doc('waauto/main'), A = (await ar.get()).data() || {};
+      if (W.token && W.wabaId && !A.warmTplMade) {
+        const r = await fetch('https://graph.facebook.com/v23.0/' + W.wabaId + '/message_templates', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + W.token },
+          body: JSON.stringify({ name: 'adam_warm_up', language: 'he', category: 'MARKETING', components: [
+            { type: 'BODY', text: 'היי {{1}} 😊 כאן אדם מצוות האירועים של {{2}}. ראיתי שהשארת אצלנו פרטים לגבי אירוע ורציתי לוודא שלא פספסנו אותך. אשמח לעזור לך לתכנן – לאיזה תאריך ולכמה אורחים בערך מדובר?', example: { body_text: [['דנה', 'The Gutman']] } },
+            { type: 'BUTTONS', buttons: [{ type: 'QUICK_REPLY', text: 'אשמח לפרטים' }, { type: 'QUICK_REPLY', text: 'שיחזרו אליי בטלפון' }, { type: 'QUICK_REPLY', text: 'כבר לא רלוונטי' }] }] }) });
+        const j = await r.json().catch(() => ({}));
+        const ok = r.ok || /already exists|duplicate/i.test(JSON.stringify(j.error || {}));
+        if (ok) await ar.set({ warmTplMade: Date.now() }, { merge: true });
+        console.log('::notice title=warm template::' + (r.ok ? 'created, status ' + (j.status || '?') : ok ? 'already exists' : 'failed: ' + String(((j.error || {}).message) || r.status).slice(0, 150)));
+      }
+    } catch (e) { console.log('::notice title=warm template::error ' + String(e.message).slice(0, 120)); }
     // Guy, the yield agent (Nov 12, owner asked to turn it on): create agentcfg/yield enabled, ONLY when missing
     const yr = db.doc('agentcfg/yield');
     if (!(await yr.get()).exists) { await yr.set({ enabled: true, name: 'גיא', createdAt: Date.now(), createdBy: 'setup' }); console.log('::notice title=Guy::agentcfg/yield created (on)'); }

@@ -41,6 +41,12 @@ const note = (t, m) => console.log(`::notice title=${t}::${String(m).replace(/\n
     console.log('REPLY LOG 24h', lg.length, JSON.stringify(lg.slice(0, 30).map((d) => [new Date(d.at).toISOString().slice(11, 16), d.skipped || d.follow || (d.replied ? 'replied' : '') || (d.error ? 'err' : '') || (d.route ? 'route' : '')])));
     return;
   }
+  if (kind === 'adamwarm' || kind === 'adamwarm-dry') { // Adam warms yesterday's + today's event leads (counts only)
+    const ref = await db.collection('opsJobs').add({ kind: 'adamwarm', days: 1, dry: kind === 'adamwarm-dry', at: Date.now(), by: 'workflow' }); note('Job', ref.id + ' created');
+    for (let i = 0; i < 50; i++) { await new Promise((x) => setTimeout(x, 6000)); const j = (await ref.get()).data() || {};
+      if (j.status) { note('Warm', j.error ? 'error ' + j.error : JSON.stringify(j.warm || {})); return; } }
+    note('Job', 'still running'); return;
+  }
   if (kind === 'hkplan') { // Aliana's housekeeping plan for tomorrow (counts only)
     const ref = await db.collection('opsJobs').add({ kind, push: false, at: Date.now(), by: 'workflow' }); note('Job', ref.id + ' created');
     for (let i = 0; i < 40; i++) { await new Promise((x) => setTimeout(x, 6000)); const j = (await ref.get()).data() || {};

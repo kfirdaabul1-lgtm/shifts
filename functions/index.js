@@ -1955,8 +1955,8 @@ async function grpHkAll(h, day) {
 
 // PMS bookings → the housekeeping board (owner, Nov 17): when reception assigns a room to a single booking, the room's day doc gets
 // everything housekeeping needs from the booking: Booking tag (Booking.com channel), group mark (group words or 5+ rooms), guests (pax =
-// people of that room line), Split bed / baby cot / VIP from words in the guest comment, the comment itself as the room note (only when the
-// room has no note of its own), RES on the arrival day and C/O on the departure day. bkSrc {room: bookingId} remembers which booking set the
+// people of that room line), Split bed / baby cot / VIP from words in the guest comment (the comment text itself is NOT written to housekeeping —
+// it is for Aliana, owner Nov 17), RES on the arrival day and C/O on the departure day. bkSrc {room: bookingId} remembers which booking set the
 // marks, so removing / moving the room clears only what this booking set. Applied for the board's current day and the next (planning) day,
 // on every relevant booking change (onBookingHk) and every morning after the 05:00 day change (bkHkAll).
 const bkIsCom = (b) => /booking/i.test(String((b && b.channel) || ''));
@@ -1977,7 +1977,7 @@ function bkMarks(b, day) {
     if (day === b.ci) m.occ.push('res'); if (b.co && day === b.co && b.co !== b.ci) m.occ.push('co');
     if (stay) {
       if (bkIsCom(b)) m.bk = true; if (grp) m.grp = true; if (BK_TWIN.test(cm)) m.twin = true; if (BK_COT.test(cm)) m.cot = true; if (BK_VIP.test(cm)) m.vip = true;
-      const p = +l.people || 0; if (p > 0 && p < 30) m.pax = p; if (cm) m.note = '💬 ' + cm.slice(0, 300);
+      const p = +l.people || 0; if (p > 0 && p < 30) m.pax = p;
     }
     out[r] = m;
   });
@@ -1998,8 +1998,7 @@ async function bkHkMark(h, day, id, nb, ob) {
       o.bkSrc[r] = id;
       BK_FL.forEach((f) => { if (N[f]) o[f][r] = true; else if (mine && P && P[f]) o[f][r] = del; });
       if (N.pax) o.pax[r] = N.pax; else if (mine && P && P.pax && +((cur.pax || {})[r] || 0) === P.pax) o.pax[r] = del;
-      if (N.note && (!(cur.note || {})[r] || ourNote)) { o.note[r] = N.note; o.noteBy[r] = BK_NOTE_BY; o.noteAt[r] = now; }
-      else if (!N.note && ourNote && mine) { o.note[r] = del; o.noteBy[r] = del; o.noteAt[r] = del; }
+      if (ourNote) { o.note[r] = del; o.noteBy[r] = del; o.noteAt[r] = del; } // guest comments are NOT written to housekeeping (owner, Nov 17) — clears the ones written earlier
     } else if (mine) {
       o.bkSrc[r] = del;
       BK_FL.forEach((f) => { if (P && P[f]) o[f][r] = del; });

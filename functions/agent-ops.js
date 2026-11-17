@@ -223,6 +223,10 @@ async function checkBackOffice(h, today, cfg, st, out) {
   if (cm.length) out.push({ key: 'cmp_' + today, area: 'guests', sev: 'medium', to: ['gm'], text: `${cm.length} תלונות אורחים לא טופלו יותר מ-${cfg.cmpDays} ימים` });
 }
 
+async function checkBookings(h, today) { // owner, Nov 17: guest comments of PMS bookings are for Aliana to read (never written to housekeeping)
+  const t1 = C.addDays(today, 1), B = (await q('bookings', ['hotel', '==', h])).filter((b) => b.status !== 'cancelled' && b.ci && b.ci <= t1 && (b.co || b.ci) >= today);
+  return B.filter((b) => String(b.comment || '').trim()).map((b) => ({ conf: b.conf || '', ci: b.ci, co: b.co || '', arriving: b.ci >= today, people: +b.people || 0, channel: b.channel || '', rooms: (b.rooms || []).map((r) => r.room || 'לא שובץ').join(', '), comment: clip(b.comment, 400) })).slice(0, 40);
+}
 async function hotelChecks(hotel, today, cfg, kind) {
   const h = hotel.id, out = [], dates = [C.addDays(today, -1), today, C.addDays(today, 1)];
   const st = await staffing(h, dates), on = (d, dept) => [...new Set(st.filter((s) => s.date === d && s.dept === dept).flatMap((s) => s.who))];
@@ -237,7 +241,7 @@ async function hotelChecks(hotel, today, cfg, kind) {
     const td = await checkTenDays(h, today, cfg, out, hostel);
     m.tenDays = Object.fromEntries(Object.entries(td.days).slice(0, 7).map(([d, x]) => [d, x])); m.tenDaysStaleDays = td.staleDays;
     m.tours = await checkTours(h, today, out); m.spa = await checkSpa(h, today, out); m.groups = await checkGroups(h, today, out);
-    m.events = await checkEvents(h, today, st, out); await checkBackOffice(h, today, cfg, st, out);
+    m.events = await checkEvents(h, today, st, out); m.bookingComments = await checkBookings(h, today); await checkBackOffice(h, today, cfg, st, out);
     m.staffToday = Object.fromEntries(Object.keys(DEPT).map((k) => [k, st.filter((s) => s.date === today && s.dept === k).reduce((a, s) => ({ need: a.need + s.need, have: a.have + s.who.length }), { need: 0, have: 0 })]).filter(([, v]) => v.need));
   }
   out.sort((a, b) => SEV[b.sev] - SEV[a.sev]);
@@ -346,7 +350,7 @@ async function runMorning(cfg, today, only, force) {
   for (const hotel of hotels) {
     try {
       const { m, items, duty } = await hotelChecks(hotel, today, cfg, 'morning'), P = await people(hotel.id);
-      const content = `Morning report for ${today} (${DOW[dowOf(today)]}).\nCHECKS (ranked, computed by the system):\n${JSON.stringify(items.map(({ key, ...x }) => x))}\n\nTHE DAY IN NUMBERS:\n${JSON.stringify(m)}`;
+      const content = `Morning report for ${today} (${DOW[dowOf(today)]}).\nCHECKS (ranked, computed by the system):\n${JSON.stringify(items.map(({ key, ...x }) => x))}\n\nTHE DAY IN NUMBERS:\n${JSON.stringify(m)}${(m.bookingComments || []).length ? '\n\nbookingComments = guest comments of reservations staying today/tomorrow (from the reservation system). Read them and mention only those that need someone to act (special request, accessibility, celebration, late arrival, a problem); ignore routine ones.' : ''}`;
       const fb = codeReport(items, hotel.name);
       const w = items.length ? await writeWithModel(cfg.model || cfg.fastModel, systemOps(kb, hotel.name, 'morning'), content, [], fb) : { rep: fb };
       const pushed = await notify(hotel, items, P, duty, cfg, today, 'morning', force);
@@ -667,6 +671,11 @@ function chatTools(cfg, c) {
       input_schema: { type: 'object', properties: { hotel: { type: 'string' } }, required: ['hotel'] },
       run: async (a) => { const h = await pickHotel(a.hotel); if (!h) return { error: 'unknown hotel' }; const nw = C.addDays(C.weekOf(C.ilDate(new Date())), 7), d = await docData('opsDrafts/' + h.id + '_' + nw); return d ? { week: nw, headline: d.headline, changes: (d.changes || []).slice(0, 60), missingTenDays: d.missingTenDays, ratiosSet: d.ratiosSet, hkTarget: d.hkTarget } : { week: nw, note: 'no draft yet (it is written on Sunday 08:00)' }; } },
     { name: 'agents_health', description: 'Health of the other agents (Adi campaigns, Adam events replies, Guy yield) in the last 3 days: runs, errors, problems, last headline.', input_schema: { type: 'object', properties: {} }, run: async () => ({ agents: await agentsHealth(cfg) }) },
+    { name: 'booking_comments', description: 'Guest comments of PMS bookings (reservation system) staying in a hotel in a date range (default today + tomorrow): booking number, arrival/departure, people, channel, assigned rooms and the guest comment. The comments are for you to read and decide whether something needs attention (special requests, accessibility, celebrations, late arrival, complaints from before) — they are NOT shown to housekeeping.',
+      input_schema: { type: 'object', properties: { hotel: { type: 'string' }, from: { type: 'string', description: 'YYYY-MM-DD, default today' }, days: { type: 'number', description: 'default 2, max 14' } }, required: ['hotel'] },
+      run: async (a) => { const h = await pickHotel(a.hotel); if (!h) return { error: 'unknown hotel' }; const f = /^\d{4}-\d{2}-\d{2}$/.test(a.from || '') ? a.from : C.ilDate(new Date()), to = C.addDays(f, Math.min(14, Math.max(1, +a.days || 2)) - 1);
+        const B = (await q('bookings', ['hotel', '==', h.id])).filter((b) => b.status !== 'cancelled' && b.ci && b.ci <= to && (b.co || b.ci) >= f && String(b.comment || '').trim());
+        return { hotel: h.name, from: f, to, count: B.length, bookings: B.sort((x, y) => x.ci.localeCompare(y.ci)).slice(0, 60).map((b) => ({ conf: b.conf || '', ci: b.ci, co: b.co || '', people: +b.people || 0, channel: b.channel || '', board: b.board || '', rooms: (b.rooms || []).map((r) => (r.type || '') + (r.room ? ' #' + r.room : '')).join(', '), comment: clip(b.comment, 600) })) }; } },
     { name: 'leads_lookup', description: 'Read-only lookup of leads (CRM) by name / phone digits / campaign words, or the newest leads: stage, kind, place, source, campaign, Meta/Google ad info, value, owner, created/won time and the last activity lines. Use it when the owner asks about a specific lead or why a lead got a status.',
       input_schema: { type: 'object', properties: { q: { type: 'string', description: 'name, phone digits or campaign words; empty = newest' }, days: { type: 'number', description: 'look back days (default 30, max 180)' } } },
       run: async (a) => {

@@ -2001,7 +2001,7 @@ function frontBkHTML(h){const all=frontBkList(h);if(!all.length)return '';roomCf
 // what the server (onBookingHk) will mark on the housekeeping board for this booking — same word lists as functions/index.js bkMarks
 const BK_TWIN=/twin|separate\s*beds?|split|2\s*single|two\s*single|2\s*beds|two\s*beds|מיטות\s*נפרדות|מיטות\s*נפרד|נפרדות|שתי\s*מיטות|2\s*מיטות|טווין/i,BK_COT=/\bcots?\b|\bcrib\b|baby\s*bed|infant\s*bed|baby\s*cot|עריסה|לול|מיטת\s*תינוק|מיטה\s*לתינוק/i,BK_GRP=/\bgroups?\b|קבוצ/i;
 function bkHkPrevHTML(b){const cm=String(b.comment||''),t=[];if(bkIsCom(b))t.push('Booking');if(BK_GRP.test(cm+' '+(b.guest||''))||(b.rooms||[]).length>=5)t.push('קבוצה');t.push('👤 כמות האורחים בכל חדר');
-  if(BK_TWIN.test(cm))t.push('Split bed (מיטות נפרדות)');if(BK_COT.test(cm))t.push('👶 עריסה');if(/\bvip\b/i.test(cm))t.push('VIP');if(cm.trim())t.push('📝 ההערה של האורח כהערה לחדר');t.push('RES ביום ההגעה, C/O ביום העזיבה');
+  if(BK_TWIN.test(cm))t.push('Split bed (מיטות נפרדות)');if(BK_COT.test(cm))t.push('👶 עריסה');if(/\bvip\b/i.test(cm))t.push('VIP');t.push('RES ביום ההגעה, C/O ביום העזיבה');
   return `<p class="muted" style="font-size:.82rem">אחרי השמירה החדר יסומן בלוח המשק: ${t.map(esc).join(' · ')}.</p>`}
 function sheetBkAsg(){const {id,h}=S.sheet,M=(S.bkH||{})[h]||{},b=M[id];if(!b)return sheetHead('שיבוץ חדר','')+'<p class="muted">ההזמנה לא נמצאה</p>';
   roomCfgSub(h);const rs=b.rooms||[],units=hkRooms(h).units.map(String),sel=S.bkSel||(S.bkSel=rs.map(r=>String(r.room||'')));

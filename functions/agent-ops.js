@@ -77,10 +77,10 @@ async function tenDays(h, from, n) { // the 10days numbers reception enters: sch
   return out;
 }
 async function people(hotel) { // routing table for one hotel
-  const rs = await db.collection('roles').get(), P = { gm: [], sched: [], reception: [], spa: [], maint: [], greq: [], dept: {} };
+  const rs = await db.collection('roles').get(), P = { gm: [], sched: [], reception: [], stations: [], spa: [], maint: [], greq: [], dept: {} };
   rs.forEach((d) => {
     const r = d.data() || {}, a = r.apps || { shifts: true }, hs = r.hotels || [], inH = !hs.length || hs.includes(hotel);
-    if (r.station) { if (hs.includes(hotel)) P.reception.push(d.id); return; }
+    if (r.station) { if (hs.includes(hotel)) { P.reception.push(d.id); P.stations.push(d.id); } return; }
     if (!inH) return;
     if (a.gm) P.gm.push(d.id); if (a.shifts) P.sched.push(d.id); if (a.front) P.reception.push(d.id); if (a.spa) P.spa.push(d.id); if (a.maint) P.maint.push(d.id); if (a.greq) P.greq.push(d.id);
     if (a.dept && hs.includes(hotel)) for (const k of r.depts || []) (P.dept[k] = P.dept[k] || []).push(d.id);
@@ -492,8 +492,9 @@ async function greqNag(cfg) {
     const mins = Math.floor((now - (+r.at || now)) / 60e3), step = Math.floor((mins - first) / every);
     if ((sent[r.id] ?? -1) >= step) continue;
     let to = [], hn = '', crew = [];
-    if (r.hotel) { const p = await pp(r.hotel); crew = await recNow(r.hotel); to = [...p.reception, ...p.greq, ...crew, ...(mins >= 30 ? p.gm : [])]; hn = names[r.hotel] || (names[r.hotel] = (((await docData('hotels/' + r.hotel)) || {}).name) || ''); }
-    else to = await all();
+    // owner (Nov 17): ONLY the reception clerks on shift now + the physical reception desks (stations); hotel unknown → every hotel's
+    if (r.hotel) { const p = await pp(r.hotel); crew = await recNow(r.hotel); to = [...p.stations, ...crew]; hn = names[r.hotel] || (names[r.hotel] = (((await docData('hotels/' + r.hotel)) || {}).name) || ''); }
+    else { for (const ht of await loadHotels()) { const p = await pp(ht.id), c = await recNow(ht.id); to.push(...p.stations, ...c); crew.push(...c); } crew = [...new Set(crew)]; }
     const who = [r.guest, r.room && 'חדר ' + r.room].filter(Boolean).join(' · ') || 'אורח', what = clip(r.summary || r.reason || r.kind || '', 160);
     await sendPush(to, { title: `🗂 אליאנה · פנייה מארסונה מחכה ${mins} דק׳`, body: clip(`${hn ? hn + ': ' : ''}${who} — ${what}. מישהו בקבלה צריך לקחת את הפנייה ולענות ללקוח עכשיו.`, 300), hash: '#greq?r=' + r.id, tag: 'opsg-' + r.id });
     // WhatsApp from the agents' number to the reception employees on shift now (owner, Nov 17): only after 2 unanswered app nags, at most 6 per request
@@ -902,4 +903,4 @@ exports.opsChat = functions.region(REGION).runWith({ timeoutSeconds: 300, memory
   } catch (e) { console.error('opsChat', e); res.status(500).json({ error: 'משהו השתבש. נסו שוב בעוד רגע.' }); }
 });
 
-exports._t = { hkPlanBuild, hkPlanRun, opsOk, opsCore, opsRate, OPS_NO, handoffDue, ilEpoch, runWatch, staffing, tenDays, people, route, hotelChecks, notify, suggest, codeReport, agentsHealth, writeDirection, runAll, DEFAULTS };
+exports._t = { recNow, hkPlanBuild, hkPlanRun, opsOk, opsCore, opsRate, OPS_NO, handoffDue, ilEpoch, runWatch, staffing, tenDays, people, route, hotelChecks, notify, suggest, codeReport, agentsHealth, writeDirection, runAll, DEFAULTS };

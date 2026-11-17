@@ -116,6 +116,12 @@ exports.onPurchaseReq = trig('purchaseReqs/{id}').onCreate(async (snap) => {
 
 // ---------- new fault → maintenance + hotel managers ----------
 // reception desk accounts (roles with station: true) of a hotel
+// Arsona guest-request alerts go ONLY to the reception clerks on shift now + the hotel's physical reception desks (owner, Nov 17); unknown hotel → every hotel's
+async function greqDesk(hotel) {
+  const ops = require('./agent-ops.js')._t, hs = hotel ? [hotel] : (await db.collection('hotels').get()).docs.map((d) => d.id), out = [];
+  for (const h of hs) { out.push(...(await stationsOf(h))); try { out.push(...(await ops.recNow(h))); } catch (e) { console.error('greqDesk', h, e.message); } }
+  return [...new Set(out)];
+}
 async function stationsOf(hotel) {
   const rs = await db.collection('roles').where('station', '==', true).get();
   return rs.docs.filter((d) => (d.data().hotels || []).includes(hotel)).map((d) => d.id);
@@ -978,7 +984,7 @@ async function arsonaIn(m, mail) {
       kind: p.typeTxt, reason: '', guest: p.guest, phone: '', email: '', conf: p.conf, room: p.room, channel: p.channel || 'מייל', when: p.when, summary: p.summary, src: 'mail' };
     try { await ref.create(doc); } catch (e) { return true; }
     const L = { agent: '🔴 נדרש נציג', lead: '🟢 ליד פוטנציאלי', missing: '🟡 חסר מידע' }[type];
-    await sendTo(await roleHolders(hotel, ['greq']), { title: `${L} · ${(hotel && await hotelName(hotel)) || p.hotelTxt || 'ארסונה'}`, body: [doc.guest, doc.summary].filter(Boolean).join(' · ').slice(0, 170), hash: '#greq?r=' + ref.id, tag: 'greq-' + ref.id });
+    await sendTo(await greqDesk(hotel), { title: `${L} · ${(hotel && await hotelName(hotel)) || p.hotelTxt || 'ארסונה'}`, body: [doc.guest, doc.summary].filter(Boolean).join(' · ').slice(0, 170), hash: '#greq?r=' + ref.id, tag: 'greq-' + ref.id });
     return true;
   } }
   const tm = /(agent required|potential lead|missing information)/i.exec(head) || (/קריאה חדשה/.test(head) && /(request for agent|agent required|potential lead|missing information)/i.exec(t));
@@ -994,7 +1000,7 @@ async function arsonaIn(m, mail) {
       summary: t ? t.slice(0, 1500) : 'הודעה מארסונה שהוואטסאפ לא העביר את התוכן שלה למערכת (כנראה הודעה עם כפתורים). יש לפתוח אותה בארסונה או בוואטסאפ בטלפון.',
       raw: t.slice(0, 4000), unreadable: !t, msgType: String(m.type || ''), msgErr: JSON.stringify(m.errors || []).slice(0, 400) };
     try { await ref.create(doc); } catch (e) { return true; }
-    await sendTo(await roleHolders(hotel0, ['greq']), { title: '🔴 פנייה חדשה מארסונה' + (hotel0 ? ' · ' + (await hotelName(hotel0)) : ''), body: doc.summary.slice(0, 170), hash: '#greq?r=' + ref.id, tag: 'greq-' + ref.id });
+    await sendTo(await greqDesk(hotel0), { title: '🔴 פנייה חדשה מארסונה' + (hotel0 ? ' · ' + (await hotelName(hotel0)) : ''), body: doc.summary.slice(0, 170), hash: '#greq?r=' + ref.id, tag: 'greq-' + ref.id });
     return true;
   }
   if (from.length && !fromArs) return false;
@@ -1018,7 +1024,7 @@ async function arsonaIn(m, mail) {
   for (const k of ['kind', 'reason', 'guest', 'phone', 'email', 'conf', 'room', 'channel', 'when', 'summary']) doc[k] = String(f[k] || '').slice(0, 1500);
   if (mail && !doc.channel) doc.channel = 'מייל';
   try { await ref.create(doc); } catch (e) { return true; } // webhook repeat
-  const to = await roleHolders(hotel, ['greq']); // ONLY holders of the "פניות אורחים" permission (+ the owner) (owner, Nov 15)
+  const to = await greqDesk(hotel); // reception on shift + desks only (owner, Nov 17)
   const L = { agent: '🔴 נדרש נציג', lead: '🟢 ליד פוטנציאלי', missing: '🟡 חסר מידע' }[type];
   await sendTo(to, { title: `${L} · ${(hotel && await hotelName(hotel)) || doc.hotelTxt || 'ארסונה'}`, body: [doc.guest, doc.kind, doc.reason || doc.summary].filter(Boolean).join(' · ').slice(0, 170), hash: '#greq?r=' + ref.id, tag: 'greq-' + ref.id });
   return true;

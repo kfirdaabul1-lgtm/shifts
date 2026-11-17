@@ -2029,6 +2029,71 @@ exports.onBookingHk = trig('bookings/{id}').onWrite(async (ch, ctx) => {
   await bkHkMark(h, day, ctx.params.id, a, b);
   await bkHkMark(h, addDaysIso(day, 1), ctx.params.id, a, b);
 });
+// 10days numbers filled automatically (owner, Nov 17: "it should produce the numbers by itself from the bookings and the groups"; the
+// reception page no longer has the 10days table). For every hotel, today .. today+13: ci = rooms arriving (hostel: ci = private rooms,
+// cid = dorm beds = people of dorm lines), co = rooms leaving (hostel: private only), bf = people who slept the night before with
+// BB/HB/FB, dn = people sleeping that night with HB/FB. Sources: PMS `bookings` (not cancelled) + confirmed/option `groups` (rooms, pax,
+// board / dayBoards). Written into the week's schedule doc `daily.<date>` with field paths + `auto` time, only when a number changed.
+// A date whose night shift report wrote ci/co (daily.<date>.src == 'sr') keeps the report's ci/co/cid. rf (refresh) is not touched.
+const TD_DORM = /do+r?m|\bbeds?\b|מיטה|מעורב/i;
+const tdBoard = (v) => { const b = String(v || '').toLowerCase(); return ['ro', 'bb', 'hb', 'fb'].includes(b) ? b : ''; };
+async function tenDaysOne(h, hotelName, today) {
+  const st = (await db.doc('settings/' + h).get()).data() || {}, hostel = typeof st.dorms === 'boolean' ? st.dorms : /הוסטל|hostel/i.test(hotelName || '');
+  const days = Array.from({ length: 14 }, (_, i) => isoAdd(today, i)), from = isoAdd(today, -1), N = {};
+  days.forEach((d) => { N[d] = hostel ? { cid: 0, ci: 0, co: 0, bf: 0, dn: 0 } : { ci: 0, co: 0, bf: 0, dn: 0 }; });
+  const add = (d, k, n) => { if (N[d] && n) N[d][k] += n; };
+  const stays = (ci, co, d) => ci && ci <= d && d < (co || isoAdd(ci, 1));
+  const bq = await db.collection('bookings').where('hotel', '==', h).get();
+  bq.forEach((x) => {
+    const b = x.data() || {}; if (b.status === 'cancelled' || !b.ci) return;
+    const co = b.co || isoAdd(b.ci, 1); if (co <= from || b.ci > days[days.length - 1]) return;
+    const lines = (b.rooms || []).length ? b.rooms : [{ type: '', people: +b.people || 0, board: b.board }];
+    for (const l of lines) {
+      const ppl = Math.max(0, +l.people || 0), dorm = hostel && TD_DORM.test(String(l.type || '')), bd = tdBoard(l.board || b.board);
+      if (hostel && dorm) add(b.ci, 'cid', ppl || 1); else add(b.ci, 'ci', 1);
+      if (!dorm) add(co, 'co', 1);
+      for (const d of days) {
+        if (stays(b.ci, co, isoAdd(d, -1)) && ['bb', 'hb', 'fb'].includes(bd)) add(d, 'bf', ppl);
+        if (stays(b.ci, co, d) && ['hb', 'fb'].includes(bd)) add(d, 'dn', ppl);
+      }
+    }
+  });
+  const gq = await db.collection('groups').where('hotel', '==', h).get();
+  gq.forEach((x) => {
+    const g = x.data() || {}; if (!['confirmed', 'option'].includes(g.status) || !g.ci) return;
+    const co = g.co || isoAdd(g.ci, 1), rooms = +g.rooms || 0, pax = +g.pax || 0, DB = {};
+    (g.dayBoards || []).forEach((y) => { if (y && y.d) DB[y.d] = tdBoard(y.b); });
+    const bOf = (night) => DB[night] || tdBoard(g.board);
+    add(g.ci, 'ci', rooms); add(co, 'co', rooms);
+    for (const d of days) {
+      const y = isoAdd(d, -1);
+      if (stays(g.ci, co, y) && ['bb', 'hb', 'fb'].includes(bOf(y))) add(d, 'bf', pax);
+      if (stays(g.ci, co, d) && ['hb', 'fb'].includes(bOf(d))) add(d, 'dn', pax);
+    }
+  });
+  const byWeek = {}; days.forEach((d) => { (byWeek[weekOfISO(d)] = byWeek[weekOfISO(d)] || []).push(d); });
+  let n = 0;
+  for (const [w, ds] of Object.entries(byWeek)) {
+    const ref = db.doc('schedule/' + (h === 'main' ? w : w + '_' + h)), snap = await ref.get(), cur = snap.exists ? (snap.data().daily || {}) : {}, upd = {};
+    for (const d of ds) {
+      const c = cur[d] || {}, keep = c.src === 'sr' ? ['ci', 'co', 'cid'] : [];
+      for (const [k, v] of Object.entries(N[d])) if (!keep.includes(k) && c[k] !== v) upd['daily.' + d + '.' + k] = v;
+    }
+    if (!Object.keys(upd).length) continue;
+    ds.forEach((d) => { upd['daily.' + d + '.auto'] = Date.now(); });
+    upd.updatedAt = Date.now();
+    if (snap.exists) await ref.update(upd);
+    else { const daily = {}; for (const d of ds) daily[d] = { ...N[d], auto: Date.now() }; await ref.set({ assign: {}, published: false, daily, updatedAt: Date.now() }); }
+    n += Object.keys(upd).length;
+  }
+  return n;
+}
+async function tenDaysAll() {
+  const today = ilDate(new Date()), hs = await db.collection('hotels').get(); let n = 0;
+  for (const d of hs.docs) { try { n += await tenDaysOne(d.id, (d.data() || {}).name || '', today); } catch (e) { console.error('tenDays', d.id, e); } }
+  return n;
+}
+exports.tenDaysAuto = functions.region(REGION).pubsub.schedule('every 15 minutes').timeZone('Asia/Jerusalem').onRun(async () => { await tenDaysAll(); return null; });
 exports.onGroupRooms = trig('groups/{id}').onUpdate(async (ch) => {
   const a = ch.after.data() || {}, b = ch.before.data() || {};
   const same = (a.guideRooms || '') === (b.guideRooms || '') && JSON.stringify(a.roomPax || {}) === JSON.stringify(b.roomPax || {}) && a.ci === b.ci && a.co === b.co && a.status === b.status && a.hotel === b.hotel;

@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202611171300"></script>
+<script src="i18n.js?v=202611171330"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -434,6 +434,14 @@ body.nx .card,body.nx .kpi,body.nx .prow{background:rgba(10,20,40,.82)}body.nx .
 @media(max-width:640px){.rtc2{min-height:54px;padding:4px 2px;align-items:center;justify-content:center;gap:1px;text-align:center}.rtc2-h{justify-content:center;font-size:.7rem}.rtc2-l,.rtc2-t{display:none}.rtc2-v{font-size:.9rem}.rtm{display:grid;grid-template-columns:1fr 1fr;width:100%}}
 .rtd{border:1px solid var(--line);border-radius:8px;padding:12px;background:var(--surface);display:flex;flex-direction:column;gap:6px;min-width:0}.rtd-r{display:flex;justify-content:space-between;gap:8px;font-size:.86rem;padding:3px 0;border-bottom:1px solid var(--line)}.rtd-r.me{font-weight:700}.rtd-r b.bad{color:var(--bad)}.rtd-r s{color:var(--muted);font-size:.75rem}.rtd-t{font-size:.76rem;color:var(--muted);margin-top:6px}.rtd-pill{padding:5px 10px;border-radius:6px;font-weight:700;font-size:.85rem;background:var(--sunk)}.rtd-pill.good{background:var(--ok-bg);color:var(--ok)}.rtd-pill.bad{background:var(--bad-bg);color:var(--bad)}.rtd-pill.mid{background:var(--warn-bg);color:var(--warn)}
 .rt-c{min-width:118px}.rt-c .rt-l{display:grid;grid-template-columns:52px auto 1fr;gap:4px;align-items:baseline;text-align:start}.rt-c .rt-l small{white-space:nowrap}.rt-c .rt-l small{color:var(--muted);font-size:.68rem}.rt-c s{color:var(--muted);font-size:.7rem}.rt-c i{font-style:normal;font-size:.75rem}.rt-gap{font-weight:700;margin-top:2px}.rt-good{background:var(--ok-bg)}.rt-good .rt-gap{color:var(--ok)}.rt-bad{background:var(--bad-bg)}.rt-bad .rt-gap{color:var(--bad)}.rt-out{color:var(--muted);background:var(--sunk)}.rt-left{font-size:.68rem;color:var(--warn)}
+.fr3{display:grid;grid-template-columns:minmax(0,1fr);gap:16px;align-items:start;margin-bottom:20px}
+.fr-col{display:flex;flex-direction:column;gap:16px;min-width:0}.fr-col>.card,.fr-col>details{margin:0}
+@media(min-width:1100px){.fr3{grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1.3fr)}}
+.fr-kpis{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+.fr-quick{margin-bottom:0;border-bottom-left-radius:0;border-bottom-right-radius:0}
+.fr-tabs{display:flex;flex-wrap:wrap;border-bottom:1px solid var(--line);margin:-4px 0 -16px}
+.fr-tab{font:600 14px inherit;font-family:inherit;padding:10px 12px;border:0;background:transparent;color:var(--muted);border-bottom:2px solid transparent;cursor:pointer;min-height:44px}
+.fr-tab.on{color:var(--ink);border-bottom-color:var(--gold,#B08D57)}
 </style>
 </head>
 <body>
@@ -3860,18 +3868,36 @@ function vFront(){const hs=modHs('front',scopeHs());if(!hs.length)return wrap(em
   const chips=hs.length>1?`<div class="chips" style="gap:6px">${hs.map(x=>`<button class="dchip ${x===h?'':'off'}" style="--h:var(--brass)" data-act="gm-hotel" data-h="${x}">${esc(hotelName(x))}</button>`).join('')}</div>`:'';
   const nav=`<div class="actions" style="align-items:center"><button class="btn sm" data-act="week" data-d="-7" aria-label="שבוע קודם">›</button><b class="mono">${weekLabel(w)}</b><button class="btn sm" data-act="week" data-d="7" aria-label="שבוע הבא">‹</button></div>`;
   const head=`<section class="head"><div class="head-t"><h1>קבלה · ${esc(hotelName(h))}</h1>${nav}</div>${chips}</section>`;
-  const daily=`<div class="card"><h3>10days</h3><p class="muted" style="font-size:.85rem">מקלידים לכל יום כמה צ׳ק אין, צ׳ק אאוט, ארוחות בוקר, ארוחות ערב ורפרש, ולוחצים "שליחה". הנתונים עוברים לבריף היומי ולמנהלים.</p>${dailyTable(true)}<div class="actions" style="margin-top:10px"><button class="btn pri" data-act="daily-send">שליחה</button></div></div>`;
   const evs=(S.bQuotes||[]).filter(q=>q.status!=='declined'&&q.event&&q.event.date&&q.event.date<=addDays(w,6)&&evEndD(q.event)>=w&&evForHotel(q,h)).sort((a,b)=>String(a.event.date+(a.event.start||'')).localeCompare(String(b.event.date+(b.event.start||''))));
   const evCard=`<div class="card"><h3>אירועים השבוע · ${evs.length}</h3>${S.bQuotes===null?'<p class="muted">אין לך גישה לאירועים.</p>':evs.length?`<div class="plist">${evs.map(q=>`<div class="prow"><span class="who"><b>יום ${DAYS[dow(q.event.date)]} ${dm(q.event.date)} · ${esc(q.event.start||'')}${q.event.end?'–'+esc(q.event.end):''} · ${esc(q.client?.name||'ללא שם')}</b><small>${esc(EV_VENUE[q.event.venue]||'')}${' · '+esc(spaceLabel(q))} · ${esc(q.event.type||'')} · ${+q.event.guests||0} אורחים</small></span>${q.kind==='group'?'<span class="pill" style="background:#2a6fbf;color:#fff">קבוצת מלון</span>':q.status==='approved'?'<span class="pill ok">סגור</span>':'<span class="pill">טנטטיב</span>'}</div>`).join('')}</div>`:'<p class="muted">אין אירועים השבוע.</p>'}</div>`;
   const sh=weekShifts(),depts=DEPTS.filter(d=>sh.some(([,s])=>s.dept===d.k));
   const sched=`<h2 style="margin-top:8px">סידור העבודה</h2>${S.sched.published?'':'<p class="muted" style="font-size:.85rem">הסידור לשבוע הזה עוד לא פורסם, מוצג השיבוץ הנוכחי.</p>'}`+
     (depts.length?depts.map(d=>`<section class="dept" style="--h:${d.h}"><div class="dept-h"><span class="sw"></span><h2>${d.n}</h2></div>${deptTable(d.k,'view')}</section>`).join(''):emptyBox('אין משמרות לשבוע הזה',''));
-  // the reception fills the report but never sees past reports (cash amounts are for managers only)
-  // owner, Nov 4: the four call cards are closed folds on the reception page; the title shows what is open now
-  const fCalls=Object.values(callsSub(h)||{}),nHk=fCalls.filter(c=>c.kind!=='pub'&&c.status==='open').length,nPub=fCalls.filter(c=>c.kind==='pub'&&c.status==='open').length;
-  const nFlt=faultsOf(h).filter(([,f])=>f.status!=='done').length,nCmp=Object.keys(frontCmpSub(h)||{}).length;
-  const fc=(html,key,n,lbl)=>foldCard(n?html.replace(/^(<div class="card"><h3>[^<]*)/,'$1 <span class="pill warn">'+n+'&nbsp;<span>'+lbl+'</span></span>'):html,key);
-  return wrap(head+hkUpdHTML(h)+fc(callsCardHTML(h),'fr-hk',nHk,'פתוחות')+fc(pubCardHTML(h),'fr-pub',nPub,'פתוחות')+fc(frontCmpHTML(h),'fr-cmp',nCmp,'היום')+fc(frontFaultsHTML(h),'fr-flt',nFlt,'פתוחות')+toursDayCardHTML(h,todayISO(),true)+fc(frontBkHTML(h),'fr-bk',frontBkList(h).filter(([,b])=>bkMiss(b)).length,'בלי חדר')+fc(frontGrpHTML(h),'fr-grp',0,'')+daily+srFormHTML(h)+(srBoss(h)?srListHTML(h,false):srListHTML(h,false,true))+evCard+sched);
+  // owner, Nov 17: computer layout = sketch A of "עמוד קבלה במחשב · סקיצות": KPIs on top, then three columns (RTL: right → left)
+  // right = quick open (tabs: hk call / public area / fault / complaint) + end-of-shift report; middle = open now + today in the hotel;
+  // left = room assignment for bookings + the schedule. 10days is no longer typed here: the server fills it from bookings + groups (tenDaysAuto).
+  const t=todayISO(),fCalls=Object.values(callsSub(h)||{}),openCalls=fCalls.filter(c=>c.status==='open'),nHk=openCalls.filter(c=>c.kind!=='pub').length,nPub=openCalls.filter(c=>c.kind==='pub').length;
+  const openF=faultsOf(h).filter(([,f])=>f.status!=='done'),cmps=Object.entries(frontCmpSub(h)||{});
+  const BK=bkHotelSub(h)||{},bkL=Object.values(BK).filter(b=>b.status!=='cancelled'),nRooms=b=>Math.max(1,(b.rooms||[]).length);
+  const G=Object.values(grpFrSub(h)||{}).filter(g=>['confirmed','option'].includes(g.status));
+  const arr=bkL.filter(b=>b.ci===t).reduce((a,b)=>a+nRooms(b),0)+G.filter(g=>g.ci===t).reduce((a,g)=>a+(+g.rooms||0),0);
+  const dep=bkL.filter(b=>b.co===t).reduce((a,b)=>a+nRooms(b),0)+G.filter(g=>g.co===t).reduce((a,g)=>a+(+g.rooms||0),0);
+  const miss=frontBkList(h).filter(([,b])=>bkMiss(b)).length,HK=briefHk(h,t),ready=HK&&HK.res?`${HK.ready.length} / ${HK.res.length}`:'—';
+  const kp=`<div class="kpis fr-kpis">${kpi('הגעות היום',arr)}${kpi('עזיבות היום',dep)}${kpi('הזמנות בלי חדר',miss,'','')}${kpi('חדרים מוכנים לצ׳ק אין',ready)}${kpi('קריאות פתוחות',nHk+nPub)}${kpi('תקלות פתוחות',openF.length)}</div>`;
+  const tab=S.frTab||'hk',TABS=[['hk','קריאת משק',nHk],['pub','שטח ציבורי',nPub],['flt','תקלה',openF.length],['cmp','תלונת אורח',cmps.length]];
+  const quick=`<div class="card fr-quick"><h3>פתיחה מהירה</h3><div class="fr-tabs" role="tablist">${TABS.map(([k,n,c])=>`<button type="button" role="tab" aria-selected="${k===tab}" class="fr-tab ${k===tab?'on':''}" data-act="fr-tab" data-v="${k}">${n}${c?` <span class="pill warn">${c}</span>`:''}</button>`).join('')}</div></div>`+
+    ({hk:callsCardHTML,pub:pubCardHTML,flt:frontFaultsHTML,cmp:frontCmpHTML}[tab])(h);
+  const ago=ms=>{const m=Math.max(0,Math.round((Date.now()-(+ms||Date.now()))/60000));return m<60?m+' דק׳':m<1440?Math.floor(m/60)+' ש׳':Math.floor(m/1440)+' ימים'};
+  const items=[...openCalls.map(c=>({at:+c.openedAt||0,ico:c.kind==='pub'?'🏛':'🧹',t:callWhere(c)+(callTasks(c)?' · '+callTasks(c):''),s:(c.toName||'לא שובץ')+' · '+ago(c.openedAt)})),
+    ...openF.map(([,f])=>({at:+f.openedAt||0,ico:'🛠',t:(f.room?'חדר '+f.room+' · ':'')+(f.desc||''),s:'פתוחה '+ago(f.openedAt)})),
+    ...cmps.map(([,c])=>({at:+(c.at||c.createdAt)||0,ico:'💬',t:(c.room?'חדר '+c.room+' · ':'')+(c.note||''),s:'היום'}))].sort((a,b)=>b.at-a.at);
+  const openNow=`<div class="card"><h3>פתוחות עכשיו${items.length?` <span class="pill warn">${items.length}</span>`:''}</h3>${items.length?`<div class="plist">${items.map(x=>`<div class="prow"><span class="who"><b>${x.ico} ${esc(x.t)}</b></span><small class="muted">${esc(x.s)}</small></div>`).join('')}</div>`:'<p class="muted">אין משהו פתוח כרגע.</p>'}</div>`;
+  const rep=srFormHTML(h)+(srBoss(h)?srListHTML(h,false):srListHTML(h,false,true));
+  const bkCard=frontBkHTML(h)||`<div class="card"><h3>שיבוץ חדרים להזמנות</h3><p class="muted">אין הזמנות שמגיעות היום או מחר.</p></div>`;
+  const crewT=DEPTS.map(d=>[d,crewOf(h,t,[d.k]).on]).filter(([,on])=>on.length);
+  const crewCard=`<div class="card"><h3>במשמרת היום</h3>${crewT.length?`<div class="plist">${crewT.map(([d,on])=>`<div class="prow"><span class="who"><b>${d.n}</b><small>${on.map(x=>esc(empName(x.u))+' <span class="muted">'+esc(x.t.trim())+'</span>').join(' · ')}</small></span></div>`).join('')}</div>`:'<p class="muted">אין שיבוצים להיום.</p>'}</div>`;
+  const right=`<div class="fr-col">${quick}${rep}</div>`,mid=`<div class="fr-col">${openNow}${hkUpdHTML(h)}${toursDayCardHTML(h,t,true)}${foldCard(frontGrpHTML(h),'fr-grp')}${evCard}</div>`,left=`<div class="fr-col">${bkCard}${crewCard}</div>`;
+  return wrap(head+kp+`<div class="fr3">${right}${mid}${left}</div>`+sched);
 }
 /* ---------- reception → housekeeping calls: hkCalls/{id} {hotel, date, room, tasks:[HK_CALL keys], note, to, toName, status open|done,
    openedAt, openedBy, openedByName, doneAt, mins}. The worker gets a push (function onHkCall) and a card on every page until "טופל". ---------- */
@@ -3980,7 +4006,7 @@ function srPubSub(h,m){const k='srp:'+h+'|'+m;S.srepsPub=S.srepsPub||{};if(S.liv
 function srSub(h,m){const k='sr:'+h+'|'+m;S.sreps=S.sreps||{};if(S.live[k])return S.sreps[h+'|'+m];S.live[k]=true;
   S.db.collection('shiftReports').where('hotel','==',h).where('month','==',m).onSnapshot(q=>{S.sreps[h+'|'+m]=docsMap(q);render()},e=>{S.sreps[h+'|'+m]={__err:errMsg(mapErr(e))};render()});return null}
 // night report numbers go into that date's 10days (schedule doc of its week): only the daily field changes
-async function srToDaily(h,date,vals){const path=schedPath(weekOf(date),h),upd={updatedAt:Date.now()};for(const [k,v] of Object.entries(vals))if(v!=null)upd['daily.'+date+'.'+k]=v;
+async function srToDaily(h,date,vals){vals={...vals,src:'sr'};const path=schedPath(weekOf(date),h),upd={updatedAt:Date.now()};for(const [k,v] of Object.entries(vals))if(v!=null)upd['daily.'+date+'.'+k]=v;
   try{await fdb.doc(path).update(upd)}catch(e){try{const d={};for(const [k,v] of Object.entries(vals))if(v!=null)d[k]=v;const snap=await fdb.doc(path).get();
       if(!snap.exists)await fdb.doc(path).set({assign:{},published:false,daily:{[date]:d},updatedAt:Date.now()});else throw e}catch(_){toast('הדוח נשמר, אבל עדכון ה-10days נכשל. אפשר להזין ידנית.')}}}
 // the report is filled at the end of the shift: early morning = night shift, afternoon = morning shift, late evening = evening shift
@@ -5804,6 +5830,7 @@ const ACT={
     const now=Date.now(),L=waLeadOf(id,c);S.drafts.wa=null;S.waAtBottom=true;render();
     try{if(L&&!c.leadId)await fdb.doc('waChats/'+id).update({leadId:L[0]});
       await fdb.collection('waChats/'+id+'/msgs').add({dir:'out',type:'text',text,status:'queued',by:S.uid,byName:S.meName||'',at:now,src:'system'})}catch(e){S.drafts.wa={text};render();toast(waErrTxt(e))}},
+  'fr-tab':D=>{S.frTab=D.v;render()},
   'wa-tplt':()=>{S.waTplOpen=!S.waTplOpen;render()},
   'wa-tpl-send':async()=>{const id=waCur(),c=(S.waChats||{})[id],T=(S.wapub||{}).templates||[],t=T[+dv('wa','tpl',0)||0];if(!t){toast('צריך לבחור תבנית');return}
     const L=waLeadOf(id,c),params=Array.from({length:t.n},(_,i)=>String(dv('wa','p'+(i+1),i===0&&L?L[1].name:'')).trim());if(params.some(x=>!x)){toast('צריך למלא את כל הערכים בתבנית');return}

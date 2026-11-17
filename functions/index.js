@@ -1025,13 +1025,16 @@ exports.bookingsIngest = functions.region(REGION).runWith({ timeoutSeconds: 120 
     const ref = db.doc('bookings/' + hotel + '__' + conf), cur = await ref.get();
     // a mail read again (after a better parse) that now gives another booking number: drop the booking made from the earlier wrong reading of this same mail
     if (prev.exists) { const pv = prev.data() || {}, oid = pv.hotel && pv.conf ? pv.hotel + '__' + pv.conf : ''; if (oid && oid !== ref.id) { const od = await db.doc('bookings/' + oid).get(); if (od.exists && (od.data().hist || []).length <= 1) await od.ref.delete(); } }
-    const up = { hotel, conf, updatedAt: now, by, hist: admin.firestore.FieldValue.arrayUnion({ at: now, action: act }) };
-    if (act === 'cancel') up.status = 'cancelled';
+    // order by the mail's own time (owner, Nov 17: a re-sent "new" mail undid a later cancel)
+    const mt = Date.parse(String(b.date || '')) || now, cd = cur.exists ? cur.data() : {};
+    const up = { hotel, conf, updatedAt: now, by, hist: admin.firestore.FieldValue.arrayUnion({ at: now, mt, action: act }) };
+    if (act === 'cancel') { up.status = 'cancelled'; up.cancelMt = Math.max(mt, +cd.cancelMt || 0); }
     else {
       const rooms = (p.rooms || []).slice(0, 20).map((r) => ({ type: String(r.type || '').slice(0, 60), people: Math.max(0, Math.min(99, (+r.people || 0) || ((+r.adults || 0) + (+r.children || 0) + (+r.infants || 0)))), board: ['RO', 'BB', 'HB', 'FB'].includes(String(r.board || '').toUpperCase()) ? String(r.board).toUpperCase() : bkBoard(r.board) }));
       const ci = bkDate(p.ci), nn = Math.round(+p.nights || 0); let co = bkDate(p.co);
       if (!co && ci && nn > 0 && nn < 60) { const d = new Date(ci + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + nn); co = d.toISOString().slice(0, 10); }
-      Object.assign(up, { status: 'booked', guest: String(p.guest || '').slice(0, 100), ci, co, rooms,
+      const stillCancelled = cd.status === 'cancelled' && (+cd.cancelMt || 0) >= mt;
+      Object.assign(up, { status: stillCancelled ? 'cancelled' : 'booked', guest: String(p.guest || '').slice(0, 100), ci, co, rooms,
         board: [...new Set(rooms.map((r) => r.board).filter(Boolean))].join('/'), people: rooms.reduce((a, r) => a + r.people, 0) });
       if (!cur.exists) up.createdAt = now;
     }

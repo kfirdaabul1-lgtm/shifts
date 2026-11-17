@@ -9,6 +9,7 @@ const admin=require('firebase-admin');admin.initializeApp();const db=admin.fires
   if(process.env.CLEAN==='1'){const all=await db.collection('bookings').get();let n=0;for(const d of all.docs){const x=d.data();if(x.by==='ai'&&x.status!=='cancelled'&&(!x.co||!(x.people>0))){await d.ref.delete();n++}}console.log('cleaned incomplete AI bookings: '+n)}
   {const r0=await db.doc('hkcfg/main').get();if(r0.exists&&r0.data().dorms==='101-111 -108,110'){await db.doc('hkcfg/main').update({dorms:'101-111 -108 -110'});console.log('fixed hostel dorms')}}
   {const hc=await db.doc('hkcfg/main').get();console.log('hkcfg main: '+(hc.exists?JSON.stringify({rooms:hc.data().rooms,dorms:hc.data().dorms,beds:hc.data().beds}):'none'))}
+  {const all=await db.collection('bookings').get();for(const d of all.docs){const x=d.data(),h=x.hist||[];const c=h.filter(e=>e.action==='cancel');if(c.length&&x.status!=='cancelled'){await d.ref.update({status:'cancelled',cancelMt:Math.max(...c.map(e=>e.at||0))});console.log('re-cancelled one booking')}}}
   const b=await db.collection('bookings').get();const per={};b.docs.forEach(d=>{const x=d.data();per[x.hotel||'?']=(per[x.hotel||'?']||0)+1});
   console.log('bookings: '+b.size+' '+JSON.stringify(per));
   b.docs.slice(0,10).forEach(d=>{const x=d.data();console.log('  bk hotel='+x.hotel+' status='+x.status+' ci='+x.ci+' co='+x.co+' rooms='+(x.rooms||[]).length+' people='+x.people+' board='+x.board+' guest='+(x.guest?'yes':'no'))});

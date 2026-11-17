@@ -1929,7 +1929,7 @@ const OCC_ORDER = ['co', 'res', 'empty'];
 function occAdd(v, k) { const l = String(v || '').split(',').filter((x) => x && x !== 'empty'); if (!l.includes(k)) l.push(k); return OCC_ORDER.filter((x) => l.includes(x)).join(','); }
 function occDel(v, k) { const l = String(v || '').split(',').filter((x) => x && x !== k); return OCC_ORDER.filter((x) => l.includes(x)).join(','); }
 async function grpHkMark(h, day, g, oldG) {
-  const live = (x) => x && ['confirmed', 'option'].includes(x.status || 'offer') && x.ci && x.ci <= day && (x.co || x.ci) >= day;
+  const live = (x) => x && !x.coAt && ['confirmed', 'option'].includes(x.status || 'offer') && x.ci && x.ci <= day && (x.co || x.ci) >= day;
   const nowR = live(g) ? roomsParse(g.guideRooms) : [], oldR = oldG && live(oldG) ? roomsParse(oldG.guideRooms) : [];
   if (!nowR.length && !oldR.length) return 0;
   const ref = db.doc('hk/' + h + '__' + day), cur = (await ref.get()).data() || {}, occ = cur.occ || {}, now = Date.now(), del = admin.firestore.FieldValue.delete();

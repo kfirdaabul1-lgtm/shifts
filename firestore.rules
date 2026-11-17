@@ -745,8 +745,15 @@ service cloud.firestore {
     // הזמנות מה-PMS: נכתבות רק בשרת (bookingsIngest); bkcfg מחזיק את המפתח של הסקריפט
     match /bkcfg/{id} { allow read, write: if isOwner(); }
     match /bkMails/{id} { allow read: if isOwner(); }
-    match /bookings/{id} { allow read: if bkIn(resource.data.hotel); }
-    match /roomcfg/{h} { allow read: if signedIn() && (manages(h) || bkIn(h)); allow write: if manages(h); }
+    match /bookings/{id} {
+      allow read: if bkIn(resource.data.hotel) || frontIn(resource.data.hotel) || manages(resource.data.hotel);
+      // reception assigns room numbers (Nov 17): only rooms + who/when, same number of room lines
+      allow update: if (frontIn(resource.data.hotel) || bkIn(resource.data.hotel) || manages(resource.data.hotel))
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['rooms', 'asgAt', 'asgBy', 'asgByName'])
+        && request.resource.data.rooms is list && request.resource.data.rooms.size() == resource.data.rooms.size()
+        && request.resource.data.asgBy == request.auth.uid;
+    }
+    match /roomcfg/{h} { allow read: if signedIn() && (manages(h) || bkIn(h) || frontIn(h)); allow write: if manages(h); }
     match /guestReqs/{id} {
       allow read: if greqIn(resource.data.hotel);
       allow update: if greqIn(resource.data.hotel)

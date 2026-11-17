@@ -247,6 +247,7 @@ exports.hkNightly = functions.region(REGION).pubsub.schedule('0 5 * * *').timeZo
       const n = await hkCarry(d.id, today, from);
       await ref.set({ hotel: d.id, date: today, from, by: 'auto', byName: 'אוטומטי 05:00', at: Date.now() });
       try { await grpHkAll(d.id, today); } catch (e) { console.error('grp hk', d.id, e); }
+      try { await bkHkAll(d.id, today); } catch (e) { console.error('bk hk', d.id, e); }
       console.log('hk day', d.id, from, '->', today, n);
     } catch (e) { console.error('hk day', d.id, e); }
   }
@@ -1949,6 +1950,37 @@ async function grpHkAll(h, day) {
   for (const d of q.docs) { const g = d.data() || {}; if (g.guideRooms) n += await grpHkMark(h, day, g, null); }
   return n;
 }
+
+// Booking.com bookings → the Booking tag (bk) on the housekeeping board (owner, Nov 17): when reception assigns a room to a single
+// booking, the room gets bk on the board's current day while the guest stays (ci ≤ day < co); re-applied every morning (bkHkAll).
+const bkIsCom = (b) => /booking/i.test(String((b && b.channel) || ''));
+const bkLive = (b, day) => !!(b && b.status !== 'cancelled' && bkIsCom(b) && b.ci && b.ci <= day && (b.co ? day < b.co : day === b.ci));
+const bkRoomsOf = (b) => (b.rooms || []).map((r) => String(r.room || '').trim()).filter((r) => /^[\w-]{1,10}$/.test(r));
+async function bkHkMark(h, day, id, nb, ob) {
+  const nowR = bkLive(nb, day) ? bkRoomsOf(nb) : [], rem = (bkLive(ob, day) ? bkRoomsOf(ob) : []).filter((r) => !nowR.includes(r));
+  if (!nowR.length && !rem.length) return 0;
+  const keep = new Set();
+  if (rem.length) { const q = await db.collection('bookings').where('hotel', '==', h).get(); q.forEach((d) => { if (d.id !== id && bkLive(d.data(), day)) bkRoomsOf(d.data()).forEach((r) => keep.add(r)); }); }
+  const del = admin.firestore.FieldValue.delete(), o = { hotel: h, date: day, updatedAt: Date.now(), lastBy: 'bk', bk: {} };
+  nowR.forEach((r) => { o.bk[r] = true; }); rem.filter((r) => !keep.has(r)).forEach((r) => { o.bk[r] = del; });
+  if (!Object.keys(o.bk).length) return 0;
+  await db.doc('hk/' + h + '__' + day).set(o, { merge: true });
+  return Object.keys(o.bk).length;
+}
+async function bkHkAll(h, day) {
+  const q = await db.collection('bookings').where('hotel', '==', h).get(), o = { hotel: h, date: day, updatedAt: Date.now(), lastBy: 'bk', bk: {} };
+  q.forEach((d) => { const b = d.data(); if (bkLive(b, day)) bkRoomsOf(b).forEach((r) => { o.bk[r] = true; }); });
+  if (Object.keys(o.bk).length) await db.doc('hk/' + h + '__' + day).set(o, { merge: true });
+  return Object.keys(o.bk).length;
+}
+exports.onBookingHk = trig('bookings/{id}').onWrite(async (ch, ctx) => {
+  const a = ch.after.exists ? ch.after.data() : null, b = ch.before.exists ? ch.before.data() : null;
+  const sig = (x) => x ? JSON.stringify([x.status, x.ci, x.co, x.channel, bkRoomsOf(x)]) : '';
+  if (sig(a) === sig(b)) return;
+  const h = (a && a.hotel) || (b && b.hotel); if (!h) return;
+  let day = ilDate(new Date()); try { const hd = await db.doc('hkday/' + h).get(); if (hd.exists && hd.data().date) day = hd.data().date; } catch (e) {}
+  await bkHkMark(h, day, ctx.params.id, a, b);
+});
 exports.onGroupRooms = trig('groups/{id}').onUpdate(async (ch) => {
   const a = ch.after.data() || {}, b = ch.before.data() || {};
   const same = (a.guideRooms || '') === (b.guideRooms || '') && JSON.stringify(a.roomPax || {}) === JSON.stringify(b.roomPax || {}) && a.ci === b.ci && a.co === b.co && a.status === b.status && a.hotel === b.hotel;

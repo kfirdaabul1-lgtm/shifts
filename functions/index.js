@@ -1046,6 +1046,7 @@ exports.bookingsIngest = functions.region(REGION).runWith({ timeoutSeconds: 120 
       const ci = bkDate(p.ci), nn = Math.round(+p.nights || 0); let co = bkDate(p.co);
       if (!co && ci && nn > 0 && nn < 60) { const d = new Date(ci + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + nn); co = d.toISOString().slice(0, 10); }
       const stillCancelled = cd.status === 'cancelled' && (+cd.cancelMt || 0) >= mt;
+      { const old = cd.rooms || []; if (old.length === rooms.length) rooms.forEach((r, i) => { if (old[i] && old[i].room) r.room = String(old[i].room).slice(0, 10); }); } // keep room numbers from the import (Nov 17)
       Object.assign(up, { status: stillCancelled ? 'cancelled' : 'booked', guest: String(p.guest || '').slice(0, 100), ci, co, rooms,
         board: [...new Set(rooms.map((r) => r.board).filter(Boolean))].join('/'), people: rooms.reduce((a, r) => a + r.people, 0) });
       if (!cur.exists) up.createdAt = now;

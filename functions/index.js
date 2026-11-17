@@ -2294,7 +2294,8 @@ exports.onAliCfg = ali.onAliCfg;
 // Adam, the events reply agent (Nov 9): deployed OFF; acts only when agentcfg/reply.enabled === true. Writes aiAgent, never waChats.agent.
 exports.agentReply = require('./agent-reply.js').agentReply;
 exports.adamChat = require('./agent-reply.js').adamChat; // owner talks with Adam (teach + rehearse), Nov 9
-exports.adamFollow = require('./agent-reply.js').adamFollow; // keeps event leads warm: one follow-up inside the 24h window (Nov 17)
+exports.adamFollow = require('./agent-reply.js').adamFollow;
+exports.adamCallbackRun = require('./agent-reply.js').adamCallbackRun; // calls back at the time the customer asked (Nov 17)
 exports.adamRouteNew = require('./agent-reply.js').adamRouteNew; // Gutman → 7EVEN rule on new event leads (Nov 17)
 // Meta campaign structure for the ads agent (Nov 7, owner): read-only, once a day → metaStruct/{campaignId}
 async function metaStructAll() {

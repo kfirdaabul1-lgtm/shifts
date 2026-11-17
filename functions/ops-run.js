@@ -27,14 +27,14 @@ const note = (t, m) => console.log(`::notice title=${t}::${String(m).replace(/\n
     const rc = (await db.doc('agentcfg/reply').get()).data() || {}; console.log('REPLY cfg', JSON.stringify({ enabled: rc.enabled, mode: rc.mode, scope: rc.scope, follow: rc.follow }));
     const wp = (await db.doc('wapub/main').get()).data() || {}; console.log('TEMPLATES', JSON.stringify((wp.templates || []).map((t) => [t.name, t.lang, t.n, (t.names || []).join('|'), String(t.body || '').length])));
     const wa = (await db.doc('waauto/main').get()).data() || {}; console.log('AUTO RULES', JSON.stringify(Object.fromEntries(Object.entries(wa.rules || {}).map(([k, r]) => [k, r.tpl]))));
-    const rows = [];
+    const rows = [], cc = ((await db.doc('leadcats/main').get()).data() || {}).campCat || {};
     for (const l of ls) {
       const dig = String(l.phone || '').replace(/\D/g, ''), wid = dig.startsWith('0') ? '972' + dig.slice(1) : dig;
       const c = wid.length >= 11 ? ((await db.doc('waChats/' + wid).get()).data() || null) : null;
       let msgs = []; if (c) msgs = (await db.collection('waChats/' + wid + '/msgs').orderBy('at', 'desc').limit(20).get()).docs.map((d) => d.data());
       const hum = msgs.filter((m) => m.dir === 'out' && /^[A-Za-z0-9]{20,40}$/.test(String(m.by || ''))).length, ai = msgs.filter((m) => m.by === 'ai').length;
       const ins = msgs.filter((m) => m.dir === 'in'), lastInType = ins[0] ? ins[0].type : '-';
-      rows.push([il(l.createdAt) === today ? 'T' : 'Y', l.cat || '-', l.venue || '-', l.stage, l.source || '-', c ? 'chat' : 'nochat', c ? (c.lastInAt ? Math.round((now - c.lastInAt) / 36e5) + 'h' : 'noin') : '-', c ? c.lastDir : '-', c && c.agent ? 'agent' : '', hum, ai, ins.length, lastInType, l.waAutoAt ? 'auto' : ''].join(' '));
+      rows.push([il(l.createdAt) === today ? 'T' : 'Y', l.cat || '-', l.venue || '-', l.stage, l.source || '-', c ? 'chat' : 'nochat', c ? (c.lastInAt ? Math.round((now - c.lastInAt) / 36e5) + 'h' : 'noin') : '-', c ? c.lastDir : '-', c && c.agent ? 'agent' : '', hum, ai, ins.length, lastInType, l.waAutoAt ? 'auto' : '', 'map=' + (cc[l.campaign] || '-'), 'spaword=' + /ספא|spa|עיסוי|טיפול/i.test(String(l.campaign || '') + ' ' + String(l.type || ''))].join(' '));
     }
     console.log('LEADS', ls.length); rows.forEach((r) => console.log('ROW', r));
     const lg = (await db.collection('agentLog').where('agent', '==', 'reply').get()).docs.map((d) => d.data()).filter((d) => d.at > now - 864e5);

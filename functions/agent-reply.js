@@ -47,23 +47,28 @@ function catOf(chatD, lead, campCat) {
 // "A lead of up to 80 guests that comes to the Gutman stays at the Gutman; a bigger lead → 7EVEN, the Sola rooftop.
 //  Weddings are never done at the Gutman → straight to 7EVEN, which does weddings. Not only tell the customer: really move the lead in the system."
 // Venue ids (index.html DEF_VENUES): boheme = The Gutman (La Boheme), sola = 7EVEN (Sola rooftop). Done in CODE, not left to the model.
-const GUTMAN = 'boheme', SOLA = 'sola', GUTMAN_MAX = 80;
+const GUTMAN = 'boheme', SOLA = 'sola', GUTMAN_MAX = 80, GUTMAN_TIGHT = 100; // 81–100 = borderline (owner, Nov 17): stays at the Gutman, Adam suggests a tour + the 7EVEN option
 const WEDDING_RE = /חתונ|חופה|חופּה|נישוא|wedding|marriage|hupa|chuppah/i;
 const GUTMAN_RE = /גוטמן|gutman|בוהם|boheme|boh[eè]me/i, SOLA_RE = /סולה|sola|7even|סבן|seven(?!\s*seas)/i;
-function guestsMax(l, d) { // the highest number the customer gave ("50-100" → 100)
-  const ns = [d && d.guests, l && l.guests].map((x) => +x || 0);
-  String((l && l.guestsTxt) || '').replace(/\d+/g, (x) => { ns.push(+x); return x; });
-  return Math.max(0, ...ns);
+// owner, Nov 17: a range like "50–100" counts by its LOW end (the lead starts at the Gutman); a firm number counts as is.
+function guestsOf(l, d) {
+  if (+(d && d.guests) > 0) return +d.guests;                       // what the customer just told Adam
+  const ns = []; String((l && l.guestsTxt) || '').replace(/\d+/g, (x) => { ns.push(+x); return x; });
+  if (ns.length) return Math.min(...ns);
+  return +(l && l.guests) || 0;
 }
 function routeFor(l, d) {
   l = l || {}; d = d || {};
   let v = String(l.venue || '');
-  if (!v) { const t = String(d.hotel_or_venue || ''); v = GUTMAN_RE.test(t) ? GUTMAN : SOLA_RE.test(t) ? SOLA : ''; }
+  const named = String(d.hotel_or_venue || '');
+  if (!v) v = GUTMAN_RE.test(named) ? GUTMAN : SOLA_RE.test(named) ? SOLA : '';
   if (v !== GUTMAN) return { set: (!l.venue && v) ? v : '' }; // only Gutman leads are moved; a lead with no place gets the place the customer named
-  const wed = WEDDING_RE.test([d.event_type, d.notes, l.type, l.notes].join(' ')), g = guestsMax(l, d);
-  if (wed) return { to: SOLA, why: 'חתונה — בגוטמן לא עושים חתונות', set: l.venue ? '' : GUTMAN };
-  if (g > GUTMAN_MAX) return { to: SOLA, why: g + ' אורחים — מעל ' + GUTMAN_MAX + ' (המקסימום בגוטמן)', set: l.venue ? '' : GUTMAN };
-  return { set: l.venue ? '' : GUTMAN };
+  const set = l.venue ? '' : GUTMAN, wed = WEDDING_RE.test([d.event_type, d.notes, l.type, l.notes].join(' ')), g = guestsOf(l, d);
+  if (wed) return { to: SOLA, why: 'חתונה — בגוטמן לא עושים חתונות', set };
+  if (g > GUTMAN_TIGHT) return { to: SOLA, why: g + ' אורחים — יותר מדי לגוטמן', set };
+  if (l.venue === GUTMAN && SOLA_RE.test(named) && !GUTMAN_RE.test(named)) return { to: SOLA, why: 'הלקוח בחר ב-7EVEN (גג הסולה)', set };
+  if (g > GUTMAN_MAX) return { tight: g, set };                      // 81–100: stays, Adam advises
+  return { set };
 }
 async function applyRoute(leadId, l, d, name) {
   if (!leadId) return null;
@@ -74,11 +79,16 @@ async function applyRoute(leadId, l, d, name) {
     l.venue = r.to; l.routed = { to: r.to };
     return { moved: true, to: r.to, why: r.why };
   }
-  if (r.set && !l.venue) { await ref.set({ venue: r.set, updatedAt: now }, { merge: true }); l.venue = r.set; return { placed: r.set }; }
-  return null;
+  if (r.set && !l.venue) { await ref.set({ venue: r.set, updatedAt: now }, { merge: true }); l.venue = r.set; }
+  if (r.tight) return { tight: r.tight };
+  return r.set ? { placed: r.set } : null;
 }
 const ROUTE_RULES = `
-HOTELS FOR EVENTS (fixed rule of the chain): The Gutman (La Boheme) hosts events of up to ${GUTMAN_MAX} guests and does NOT host weddings at all. Weddings, and any event above ${GUTMAN_MAX} guests, are held at hotel 7EVEN on the Sola rooftop (גג הסולה), which does weddings. The system moves the lead to the right hotel by itself when you call save_details; if save_details answers with "moved_to_7even", tell the customer warmly and briefly that for this event the right place is the Sola rooftop at 7EVEN and that you continue with them from there (do not say "the system"). Never offer the Gutman for a wedding or for more than ${GUTMAN_MAX} guests. If the customer asked about the Gutman, ask early how many guests and what kind of event it is.
+HOTELS FOR EVENTS (fixed rule of the chain): The Gutman (La Boheme) is right for events of up to about ${GUTMAN_MAX} guests and does NOT host weddings at all. Weddings and big events are held at hotel 7EVEN on the Sola rooftop (גג הסולה), which does weddings.
+- A customer who asked about the Gutman with a range like "50-100" starts at the Gutman: talk about the Gutman.
+- If it turns out the number is closer to 100 (between ${GUTMAN_MAX} and ${GUTMAN_TIGHT}), or save_details answers "gutman_may_be_tight": say warmly that at that size the Gutman may be a bit crowded, invite them to come for a tour to see the space, and mention that we also have the option of the Sola rooftop at 7EVEN. Let the customer choose; if they prefer 7EVEN, call save_details with hotel_or_venue "7EVEN".
+- A wedding, or clearly more than ${GUTMAN_TIGHT} guests: the right place is the Sola rooftop at 7EVEN. The system moves the lead by itself when you call save_details; if it answers "moved_to_7even", tell the customer warmly and briefly that for this event the right place is the Sola rooftop at 7EVEN and that you continue with them from there (do not say "the system").
+- Never offer the Gutman for a wedding. If the customer asked about the Gutman, ask early how many guests and what kind of event it is.
 KEEP THE LEAD WARM: every answer ends by moving one step forward (one question: date / guests / kind of event, or an invitation to come for a tour of the place). Never end with a dead end.`;
 
 function systemBlocks(kb, mode, today, lead, scope, name) {
@@ -181,7 +191,7 @@ exports.agentReply = functions.region(REGION).runWith({ timeoutSeconds: 120, mem
     { name: 'save_details', description: 'Record what the customer told you (only what they actually said). Call whenever they give a name, a date, a number of guests, an event type or a hotel.',
       input_schema: { type: 'object', properties: { name: { type: 'string' }, interest: { type: 'string', enum: KINDS, description: 'events | rooms | spa | bride' }, event_type: { type: 'string', description: 'wedding, company event, birthday...' }, date: { type: 'string', description: 'YYYY-MM-DD if clear' }, guests: { type: 'number' }, hotel_or_venue: { type: 'string' }, notes: { type: 'string', description: 'anything else the team should know, short' } } },
       run: async (a) => { for (const k of ['name', 'interest', 'event_type', 'date', 'guests', 'hotel_or_venue', 'notes']) if (a[k] !== undefined && a[k] !== '') got.details[k] = a[k];
-        if (cfg.route !== false && chatD.leadId && lead && cfg.mode === 'auto') { try { const r = await applyRoute(chatD.leadId, lead, got.details, cfg.name); if (r) got.route = r; if (r && r.moved) return { saved: true, moved_to_7even: true, why: r.why }; } catch (e) { console.error('adam route', e); } }
+        if (cfg.route !== false && chatD.leadId && lead && cfg.mode === 'auto') { try { const r = await applyRoute(chatD.leadId, lead, got.details, cfg.name); if (r) got.route = r; if (r && r.moved) return { saved: true, moved_to_7even: true, why: r.why }; if (r && r.tight) return { saved: true, gutman_may_be_tight: true, guests: r.tight }; } catch (e) { console.error('adam route', e); } }
         return { saved: true }; } },
     { name: 'not_in_scope', description: 'The customer wants something this assistant does not handle right now (not an event inquiry). Call it and write NO text: a person will answer.',
       input_schema: { type: 'object', properties: { kind: { type: 'string', enum: [...KINDS, 'other'] }, reason: { type: 'string', description: 'one short line' } }, required: ['kind'] },

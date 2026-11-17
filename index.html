@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202611171230"></script>
+<script src="i18n.js?v=202611171300"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1998,6 +1998,11 @@ function frontBkHTML(h){const all=frontBkList(h);if(!all.length)return '';roomCf
   return `<div class="card"><h3>שיבוץ חדרים להזמנות · היום ומחר</h3><p class="muted" style="font-size:.85rem;margin:0 0 6px">הזמנות שמגיעות היום ומחר ומי שכבר במלון. הזמנה מבוקינג מקבלת אוטומטית את התג Booking בלוח המשק.</p>
     <div class="chips" data-nosel style="gap:6px;margin-bottom:6px"><button class="dchip ${F==='todo'?'':'off'}" data-act="bka-f" data-v="todo">צריכים שיבוץ (${todo.length})</button><button class="dchip ${F==='all'?'':'off'}" data-act="bka-f" data-v="all">כל ההזמנות (${all.length})</button></div>
     ${L.length?`<div class="plist">${L.map(row).join('')}</div>`:'<p class="muted">כל ההזמנות שובצו ✓</p>'}</div>`}
+// what the server (onBookingHk) will mark on the housekeeping board for this booking — same word lists as functions/index.js bkMarks
+const BK_TWIN=/twin|separate\s*beds?|split|2\s*single|two\s*single|2\s*beds|two\s*beds|מיטות\s*נפרדות|מיטות\s*נפרד|נפרדות|שתי\s*מיטות|2\s*מיטות|טווין/i,BK_COT=/\bcots?\b|\bcrib\b|baby\s*bed|infant\s*bed|baby\s*cot|עריסה|לול|מיטת\s*תינוק|מיטה\s*לתינוק/i,BK_GRP=/\bgroups?\b|קבוצ/i;
+function bkHkPrevHTML(b){const cm=String(b.comment||''),t=[];if(bkIsCom(b))t.push('Booking');if(BK_GRP.test(cm+' '+(b.guest||''))||(b.rooms||[]).length>=5)t.push('קבוצה');t.push('👤 כמות האורחים בכל חדר');
+  if(BK_TWIN.test(cm))t.push('Split bed (מיטות נפרדות)');if(BK_COT.test(cm))t.push('👶 עריסה');if(/\bvip\b/i.test(cm))t.push('VIP');if(cm.trim())t.push('📝 ההערה של האורח כהערה לחדר');t.push('RES ביום ההגעה, C/O ביום העזיבה');
+  return `<p class="muted" style="font-size:.82rem">אחרי השמירה החדר יסומן בלוח המשק: ${t.map(esc).join(' · ')}.</p>`}
 function sheetBkAsg(){const {id,h}=S.sheet,M=(S.bkH||{})[h]||{},b=M[id];if(!b)return sheetHead('שיבוץ חדר','')+'<p class="muted">ההזמנה לא נמצאה</p>';
   roomCfgSub(h);const rs=b.rooms||[],units=hkRooms(h).units.map(String),sel=S.bkSel||(S.bkSel=rs.map(r=>String(r.room||'')));
   const tk={},ov=(ci,co)=>ci&&b.ci&&ci<(b.co||addDays(b.ci,1))&&b.ci<(co||addDays(ci,1));
@@ -2010,7 +2015,7 @@ function sheetBkAsg(){const {id,h}=S.sheet,M=(S.bkH||{})[h]||{},b=M[id];if(!b)re
   return sheetHead('שיבוץ חדר · '+esc(b.guest||'אורח'),esc(hotelName(h))+' · '+dm(b.ci)+(b.co?'–'+dm(b.co):'')+(b.channel?' · '+esc(b.channel):''))+
     (b.comment?`<div class="notice" style="margin-bottom:8px">💬 <b>הערות האורח:</b> ${esc(b.comment)}</div>`:'')+
     (units.length?rs.map(line).join(''):'<p class="muted">עוד לא הוגדרה רשימת חדרים למלון הזה.</p>')+
-    (bkIsCom(b)?'<p class="muted" style="font-size:.82rem">הזמנה מבוקינג: החדר יסומן בלוח המשק בתג Booking בכל ימי השהייה.</p>':'')+
+    bkHkPrevHTML(b)+
     `<div class="actions" style="margin-top:12px"><button class="btn pri" data-act="bka-save">שמירה</button><button class="btn ghost" data-act="close">ביטול</button></div>`}
 /* ---------- room categories per hotel (owner, Nov 16): roomcfg/{hotel} {cats:[{id,name,alias,rooms:[{n,bed,cap}]}]} — a booking's PMS room type is matched to a category, and the rooms whose beds fit the number of people are suggested ---------- */
 const BED_T={dbl:['זוגית',2],twin:['שתי מיטות נפרדות (Twin)',2],sgl:['מיטת יחיד',1],dbl1:['זוגית + מיטה נוספת',3],trpl:['3 מיטות יחיד',3],dblsofa:['זוגית + ספה נפתחת',4],fam:['חדר משפחה',4],other:['אחר',2]};

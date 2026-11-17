@@ -493,7 +493,8 @@ async function greqNag(cfg) {
     const who = [r.guest, r.room && 'חדר ' + r.room].filter(Boolean).join(' · ') || 'אורח', what = clip(r.summary || r.reason || r.kind || '', 160);
     await sendPush(to, { title: `🗂 אליאנה · פנייה מארסונה מחכה ${mins} דק׳`, body: clip(`${hn ? hn + ': ' : ''}${who} — ${what}. מישהו בקבלה צריך לקחת את הפנייה ולענות ללקוח עכשיו.`, 300), hash: '#greq?r=' + r.id, tag: 'opsg-' + r.id });
     // WhatsApp from the agents' number to the reception employees on shift now (owner, Nov 17): only after 2 unanswered app nags, at most 6 per request
-    if (cfg.greqWa !== false && crew.length && step >= 2 && step < 8) { // owner (Nov 17): first 2 nags in the app only, WhatsApp from the 3rd try { await waNag(crew, { hotel: hn, mins, who, what, id: r.id }); } catch (e) { console.error('greq wa', e.message); } }
+    // owner (Nov 17): first 2 nags in the app only, WhatsApp from the 3rd
+    if (cfg.greqWa !== false && crew.length && step >= 2 && step < 8) { try { await waNag(crew, { hotel: hn, mins, who, what, id: r.id }); } catch (e) { console.error('greq wa', e.message); } }
     sent[r.id] = step; n++;
   }
   const keep = {}; for (const [k, v] of Object.entries(sent)) if (L.some((r) => r.id === k)) keep[k] = v;

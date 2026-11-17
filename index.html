@@ -3891,8 +3891,9 @@ function vFront(){const hs=modHs('front',scopeHs());if(!hs.length)return wrap(em
   const G=Object.values(grpFrSub(h)||{}).filter(g=>['confirmed','option'].includes(g.status));
   const arr=bkL.filter(b=>b.ci===t).reduce((a,b)=>a+nRooms(b),0)+G.filter(g=>g.ci===t).reduce((a,g)=>a+(+g.rooms||0),0);
   const dep=bkL.filter(b=>b.co===t).reduce((a,b)=>a+nRooms(b),0)+G.filter(g=>g.co===t).reduce((a,g)=>a+(+g.rooms||0),0);
+  const HKD=hkSub(h,hkToday(h)),trtLeft=k=>{if(!HKD||HKD.__err)return '—';const T=HKD.trt||{},dn=HKD.trtDone||{},all=Object.keys(T).filter(r=>T[r]===k);return all.length?`${all.filter(r=>!dn[r]).length} / ${all.length}`:'0'};
   const miss=frontBkList(h).filter(([,b])=>bkMiss(b)).length,HK=briefHk(h,t),ready=HK&&HK.res?`${HK.ready.length} / ${HK.res.length}`:'—';
-  const kp=`<div class="kpis fr-kpis">${kpi('הגעות היום',arr)}${kpi('עזיבות היום',dep)}${kpi('הזמנות בלי חדר',miss,'','')}${kpi('חדרים מוכנים לצ׳ק אין',ready)}${kpi('קריאות פתוחות',nHk+nPub)}${kpi('תקלות פתוחות',openF.length)}</div>`;
+  const kp=`<div class="kpis fr-kpis">${kpi('הגעות היום',arr)}${kpi('עזיבות היום',dep)}${kpi('הזמנות בלי חדר',miss,'','')}${kpi('חדרים מוכנים לצ׳ק אין',ready)}${kpi('Deep refresh שנשארו',trtLeft('full'))}${kpi('Refresh שנשארו',trtLeft('ref'))}${kpi('קריאות פתוחות',nHk+nPub)}${kpi('תקלות פתוחות',openF.length)}</div>`;
   const tab=S.frTab||'hk',TABS=[['hk','קריאת משק',nHk],['pub','שטח ציבורי',nPub],['flt','תקלה',openF.length],['cmp','תלונת אורח',cmps.length]];
   const quick=`<div class="card fr-quick"><h3>פתיחה מהירה</h3><div class="fr-tabs" role="tablist">${TABS.map(([k,n,c])=>`<button type="button" role="tab" aria-selected="${k===tab}" class="fr-tab ${k===tab?'on':''}" data-act="fr-tab" data-v="${k}">${n}${c?` <span class="pill warn">${c}</span>`:''}</button>`).join('')}</div></div>`+
     ({hk:callsCardHTML,pub:pubCardHTML,flt:frontFaultsHTML,cmp:frontCmpHTML}[tab])(h);

@@ -21,6 +21,26 @@ const note = (t, m) => console.log(`::notice title=${t}::${String(m).replace(/\n
     note('Nag WhatsApp 48h', `sent=${wl.length} ok=${wl.filter((d) => !d.error).length} errors=${[...new Set(wl.map((d) => d.error).filter(Boolean))].slice(0, 3).join(' | ')}`);
   }
   const kind = process.env.KIND;
+  if (kind === 'warmcheck') { // Adam warm-up dry check (counts only)
+    const now = Date.now(), il = (t) => new Date(t).toLocaleDateString('en-CA', { timeZone: 'Asia/Jerusalem' }), today = il(now), yest = il(now - 864e5);
+    const ls = (await db.collection('leads').where('createdAt', '>=', now - 3 * 864e5).get()).docs.map((d) => ({ id: d.id, ...d.data() })).filter((l) => [today, yest].includes(il(+l.createdAt || 0)));
+    const rc = (await db.doc('agentcfg/reply').get()).data() || {}; console.log('REPLY cfg', JSON.stringify({ enabled: rc.enabled, mode: rc.mode, scope: rc.scope, follow: rc.follow }));
+    const wp = (await db.doc('wapub/main').get()).data() || {}; console.log('TEMPLATES', JSON.stringify((wp.templates || []).map((t) => [t.name, t.lang, t.n, (t.names || []).join('|'), String(t.body || '').length])));
+    const wa = (await db.doc('waauto/main').get()).data() || {}; console.log('AUTO RULES', JSON.stringify(Object.fromEntries(Object.entries(wa.rules || {}).map(([k, r]) => [k, r.tpl]))));
+    const rows = [];
+    for (const l of ls) {
+      const dig = String(l.phone || '').replace(/\D/g, ''), wid = dig.startsWith('0') ? '972' + dig.slice(1) : dig;
+      const c = wid.length >= 11 ? ((await db.doc('waChats/' + wid).get()).data() || null) : null;
+      let msgs = []; if (c) msgs = (await db.collection('waChats/' + wid + '/msgs').orderBy('at', 'desc').limit(20).get()).docs.map((d) => d.data());
+      const hum = msgs.filter((m) => m.dir === 'out' && /^[A-Za-z0-9]{20,40}$/.test(String(m.by || ''))).length, ai = msgs.filter((m) => m.by === 'ai').length;
+      const ins = msgs.filter((m) => m.dir === 'in'), lastInType = ins[0] ? ins[0].type : '-';
+      rows.push([il(l.createdAt) === today ? 'T' : 'Y', l.cat || '-', l.venue || '-', l.stage, l.source || '-', c ? 'chat' : 'nochat', c ? (c.lastInAt ? Math.round((now - c.lastInAt) / 36e5) + 'h' : 'noin') : '-', c ? c.lastDir : '-', c && c.agent ? 'agent' : '', hum, ai, ins.length, lastInType, l.waAutoAt ? 'auto' : ''].join(' '));
+    }
+    console.log('LEADS', ls.length); rows.forEach((r) => console.log('ROW', r));
+    const lg = (await db.collection('agentLog').where('agent', '==', 'reply').get()).docs.map((d) => d.data()).filter((d) => d.at > now - 864e5);
+    console.log('REPLY LOG 24h', lg.length, JSON.stringify(lg.slice(0, 30).map((d) => [new Date(d.at).toISOString().slice(11, 16), d.skipped || d.follow || (d.replied ? 'replied' : '') || (d.error ? 'err' : '') || (d.route ? 'route' : '')])));
+    return;
+  }
   if (kind === 'hkplan') { // Aliana's housekeeping plan for tomorrow (counts only)
     const ref = await db.collection('opsJobs').add({ kind, push: false, at: Date.now(), by: 'workflow' }); note('Job', ref.id + ' created');
     for (let i = 0; i < 40; i++) { await new Promise((x) => setTimeout(x, 6000)); const j = (await ref.get()).data() || {};

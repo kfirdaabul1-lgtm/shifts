@@ -442,6 +442,42 @@ function handoffDue(at, cfg) {
 // Arsona guest requests nobody took (owner, Nov 16): after greqNagMins (10) Aliana nags reception every 10 minutes until someone
 // takes or closes it; from 30 minutes the hotel manager too. Runs day and night and does NOT depend on cfg.push (guests write 24/7).
 // cfg.greqNag === false turns it off. Requests older than 4 hours are left alone.
+// reception employees on shift right now at the hotel (published or not; overnight shifts from yesterday too)
+const DEF_HH = { m: ['07:00', '15:00'], e: ['15:00', '23:00'], n: ['23:00', '07:00'], d: ['09:00', '17:00'], s1: ['07:00', '15:00'], s2: ['15:00', '23:00'] };
+async function recNow(h) {
+  const now = Date.now(), today = C.ilDate(new Date(now)), yest = C.addDays(today, -1), out = new Set();
+  const at = (d, hm) => { const [H, M] = String(hm).split(':').map(Number); return ilEpoch(d, H || 0) + (M || 0) * 60e3; };
+  for (const s of await staffing(h, [yest, today])) {
+    if (s.dept !== 'reception' || !s.who.length) continue;
+    const st = s.start || (DEF_HH[s.kind] || [])[0], en = s.end || (DEF_HH[s.kind] || [])[1]; if (!st || !en) continue;
+    const a = at(s.date, st); let b = at(s.date, en); if (b <= a) b = at(C.addDays(s.date, 1), en);
+    if (now >= a - 15 * 60e3 && now <= b) s.who.forEach((u) => out.add(u));
+  }
+  return [...out];
+}
+// WhatsApp to each person: free text inside the 24 h window (they wrote to the agents' number), else the approved template
+// waauto/main.greqTpl {tpl, lang} (values in order / by name: employee first name, hotel, minutes, guest, request); none → skipped
+async function waNag(uids, d) {
+  const W = (await docData('wacfg/main')) || {}; if (!W.token || !W.aliPhoneId) return;
+  const A = (await docData('waauto/main')) || {}, T = A.greqTpl || {}, pub = (await docData('wapub/main')) || {}, tp = (pub.templates || []).find((t) => t.name === T.tpl);
+  const tail = (p) => { let x = String(p || '').replace(/\D/g, ''); if (x.startsWith('972')) x = x.slice(3); x = x.replace(/^0/, ''); return x.length >= 8 && x.length <= 10 ? '972' + x : ''; };
+  const send = async (body) => { const r = await fetch('https://graph.facebook.com/v23.0/' + W.aliPhoneId + '/messages', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + W.token }, body: JSON.stringify(body) }); const j = await r.json().catch(() => ({})); if (!r.ok || j.error) throw new Error(((j.error || {}).message) || 'HTTP ' + r.status); };
+  for (const u of uids) {
+    const e = (await docData('employees/' + u)) || {}, to = tail(e.phone); if (!to) continue;
+    const first = String(e.name || '').trim().split(/\s+/)[0] || '';
+    const win = (+(((await docData('aliWa/' + to)) || {}).lastInAt) || 0) > Date.now() - 23.5 * 36e5;
+    try {
+      if (win) await send({ messaging_product: 'whatsapp', to, type: 'text', text: { body: `🗂 אליאנה כאן${first ? ', ' + first : ''}.\nפנייה מארסונה${d.hotel ? ' ב' + d.hotel : ''} מחכה כבר ${d.mins} דקות ואף אחד עוד לא לקח אותה:\n${d.who} — ${d.what}\nתיכנס/י לאפליקציה ← פניות אורחים, קח/י את הפנייה ותענה/י ללקוח 🙏` } });
+      else if (tp) {
+        const vals = [first || 'צוות הקבלה', d.hotel || 'המלון', String(d.mins), d.who, d.what].map((v) => clip(String(v).replace(/\s+/g, ' '), 200));
+        const names = tp.names || [], k = names.length || +tp.n || 0;
+        const params = Array.from({ length: k }, (_, i) => names.length ? { type: 'text', parameter_name: names[i], text: vals[i] || '-' } : { type: 'text', text: vals[i] || '-' });
+        await send({ messaging_product: 'whatsapp', to, type: 'template', template: { name: tp.name, language: { code: T.lang || tp.lang || 'he' }, components: k ? [{ type: 'body', parameters: params }] : [] } });
+      } else continue;
+      await log({ kind: 'greq-wa', id: d.id, how: win ? 'text' : 'template' });
+    } catch (er) { await log({ kind: 'greq-wa', id: d.id, error: clip(er.message, 200) }); }
+  }
+}
 async function greqNag(cfg) {
   if (cfg.greqNag === false) return 0;
   const now = Date.now(), first = Math.max(1, +cfg.greqNagMins || 10), every = Math.max(5, +cfg.greqNagEvery || 10), ref = db.doc('opsWatch/greqNag'), st = (await ref.get()).data() || {}, sent = st.sent || {};
@@ -451,11 +487,13 @@ async function greqNag(cfg) {
   for (const r of L) {
     const mins = Math.floor((now - (+r.at || now)) / 60e3), step = Math.floor((mins - first) / every);
     if ((sent[r.id] ?? -1) >= step) continue;
-    let to = [], hn = '';
-    if (r.hotel) { const p = await pp(r.hotel); to = [...p.reception, ...p.greq, ...(mins >= 30 ? p.gm : [])]; hn = names[r.hotel] || (names[r.hotel] = (((await docData('hotels/' + r.hotel)) || {}).name) || ''); }
+    let to = [], hn = '', crew = [];
+    if (r.hotel) { const p = await pp(r.hotel); crew = await recNow(r.hotel); to = [...p.reception, ...p.greq, ...crew, ...(mins >= 30 ? p.gm : [])]; hn = names[r.hotel] || (names[r.hotel] = (((await docData('hotels/' + r.hotel)) || {}).name) || ''); }
     else to = await all();
-    const who = [r.guest, r.room && 'חדר ' + r.room].filter(Boolean).join(' · ') || 'אורח';
-    await sendPush(to, { title: `🗂 אליאנה · פנייה מארסונה מחכה ${mins} דק׳`, body: clip(`${hn ? hn + ': ' : ''}${who} — ${r.summary || r.reason || r.kind || ''}. מישהו בקבלה צריך לקחת את הפנייה ולענות ללקוח עכשיו.`, 300), hash: '#greq?r=' + r.id, tag: 'opsg-' + r.id });
+    const who = [r.guest, r.room && 'חדר ' + r.room].filter(Boolean).join(' · ') || 'אורח', what = clip(r.summary || r.reason || r.kind || '', 160);
+    await sendPush(to, { title: `🗂 אליאנה · פנייה מארסונה מחכה ${mins} דק׳`, body: clip(`${hn ? hn + ': ' : ''}${who} — ${what}. מישהו בקבלה צריך לקחת את הפנייה ולענות ללקוח עכשיו.`, 300), hash: '#greq?r=' + r.id, tag: 'opsg-' + r.id });
+    // WhatsApp from the agents' number to the reception employees on shift now (owner, Nov 17), at most 6 per request
+    if (cfg.greqWa !== false && crew.length && step < 6) { try { await waNag(crew, { hotel: hn, mins, who, what, id: r.id }); } catch (e) { console.error('greq wa', e.message); } }
     sent[r.id] = step; n++;
   }
   const keep = {}; for (const [k, v] of Object.entries(sent)) if (L.some((r) => r.id === k)) keep[k] = v;
@@ -676,7 +714,7 @@ async function opsCore(c, hist, extra) {
   const cfg = { ...DEFAULTS, ...(await C.cfg('ops')) }, kb = await C.loadKB('ops'), today = C.ilDate(new Date());
   const sys = `Your name is Aliana (אליאנה, a woman). You are the operations manager agent of the Seven Collection hotels (Israel). You are chatting with ${c.name || 'the owner'}, the owner of the chain. Today is ${today} (${DOW[dowOf(today)]}), Israel time.
 ${OPS_KNOW}
-WHAT YOU DO: every morning at 07:15 you check every hotel (staffing, 10days, housekeeping, maintenance, tours, spa, groups, events, back office) and write reports; at 14:00 you check what is not ready for check-in; every 5 minutes you watch calls and faults; on Sunday you prepare a staffing draft for next week. Notifications to managers are ${cfg.push ? 'ON' : 'OFF (reports only) until the owner turns them on'}. Arsona guest requests that nobody took for 10 minutes: you nag reception every 10 minutes (from 30 minutes the hotel manager too) until someone takes it (greqNag; agentcfg/ops.greqNag false turns it off). Every Arsona guest request (guestReqs) is sorted by you: maintenance call / housekeeping call / public areas call / lead in ROOM bookings / general question. While you learn (agentcfg/ops.greq 'learn') you only suggest to the owner and learn from what reception actually does; guest_requests_learning shows how often you were right. You also supervise the other agents: Adi (campaigns), Guy (yield) and Adam (events replies, not answering customers yet). In agents_health "enabled:false" for Adi/Guy means only their AUTOMATIC REPORTS are off — chatting with them still works (see "meaning"); never say an agent is "off" because of it. Sharon (שרון) is the managers' assistant INSIDE the app (✦ button): she answers managers/employees from the app's data and explains how to use the app; you don't supervise her and have no log of her answers.
+WHAT YOU DO: every morning at 07:15 you check every hotel (staffing, 10days, housekeeping, maintenance, tours, spa, groups, events, back office) and write reports; at 14:00 you check what is not ready for check-in; every 5 minutes you watch calls and faults; on Sunday you prepare a staffing draft for next week. Notifications to managers are ${cfg.push ? 'ON' : 'OFF (reports only) until the owner turns them on'}. Arsona guest requests that nobody took for 10 minutes: you nag reception every 10 minutes — the reception desk, the reception employees on shift now (push + WhatsApp from the agents' number) and from 30 minutes the hotel manager until someone takes it (greqNag; agentcfg/ops.greqNag false turns it off). Every Arsona guest request (guestReqs) is sorted by you: maintenance call / housekeeping call / public areas call / lead in ROOM bookings / general question. While you learn (agentcfg/ops.greq 'learn') you only suggest to the owner and learn from what reception actually does; guest_requests_learning shows how often you were right. You also supervise the other agents: Adi (campaigns), Guy (yield) and Adam (events replies, not answering customers yet). In agents_health "enabled:false" for Adi/Guy means only their AUTOMATIC REPORTS are off — chatting with them still works (see "meaning"); never say an agent is "off" because of it. Sharon (שרון) is the managers' assistant INSIDE the app (✦ button): she answers managers/employees from the app's data and explains how to use the app; you don't supervise her and have no log of her answers.
 COORDINATING THE AGENTS IS PART OF YOUR JOB: you can ask Adi, Guy, Adam and Sharon questions (ask_agent) and give standing directions to Adi and Guy (direct_agent, only when the owner asked or agreed). When a question touches another agent's field, ask that agent yourself and combine the answers — don't send the owner to them. When agents disagree or one's work affects another's (e.g. a hotel with empty dates → Adi should push ads there, Guy should check prices), say so and propose who does what. Tell the owner which agent said what. (The owner can also talk with each one directly: on the agents' WhatsApp by writing only the name "עדי" / "גיא" / "אדם", "אליאנה" back to you; in the app each one has a tab.)
 Google Ads: leads are NOT sent to or marked in Google by the system; Google Ads data only comes in (spend, clicks, conversions counted by Google itself). A lead's status in the app changes only by people, the WhatsApp/quote automations or Meta forms — check its activity lines with leads_lookup.
 RULES

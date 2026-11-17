@@ -30,6 +30,19 @@ const KEYS = ['hotel', 'month', 'date', 'shift', 'name', 'empUid', 'ooo', 'fault
     // Adi's campaign reports (Nov 16, owner: a report every Sunday and Thursday for the chain and every hotel): turn them on once
     { const ar = db.doc('agentcfg/ads'), ad = (await ar.get()).data() || {};
       if (ad.enabled !== true && !ad.onNov16) { await ar.set({ enabled: true, onNov16: Date.now() }, { merge: true }); console.log('::notice title=Adi::campaign reports turned on'); } }
+    // WhatsApp template for Aliana's nags to reception employees (owner, Nov 17): create once on our WABA, Meta approves it
+    try {
+      const W = (await db.doc('wacfg/main').get()).data() || {}, ar = db.doc('waauto/main'), A = (await ar.get()).data() || {};
+      if (!A.greqTpl) await ar.set({ greqTpl: { tpl: 'greq_alert', lang: 'he' } }, { merge: true });
+      if (W.token && W.wabaId && !A.greqTplMade) {
+        const r = await fetch('https://graph.facebook.com/v23.0/' + W.wabaId + '/message_templates', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + W.token },
+          body: JSON.stringify({ name: 'greq_alert', language: 'he', category: 'UTILITY', components: [{ type: 'BODY', text: 'שלום {{1}}, בפניות האורחים של {{2}} יש פנייה שמחכה כבר {{3}} דקות ואף אחד עוד לא לקח אותה: {{4}} – {{5}}. נא להיכנס לאפליקציה, לקחת את הפנייה ולענות לאורח.', example: { body_text: [['דנה', 'מלון 7EVEN', '15', 'אורח · חדר 408', 'מבקש מגבות']] } }] }) });
+        const j = await r.json().catch(() => ({}));
+        const ok = r.ok || /already exists|duplicate/i.test(JSON.stringify(j.error || {}));
+        if (ok) await ar.set({ greqTplMade: Date.now() }, { merge: true });
+        console.log('::notice title=greq template::' + (r.ok ? 'created, status ' + (j.status || '?') : ok ? 'already exists' : 'failed: ' + String(((j.error || {}).message) || r.status).slice(0, 150)));
+      }
+    } catch (e) { console.log('::notice title=greq template::error ' + String(e.message).slice(0, 120)); }
     // Guy, the yield agent (Nov 12, owner asked to turn it on): create agentcfg/yield enabled, ONLY when missing
     const yr = db.doc('agentcfg/yield');
     if (!(await yr.get()).exists) { await yr.set({ enabled: true, name: 'גיא', createdAt: Date.now(), createdBy: 'setup' }); console.log('::notice title=Guy::agentcfg/yield created (on)'); }

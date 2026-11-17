@@ -112,6 +112,7 @@ exports.onAliIn = functions.region(REGION).runWith({ timeoutSeconds: 300, memory
   if (!c.token || !c.aliPhoneId) return;
   const from = m.from;
   graph(c, 'POST', c.aliPhoneId + '/messages', { messaging_product: 'whatsapp', status: 'read', message_id: snap.id }).catch(() => {});
+  db.doc('aliWa/' + from).set({ lastInAt: Date.now() }, { merge: true }).catch(() => {}); // 24 h window for Aliana's nags (agent-ops waNag)
   try {
     const ads = require('./agent-ads.js')._t, A = require('./assistant.js')._t;
     const uid = await whoIs(c, from);

@@ -913,12 +913,13 @@ async function arsonaIn(m, mail) {
     // delivered it in a form we can't read (e.g. type 'unsupported' = a message with buttons)
     const ref = db.doc('guestReqs/ars_' + String(m.id).replace(/[^A-Za-z0-9_-]/g, '').slice(-60));
     const at = (+m.timestamp || Date.now() / 1000) * 1000;
-    const doc = { type: 'agent', hotel: '', hotelTxt: '', at, status: 'open', assignee: '', assigneeName: '', leadId: '', from: m.from, createdAt: Date.now(), acts: [],
+    const hotel0 = t ? await arsHotel(t.replace(/\d{3,}/g, ' ')) : ''; // owner, Nov 17: the hotel name is usually somewhere in the text
+    const doc = { type: 'agent', hotel: hotel0, hotelTxt: '', at, status: 'open', assignee: '', assigneeName: '', leadId: '', from: m.from, createdAt: Date.now(), acts: [],
       kind: mail ? 'מייל מארסונה' : 'הודעה מארסונה', reason: '', guest: '', phone: '', email: '', conf: '', room: '', channel: mail ? 'מייל' : 'WhatsApp', when: '',
       summary: t ? t.slice(0, 1500) : 'הודעה מארסונה שהוואטסאפ לא העביר את התוכן שלה למערכת (כנראה הודעה עם כפתורים). יש לפתוח אותה בארסונה או בוואטסאפ בטלפון.',
       raw: t.slice(0, 4000), unreadable: !t, msgType: String(m.type || ''), msgErr: JSON.stringify(m.errors || []).slice(0, 400) };
     try { await ref.create(doc); } catch (e) { return true; }
-    await sendTo(await roleHolders('', ['greq']), { title: '🔴 פנייה חדשה מארסונה', body: doc.summary.slice(0, 170), hash: '#greq?r=' + ref.id, tag: 'greq-' + ref.id });
+    await sendTo(await roleHolders(hotel0, ['greq']), { title: '🔴 פנייה חדשה מארסונה' + (hotel0 ? ' · ' + (await hotelName(hotel0)) : ''), body: doc.summary.slice(0, 170), hash: '#greq?r=' + ref.id, tag: 'greq-' + ref.id });
     return true;
   }
   if (from.length && !fromArs) return false;
@@ -936,7 +937,7 @@ async function arsonaIn(m, mail) {
   if (!/\d{7,}/.test(String(f.phone || '').replace(/\D/g, ''))) f.phone = ph ? ph[0].replace(/[\s-]/g, '') : '';
   { const rm = /(?:room|חדר)\s*#?\s*(\d{2,5})/i.exec(t), rs = /(?:reservation|הזמנה)\s*(?:no\.?|number|מס['׳]?|#)?\s*([\w-]{4,})/i.exec(t);
     if (!f.room && rm) f.room = rm[1]; if (!f.conf && rs && /\d/.test(rs[1])) f.conf = rs[1]; }
-  const hotel = await arsHotel((head.split('|')[1] || '') + ' ' + (f.hotelTxt || '') + ' ' + String(f.summary || '').replace(/\d{3,}/g, ' ')), type = ARS_T[tm[1].toLowerCase()] || 'agent';
+  const hotel = (await arsHotel((head.split('|')[1] || '') + ' ' + (f.hotelTxt || '') + ' ' + String(f.summary || '').replace(/\d{3,}/g, ' '))) || (await arsHotel(t.replace(/\d{3,}/g, ' '))), type = ARS_T[tm[1].toLowerCase()] || 'agent';
   const at = (+m.timestamp || Date.now() / 1000) * 1000, ref = db.doc('guestReqs/ars_' + String(m.id).replace(/[^A-Za-z0-9_-]/g, '').slice(-60));
   const doc = { type, hotel, hotelTxt: String(f.hotelTxt || head.split('|')[1] || '').trim().slice(0, 80), at, status: 'open', assignee: '', assigneeName: '', leadId: '', from: m.from, raw: t.slice(0, 4000), createdAt: Date.now(), acts: [] };
   for (const k of ['kind', 'reason', 'guest', 'phone', 'email', 'conf', 'room', 'channel', 'when', 'summary']) doc[k] = String(f[k] || '').slice(0, 1500);

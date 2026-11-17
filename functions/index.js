@@ -2016,7 +2016,7 @@ async function grpHkMark(h, day, g, oldG) {
   }
   for (const r of nowR) {
     o.grp[r] = true; const p = +((g.roomPax || {})[r] || 0); if (p) o.pax[r] = p;
-    let v = occ[r] || ''; if (day === g.ci) v = occAdd(v, 'res'); if (day === g.co && g.co !== g.ci) v = occAdd(v, 'co');
+    let v = occ[r] || ''; if (day === g.ci && !g.ciAt) v = occAdd(v, 'res'); if (day === g.co && g.co !== g.ci) v = occAdd(v, 'co');
     if (v !== (occ[r] || '')) { o.occ[r] = v; o.occBy[r] = 'קבוצה · ' + (g.name || ''); o.occAt[r] = now; } n++;
   }
   for (const k of ['pax', 'occ', 'occBy', 'occAt']) if (!Object.keys(o[k]).length) delete o[k];
@@ -2172,7 +2172,7 @@ async function tenDaysAll() {
 exports.tenDaysAuto = functions.region(REGION).pubsub.schedule('every 15 minutes').timeZone('Asia/Jerusalem').onRun(async () => { await tenDaysAll(); return null; });
 exports.onGroupRooms = trig('groups/{id}').onUpdate(async (ch) => {
   const a = ch.after.data() || {}, b = ch.before.data() || {};
-  const same = (a.guideRooms || '') === (b.guideRooms || '') && JSON.stringify(a.roomPax || {}) === JSON.stringify(b.roomPax || {}) && a.ci === b.ci && a.co === b.co && a.status === b.status && a.hotel === b.hotel;
+  const same = (a.guideRooms || '') === (b.guideRooms || '') && JSON.stringify(a.roomPax || {}) === JSON.stringify(b.roomPax || {}) && a.ci === b.ci && a.co === b.co && a.status === b.status && a.hotel === b.hotel && !!a.ciAt === !!b.ciAt;
   if (same) return;
   const h = a.hotel || ''; if (!h) return;
   let day = ilDate(new Date()); try { const hd = await db.doc('hkday/' + h).get(); if (hd.exists && hd.data().date) day = hd.data().date; } catch (e) {}

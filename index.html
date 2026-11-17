@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202611172100"></script>
+<script src="i18n.js?v=202611171700"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1592,10 +1592,25 @@ function frontGrpHTML(h){const M=grpFrSub(h);if(!M)return '';const t=todayISO(),
   hkSub(h,hkToday(h));const L=Object.entries(M).filter(([,g])=>!g.coAt&&['confirmed','option'].includes(g.status||'offer')&&g.ci&&g.ci<=tm&&(g.co||g.ci)>=t).sort(([,a],[,b])=>String(a.ci).localeCompare(String(b.ci)));
   if(!L.length)return '';
   return `<div class="card"><h3>קבוצות במלון · ${L.length}</h3><p class="muted" style="font-size:.85rem;margin:0 0 6px">לכל קבוצה: מספרי החדרים, קישור למדריך והודעות (שעות ארוחות וכדומה). המדריך רואה אותם בעמוד שלו.</p>
-  ${L.map(([id,g])=>`<details class="gd-g" ${(S.fold||{})['gd:'+id]?'open':''} data-fold="gd:${esc(id)}"><summary><b>${esc(g.name||'קבוצה')}</b> <span class="muted">${dm(g.ci)}${g.co?'–'+dm(g.co):''}${g.ci>t?' · מגיעה מחר':''}${g.guideRooms?' · '+hkParse(g.guideRooms).length+' חדרים':' · עוד אין חדרים'}</span></summary>${g.ci<=t?grpCoHTML(id,g):''}${guideBoxHTML(id,g)}</details>`).join('')}</div>`}
+  ${L.map(([id,g])=>`<details class="gd-g" ${(S.fold||{})['gd:'+id]?'open':''} data-fold="gd:${esc(id)}"><summary><b>${esc(g.name||'קבוצה')}</b> <span class="muted">${dm(g.ci)}${g.co?'–'+dm(g.co):''}${g.ci>t?' · מגיעה מחר':''}${g.guideRooms?' · '+hkParse(g.guideRooms).length+' חדרים':' · עוד אין חדרים'}</span></summary>${g.ci<=t?grpCiHTML(id,g)+grpCoHTML(id,g):''}${guideBoxHTML(id,g)}</details>`).join('')}</div>`}
 // group halls → a "hotel group" on the events board: quotes/grp_<groupId>_<n> {kind:'group', status:'approved', group:{note, groupId}}
 // group check-out from the reception page (owner, Nov 17): every room of the group that is OD/OC on today's housekeeping board → VD in one write,
 // then groups.coAt hides the group from "קבוצות במלון"
+// group check-in (owner, Nov 17): every group room on today's board → OD (occupied), RES removed; groups.ciAt/ciBy/ciByName
+function grpCiRooms(h,g){const D=hkSub(h,hkToday(h))||{},cl=D.clean||{},R=hkParse(g.guideRooms||''),go=R.filter(r=>cl[r]!=='ooo');return {R,go,notReady:go.filter(r=>!['vc','vi'].includes(cl[r]||'')),occ:D.occ||{}}}
+function grpCiHTML(id,g){if(g.co&&g.co<=todayISO())return '';const h=g.hotel||'',{R,go,notReady}=grpCiRooms(h,g),c=S.confirm==='grpci:'+id,tm=x=>new Date(x).toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'});
+  if(g.ciAt)return `<div class="muted" style="margin:6px 0;font-size:.85rem">✓ צ׳ק אין בוצע ב-${dm(new Date(g.ciAt).toISOString().slice(0,10))} ${tm(g.ciAt)}${g.ciByName?' · '+esc(g.ciByName):''}</div>`;
+  return `<div class="actions" style="margin:6px 0;align-items:center"><button class="btn ${c?'danger':'pri'}" data-act="grp-ci" data-id="${esc(id)}">${c?`לחיצה נוספת · צ׳ק אין ל-${go.length} חדרים`:'🛎 צ׳ק אין לקבוצה'}</button><span class="muted" style="font-size:.85rem">${R.length?`${go.length} חדרים יעברו ל-OD (תפוס) במשק`+(notReady.length?` · <span class="bad-t">${notReady.length} עוד לא מוכנים: ${notReady.slice(0,12).map(esc).join(', ')}</span>`:''):'לקבוצה עוד אין חדרים'}</span></div>`}
+async function grpCi(id){const g=gdDoc(id);if(!g)return;const h=g.hotel||'';if(hkPlanBlock(h))return;
+  if(S.confirm!=='grpci:'+id){S.confirm='grpci:'+id;render();setTimeout(()=>{if(S.confirm==='grpci:'+id){S.confirm=null;render()}},5000);return}S.confirm=null;
+  const {go,occ}=grpCiRooms(h,g),d=hkToday(h),now=Date.now(),who=S.meName||S.email||'',FV=firebase.firestore.FieldValue;
+  try{if(go.length){const o={hotel:h,date:d,updatedAt:now,lastBy:S.uid,clean:{},cleanBy:{},cleanAt:{},occ:{},occBy:{},occAt:{}};
+      go.forEach(r=>{o.clean[r]='od';o.cleanBy[r]=who;o.cleanAt[r]=now;const l=String(occ[r]||'').split(',').filter(x=>x&&x!=='res');if(l.length!==String(occ[r]||'').split(',').filter(Boolean).length){o.occ[r]=l.length?l.join(','):FV.delete();o.occBy[r]=who;o.occAt[r]=now}});
+      ['occ','occBy','occAt'].forEach(k=>{if(!Object.keys(o[k]).length)delete o[k]});
+      await fdb.doc('hk/'+hkDocId(h,d)).set(o,{merge:true})}
+    await fdb.doc('groups/'+id).update({ciAt:now,ciBy:S.uid,ciByName:who});
+    g.ciAt=now;g.ciByName=who;toast(`צ׳ק אין לקבוצה ${g.name||''}: ${go.length} חדרים עברו ל-OD`);render()}
+  catch(e){toast('הפעולה נכשלה: '+errMsg(mapErr(e)))}}
 function grpCoRooms(h,g){const D=hkSub(h,hkToday(h))||{},cl=D.clean||{},R=hkParse(g.guideRooms||'');return {R,go:R.filter(r=>['od','oc'].includes(cl[r]))}}
 function grpCoHTML(id,g){const h=g.hotel||'',{R,go}=grpCoRooms(h,g),c=S.confirm==='grpco:'+id;
   return `<div class="actions" style="margin:6px 0;align-items:center"><button class="btn ${c?'danger':''}" data-act="grp-co" data-id="${esc(id)}">${c?`לחיצה נוספת · צ׳ק אאוט ל-${go.length} חדרים`:'🧳 צ׳ק אאוט לקבוצה'}</button><span class="muted" style="font-size:.85rem">${R.length?`${go.length} מתוך ${R.length} חדרים תפוסים (OD/OC) יעברו ל-VD במשק`:'לקבוצה עוד אין חדרים'}</span></div>`}
@@ -5682,6 +5697,7 @@ const ACT={
     const q={at:Date.now(),kind:['msg','pre'].includes(D.k)?D.k:'invite',msgId:D.m||'',by:S.uid,byName:S.meName||''};
     try{await fdb.doc('groups/'+id).update({guideWaReq:q});gdPut(id,{guideWaReq:q});render();toast('נשלח לוואטסאפ של המערכת…');setTimeout(render,62000)}catch(e){toast('לא הצלחתי: '+errMsg(mapErr(e)))}},
   'grp-co':D=>grpCo(D.id),
+  'grp-ci':D=>grpCi(D.id),
   'gd-ntf':D=>gdNtfSet(D.h,D.u,D.v==='1'),
   'gd-meals':async D=>{const id=D.id,g=gdDoc(id);if(!g)return;const F='gd_'+id,meals={};
     for(const [m] of GD_MEALS){const o={};for(const k of ['f','t','place']){const el=document.querySelector(`[data-f="${F}.m_${m}_${k}"]`),x=String(el?el.value:dv(F,'m_'+m+'_'+k,((g.meals||{})[m]||{})[k]||'')).trim().slice(0,60);if(x)o[k]=x}if(Object.keys(o).length)meals[m]=o}

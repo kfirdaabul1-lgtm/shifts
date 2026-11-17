@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202611171120"></script>
+<script src="i18n.js?v=202611171115"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -2853,7 +2853,8 @@ function waChatBody(id,inPane,embed){const c=(S.waChats||{})[id]||{},L=waLeadOf(
   const T=W.templates||[],ti=+dv('wa','tpl',0)||0,t=T[ti];
   const comp=!W.on?'<div class="notice">וואטסאפ עוד לא מחובר למערכת.</div>':open?`<div class="wac-in"><label class="wac-att" title="שליחת תמונה" aria-label="שליחת תמונה">📷<input type="file" accept="image/*" multiple data-waimg="${esc(id)}" hidden></label><button class="wac-att" data-act="wagal-open" data-id="${esc(id)}" title="גלריות מוכנות" aria-label="גלריות מוכנות">🖼️</button><textarea rows="1" data-f="wa.text" placeholder="הודעה" aria-label="הודעה">${esc(dv('wa','text',''))}</textarea><button class="wac-send" data-act="wa-send" aria-label="שליחה">➤</button></div>
     <div class="wac-sub">${sign?`<button class="btn sm ghost" data-act="wa-sign" data-v="${esc(sign)}">➕ לינק לחתימה על הצעה #${esc(q.num||'')}</button>`:''}<small class="muted">אפשר לענות חופשי עוד ${Math.max(1,Math.ceil((864e5-(Date.now()-c.lastInAt))/36e5))} שעות</small></div>`
-    :`<div class="notice">${c.lastInAt?'עברו יותר מ-24 שעות מההודעה האחרונה של הלקוח':'הלקוח עוד לא כתב לעסק'}, ולכן וואטסאפ מאפשר לשלוח רק תבנית מאושרת. כשהלקוח יענה, אפשר לכתוב חופשי.</div>
+    :!S.waTplOpen?`<div class="actions" style="align-items:center;gap:8px;flex-wrap:wrap;padding:6px 8px"><small class="muted" style="flex:1;min-width:160px">${c.lastInAt?'עברו 24 שעות מההודעה האחרונה של הלקוח':'הלקוח עוד לא כתב לעסק'} · אפשר לשלוח רק תבנית מאושרת</small><button class="btn sm pri" data-act="wa-tplt">📨 שליחת תבנית</button></div>`
+    :`<div class="actions" style="align-items:center;gap:8px;padding:6px 0"><small class="muted" style="flex:1">וואטסאפ מאפשר כאן רק תבנית מאושרת. כשהלקוח יענה, אפשר לכתוב חופשי.</small><button class="btn sm ghost" data-act="wa-tplt">✕ סגירה</button></div>
     ${T.length?`<label class="f">תבנית<select data-f="wa.tpl">${T.map((x,i)=>`<option value="${i}" ${i===ti?'selected':''}>${esc(x.name)} (${esc(x.lang)})</option>`).join('')}</select></label>${t?`<p class="muted" style="font-size:.85rem;white-space:pre-wrap;margin:4px 0">${esc(t.body)}</p>${Array.from({length:t.n},(_,i)=>`<label class="f">ערך ל-{{${esc((t.names&&t.names[i])||String(i+1))}}}<input type="text" data-f="wa.p${i+1}" value="${esc(dv('wa','p'+(i+1),i===0&&l?l.name:''))}"></label>`).join('')}<div class="actions"><button class="btn pri" data-act="wa-tpl-send">שליחת התבנית</button></div>`:''}`:'<p class="muted">אין עדיין תבניות מאושרות. יוצרים אותן ב-WhatsApp Manager של Meta.</p>'}`;
   setTimeout(()=>{const b=document.querySelector('.wa-msgs');if(b)b.scrollTop=S.waAtBottom!==false?b.scrollHeight:(S.waKeep??b.scrollTop)},0);
   const sub=`<span dir="ltr">${esc(waLocalOf(id))}</span>${c.lastAt?' · הודעה אחרונה '+waTime(c.lastAt):''}`,doneBtn=`<button class="btn sm ${c.status==='done'?'':'ok'}" data-act="wa-done" data-id="${id}">${c.status==='done'?'↺ פתיחה מחדש':'✓ סימון כטופל'}</button>`;
@@ -5758,6 +5759,7 @@ const ACT={
     const now=Date.now(),L=waLeadOf(id,c);S.drafts.wa=null;S.waAtBottom=true;render();
     try{if(L&&!c.leadId)await fdb.doc('waChats/'+id).update({leadId:L[0]});
       await fdb.collection('waChats/'+id+'/msgs').add({dir:'out',type:'text',text,status:'queued',by:S.uid,byName:S.meName||'',at:now,src:'system'})}catch(e){S.drafts.wa={text};render();toast(waErrTxt(e))}},
+  'wa-tplt':()=>{S.waTplOpen=!S.waTplOpen;render()},
   'wa-tpl-send':async()=>{const id=waCur(),c=(S.waChats||{})[id],T=(S.wapub||{}).templates||[],t=T[+dv('wa','tpl',0)||0];if(!t){toast('צריך לבחור תבנית');return}
     const L=waLeadOf(id,c),params=Array.from({length:t.n},(_,i)=>String(dv('wa','p'+(i+1),i===0&&L?L[1].name:'')).trim());if(params.some(x=>!x)){toast('צריך למלא את כל הערכים בתבנית');return}
     const text=t.body.replace(/\{\{(\w+)\}\}/g,(m,k)=>{const i=/^\d+$/.test(k)?+k-1:(t.names||[]).indexOf(k);return i>=0&&params[i]||m}),now=Date.now();S.drafts.wa=null;S.waAtBottom=true;render();

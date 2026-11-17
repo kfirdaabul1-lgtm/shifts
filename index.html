@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202611171400"></script>
+<script src="i18n.js?v=202611171345"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -3614,12 +3614,12 @@ function briefLoad(h,d){const B=S.briefData||(S.briefData={}),k=h+'|'+d;if(B[k])
 function hkYCard(h,y){
   const D=hkSub(h,y),trt=(D&&D.trt)||{},td=(D&&D.trtDone)||{},dnd=(D&&D.dnd)||{},rs=o=>Object.keys(o).filter(k=>o[k]).sort((a,b)=>String(a).localeCompare(String(b),undefined,{numeric:true}));
   const full=rs(trt).filter(r=>trt[r]==='full'),ref=rs(trt).filter(r=>trt[r]==='ref'),dn=rs(dnd);
-  const rl=(arr)=>arr.map(r=>`<span class="pill" style="margin:2px">${esc(r)}${td[r]?' ✓':''}</span>`).join('');
+  const rl=(arr)=>arr.map(r=>`<span class="pill" style="margin:2px;${td[r]?'background:#DDF3E4;color:#14532D;border-color:#9AD9AE':'background:#FDE2E1;color:#9B1C1C;border-color:#F3A9A3'}">${esc(r)}${td[r]?' ✓':''}</span>`).join('');
   const hkCard=`<div class="card"><h3>משק · ${dm(y)}</h3>${!D?'<p class="muted">טוען…</p>':D.__err?'<p class="muted">אין לך גישה ללוח המשק.</p>':(full.length||ref.length||dn.length)?`
     <div style="margin-bottom:8px"><b>Deep refresh (Full refresh) · ${full.length}</b><div>${full.length?rl(full):'<span class="muted">אין</span>'}</div></div>
     <div style="margin-bottom:8px"><b>Refresh · ${ref.length}</b><div>${ref.length?rl(ref):'<span class="muted">אין</span>'}</div></div>
     <div><b>שלט DND · ${dn.length}</b><div>${dn.length?dn.map(r=>`<span class="pill" style="margin:2px">${esc(r)}</span>`).join(''):'<span class="muted">אין</span>'}</div></div>
-    ${full.length||ref.length?'<p class="muted" style="font-size:.8rem;margin:6px 0 0">✓ = הריפרש בוצע</p>':''}`:'<p class="muted">לא סומנו חדרים לריפרש או DND.</p>'}</div>`;
+    ${full.length||ref.length?'<p class="muted" style="font-size:.8rem;margin:6px 0 0"><span style="color:#14532D">ירוק ✓ = הריפרש בוצע</span> · <span style="color:#9B1C1C">אדום = לא בוצע</span></p>':''}`:'<p class="muted">לא סומנו חדרים לריפרש או DND.</p>'}</div>`;
   return {html:hkCard,full,ref,dn}}
 // Arsona guest requests in a sheet from the reception page header (owner, Nov 17) — the #greq page content, filtered to the reception's hotel when opened
 function sheetFrGreq(){return sheetHead('🛎 פניות אורחים','')+vGreq().replace(/<section class="head"><div class="head-t"><h1>פניות אורחים<\/h1><\/div>/,'<section class="head">')}

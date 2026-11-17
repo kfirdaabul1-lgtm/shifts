@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202611171115"></script>
+<script src="i18n.js?v=202611171140"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1966,7 +1966,7 @@ function vBk(){bkSub();const F=S.bkF||(S.bkF={h:'all',st:'booked',from:todayISO(
   return wrap(head+`<div class="card"><h3>הזמנות · ${list.length}${ppl?` · 👤 ${ppl}`:''}</h3>${list.length?`<div class="plist">${list.map(row).join('')}</div>`:'<p class="muted">אין הזמנות בטווח הזה.</p>'}</div>`+foldCard(bkCfgHTML(),'pmsc'))}
 function sheetBkView(){const id=S.sheet.id,b=(S.bks||{})[id];if(!b)return sheetHead('הזמנה','')+'<p class="muted">ההזמנה לא נמצאה</p>';
   const dd=d=>d?d.slice(8,10)+'/'+d.slice(5,7)+'/'+d.slice(0,4):'—',n=b.ci&&b.co?Math.round((new Date(b.co)-new Date(b.ci))/864e5):0,cx=b.status==='cancelled';
-  const ACT={new:'הזמנה חדשה',modify:'שינוי בהזמנה',cancel:'ביטול'},tm=t=>new Date(t).toLocaleString('he-IL',{dateStyle:'short',timeStyle:'short'});
+  const ACT={new:'הזמנה חדשה',modify:'שינוי בהזמנה',cancel:'ביטול',import:'ייבוא מקובץ של מערכת ההזמנות'},tm=t=>new Date(t).toLocaleString('he-IL',{dateStyle:'short',timeStyle:'short'});
   return sheetHead(esc(b.guest||'אורח'),esc(hotelName(b.hotel))+(cx?' · בוטלה':''))+`<table class="plain"><tbody>
     <tr><td>מספר הזמנה</td><td>${esc(b.conf||id.split('__')[1]||'—')}</td></tr>
     <tr><td>ערוץ</td><td>${b.channel?esc(b.channel):'<span class="muted">לא צוין במייל</span>'}</td></tr>
@@ -1976,7 +1976,7 @@ function sheetBkView(){const id=S.sheet.id,b=(S.bks||{})[id];if(!b)return sheetH
     <h4 style="margin:12px 0 4px">חדרים (${(b.rooms||[]).length})</h4>${(b.rooms||[]).length?`<table class="plain"><thead><tr><th>סוג חדר</th><th class="num">אנשים</th><th>ארוחות</th></tr></thead><tbody>${(b.rooms||[]).map(r=>`<tr><td>${esc(r.type||'—')}</td><td class="num">${+r.people||0}</td><td>${esc(r.board||'—')}</td></tr>`).join('')}</tbody></table>`:'<p class="muted">לא פורטו חדרים במייל</p>'}
     ${(b.rooms||[]).length&&b.status!=='cancelled'?`<h4 style="margin:12px 0 4px">התאמה לחדרים במלון</h4>${bkRoomsFitHTML(b)}`:''}
     <h4 style="margin:12px 0 4px">היסטוריה</h4><div class="plist">${(b.hist||[]).slice().sort((x,y)=>(y.at||0)-(x.at||0)).map(x=>`<div class="prow"><span class="who"><b>${ACT[x.action]||esc(x.action||'')}</b><small>${tm(x.at)}</small></span></div>`).join('')}</div>
-    <p class="muted" style="font-size:.8rem;margin-top:8px">נקרא ${b.by==='tpl'?'בתבנית הקבועה':'בבינה מלאכותית'} · עודכן ${b.updatedAt?tm(b.updatedAt):''}</p>`}
+    <p class="muted" style="font-size:.8rem;margin-top:8px">${b.by==='import'?'יובא מקובץ של מערכת ההזמנות':'נקרא '+(b.by==='tpl'?'בתבנית הקבועה':'בבינה מלאכותית')} · עודכן ${b.updatedAt?tm(b.updatedAt):''}</p>`}
 /* ---------- room categories per hotel (owner, Nov 16): roomcfg/{hotel} {cats:[{id,name,alias,rooms:[{n,bed,cap}]}]} — a booking's PMS room type is matched to a category, and the rooms whose beds fit the number of people are suggested ---------- */
 const BED_T={dbl:['זוגית',2],twin:['שתי מיטות נפרדות (Twin)',2],sgl:['מיטת יחיד',1],dbl1:['זוגית + מיטה נוספת',3],trpl:['3 מיטות יחיד',3],dblsofa:['זוגית + ספה נפתחת',4],fam:['חדר משפחה',4],other:['אחר',2]};
 function roomCfgSub(h){S.roomCfg=S.roomCfg||{};if(!h||S.live['rc:'+h])return;S.live['rc:'+h]=true;fdb.doc('roomcfg/'+h).onSnapshot(d=>{S.roomCfg[h]=d.exists?(d.data().cats||[]):[];render()},()=>{S.roomCfg[h]=S.roomCfg[h]||[]})}

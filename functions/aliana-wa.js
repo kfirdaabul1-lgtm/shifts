@@ -123,7 +123,9 @@ exports.onAliIn = functions.region(REGION).runWith({ timeoutSeconds: 300, memory
     const adamOk = !!(who && !who.denied && (who.owner || (who.ai && who.ai.adam)));
     // Guy (yield agent) too (owner, Nov 12): "גיא" switches to him
     const Y = require('./agent-yield.js')._t, guyOk = Y.guyOk(who);
-    if (!allowed.length && !adamOk && !guyOk) {
+    // Hila (spa + bride sales agent, training only for now; owner, Nov 17): "הילה" switches to her
+    const hilaOk = !!(who && !who.denied && (who.owner || (who.ai && who.ai.hila)));
+    if (!allowed.length && !adamOk && !guyOk && !hilaOk) {
       const ref = db.doc('aliWa/' + from), s = await ref.get(), day = C.ilDate(new Date());
       if (!s.exists || s.data().strangerDay !== day) {
         await ref.set({ strangerDay: day, name: m.name || '' }, { merge: true });
@@ -133,7 +135,7 @@ exports.onAliIn = functions.region(REGION).runWith({ timeoutSeconds: 300, memory
     }
     const ref0 = db.doc('aliWa/' + from), st0 = (await ref0.get()).data() || {};
     const tx0 = m.type === 'text' ? String(m.text || '').trim() : '';
-    const toAdam = /^(אדם|עם אדם|לאדם|adam)[.!]?$/i.test(tx0), toAli = /^(עדי|עם עדי|לעדי|adi)[.!]?$/i.test(tx0), toOps = /^(אליאנה|עם אליאנה|לאליאנה|aliana)[.!]?$/i.test(tx0), toGuy = /^(גיא|עם גיא|לגיא|guy)[.!]?$/i.test(tx0);
+    const toAdam = /^(אדם|עם אדם|לאדם|adam)[.!]?$/i.test(tx0), toAli = /^(עדי|עם עדי|לעדי|adi)[.!]?$/i.test(tx0), toOps = /^(אליאנה|עם אליאנה|לאליאנה|aliana)[.!]?$/i.test(tx0), toGuy = /^(גיא|עם גיא|לגיא|guy)[.!]?$/i.test(tx0), toHila = /^(הילה|עם הילה|להילה|hila)[.!]?$/i.test(tx0);
     const O = require('./agent-ops.js')._t, opsOk = O.opsOk(who);
     if (toOps) {
       if (!opsOk) { await say(c, from, O.OPS_NO); return; }
@@ -146,6 +148,42 @@ exports.onAliIn = functions.region(REGION).runWith({ timeoutSeconds: 300, memory
       const gs = await Y.guyScopes(who);
       await ref0.set({ agent: 'guy' }, { merge: true });
       await say(c, from, '📈 היי, כאן גיא, סוכן התשואה. אני בודק את המחירים, את עמוד השוואת המחירים ומה מנהל התשואה שינה. אני רק קורא נתונים, לא משנה מחירים.\nאפשר לשאול למשל "מה המצב השבוע?" או "למה 20/11 יקר?".' + (gs.length > 1 ? '\nכדי לעבור מלון כתבו את שם המלון' + (gs.some((x) => !x.hotel) ? ' או "כל הרשת"' : '') + '.' : '') + '\nכדי לחזור לעדי (קמפיינים) כתבו "עדי".');
+      return;
+    }
+    if (toHila) {
+      if (!hilaOk) { await say(c, from, 'אין לך הרשאה לאמן את הילה. אפשר לבקש אותה מהמנהל (כרטיס העובד ← גישה לסוכני AI).'); return; }
+      await ref0.set({ agent: 'hila' }, { merge: true });
+      await say(c, from, '💆 היי, כאן הילה, סוכנת המכירות של הספא והתארגנות הכלה. אני עדיין באימון ולא עונה ללקוחות. ספר/י לי עובדות על הטיפולים והחבילות ואציע איך לכתוב אותן בידע שלי (אשמור רק אחרי אישור), או כתבו "לקוחה שואלת: …" ואראה מה הייתי עונה.\n"איפוס" מתחיל שיחה חדשה. כדי לחזור לעדי כתבו "עדי".');
+      return;
+    }
+    if (hilaOk && (st0.agent === 'hila' || (!allowed.length && !adamOk && !guyOk))) {
+      const Hm = require('./agent-hila.js')._t;
+      let hBlocks = null, hLabel = '';
+      if ((m.type === 'document' || m.type === 'image') && m.doc && m.doc.id) {
+        const At = require('./attach.js');
+        try {
+          const meta = await graph(c, 'GET', m.doc.id);
+          const isZip = /zip/i.test(m.doc.mime || meta.mime_type || '') || /\.zip$/i.test(m.doc.file || '');
+          if (+meta.file_size > (isZip ? 60e6 : 7e6)) throw new Error('big');
+          const rr = await fetch(meta.url, { headers: { Authorization: 'Bearer ' + c.token } }); if (!rr.ok) throw new Error('download');
+          const a = At.toBlocks({ name: m.doc.file, mime: m.doc.mime || meta.mime_type, buf: Buffer.from(await rr.arrayBuffer()) });
+          hBlocks = a.blocks; hLabel = a.label + (/^💬/.test(a.label) ? ' (ייצוא צ׳אט)' : '');
+        } catch (e) { await say(c, from, (At.ERR[e.message] || 'לא הצלחתי להוריד את הקובץ. נסו לשלוח שוב.').replace('לאדם', 'להילה')); return; }
+        await say(c, from, '💆 קיבלתי, קוראת…');
+      } else if (m.type !== 'text' || !tx0) { await say(c, from, 'הילה קוראת כאן טקסט, קבצי וורד, PDF, תמונות וייצוא צ׳אט.'); return; }
+      if (/^(איפוס|שיחה חדשה|reset)$/i.test(tx0)) { await ref0.set({ hilaMsgs: [] }, { merge: true }); await say(c, from, 'התחלנו שיחה חדשה עם הילה ✓'); return; }
+      who.reqStart = Date.now();
+      if (!(await Hm.hilaRate(who.uid))) { await say(c, from, 'הגעת למגבלת ההודעות לשעה. נדבר שוב בעוד קצת 🙂'); return; }
+      const hSaid = hBlocks ? (hLabel + (m.doc.caption ? '\n' + m.doc.caption : '')) : tx0;
+      const hm = (Array.isArray(st0.hilaMsgs) ? st0.hilaMsgs : []).slice(-39).concat([{ role: 'user', text: clip(hSaid, 4000) }]);
+      const hh = hm.map((x) => ({ role: x.role, content: x.text })); while (hh.length && hh[0].role !== 'user') hh.shift();
+      if (hBlocks) hh[hh.length - 1].content = [...hBlocks, { type: 'text', text: m.doc.caption || 'מה יש בקובץ, ומה כדאי להוסיף לידע שלך?' }];
+      const hcfg = { ...Hm.DEFAULTS, ...(await C.cfg('hila')) };
+      const hr = await Hm.hilaCore(hcfg, who, hh, 'You are answering on WhatsApp: plain text, *bold* with single asterisks, short lines and "•" lists, no markdown tables or headings. To go back to Adi (the campaigns agent) the person writes "עדי". To start a new conversation he writes "איפוס".');
+      const htxt = hr.text || 'לא הצלחתי לענות על זה. אפשר לנסח אחרת?';
+      await say(c, from, '💆 ' + htxt);
+      await ref0.set({ uid: who.uid, name: who.name || m.name || '', agent: 'hila', hilaMsgs: hm.concat([{ role: 'assistant', text: clip(htxt, 4000) }]).slice(-40), at: Date.now() }, { merge: true });
+      await C.logRun('hila-chat', { uid: who.uid, via: 'wa', usage: hr.usage, tools: hr.used, stop: hr.stop || '', textLen: htxt.length });
       return;
     }
     if (toAdam || toAli) {

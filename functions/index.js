@@ -2297,6 +2297,7 @@ exports.adamChat = require('./agent-reply.js').adamChat; // owner talks with Ada
 exports.adamFollow = require('./agent-reply.js').adamFollow;
 exports.adamCallbackRun = require('./agent-reply.js').adamCallbackRun; // calls back at the time the customer asked (Nov 17)
 exports.adamRouteNew = require('./agent-reply.js').adamRouteNew; // Gutman → 7EVEN rule on new event leads (Nov 17)
+exports.hilaChat = require('./agent-hila.js').hilaChat; // Hila, spa + bride sales agent (training only for now, Nov 17)
 // Meta campaign structure for the ads agent (Nov 7, owner): read-only, once a day → metaStruct/{campaignId}
 async function metaStructAll() {
   const m = (await db.doc('metacfg/main').get()).data() || {}, out = [], S = require('./meta-struct.js');

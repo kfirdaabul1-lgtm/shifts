@@ -41,6 +41,7 @@ const note = (t, m) => console.log(`::notice title=${t}::${String(m).replace(/\n
     console.log('REPLY LOG 24h', lg.length, JSON.stringify(lg.slice(0, 30).map((d) => [new Date(d.at).toISOString().slice(11, 16), d.skipped || d.follow || (d.replied ? 'replied' : '') || (d.error ? 'err' : '') || (d.route ? 'route' : '')])));
     return;
   }
+  if (kind === 'hilaseed' || kind === 'hilaseed-force') { const ref = await db.collection('opsJobs').add({ kind: 'hilaseed', force: kind === 'hilaseed-force', at: Date.now(), by: 'workflow' }); for (let i = 0; i < 40; i++) { await new Promise((x) => setTimeout(x, 6000)); const j = (await ref.get()).data() || {}; if (j.status) { note('Hila seed', j.error || JSON.stringify(j.warm || {})); return; } } note('Hila seed', 'still running (job ' + ref.id + ')'); return; }
   if (kind === 'adamcb') { const ref = await db.collection('opsJobs').add({ kind, at: Date.now(), by: 'workflow' }); for (let i = 0; i < 30; i++) { await new Promise((x) => setTimeout(x, 5000)); const j = (await ref.get()).data() || {}; if (j.status) { note('Callbacks', j.error || JSON.stringify(j.warm || {})); return; } } note('Callbacks', 'no answer yet (job ' + ref.id + ')'); return; }
   if (kind === 'adamwarm' || kind === 'adamwarm-dry') { // Adam warms yesterday's + today's event leads (counts only)
     const ref = await db.collection('opsJobs').add({ kind: 'adamwarm', days: 1, dry: kind === 'adamwarm-dry', at: Date.now(), by: 'workflow' }); note('Job', ref.id + ' created');

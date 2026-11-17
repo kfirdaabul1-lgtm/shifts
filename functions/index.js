@@ -769,6 +769,70 @@ exports.onInvoiceScan = functions.region('europe-west1').runWith({ timeoutSecond
   }
 });
 
+// ---------- reception booking scan (owner, Nov 17): bkScans/{id} = photos / PDF of the day's reservations list (pages 2+ = bkScans/{id}_p{k}, part:true).
+// Create → Gemini reads every booking → status done + result (images removed). The clerk ticks bookings ("שיבוץ החדרים תקין") → apply [idx] → upsert bookings/{hotel}__{conf} (no prices/phones/e-mails) → status saved.
+const BKS_SCHEMA = { type: 'OBJECT', properties: { bookings: { type: 'ARRAY', items: { type: 'OBJECT', properties: {
+  conf: { type: 'STRING', description: 'reservation / confirmation number' }, guest: { type: 'STRING' },
+  ci: { type: 'STRING', description: 'arrival date YYYY-MM-DD' }, co: { type: 'STRING', description: 'departure date YYYY-MM-DD' }, nights: { type: 'NUMBER' },
+  channel: { type: 'STRING', description: 'source / agent: Booking.com, Expedia, hotel website, travel agent…' }, comment: { type: 'STRING', description: 'guest remarks / special requests, as written' },
+  rooms: { type: 'ARRAY', items: { type: 'OBJECT', properties: { type: { type: 'STRING', description: 'room type / category' }, room: { type: 'STRING', description: 'assigned room number, if written' }, adults: { type: 'NUMBER' }, children: { type: 'NUMBER' }, infants: { type: 'NUMBER' }, people: { type: 'NUMBER' }, board: { type: 'STRING', description: 'RO | BB | HB | FB' } } } } } } } } };
+const bksBoard = (x) => ['RO', 'BB', 'HB', 'FB'].includes(String(x || '').toUpperCase()) ? String(x).toUpperCase() : bkBoard(x);
+function bksNorm(b) {
+  const ci = bkDate(b.ci); let co = bkDate(b.co);
+  if (ci && !co && +b.nights > 0 && +b.nights < 60) { const d = new Date(ci + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + Math.round(+b.nights)); co = d.toISOString().slice(0, 10); }
+  const rooms = (Array.isArray(b.rooms) ? b.rooms : []).slice(0, 20).map((r) => { const o = { type: String(r.type || '').slice(0, 60), people: Math.max(0, Math.min(99, (+r.people || 0) || ((+r.adults || 0) + (+r.children || 0) + (+r.infants || 0)))), board: bksBoard(r.board) };
+    const rn = String(r.room || '').replace(/[^\dA-Za-z-]/g, '').slice(0, 10); if (rn) o.room = rn; return o; });
+  return { conf: String(b.conf || '').replace(/[^\w-]/g, '').slice(0, 30), guest: String(b.guest || '').slice(0, 100), ci, co: co > ci ? co : '', channel: bkChan(b.channel), comment: String(b.comment || '').trim().slice(0, 600), rooms };
+}
+exports.onBkScan = functions.region('europe-west1').runWith({ timeoutSeconds: 180, memory: '1GB' }).firestore.document('bkScans/{id}').onWrite(async (ch) => {
+  if (!ch.after.exists) return null;
+  const v = ch.after.data() || {}, ref = ch.after.ref; if (v.part) return null;
+  const DATA = /^data:(image\/[a-z]+|application\/pdf);base64,(.+)$/;
+  if (!ch.before.exists && v.status === 'pending') {
+    const m = DATA.exec(v.data || ''); if (!m) return ref.update({ status: 'error', error: 'no file' });
+    const parts = [{ inlineData: { mimeType: m[1], data: m[2] } }], partRefs = [];
+    for (const pid of (Array.isArray(v.parts) ? v.parts.slice(0, 9) : [])) {
+      if (!/^[A-Za-z0-9_-]{1,60}$/.test(String(pid))) continue;
+      const pr = db.doc('bkScans/' + pid); partRefs.push(pr);
+      const ps = await pr.get().catch(() => null), pv = ps && ps.exists ? ps.data() : null, pm = pv && pv.by === v.by && DATA.exec(pv.data || '');
+      if (pm) parts.push({ inlineData: { mimeType: pm[1], data: pm[2] } });
+    }
+    const drop = () => Promise.all(partRefs.map((r) => r.delete().catch(() => {})));
+    const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Jerusalem' }), hn = await hotelName(v.hotel).catch(() => '');
+    const prompt = `These ${parts.length > 1 ? parts.length + ' files are consecutive pages of ONE document' : 'file is a document'} from the reception of the hotel "${hn}" in Israel (today is ${today}): a reservations list / arrivals report / booking confirmations from the PMS (Hebrew or English). Extract EVERY reservation once (do not repeat one that continues on the next page). conf = reservation / confirmation number. ci = arrival, co = departure, YYYY-MM-DD; dates like 17/11 or 17/11/26 are day/month(/year) — use the year of today when missing. One rooms[] entry per room: room type, the assigned room number if written, adults, children, infants, meal plan (breakfast = BB). channel = source/agent. comment = remarks. Never invent values; leave unknown fields empty. Do not include prices, phones or e-mails.`;
+    try {
+      const { model, j } = await aiGenerate({ contents: [{ role: 'user', parts: [...parts, { text: prompt }] }], generationConfig: { temperature: 0, responseMimeType: 'application/json', responseSchema: BKS_SCHEMA } });
+      const res = JSON.parse((((j.candidates || [])[0] || {}).content || { parts: [] }).parts.map((p) => p.text || '').join('') || '{}');
+      const list = (Array.isArray(res.bookings) ? res.bookings : []).slice(0, 80).map(bksNorm).filter((b) => b.guest || b.conf || b.ci);
+      await drop();
+      return ref.update({ status: 'done', result: { bookings: list }, model, data: admin.firestore.FieldValue.delete(), doneAt: Date.now() });
+    } catch (e) {
+      console.error('bk scan', e); await drop();
+      return ref.update({ status: 'error', error: String(e.message || e).slice(0, 500), data: admin.firestore.FieldValue.delete() });
+    }
+  }
+  const b = ch.before.exists ? ch.before.data() || {} : {};
+  if (v.status !== 'done' || !Array.isArray(v.apply) || v.applyAt === b.applyAt) return null;
+  const list = ((v.result || {}).bookings) || [], h = String(v.hotel || ''), now = Date.now(); let n = 0;
+  if (!h) return ref.update({ status: 'error', error: 'no hotel' });
+  let byName = ''; { const e = await db.doc('employees/' + v.by).get().catch(() => null); byName = (e && e.exists && e.data().name) || v.byName || ''; }
+  for (const i of [...new Set(v.apply)].slice(0, 80)) {
+    const x = list[+i]; if (!x || !x.ci || !x.co) continue;
+    const id = h + '__' + (x.conf || ('s' + require('crypto').createHash('sha1').update(h + '|' + x.guest + '|' + x.ci).digest('hex').slice(0, 12)));
+    const bref = db.doc('bookings/' + id), cur = await bref.get(), cd = cur.exists ? cur.data() || {} : {};
+    const rooms = (x.rooms || []).map((r) => ({ ...r }));
+    { const old = cd.rooms || []; if (old.length === rooms.length) rooms.forEach((r, k) => { if (!r.room && old[k] && old[k].room) r.room = old[k].room; if (!r.people && old[k]) r.people = old[k].people || 0; if (!r.type && old[k]) r.type = old[k].type || ''; }); }
+    const up = { hotel: h, conf: x.conf || cd.conf || '', guest: x.guest || cd.guest || '', ci: x.ci, co: x.co, rooms, people: rooms.reduce((a, r) => a + (+r.people || 0), 0),
+      board: [...new Set(rooms.map((r) => r.board).filter(Boolean))].join('/'), status: cd.status === 'cancelled' ? 'cancelled' : 'booked', updatedAt: now, by: 'scan',
+      hist: admin.firestore.FieldValue.arrayUnion({ at: now, action: 'scan', by: v.by }) };
+    if (x.channel) up.channel = x.channel; if (x.comment) up.comment = x.comment;
+    if (rooms.some((r) => r.room)) Object.assign(up, { asgAt: now, asgBy: v.by, asgByName: byName });
+    if (!cur.exists) up.createdAt = now;
+    await bref.set(up, { merge: true }); n++;
+  }
+  return ref.update({ status: 'saved', saved: n, result: admin.firestore.FieldValue.delete(), savedAt: now });
+});
+
 // ---------- remote contract signing: sign.html updates signs/{key} pending → signed; copy the signature into the quote and notify the events team ----------
 exports.onSignDone = trig('signs/{id}').onUpdate(async (ch) => {
   const b = ch.before.data() || {}, a = ch.after.data() || {};

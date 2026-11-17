@@ -606,6 +606,16 @@ service cloud.firestore {
       allow delete: if isOwner();
     }
     // סריקת חשבונית: הצילום נשלח לקריאה אוטומטית (הפונקציה בשרת עונה), רק השולח רואה ומוחק
+    // reception booking scan (Nov 17): pages read by onBkScan, the clerk ticks which bookings to save (apply)
+    match /bkScans/{id} {
+      allow create: if signedIn() && request.resource.data.by == request.auth.uid && request.resource.data.status == 'pending'
+        && (frontIn(request.resource.data.hotel) || bkIn(request.resource.data.hotel) || manages(request.resource.data.hotel))
+        && request.resource.data.data is string && request.resource.data.data.size() < 1000000;
+      allow read, delete: if signedIn() && resource.data.by == request.auth.uid;
+      allow update: if signedIn() && resource.data.by == request.auth.uid && resource.data.status == 'done'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['apply', 'applyAt'])
+        && request.resource.data.apply is list && request.resource.data.apply.size() <= 80;
+    }
     match /invoiceScans/{id} {
       allow create: if canExp() && request.resource.data.by == request.auth.uid && request.resource.data.status == 'pending';
       allow read, delete: if signedIn() && resource.data.by == request.auth.uid;

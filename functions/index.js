@@ -906,6 +906,17 @@ async function arsonaIn(m, mail) {
   // mail = an Arsona e-mail forwarded by the owner's Apps Script (arsonaMail, key-checked) → always from Arsona
   const from = String(cfg.arsonaFrom || '').split(/[,;\n]+/).map(waIdFrom).filter(Boolean), fromArs = !!mail || from.includes(m.from);
   const t = arsText(m), head = t.split('\n')[0] || '';
+  // Arsona e-mails have their own fixed layout (owner, Nov 17): "<logo> <hotel> <type> <type> <description> <date>"
+  if (mail) { const p = require('./arsmail.js').arsMailParse(t); if (p) {
+    const hotel = (p.hotelTxt && await arsHotel(p.hotelTxt.replace(/\d{3,}/g, ' '))) || (await arsHotel(t.replace(/\d{3,}/g, ' '))), type = ARS_T[p.key] || 'agent';
+    const at = (+m.timestamp || Date.now() / 1000) * 1000, ref = db.doc('guestReqs/ars_' + String(m.id).replace(/[^A-Za-z0-9_-]/g, '').slice(-60));
+    const doc = { type, hotel, hotelTxt: p.hotelTxt, at, status: 'open', assignee: '', assigneeName: '', leadId: '', from: m.from, raw: t.slice(0, 4000), createdAt: Date.now(), acts: [],
+      kind: p.typeTxt, reason: '', guest: p.guest, phone: '', email: '', conf: p.conf, room: p.room, channel: p.channel || 'מייל', when: p.when, summary: p.summary, src: 'mail' };
+    try { await ref.create(doc); } catch (e) { return true; }
+    const L = { agent: '🔴 נדרש נציג', lead: '🟢 ליד פוטנציאלי', missing: '🟡 חסר מידע' }[type];
+    await sendTo(await roleHolders(hotel, ['greq']), { title: `${L} · ${(hotel && await hotelName(hotel)) || p.hotelTxt || 'ארסונה'}`, body: [doc.guest, doc.summary].filter(Boolean).join(' · ').slice(0, 170), hash: '#greq?r=' + ref.id, tag: 'greq-' + ref.id });
+    return true;
+  } }
   const tm = /(agent required|potential lead|missing information)/i.exec(head) || (/קריאה חדשה/.test(head) && /(request for agent|agent required|potential lead|missing information)/i.exec(t));
   if (!tm || !/סוג הפנייה|שם האורח|אורח:|סיבה:/.test(t)) {
     if (!fromArs) return false;

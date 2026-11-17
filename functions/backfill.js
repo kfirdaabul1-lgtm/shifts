@@ -99,5 +99,11 @@ const KEYS = ['hotel', 'month', 'date', 'shift', 'name', 'empUid', 'ooo', 'fault
     const pick = (txt) => { const s = String(txt || '').replace(/\d{3,}/g, ' ').toLowerCase(); for (const [re, ven] of A) if (re.test(s)) { const d = hs.docs.find((x) => re.test(String(x.data().name || '').toLowerCase())); if (d) return d.id; if (byVen[ven]) return byVen[ven]; } return ''; };
     const gq = await db.collection('guestReqs').where('hotel', '==', '').get(); let gn2 = 0;
     for (const d of gq.docs) { const x = d.data() || {}, h = pick([x.raw, x.summary, x.hotelTxt].join(' ')); if (h) { await d.ref.update({ hotel: h }); gn2++; } }
-    console.log('::notice title=Backfill::guest requests without hotel ' + gq.size + ', fixed ' + gn2); }
+    console.log('::notice title=Backfill::guest requests without hotel ' + gq.size + ', fixed ' + gn2);
+    // Arsona e-mails saved as a general card before the mail layout was known (Nov 17): re-read them with the mail parser
+    const { arsMailParse } = require('./arsmail.js'); const T = { 'request for agent': 'agent', 'agent required': 'agent', 'potential lead': 'lead', 'missing information': 'missing' };
+    const mq = await db.collection('guestReqs').where('kind', '==', 'מייל מארסונה').get(); let mn = 0;
+    for (const d of mq.docs) { const x = d.data() || {}, p = arsMailParse(x.raw); if (!p) continue;
+      await d.ref.update({ type: T[p.key] || 'agent', kind: p.typeTxt, hotelTxt: p.hotelTxt, guest: p.guest, conf: p.conf, room: p.room, channel: p.channel || 'מייל', when: p.when, summary: p.summary, src: 'mail', hotel: x.hotel || (p.hotelTxt && pick(p.hotelTxt)) || pick(x.raw) }); mn++; }
+    console.log('::notice title=Backfill::Arsona mails re-read ' + mn + ' of ' + mq.size); }
 })().catch((e) => { console.error(e); console.log('::error title=Backfill failed::' + String(e && e.message || e).slice(0, 300)); process.exit(1); });

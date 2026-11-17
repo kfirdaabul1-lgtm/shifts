@@ -163,6 +163,8 @@ const notesTxt = (ns) => ns.length ? '\n\nMANAGERS\' DIRECTIONS (newest first). 
 
 // ---------- prompts ----------
 // the agency-review checklist is always included (agentKB/ads in Firestore may replace kb/ads.md, but not this)
+// Google paid + organic knowledge (owner, Nov 17: "Adi should research Google paid and organic, campaign types, SEO") — always included too
+let GOOGLE_KB = ''; try { GOOGLE_KB = '\n\nGOOGLE KNOWLEDGE (paid + organic, researched Nov 2026; general market knowledge, not our data):\n' + require('fs').readFileSync(require('path').join(__dirname, 'kb', 'google.md'), 'utf8').slice(0, 14000); } catch (e) { }
 let AUDIT_KB = ''; try { AUDIT_KB = '\n\nCHECKLIST FOR REVIEWING THE AGENCY (Meta best practice, use it for verdicts):\n' + require('fs').readFileSync(require('path').join(__dirname, 'kb', 'ads-audit.md'), 'utf8').slice(0, 12000); } catch (e) { }
 function system(kb, scope, kind) {
   const who = scope.hotel ? `the manager of ${scope.name}` : 'the chain management (owner / CEO)';
@@ -170,6 +172,7 @@ function system(kb, scope, kind) {
 You write a ${kind === 'weekly' ? 'WEEKLY CAMPAIGN REPORT' : kind === 'mid' ? 'MID-WEEK CAMPAIGN REPORT' : 'DAILY ANALYSIS'} for ${who}, for scope "${scope.name}". It is a document the manager READS in the app, not a chat: write it so it can be read in under a minute and acted on.
 
 YOUR ROLE: you are the owner's independent expert on paid social (Meta: Facebook/Instagram/WhatsApp ads), on the OWNER'S side, reviewing the work of the external social media agency that runs the campaigns. You think like a senior performance-marketing lead: you know how Meta campaigns should be built (objective, optimisation event, campaign/ad-set structure, budgets and learning phase, audiences, placements, creative and copy, testing, frequency, landing/WhatsApp flow, lead quality) and you JUDGE whether what the agency did is right for these hotels and goals. Give clear verdicts ("נכון", "לא נכון", "לא בטוח") with the reason and the numbers, and say what the owner should ask or demand from the agency. Do not hide behind "I only read data": the owner wants your professional opinion.
+You are also the owner's expert on GOOGLE: paid (Search, AI Max, Performance Max, Demand Gen, Hotel Ads / free booking links, brand protection, conversion tracking and CRM import) and organic (SEO, Google Business Profile, AI Overviews / AI Mode). Use the GOOGLE KNOWLEDGE below to judge the agency's Google work and to recommend what is missing (e.g. a brand campaign, negative keywords, importing won leads), and to advise on organic visibility. Market numbers there are references only; our own history comes first.
 You do not touch the ad accounts yourself (read only) and never say that you changed anything; the agency executes.
 Tools for judging the agency: campaign_structure (how each campaign is built), agency_changes (what they changed and when), the weekly numbers and the CRM (what it brought), and the owner's/managers' directions + what was learned from the agency WhatsApp group (in MANAGERS' DIRECTIONS).
 Data: weekly campaign rows (the Meta sync writes spend ₪, impressions, clicks, leads, conversations started; manual reports may exist too) and the CRM leads with source, campaign name, stage and won revenue (before VAT). Google Ads IS connected (read only, synced every 3 hours): Google campaigns appear in the weekly rows with platform 'google' (spend, impressions, clicks, conversions as leads), and the tool google_search_terms gives each Google campaign's keywords (with match type) and the real search terms people typed, per week, with impressions, clicks, cost and conversions. Google hides low-volume search terms, so their totals can be below the campaign's. Never invent Google numbers. The tools only show this scope's data.
@@ -186,7 +189,7 @@ How to work:
 - Write in Hebrew. Short. Numbers with ₪. Never invent a number.
 - Finish by calling save_report ONCE with the final content. That is what the manager reads.`;
   const k = kb.trim() ? '\n\nBUSINESS CONTEXT FROM THE OWNER (goals, budgets, seasons, rules):\n' + kb : '\n\nBUSINESS CONTEXT: none given yet. Do not assume goals or budgets; state your assumption when it matters.';
-  return [{ type: 'text', text: rules + k + AUDIT_KB, cache_control: { type: 'ephemeral' } }];
+  return [{ type: 'text', text: rules + k + AUDIT_KB + GOOGLE_KB, cache_control: { type: 'ephemeral' } }];
 }
 
 const clip = (s, n) => String(s == null ? '' : s).slice(0, n);
@@ -308,11 +311,11 @@ async function chatCore(cfg, c, h, hist, extra) {
     if (!scope) return { error: 'scope' };
     const model = await chatModelFor(cfg, hist), ns = await notesFor(scope);
     const sys = system(await C.loadKB('ads'), scope, 'daily').map((b) => ({ ...b, text: b.text.replace(/Finish by calling save_report ONCE[^\n]*/, `This is a CHAT, not a report: answer the question of ${clip(c.name, 60) || 'the manager'} directly, short (a few sentences or a short list), in Hebrew, with numbers from the tools. Use campaign_structure for questions about audiences, ads, texts or placements, and agency_changes for what the agency did. When asked whether the agency is doing things right, audit: go over structure, targeting, creative, budgets, changes and results, and give a verdict per point. Do not write a full report.`) + notesTxt(ns) + (extra ? '\n\n' + extra : '') }));
-    const out = await C.runLoop({ model, system: sys, tools: readTools(scope), messages: hist, maxTurns: 8, maxTokens: 8000, mustAnswer: true }); // the newer models think before answering: a small limit was all used up by thinking, leaving no text
+    const out = await C.runLoop({ model, system: sys.map((b, i) => i === sys.length - 1 && cfg.web !== false ? { ...b, text: b.text + C.WEB_RULES + '\nWEB: you may search the web for current Google Ads / SEO knowledge (public words only) when the question needs something newer or deeper than your knowledge; say the source and its date.' } : b), tools: readTools(scope), messages: hist, maxTurns: 10, maxTokens: 8000, mustAnswer: true, server: cfg.web === false ? [] : C.WEB_TOOLS }); // the newer models think before answering: a small limit was all used up by thinking, leaving no text
     await C.logRun('ads', { uid: c.uid, kind: 'chat', scope: scope.key, model, usage: out.U, tools: out.used, stop: out.stop, textLen: (out.text || '').length });
     return { text: out.text || 'לא הצלחתי לענות על זה. אפשר לנסח אחרת?', scope: scope.name, used: out.used };
 }
-exports.adsAgent = functions.region(REGION).runWith({ timeoutSeconds: 120, memory: '512MB' }).https.onRequest(async (req, res) => {
+exports.adsAgent = functions.region(REGION).runWith({ timeoutSeconds: 300, memory: '512MB' }).https.onRequest(async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*'); res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization'); res.set('Access-Control-Allow-Methods', 'POST');
   if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
   if (req.method !== 'POST') { res.status(405).json({ error: 'method' }); return; }

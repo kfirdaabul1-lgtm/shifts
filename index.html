@@ -3894,9 +3894,7 @@ function vFront(){const hs=modHs('front',scopeHs());if(!hs.length)return wrap(em
   const openNow=`<div class="card"><h3>פתוחות עכשיו${items.length?` <span class="pill warn">${items.length}</span>`:''}</h3>${items.length?`<div class="plist">${items.map(x=>`<div class="prow"><span class="who"><b>${x.ico} ${esc(x.t)}</b></span><small class="muted">${esc(x.s)}</small></div>`).join('')}</div>`:'<p class="muted">אין משהו פתוח כרגע.</p>'}</div>`;
   const rep=srFormHTML(h)+(srBoss(h)?srListHTML(h,false):srListHTML(h,false,true));
   const bkCard=frontBkHTML(h)||`<div class="card"><h3>שיבוץ חדרים להזמנות</h3><p class="muted">אין הזמנות שמגיעות היום או מחר.</p></div>`;
-  const crewT=DEPTS.map(d=>[d,crewOf(h,t,[d.k]).on]).filter(([,on])=>on.length);
-  const crewCard=`<div class="card"><h3>במשמרת היום</h3>${crewT.length?`<div class="plist">${crewT.map(([d,on])=>`<div class="prow"><span class="who"><b>${d.n}</b><small>${on.map(x=>esc(empName(x.u))+' <span class="muted">'+esc(x.t.trim())+'</span>').join(' · ')}</small></span></div>`).join('')}</div>`:'<p class="muted">אין שיבוצים להיום.</p>'}</div>`;
-  const right=`<div class="fr-col">${quick}${rep}</div>`,mid=`<div class="fr-col">${openNow}${hkUpdHTML(h)}${toursDayCardHTML(h,t,true)}${foldCard(frontGrpHTML(h),'fr-grp')}${evCard}</div>`,left=`<div class="fr-col">${bkCard}${crewCard}</div>`;
+  const right=`<div class="fr-col">${quick}${rep}</div>`,mid=`<div class="fr-col">${openNow}${hkUpdHTML(h)}${toursDayCardHTML(h,t,true)}${foldCard(frontGrpHTML(h),'fr-grp')}${evCard}</div>`,left=`<div class="fr-col">${bkCard}</div>`;
   return wrap(head+kp+`<div class="fr3">${right}${mid}${left}</div>`+sched);
 }
 /* ---------- reception → housekeeping calls: hkCalls/{id} {hotel, date, room, tasks:[HK_CALL keys], note, to, toName, status open|done,

@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="lang.js?v=b8a07e8423"></script>
+<script src="lang.js?v=1df72aa319"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -2909,6 +2909,38 @@ function waSub(){if(!S.can||!S.can.events||S.live.wa)return;S.live.wa=true;
     if(!leadScope()){ag(fdb.collection('waChats')).onSnapshot(q=>onChats(docsMap(q)),werr);return}
     scopedLive('waScoped','waChats',null,onChats,ag)})();
   S.db.doc('wapub/main').onSnapshot(d=>{S.wapub=d.exists?d.data():{};render()},()=>{S.wapub={}})}
+// PDFs that customers send on the system WhatsApp (owner, Nov 18): the file is fetched by the server function waDoc
+// (checks permission, accepts only a real PDF), then drawn here as page IMAGES with pdf.js (scripts/eval off, no links,
+// no forms, no annotations) — the PDF never opens in the browser's own viewer, so nothing inside it can run or be clicked.
+const PDFJS_V='4.10.38',WA_DOC_URL=()=>`https://europe-west1-${(CFG.firebase&&CFG.firebase.projectId)||'hotel-shifts'}.cloudfunctions.net/waDoc`;
+function waIsPdf(m){return m&&m.dir==='in'&&m.type==='document'&&!!m.media&&(String(m.mime||'').toLowerCase()==='application/pdf'||/\.pdf\b/i.test(String(m.text||'')))}
+let pdfjsP=null;
+function pdfjsLoad(){if(!pdfjsP)pdfjsP=import(`https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${PDFJS_V}/pdf.min.mjs`).then(L=>{L.GlobalWorkerOptions.workerSrc=`https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${PDFJS_V}/pdf.worker.min.mjs`;return L}).catch(e=>{pdfjsP=null;throw e});return pdfjsP}
+async function waPdfOpen(chat,msg){const back=S.sheet&&S.sheet.type==='wachat'?S.sheet:null;const tk=Date.now();
+  S.pdfV={chat,msg,tk,st:'load',pages:[],name:''};S.confirm=null;S.sheet={type:'wapdf',id:msg,back};render();
+  const V=S.pdfV,set=o=>{if(S.pdfV!==V)return false;Object.assign(V,o);render();return true};
+  try{if(!fauth.currentUser)throw new Error('צריך להתחבר מחדש');
+    const r=await fetch(WA_DOC_URL(),{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+await fauth.currentUser.getIdToken()},body:JSON.stringify({chat,msg})});
+    const j=await r.json().catch(()=>({}));if(!r.ok||!j.ok)throw new Error(j.error||('שגיאה '+r.status));
+    if(!set({name:j.name||'מסמך.pdf',size:j.size||0}))return;
+    const bin=atob(j.data),u8=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u8[i]=bin.charCodeAt(i);
+    const L=await pdfjsLoad();
+    const doc=await L.getDocument({data:u8,isEvalSupported:false,enableXfa:false,disableFontFace:false,useSystemFonts:false,stopAtErrors:false}).promise;
+    const N=Math.min(doc.numPages,40);if(!set({n:doc.numPages,st:'draw'}))return;
+    const W=Math.min(1400,Math.max(700,Math.round(Math.min(window.innerWidth,1100)*(window.devicePixelRatio||1))));
+    for(let i=1;i<=N;i++){const pg=await doc.getPage(i),v0=pg.getViewport({scale:1}),vp=pg.getViewport({scale:W/v0.width});
+      const cv=document.createElement('canvas');cv.width=Math.round(vp.width);cv.height=Math.round(vp.height);const cx=cv.getContext('2d');cx.fillStyle='#fff';cx.fillRect(0,0,cv.width,cv.height);
+      await pg.render({canvasContext:cx,viewport:vp,annotationMode:L.AnnotationMode?L.AnnotationMode.DISABLE:0}).promise;
+      const url=cv.toDataURL('image/jpeg',0.85);cv.width=cv.height=0;pg.cleanup();if(S.pdfV!==V){doc.destroy();return}V.pages.push(url);render()}
+    doc.destroy();set({st:'done'})}
+  catch(e){set({st:'err',err:String((e&&e.message)||e).slice(0,200)})}}
+function sheetWaPdf(){const V=S.pdfV||{},sh=S.sheet;
+  const head=`<div class="row" style="justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><h3 style="margin:0">📄 ${esc(V.name||'מסמך PDF')}</h3>${sh.back?`<button class="btn sm ghost" data-act="wapdf-back">→ חזרה לשיחה</button>`:''}</div>
+  <p class="muted" style="font-size:.85rem;margin:6px 0 10px">🔒 הקובץ מוצג כתמונות בלבד: קישורים, טפסים וקוד שבתוך ה-PDF לא פועלים. הקובץ לא נשמר במערכת.</p>`;
+  if(V.st==='err')return head+`<p class="bad-t">${esc(V.err||'לא הצלחנו לפתוח את הקובץ')}</p>`;
+  const prog=V.st==='load'?'<p class="muted">מוריד את הקובץ…</p>':V.st==='draw'?`<p class="muted">מציג עמודים ${V.pages.length} מתוך ${Math.min(V.n||0,40)}…</p>`:'';
+  const more=V.st==='done'&&V.n>40?`<p class="muted">מוצגים 40 העמודים הראשונים מתוך ${V.n}.</p>`:'';
+  return head+prog+V.pages.map((u,i)=>`<div style="margin:0 0 12px"><img src="${imgSrc(u)}" alt="עמוד ${i+1}" style="width:100%;height:auto;display:block;border:1px solid var(--line);border-radius:6px;background:#fff"><div class="muted" style="text-align:center;font-size:.8rem">עמוד ${i+1}</div></div>`).join('')+more}
 function waMsgsSub(id){if(S.waMsgsId===id)return;if(S.waMsgsUn){try{S.waMsgsUn()}catch(_){}}S.waMsgsId=id;S.waMsgs=null;
   S.waMsgsUn=fdb.collection('waChats/'+id+'/msgs').orderBy('at','desc').limit(300).onSnapshot(q=>{S.waMsgs=q.docs.map(d=>({id:d.id,...d.data()})).reverse();render()},e=>{S.waMsgs=[];S.waMsgsErr=errMsg(mapErr(e));render()})}
 const waWide=()=>window.innerWidth>=900;
@@ -3022,7 +3054,7 @@ function waChatBody(id,inPane,embed){const c=(S.waChats||{})[id]||{},L=waLeadOf(
   const M=S.waMsgs,name=c.name||(l&&l.name)||waLocalOf(id);
   const tick=m=>m.status==='queued'?'🕓':m.status==='failed'?'⚠':m.status==='read'?'<b style="color:#34B7F1">✓✓</b>':m.status==='delivered'?'✓✓':'✓';
   let lastDay='';const bubbles=!M?'<p class="muted">טוען…</p>':!M.length?'<p class="muted" style="text-align:center">עוד אין הודעות בשיחה הזו.</p>':M.map(m=>{const d=new Date(m.at||0).toLocaleDateString('en-CA'),sep=d!==lastDay?`<div class="wa-day">${d===todayISO()?'היום':dm(d)+'.'+d.slice(0,4)}</div>`:'';lastDay=d;
-    return sep+`<div class="wa-b ${m.dir==='out'?'out':'in'}">${m.type==='image'&&m.mediaRef?waImgHTML(m.mediaRef):m.type==='image'&&m.galImg?waImgHTML(m.galImg,'waGalImgs'):''}${esc(m.text||'')}<small>${m.dir==='out'&&m.byName?esc(m.byName)+' · ':''}${new Date(m.at||0).toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'})}${m.dir==='out'?' '+tick(m):''}</small>${m.status==='failed'?`<div class="bad-t" style="font-size:.8rem">${esc(m.error||'לא נשלח')}</div>`:''}</div>`}).join('');
+    return sep+`<div class="wa-b ${m.dir==='out'?'out':'in'}">${m.type==='image'&&m.mediaRef?waImgHTML(m.mediaRef):m.type==='image'&&m.galImg?waImgHTML(m.galImg,'waGalImgs'):''}${esc(m.text||'')}${waIsPdf(m)?`<div><button class="btn sm" style="margin-top:6px" data-act="wa-pdf" data-chat="${esc(id)}" data-msg="${esc(m.id)}">📄 פתיחת ה-PDF</button></div>`:''}<small>${m.dir==='out'&&m.byName?esc(m.byName)+' · ':''}${new Date(m.at||0).toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'})}${m.dir==='out'?' '+tick(m):''}</small>${m.status==='failed'?`<div class="bad-t" style="font-size:.8rem">${esc(m.error||'לא נשלח')}</div>`:''}</div>`}).join('');
   const lq=L?leadQuote(L[0],l):null,q=lq&&lq[1],sign=q&&q.signKey&&!q.signature?appLink().replace(/[^/]*$/,'')+'sign.html?k='+q.signKey+(CFG.chainId&&CFG.chainId!==window.SC_HOME?'&chain='+encodeURIComponent(CFG.chainId):''):'';
   const T=W.templates||[],ti=+dv('wa','tpl',0)||0,t=T[ti];
   const comp=!W.on?'<div class="notice">וואטסאפ עוד לא מחובר למערכת.</div>':open?`<div class="wac-in"><label class="wac-att" title="שליחת תמונה" aria-label="שליחת תמונה">📷<input type="file" accept="image/*" multiple data-waimg="${esc(id)}" hidden></label><button class="wac-att" data-act="wagal-open" data-id="${esc(id)}" title="גלריות מוכנות" aria-label="גלריות מוכנות">🖼️</button><textarea rows="1" data-f="wa.text" placeholder="הודעה" aria-label="הודעה">${esc(dv('wa','text',''))}</textarea><button class="wac-send" data-act="wa-send" aria-label="שליחה">➤</button></div>
@@ -4767,11 +4799,11 @@ function vProfile(){
 /* ---------- sheets ---------- */
 function renderSheet(){
   const el=$('#sheet');if(!S.sheet){el.hidden=true;el.innerHTML='';return}
-  let h='';if(S.sheet.type==='bkscan')h=sheetBkScan();else if(S.sheet.type==='gterms')h=sheetGTerms();else if(S.sheet.type==='cart')h=sheetCart();else if(S.sheet.type==='bkview')h=sheetBkView();else if(S.sheet.type==='bkasg')h=sheetBkAsg();else if(S.sheet.type==='roomcat')h=sheetRoomCat();else if(S.sheet.type==='wagal')h=sheetWaGal();else if(S.sheet.type==='hlic')h=sheetHLic();else if(S.sheet.type==='gdrooms')h=sheetGdRooms();else if(S.sheet.type==='hkoos')h=sheetHkOos();else if(S.sheet.type==='barview')h=sheetBarView();else if(S.sheet.type==='wachat')h=sheetWaChat();else if(S.sheet.type==='spahl')h=sheetSpaHl();else if(S.sheet.type==='spablk')h=sheetSpaBlk();else if(S.sheet.type==='spq')h=sheetSpq();else if(S.sheet.type==='pushdenied')h=sheetPushDenied();else if(S.sheet.type==='recv')h=sheetRecv();else if(S.sheet.type==='rcpt')h=sheetRcpt();else if(S.sheet.type==='stkimp')h=sheetStkImp();else if(S.sheet.type==='chadd')h=sheetChAdd();else if(S.sheet.type==='clic')h=sheetCLic();else if(S.sheet.type==='job')h=sheetJob();else if(S.sheet.type==='subs')h=sheetSubs();else if(S.sheet.type==='perm')h=sheetPerm();else if(S.sheet.type==='cell')h=sheetCell();else if(S.sheet.type==='emp')h=sheetEmp();else if(S.sheet.type==='send')h=sheetSend();else if(S.sheet.type==='remind')h=sheetRemind();else if(S.sheet.type==='camp')h=sheetCamp();else if(S.sheet.type==='sup')h=sheetSup();else if(S.sheet.type==='fix')h=sheetFix();else if(S.sheet.type==='inv')h=sheetInv();else if(S.sheet.type==='stock')h=sheetStock();else if(S.sheet.type==='preq')h=sheetPreq();else if(S.sheet.type==='swap')h=sheetSwap();else if(S.sheet.type==='iospush')h=sheetIosPush();else if(S.sheet.type==='pushask')h=sheetPushAsk();else if(S.sheet.type==='srview')h=sheetSrView();else if(S.sheet.type==='frreps')h=sheetFrReps();else if(S.sheet.type==='frhk')h=sheetFrHk();else if(S.sheet.type==='frgreq')h=sheetFrGreq();else if(S.sheet.type==='bkauto')h=sheetBkAuto();else if(S.sheet.type==='metahelp')h=sheetMetaHelp();else if(S.sheet.type==='spa')h=sheetSpa();else if(S.sheet.type==='grp')h=sheetGrp();else if(S.sheet.type==='agent')h=sheetAgent();else if(S.sheet.type==='pl')h=sheetPl();else if(S.sheet.type==='vchnew')h=sheetVchNew();else if(S.sheet.type==='vch')h=sheetVch();else if(S.sheet.type==='hk')h=sheetHk();else if(S.sheet.type==='lead')h=sheetLead();else if(S.sheet.type==='qlead')h=sheetQLead();else if(S.sheet.type==='client')h=sheetClient();else if(S.sheet.type==='hkooo')h=sheetHkOoo();else if(S.sheet.type==='hkdnd')h=sheetHkDnd();else if(S.sheet.type==='hkdndimg')h=sheetHkDndImg();
+  let h='';if(S.sheet.type==='wapdf')h=sheetWaPdf();else if(S.sheet.type==='bkscan')h=sheetBkScan();else if(S.sheet.type==='gterms')h=sheetGTerms();else if(S.sheet.type==='cart')h=sheetCart();else if(S.sheet.type==='bkview')h=sheetBkView();else if(S.sheet.type==='bkasg')h=sheetBkAsg();else if(S.sheet.type==='roomcat')h=sheetRoomCat();else if(S.sheet.type==='wagal')h=sheetWaGal();else if(S.sheet.type==='hlic')h=sheetHLic();else if(S.sheet.type==='gdrooms')h=sheetGdRooms();else if(S.sheet.type==='hkoos')h=sheetHkOos();else if(S.sheet.type==='barview')h=sheetBarView();else if(S.sheet.type==='wachat')h=sheetWaChat();else if(S.sheet.type==='spahl')h=sheetSpaHl();else if(S.sheet.type==='spablk')h=sheetSpaBlk();else if(S.sheet.type==='spq')h=sheetSpq();else if(S.sheet.type==='pushdenied')h=sheetPushDenied();else if(S.sheet.type==='recv')h=sheetRecv();else if(S.sheet.type==='rcpt')h=sheetRcpt();else if(S.sheet.type==='stkimp')h=sheetStkImp();else if(S.sheet.type==='chadd')h=sheetChAdd();else if(S.sheet.type==='clic')h=sheetCLic();else if(S.sheet.type==='job')h=sheetJob();else if(S.sheet.type==='subs')h=sheetSubs();else if(S.sheet.type==='perm')h=sheetPerm();else if(S.sheet.type==='cell')h=sheetCell();else if(S.sheet.type==='emp')h=sheetEmp();else if(S.sheet.type==='send')h=sheetSend();else if(S.sheet.type==='remind')h=sheetRemind();else if(S.sheet.type==='camp')h=sheetCamp();else if(S.sheet.type==='sup')h=sheetSup();else if(S.sheet.type==='fix')h=sheetFix();else if(S.sheet.type==='inv')h=sheetInv();else if(S.sheet.type==='stock')h=sheetStock();else if(S.sheet.type==='preq')h=sheetPreq();else if(S.sheet.type==='swap')h=sheetSwap();else if(S.sheet.type==='iospush')h=sheetIosPush();else if(S.sheet.type==='pushask')h=sheetPushAsk();else if(S.sheet.type==='srview')h=sheetSrView();else if(S.sheet.type==='frreps')h=sheetFrReps();else if(S.sheet.type==='frhk')h=sheetFrHk();else if(S.sheet.type==='frgreq')h=sheetFrGreq();else if(S.sheet.type==='bkauto')h=sheetBkAuto();else if(S.sheet.type==='metahelp')h=sheetMetaHelp();else if(S.sheet.type==='spa')h=sheetSpa();else if(S.sheet.type==='grp')h=sheetGrp();else if(S.sheet.type==='agent')h=sheetAgent();else if(S.sheet.type==='pl')h=sheetPl();else if(S.sheet.type==='vchnew')h=sheetVchNew();else if(S.sheet.type==='vch')h=sheetVch();else if(S.sheet.type==='hk')h=sheetHk();else if(S.sheet.type==='lead')h=sheetLead();else if(S.sheet.type==='qlead')h=sheetQLead();else if(S.sheet.type==='client')h=sheetClient();else if(S.sheet.type==='hkooo')h=sheetHkOoo();else if(S.sheet.type==='hkdnd')h=sheetHkDnd();else if(S.sheet.type==='hkdndimg')h=sheetHkDndImg();
   if(!h){S.sheet=null;el.hidden=true;return}
   // keep the panel's scroll position when the same sheet re-renders (owner, Nov 9: editing an invoice jumped to the top)
   const skey=S.sheet.type+'|'+(S.sheet.id||S.sheet.r||''),op=el.querySelector('.panel'),keep=op&&el.dataset.skey===skey?op.scrollTop:0;el.dataset.skey=skey;
-  el.innerHTML=`<div class="panel${['srview','frreps','frhk','frgreq','bkscan','subs','grp','pl','agent','barview','gdrooms','wagal'].includes(S.sheet.type)?' big':S.sheet.type==='wachat'?' wa-full':''}" role="dialog" aria-modal="true">${h}</div>`;el.hidden=false;sigRestore();
+  el.innerHTML=`<div class="panel${['srview','frreps','frhk','frgreq','bkscan','subs','grp','pl','agent','barview','gdrooms','wagal','wapdf'].includes(S.sheet.type)?' big':S.sheet.type==='wachat'?' wa-full':''}" role="dialog" aria-modal="true">${h}</div>`;el.hidden=false;sigRestore();
   if(keep){const np=el.querySelector('.panel');if(np)np.scrollTop=keep}
   if(S.sheet.type==='wachat'){const b=el.querySelector('.wa-msgs');if(b)b.scrollTop=S.waAtBottom===false&&S.waKeep!=null?S.waKeep:b.scrollHeight}
 }
@@ -5984,6 +6016,8 @@ const ACT={
     S.drafts.spa={name:c.name||(l&&l.name)||'',phone:(l&&l.phone)||waLocalOf(D.id),notes:l&&l.notes?String(l.notes).slice(0,300):''};S.drafts.spax=null;S.confirm=null;
     S.sheet={type:'spa',id:'sp'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),d:todayISO(),waChat:D.id,leadId:L?L[0]:''};render()},
   'wa-agent':D=>waAgentSet(D.id,''),
+  'wa-pdf':D=>waPdfOpen(D.chat,D.msg),
+  'wapdf-back':()=>{S.pdfV=null;S.sheet=S.sheet&&S.sheet.back||null;render()},
   'wagal-open':D=>{galSub();S.confirm=null;S.sheet={type:'wagal',chat:D.id,back:S.sheet&&S.sheet.type==='wachat'?S.sheet:null};render()},
   'wagal-back':()=>{S.confirm=null;S.sheet=S.sheet&&S.sheet.back||null;render()},
   'wagal-list':()=>{S.confirm=null;S.wgImgs=null;S.drafts.wg=null;if(S.sheet)S.sheet.edit=null;render()},

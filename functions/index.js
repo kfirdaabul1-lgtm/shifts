@@ -2424,3 +2424,52 @@ exports.ratesIngest = functions.region(REGION).https.onRequest(async (req, res) 
 const gads = require('./gads.js');
 exports.gadsPoll = gads.gadsPoll;
 exports.onGadsCfg = gads.onGadsCfg;
+
+// ---------- open a PDF a customer sent on the system WhatsApp (owner, Nov 18) ----------
+// The client never gets a Meta link or token. It asks with its ID token for {chat, msg}; the server checks the same
+// read permission as firestore.rules for that chat (events app, the chat's venue within the person's hotels, chat agent
+// free / me / owner), downloads the file from Meta, accepts it only if it really is a PDF (starts with %PDF-, ≤ 12MB) and
+// returns the bytes. Nothing is stored. The app shows it only as page images (pdf.js, no scripts, no links, no forms).
+exports.waDoc = functions.region(REGION).runWith({ timeoutSeconds: 60, memory: '512MB' }).https.onRequest(async (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*'); res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization'); res.set('Access-Control-Allow-Methods', 'POST');
+  if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
+  if (req.method !== 'POST') { res.status(405).json({ error: 'method' }); return; }
+  try {
+    const tok = await pwCaller(req); if (!tok) { res.status(401).json({ error: 'צריך להתחבר מחדש' }); return; }
+    const b = req.body || {}, chat = String(b.chat || ''), msg = String(b.msg || '');
+    if (!waIdOk(chat) || !/^[A-Za-z0-9_.=:\-]{6,200}$/.test(msg)) { res.status(400).json({ error: 'bad' }); return; }
+    const owner = tok.email_verified === true && (await pwIsOwnerMail(tok.email));
+    const [cs, ms] = await Promise.all([db.doc('waChats/' + chat).get(), db.doc('waChats/' + chat + '/msgs/' + msg).get()]);
+    if (!cs.exists || !ms.exists) { res.status(404).json({ error: 'ההודעה לא נמצאה' }); return; }
+    const c = cs.data() || {}, m = ms.data() || {};
+    if (!owner) {
+      const rs = await db.doc('roles/' + tok.uid).get(), role = rs.exists ? rs.data() || {} : null;
+      if (!role || role.station || !(role.apps || {}).events) { res.status(403).json({ error: 'אין הרשאה' }); return; }
+      const ag = c.agent || ''; if (ag && ag !== tok.uid) { res.status(403).json({ error: 'השיחה שייכת לעובד אחר' }); return; }
+      const hs = Array.isArray(role.hotels) ? role.hotels : [], v = c.venue || '';
+      if (hs.length) {
+        if (!v) { res.status(403).json({ error: 'אין הרשאה' }); return; }
+        let ok = false; for (const h of hs.slice(0, 4)) { const st = await db.doc('settings/' + h).get(); if (((st.exists && st.data().venues) || []).includes(v)) { ok = true; break; } }
+        if (!ok) { res.status(403).json({ error: 'אין הרשאה' }); return; }
+      }
+    }
+    const nm = String(m.text || '').replace(/^📄\s*/, '').split(':')[0].trim();
+    if (m.dir !== 'in' || m.type !== 'document' || !m.media) { res.status(400).json({ error: 'זו לא הודעה עם מסמך' }); return; }
+    if (!(String(m.mime || '').toLowerCase() === 'application/pdf' || /\.pdf$/i.test(nm))) { res.status(415).json({ error: 'אפשר לפתוח כאן רק קובצי PDF' }); return; }
+    const ref = db.doc('authRate/wadoc_' + tok.uid + '_' + new Date().toISOString().slice(0, 13));
+    const n = await db.runTransaction(async (tx) => { const s = await tx.get(ref); const k = ((s.exists && s.data().n) || 0) + 1; tx.set(ref, { n: k, at: Date.now() }); return k; });
+    if (n > 60) { res.status(429).json({ error: 'יותר מדי פתיחות בשעה האחרונה. נסו שוב מאוחר יותר.' }); return; }
+    const w = await waCfg(); if (w.provider === '360dialog') { res.status(501).json({ error: 'פתיחת קבצים עובדת רק בחיבור ישיר ל-Meta' }); return; }
+    if (!w.token) { res.status(503).json({ error: 'הוואטסאפ לא מחובר' }); return; }
+    const meta = await waApi(w, 'GET', m.media).catch((e) => ({ err: e.message }));
+    if (!meta || !meta.url) { res.status(410).json({ error: 'הקובץ כבר לא זמין אצל וואטסאפ (נשמר אצלם עד 30 יום). אפשר לבקש מהלקוח לשלוח שוב.' }); return; }
+    if (+meta.file_size > 12e6) { res.status(413).json({ error: 'הקובץ גדול מדי לפתיחה כאן (יותר מ-12MB)' }); return; }
+    if (!/^https:\/\/[a-z0-9.-]+\.(fbsbx|facebook|fbcdn|whatsapp)\.(com|net)\//i.test(meta.url)) { res.status(502).json({ error: 'כתובת קובץ לא צפויה' }); return; }
+    const r = await fetch(meta.url, { headers: { Authorization: 'Bearer ' + w.token } });
+    if (!r.ok) { res.status(502).json({ error: 'ההורדה מוואטסאפ נכשלה' }); return; }
+    const buf = Buffer.from(await r.arrayBuffer());
+    if (buf.length > 12e6) { res.status(413).json({ error: 'הקובץ גדול מדי' }); return; }
+    if (buf.slice(0, 1024).toString('latin1').indexOf('%PDF-') < 0) { res.status(415).json({ error: 'הקובץ לא נראה כמו PDF אמיתי, ולכן לא נפתח' }); return; }
+    res.json({ ok: true, name: nm.slice(0, 120) || 'מסמך.pdf', size: buf.length, data: buf.toString('base64') });
+  } catch (e) { console.error('waDoc', e.message); res.status(500).json({ error: 'שגיאה בפתיחת הקובץ' }); }
+});

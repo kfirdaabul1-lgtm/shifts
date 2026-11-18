@@ -2533,7 +2533,7 @@ const leadTel=p=>String(p||'').replace(/\D/g,'').replace(/^972/,'0').slice(-9);
 const LEAD_CAT=[['events','אירועים','🎉'],['rooms','חדרים','🛏️'],['spa','ספא','💆'],['bride','התארגנות כלה','👰'],['jobs','גיוס עובדים','🧑‍💼']],LCAT=Object.fromEntries(LEAD_CAT.map(([k,n])=>[k,n]));
 // lead kinds a person sees (owner, Nov 8): roles/{uid}.leadCats, empty = all; the owner always sees all
 // jobs (hiring) only when listed explicitly: an empty leadCats = every kind EXCEPT jobs (owner, Nov 18; rules enforce it too)
-const myLeadCats=()=>{const all=LEAD_CAT.map(x=>x[0]);if(S.isOwner)return all;const c=((S.role&&S.role.leadCats)||[]).filter(k=>LCAT[k]);return c.length?c:all.filter(k=>k!=='jobs')};
+const myLeadCats=()=>{const all=LEAD_CAT.map(x=>x[0]);if(S.isOwner)return all;const c=((S.role&&S.role.leadCats)||[]).filter(k=>LCAT[k]),r=c.length?c:all.filter(k=>k!=='jobs');if(S.can&&S.can.hr&&!r.includes('jobs'))r.push('jobs');return r};// employees-app (hr) holders also get the hiring (jobs) inbox (Nov 18)
 const myJobs=()=>myLeadCats().includes('jobs');
 const JOBS_RE=/גיוס|דרוש|דרושים|משרה|משרות|קורות חיים|הגשת מועמדות|לעבוד אצלנו|job|jobs|hiring|career|recruit/i;
 function leadCatGuess(t){t=String(t||'');if(JOBS_RE.test(t))return 'jobs';if(/כלה|כלות|התארגנות|bride|bridal/i.test(t))return 'bride';if(/ספא|spa|עיסוי|massage|טיפולי|טיפול זוגי|wellness/i.test(t))return 'spa';if(/חדר|חדרים|room|לינה|נופש|חופש|stay|night|לילה|לילות|סוויט|suite|booking|הזמנת מלון/i.test(t))return 'rooms';return ''}

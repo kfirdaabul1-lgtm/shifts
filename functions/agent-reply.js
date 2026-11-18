@@ -172,7 +172,8 @@ exports.agentReply = functions.region(REGION).runWith({ timeoutSeconds: 120, mem
   try { await db.doc('agentClaims/reply_' + chat + '_' + id).create({ at: Date.now() }); } catch (e) { return; } // the same event delivered twice
 
   const cref = db.doc('waChats/' + chat), cs = await cref.get(), chatD = cs.exists ? cs.data() || {} : {};
-  if (chatD.guide) return;                       // hotel group guides: never
+  if (chatD.guide) return;
+  if (chatD.recruit || chatD.cat === 'jobs') return; // job candidates: the recruiting agent's chats                       // hotel group guides: never
   if (chatD.aiAgent && (chatD.aiAgent.off || chatD.aiAgent.skip)) return; // a person switched it off, or an earlier message showed it is not about events
   if (chatD.agent) return; // a staff member took this chat (waClaim): the person handles it from now on (owner, Nov 17)
 
@@ -191,6 +192,7 @@ exports.agentReply = functions.region(REGION).runWith({ timeoutSeconds: 120, mem
   const hist = historyOf(rows);
   if (!hist.length || hist[hist.length - 1].role !== 'user') return;
   let lead = null; if (chatD.leadId) { try { const s = await db.doc('leads/' + chatD.leadId).get(); lead = s.exists ? s.data() : null; } catch (e) { } }
+  if (lead && lead.cat === 'jobs') return; // a job candidate (the recruiting agent handles it)
   const scope = (Array.isArray(cfg.scope) ? cfg.scope : DEFAULTS.scope).filter((k) => KINDS.includes(k));
   let campCat = {}; try { const s = await db.doc('leadcats/main').get(); campCat = (s.exists && s.data().campCat) || {}; } catch (e) { }
   const cat = catOf(chatD, lead, campCat);

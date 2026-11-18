@@ -23,6 +23,8 @@ const KEYS = ['hotel', 'month', 'date', 'shift', 'name', 'empUid', 'ooo', 'fault
       const lr = db.doc('leads/wa_' + ch), ls = await lr.get();
       if (ls.exists && (ls.data().source === 'whatsapp') && !ls.data().owner) { await lr.delete(); console.log('::notice title=Arsona chat::lead removed'); }
     }
+    const rc = db.doc('agentcfg/recruit'); // recruiting agent: created OFF (owner, Nov 18)
+    if (!(await rc.get()).exists) { await rc.set({ enabled: false, name: '', openTemplate: { tpl: 'job_screening_start', lang: 'he' }, match: { forms: [], campaigns: [], words: '' }, notify: false, createdAt: Date.now(), createdBy: 'setup' }); console.log('::notice title=Recruit::agentcfg/recruit created (off)'); }
     const hr = db.doc('agentcfg/hila'); // Hila, spa + bride sales agent: created OFF (training only) — owner, Nov 17
     if (!(await hr.get()).exists) { await hr.set({ enabled: false, name: 'הילה', mode: 'draft', scope: ['spa', 'bride'], createdAt: Date.now(), createdBy: 'setup' }); console.log('::notice title=Hila::agentcfg/hila created (off)'); }
     const cr = db.doc('agentcfg/reply');

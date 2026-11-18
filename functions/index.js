@@ -470,24 +470,26 @@ exports.quoteExpiry = functions.region(REGION).pubsub.schedule('0 9 * * *').time
 // roles with no hotels = all, otherwise one of their hotels' settings.venues must include it (a lead with no venue goes to everyone)
 // lead kind (events / rooms / spa / bride), same as the client's leadCat: own cat, else the campaign's mapping, else words, else events
 const JOBS_RE = /גיוס|דרוש|דרושים|משרה|משרות|קורות חיים|הגשת מועמדות|לעבוד אצלנו|job|jobs|hiring|career|recruit/i;
+const JOBS_CAMP = /עבודה|לעבוד|jobs?\b/i; // campaign names only (notes like 'ארוחת עבודה' stay events), owner Nov 18
 const leadKindRe = (x) => JOBS_RE.test(x) ? 'jobs' : /כלה|כלות|התארגנות|bride|bridal/i.test(x) ? 'bride' : /ספא|spa|עיסוי|massage|טיפולי|טיפול זוגי|wellness/i.test(x) ? 'spa' : /חדר|חדרים|room|לינה|נופש|חופש|stay|night|לילה|לילות|סוויט|suite|booking|הזמנת מלון/i.test(x) ? 'rooms' : '';
 async function leadKind(l) {
   let cat = (l && l.cat) || ''; if (!l) return 'events';
   if (!cat) { try { const m = ((await db.doc('leadcats/main').get()).data() || {}).campCat || {}; cat = m[String(l.campaign || '').trim()] || ''; } catch (e) {} }
-  return cat || leadKindRe(String(l.campaign || '')) || leadKindRe([l.type, l.notes].join(' ')) || 'events';
+  return cat || (JOBS_CAMP.test(String(l.campaign || '')) ? 'jobs' : '') || leadKindRe(String(l.campaign || '')) || leadKindRe([l.type, l.notes].join(' ')) || 'events';
 }
 // cat (owner, Nov 12): only people whose roles/{uid}.leadCats is empty (= all kinds) or includes it
 async function eventsPeople(venue, lead, cat) {
   const out = new Set(), rs = await db.collection('roles').get(), vc = {};
   const vOf = async (h) => { if (!(h in vc)) { try { const d = await db.doc('settings/' + h).get(); vc[h] = (d.exists && d.data().venues) || []; } catch (e) { vc[h] = []; } } return vc[h]; };
   for (const d of rs.docs) {
-    const r = d.data() || {}; if (r.station || !(r.apps && r.apps.events)) continue; // apps.events = the key that opens the leads page
-    if (cat === 'jobs') { // hiring leads (Nov 18): only roles that list 'jobs' explicitly (empty leadCats does not count), by the lead's jobHotel
-      if (!(Array.isArray(r.leadCats) && r.leadCats.includes('jobs'))) continue;
+    const r = d.data() || {};
+    if (cat === 'jobs') { // hiring leads (Nov 18): employees-app (hr) holders + events roles that list 'jobs' explicitly, by the lead's jobHotel
+      if (r.station || !((r.apps && r.apps.hr) || (r.apps && r.apps.events && Array.isArray(r.leadCats) && r.leadCats.includes('jobs')))) continue;
       const jh = lead && typeof lead === 'object' ? lead.jobHotel || '' : '', hs = r.hotels || [];
       if (!hs.length || !jh || hs.includes(jh)) out.add(d.id);
       continue;
     }
+    if (r.station || !(r.apps && r.apps.events)) continue; // apps.events = the key that opens the leads page
     if (cat && Array.isArray(r.leadCats) && r.leadCats.length && !r.leadCats.includes(cat)) continue;
     const hs = r.hotels || []; if (!hs.length) { out.add(d.id); continue; } if (!venue) { if (!lead) out.add(d.id); continue; } // lead with no place → chain staff only
     for (const h of hs) if ((await vOf(h)).includes(venue)) { out.add(d.id); break; }
@@ -2312,6 +2314,10 @@ exports.adamChat = require('./agent-reply.js').adamChat; // owner talks with Ada
 exports.adamFollow = require('./agent-reply.js').adamFollow;
 exports.adamCallbackRun = require('./agent-reply.js').adamCallbackRun; // calls back at the time the customer asked (Nov 17)
 exports.adamRouteNew = require('./agent-reply.js').adamRouteNew; // Gutman → 7EVEN rule on new event leads (Nov 17)
+const rec = require('./agent-recruit.js'); // recruiting agent (Nov 18): off until agentcfg/recruit.enabled === true
+exports.recruitNewLead = rec.recruitNewLead;
+exports.agentRecruit = rec.agentRecruit;
+exports.recruitSweep = rec.recruitSweep;
 exports.hilaChat = require('./agent-hila.js').hilaChat; // Hila, spa + bride sales agent (training only for now, Nov 17)
 // Meta campaign structure for the ads agent (Nov 7, owner): read-only, once a day → metaStruct/{campaignId}
 async function metaStructAll() {

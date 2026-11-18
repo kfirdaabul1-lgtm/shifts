@@ -396,7 +396,7 @@ service cloud.firestore {
     // limited to its hotels by jobHotel ('' = no hotel yet). Clients query non-jobs leads with cat in [other kinds] and jobs with cat == 'jobs'.
     function jobsOk(h) {
       let r = roleData();
-      return r.get('station', false) != true && r.get('apps', {}).get('events', false) == true && 'jobs' in r.get('leadCats', [])
+      return r.get('station', false) != true && r.get('apps', {}).get('events', false) == true && ('jobs' in r.get('leadCats', []) || r.get('apps', {}).get('hr', false) == true)
         && (r.get('hotels', []).size() == 0 || h == '' || h in r.get('hotels', []));
     }
     // READ uses d.cat / d.jobHotel directly (no get() default): in a list query a get() default stands in for an unconstrained field,
@@ -404,6 +404,11 @@ service cloud.firestore {
     // every jobs lead has jobHotel. Single-doc writes keep get() (no query there).
     function leadReadOk(d) { return d.cat == 'jobs' ? jobsOk(d.jobHotel) : ((canEvents() || canMkt()) && leadVenueOk(d.get('venue', ''))); }
     function leadWriteOk(d) { return d.get('cat', '') == 'jobs' ? jobsOk(d.get('jobHotel', '')) : (canEvents() && leadVenueOk(d.get('venue', ''))); }
+    // recruiting agent's candidate forms (Nov 18): owner + employees-app (hr) holders read; only the server writes
+    match /candidates/{id} {
+      allow read: if isOwner() || (hasRole() && roleApp('hr'));
+      allow write: if false;
+    }
     match /leads/{id} {
       allow read: if isOwner() || leadReadOk(resource.data);
       allow create: if isOwner() || leadWriteOk(request.resource.data);

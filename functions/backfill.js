@@ -77,21 +77,6 @@ const KEYS = ['hotel', 'month', 'date', 'shift', 'name', 'empUid', 'ooo', 'fault
         console.log('::notice title=recruit template::' + (r.ok ? 'created, status ' + (j.status || '?') : ok ? 'already exists' : 'failed: ' + String(((j.error || {}).message) || r.status).slice(0, 150)));
       }
     } catch (e) { console.log('::notice title=recruit template::error ' + String(e.message).slice(0, 120)); }
-    // Nov 18 (owner: drop "אני העוזרת הדיגיטלית"): delete the pending job_screening_start, submit job_screening_open, point agentcfg/recruit at it — once
-    try {
-      const W = (await db.doc('wacfg/main').get()).data() || {}, ar = db.doc('waauto/main'), A = (await ar.get()).data() || {};
-      if (W.token && W.wabaId && !A.recruitTpl2Made) {
-        const H = { 'Content-Type': 'application/json', Authorization: 'Bearer ' + W.token }, base = 'https://graph.facebook.com/v23.0/' + W.wabaId + '/message_templates';
-        const dr = await fetch(base + '?name=job_screening_start', { method: 'DELETE', headers: H }); const dj = await dr.json().catch(() => ({}));
-        console.log('::notice title=recruit template v1::' + (dr.ok ? 'deleted' : 'delete failed: ' + String(((dj.error || {}).message) || dr.status).slice(0, 150)));
-        const r = await fetch(base, { method: 'POST', headers: H, body: JSON.stringify({ name: 'job_screening_open', language: 'he', category: 'UTILITY', components: [
-          { type: 'BODY', text: 'היי {{1}}, תודה שהשארת פרטים לעבודה בסבן קולקשן! אפשר לשאול אותך כמה שאלות קצרות כאן בוואטסאפ?', example: { body_text: [['דנה']] } }] }) });
-        const j = await r.json().catch(() => ({}));
-        const ok = r.ok || /already exists|duplicate/i.test(JSON.stringify(j.error || {}));
-        if (ok) { await ar.set({ recruitTpl2Made: Date.now() }, { merge: true }); await db.doc('agentcfg/recruit').set({ openTemplate: { tpl: 'job_screening_open', lang: 'he' } }, { merge: true }); }
-        console.log('::notice title=recruit template v2::' + (r.ok ? 'created, status ' + (j.status || '?') : ok ? 'already exists' : 'failed: ' + String(((j.error || {}).message) || r.status).slice(0, 150)));
-      }
-    } catch (e) { console.log('::notice title=recruit template v2::error ' + String(e.message).slice(0, 120)); }
     // Guy, the yield agent (Nov 12, owner asked to turn it on): create agentcfg/yield enabled, ONLY when missing
     const yr = db.doc('agentcfg/yield');
     if (!(await yr.get()).exists) { await yr.set({ enabled: true, name: 'גיא', createdAt: Date.now(), createdBy: 'setup' }); console.log('::notice title=Guy::agentcfg/yield created (on)'); }

@@ -29,7 +29,7 @@ async function create(t, id, fields) {
   return r.status;
 }
 const U = { A: 'ztest_jobs_all', B: 'ztest_nojobs_all', C: 'ztest_jobs_7even', D: 'ztest_nojobs_7even' };
-const LEADS = ['ztest_j1', 'ztest_j2', 'ztest_e1', 'ztest_t1', 'ztest_t2', 'ztest_c1', 'ztest_c2'];
+const LEADS = ['ztest_j3', 'ztest_j1', 'ztest_j2', 'ztest_e1', 'ztest_t1', 'ztest_t2', 'ztest_c1', 'ztest_c2'];
 (async () => {
   try {
     const now = Date.now();
@@ -47,7 +47,7 @@ const LEADS = ['ztest_j1', 'ztest_j2', 'ztest_e1', 'ztest_t1', 'ztest_t2', 'ztes
     // B: no jobs, all hotels
     let q = await query(T.B, [['cat', 'IN', NJ]]); ok('B (no jobs) lists cat in [non-jobs]', q.ok, q.ok ? '' : q.err);
     ok('B sees no jobs lead in that list', q.ok && !q.ids.includes('ztest_j1') && !q.ids.includes('ztest_j2') && q.ids.includes('ztest_e1'));
-    q = await query(T.B, []); ok('B whole collection is refused', !q.ok, q.ok ? 'was allowed' : q.err);
+    q = await query(T.B, []); ok('B whole collection is refused (or hides jobs)', !q.ok || !q.ids.some((x) => x.startsWith('ztest_j')), q.ok ? 'allowed, rows ' + q.ids.length + ', jobs rows ' + q.ids.filter((x) => x.startsWith('ztest_j')).length : q.err);
     q = await query(T.B, [['cat', 'EQUAL', 'jobs']]); ok('B cat==jobs is refused', !q.ok);
     ok('B get jobs lead refused', (await get(T.B, 'ztest_j1')) === 403);
     ok('B get events lead allowed', (await get(T.B, 'ztest_e1')) === 200);
@@ -61,12 +61,15 @@ const LEADS = ['ztest_j1', 'ztest_j2', 'ztest_e1', 'ztest_t1', 'ztest_t2', 'ztes
     // C: jobs, 7EVEN only
     q = await query(T.C, [['cat', 'EQUAL', 'jobs'], ['jobHotel', 'IN', [H7, '']]]); ok('C (jobs, 7EVEN) lists its jobs', q.ok, q.ok ? '' : q.err);
     ok('C sees 7EVEN jobs lead, not Gutman', q.ok && q.ids.includes('ztest_j1') && !q.ids.includes('ztest_j2'));
-    q = await query(T.C, [['cat', 'EQUAL', 'jobs']]); ok('C all jobs (no hotel filter) refused', !q.ok);
+    q = await query(T.C, [['cat', 'EQUAL', 'jobs']]); ok('C all jobs (no hotel filter) refused or hides Gutman', !q.ok || !q.ids.includes('ztest_j2'), q.ok ? 'allowed, rows ' + q.ids.length + ', has Gutman ' + q.ids.includes('ztest_j2') : q.err);
     ok('C get Gutman jobs lead refused', (await get(T.C, 'ztest_j2')) === 403);
     // D: no jobs, 7EVEN
     q = await query(T.D, [['cat', 'IN', NJ], ['venue', 'EQUAL', 'sola']]); ok('D (no jobs, 7EVEN) lists its venue', q.ok, q.ok ? '' : q.err);
     ok('D sees the sola events lead', q.ok && q.ids.includes('ztest_e1'));
-    q = await query(T.D, [['venue', 'EQUAL', 'sola']]); ok('D old venue-only query refused', !q.ok);
+    q = await query(T.D, [['venue', 'EQUAL', 'sola']]); ok('D venue-only query refused or hides jobs', !q.ok || !q.ids.some((x) => x.startsWith('ztest_j')), q.ok ? 'allowed, rows ' + q.ids.length : q.err);
+    await db.doc('leads/ztest_j3').set({ name: 'ztest', cat: 'jobs', jobHotel: '', venue: 'sola', stage: 'new', createdAt: Date.now(), source: 'other' });
+    q = await query(T.D, [['venue', 'EQUAL', 'sola']]); ok('D venue-only query with a sola jobs lead: refused or hidden', !q.ok || !q.ids.includes('ztest_j3'), q.ok ? 'allowed, rows ' + q.ids.length + ', has jobs ' + q.ids.includes('ztest_j3') : q.err);
+    q = await query(T.B, []); ok('B whole collection with jobs leads: refused or hidden', !q.ok || !q.ids.some((x) => x.startsWith('ztest_j')), q.ok ? 'allowed, jobs rows ' + q.ids.filter((x) => x.startsWith('ztest_j')).length : q.err);
     ok('D get jobs lead refused', (await get(T.D, 'ztest_j1')) === 403);
     // trigger
     await sleep(20000);

@@ -3029,7 +3029,8 @@ function waCfgHTML(){waCfgSub();const c=S.wacfg;if(c===undefined)return '';const
 const waArch=(id,c)=>{const L=waLeadOf(id,c);return !!(L&&L[1].stage==='junk')},waWait=c=>c.lastDir==='in'&&c.status!=='done';
 // one WhatsApp number, a separate inbox per lead kind (owner, Nov 2): a chat belongs to its own `cat`, else its lead's kind;
 // a chat whose lead was opened automatically by WhatsApp (no campaign / kind yet) is unsorted ('') and shows in every inbox with assign chips
-function waCatOf(id,c){if(c&&c.cat&&LCAT[c.cat])return c.cat;const L=waLeadOf(id,c||{});if(!L)return '';const l=L[1];if(l.cat&&LCAT[l.cat])return l.cat;
+function waCatOf(id,c){const jl=c&&c.leadId&&(S.leads||{})[c.leadId];if(jl&&jl.cat==='jobs')return 'jobs';// a hiring lead's chat always lives in the hiring inbox (owner, Nov 18: hiring chats showed under events)
+  if(c&&c.cat&&LCAT[c.cat])return c.cat;const L=waLeadOf(id,c||{});if(!L)return '';const l=L[1];if(l.cat&&LCAT[l.cat])return l.cat;
   if(l.source==='whatsapp'&&!campCatOf(l.campaign))return '';return leadCat(l)}
 const waUnreadCat=k=>Object.entries(S.waChats||{}).filter(([id,c])=>+c.unread>0&&!waArch(id,c)&&(waCatOf(id,c)||'events')===k).length;
 const WA_F=[['all','הכול'],['unread','לא נקראו'],['wait','מחכים לתשובה'],['open','פתוחות'],['done','טופלו'],['win','חלון 24 שעות פתוח'],['lead','משויכות לליד'],['nolead','בלי ליד'],['arch','ארכיון']];

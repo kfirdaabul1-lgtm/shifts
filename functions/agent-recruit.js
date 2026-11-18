@@ -206,6 +206,8 @@ async function sendAll(o) {
   if (!dry && cfg.enabled !== true) { await db.doc('agentcfg/recruit').set({ enabled: true, updatedAt: Date.now(), enabledBy: 'sendAll' }, { merge: true }); cfg.enabled = true; out.enabledNow = true; }
   for (const d of leads) {
     const l = d.data() || {};
+    // the lead's WhatsApp chat belongs in the hiring inbox (owner, Nov 18: hiring chats showed under events)
+    const wid = waIdFrom(l.phone); if (wid && !dry) { const ch = db.doc('waChats/' + wid), cx = await ch.get(); if (cx.exists && (cx.data() || {}).cat !== 'jobs') { await ch.set({ cat: 'jobs' }, { merge: true }); out.chatFixed = (out.chatFixed || 0) + 1; } }
     if (['hired', 'rejected', 'junk'].includes(l.stage)) { out.closed++; continue; }
     const cref = db.doc('candidates/' + d.id), cs = await cref.get();
     if (cs.exists) { const st = (cs.data() || {}).status; if (st === 'waiting_template') { out.retried++; if (!dry) await cref.delete(); } else { out.already++; continue; } }

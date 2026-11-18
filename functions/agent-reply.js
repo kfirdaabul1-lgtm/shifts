@@ -47,7 +47,7 @@ function catOf(chatD, lead, campCat) {
 // "A lead of up to 80 guests that comes to the Gutman stays at the Gutman; a bigger lead → 7EVEN, the Sola rooftop.
 //  Weddings are never done at the Gutman → straight to 7EVEN, which does weddings. Not only tell the customer: really move the lead in the system."
 // Venue ids (index.html DEF_VENUES): boheme = The Gutman (La Boheme), sola = 7EVEN (Sola rooftop). Done in CODE, not left to the model.
-const GUTMAN = 'boheme', SOLA = 'sola', GUTMAN_MAX = 80, GUTMAN_TIGHT = 100; // 81–100 = borderline (owner, Nov 17): stays at the Gutman, Adam suggests a tour + the 7EVEN option
+const GUTMAN = 'boheme', SOLA = 'sola', GUTMAN_MAX = 80; // owner, Nov 18: more than 80 guests = the lead moves to 7EVEN (the 81–100 'tight' stay was dropped)
 const WEDDING_RE = /חתונ|חופה|חופּה|נישוא|wedding|marriage|hupa|chuppah/i;
 const GUTMAN_RE = /גוטמן|gutman|בוהם|boheme|boh[eè]me/i, SOLA_RE = /סולה|sola|7even|סבן|seven(?!\s*seas)/i;
 // owner, Nov 17: a range like "50–100" counts by its LOW end (the lead starts at the Gutman); a firm number counts as is.
@@ -65,9 +65,8 @@ function routeFor(l, d) {
   if (v !== GUTMAN) return { set: (!l.venue && v) ? v : '' }; // only Gutman leads are moved; a lead with no place gets the place the customer named
   const set = l.venue ? '' : GUTMAN, wed = WEDDING_RE.test([d.event_type, d.notes, l.type, l.notes].join(' ')), g = guestsOf(l, d);
   if (wed) return { to: SOLA, why: 'חתונה — בגוטמן לא עושים חתונות', set };
-  if (g > GUTMAN_TIGHT) return { to: SOLA, why: g + ' אורחים — יותר מדי לגוטמן', set };
+  if (g > GUTMAN_MAX) return { to: SOLA, why: g + ' אורחים — מעל ' + GUTMAN_MAX + ', גדול מדי לגוטמן', set };
   if (l.venue === GUTMAN && SOLA_RE.test(named) && !GUTMAN_RE.test(named)) return { to: SOLA, why: 'הלקוח בחר ב-7EVEN (גג הסולה)', set };
-  if (g > GUTMAN_MAX) return { tight: g, set };                      // 81–100: stays, Adam advises
   return { set };
 }
 async function applyRoute(leadId, l, d, name) {
@@ -80,14 +79,23 @@ async function applyRoute(leadId, l, d, name) {
     return { moved: true, to: r.to, why: r.why };
   }
   if (r.set && !l.venue) { await ref.set({ venue: r.set, updatedAt: now }, { merge: true }); l.venue = r.set; }
-  if (r.tight) return { tight: r.tight };
   return r.set ? { placed: r.set } : null;
+}
+// one-off / on demand: open Gutman leads that are already above the limit (or a wedding) move to 7EVEN (owner, Nov 18)
+async function routeSweep(dry) {
+  const qs = await db.collection('leads').where('venue', '==', GUTMAN).get(); let n = 0, moved = 0;
+  for (const d of qs.docs) {
+    const l = d.data(); if (['won', 'lost', 'junk'].includes(l.stage) || (l.routed && l.routed.to)) continue; n++;
+    const r = routeFor(l, {}); if (!r.to) continue; moved++;
+    if (!dry) await applyRoute(d.id, l, {}, 'אדם');
+  }
+  return { open: n, moved, dry: !!dry };
 }
 const ROUTE_RULES = `
 HOTELS FOR EVENTS (fixed rule of the chain): The Gutman (La Boheme) is right for events of up to about ${GUTMAN_MAX} guests and does NOT host weddings at all. Weddings and big events are held at hotel 7EVEN on the Sola rooftop (גג הסולה), which does weddings.
 - A customer who asked about the Gutman with a range like "50-100" starts at the Gutman: talk about the Gutman.
-- If it turns out the number is closer to 100 (between ${GUTMAN_MAX} and ${GUTMAN_TIGHT}), or save_details answers "gutman_may_be_tight": say warmly that at that size the Gutman may be a bit crowded, invite them to come for a tour to see the space, and mention that we also have the option of the Sola rooftop at 7EVEN. Let the customer choose; if they prefer 7EVEN, call save_details with hotel_or_venue "7EVEN".
-- A wedding, or clearly more than ${GUTMAN_TIGHT} guests: the right place is the Sola rooftop at 7EVEN. The system moves the lead by itself when you call save_details; if it answers "moved_to_7even", tell the customer warmly and briefly that for this event the right place is the Sola rooftop at 7EVEN and that you continue with them from there (do not say "the system").
+- MORE THAN ${GUTMAN_MAX} GUESTS (owner, Nov 18): the Gutman is not the place. As soon as the customer gives a number above ${GUTMAN_MAX} (also a range whose real number is above it), call save_details with the guest count — the system then moves the lead to 7EVEN so the 7EVEN events team gets it and calls them. Tell the customer warmly that for that size the right place is the Sola rooftop at our hotel 7EVEN (מלון סבן), invite them to a tour there, and continue with them.
+- A wedding, or more than ${GUTMAN_MAX} guests: the right place is the Sola rooftop at 7EVEN. The system moves the lead by itself when you call save_details; if it answers "moved_to_7even", tell the customer warmly and briefly that for this event the right place is the Sola rooftop at 7EVEN and that you continue with them from there (do not say "the system").
 - Never offer the Gutman for a wedding. If the customer asked about the Gutman, ask early how many guests and what kind of event it is.
 - A customer who came through the Gutman (came_for: The Gutman in what the system knows — the ad, page or campaign was the Gutman's) and asks about a WEDDING: answer in this spirit (owner's words, Nov 18): "לצערנו בגוטמן אנחנו לא מארחים חתונות, אבל במלון סבן (7EVEN), מלון נוסף שלנו, דווקא כן — על גג הסולה." Say clearly that it is ANOTHER hotel of ours; never answer just "yes, we host weddings" as if the Gutman does. Then continue with one question (date / number of guests).
 THE GOAL IS A SITE TOUR, NOT A QUOTE (owner, Nov 18): never leave the customer "waiting for a price quote" and never end with "a team member will send you a quote". Once you know roughly what they want (kind of event + date or number of guests), invite them warmly to come see the place on a tour ("הכי כדאי לבוא לראות את המקום — מתי נוח לך להגיע לסיור?"). If they ask about price, say the price depends on the details and is best built together at the tour, and invite them. When they name a day/time for the tour, call save_details (notes: "סיור: <day + time>") and handoff with reason "קביעת סיור: <day + time>", and tell them we'll confirm the tour with them. Only if they clearly refuse a tour, offer that the team prepares a quote.
@@ -197,7 +205,7 @@ exports.agentReply = functions.region(REGION).runWith({ timeoutSeconds: 120, mem
     { name: 'save_details', description: 'Record what the customer told you (only what they actually said). Call whenever they give a name, a date, a number of guests, an event type or a hotel.',
       input_schema: { type: 'object', properties: { name: { type: 'string' }, interest: { type: 'string', enum: KINDS, description: 'events | rooms | spa | bride' }, event_type: { type: 'string', description: 'wedding, company event, birthday...' }, date: { type: 'string', description: 'YYYY-MM-DD if clear' }, guests: { type: 'number' }, hotel_or_venue: { type: 'string' }, notes: { type: 'string', description: 'anything else the team should know, short' } } },
       run: async (a) => { for (const k of ['name', 'interest', 'event_type', 'date', 'guests', 'hotel_or_venue', 'notes']) if (a[k] !== undefined && a[k] !== '') got.details[k] = a[k];
-        if (cfg.route !== false && chatD.leadId && lead && cfg.mode === 'auto') { try { const r = await applyRoute(chatD.leadId, lead, got.details, cfg.name); if (r) got.route = r; if (r && r.moved) return { saved: true, moved_to_7even: true, why: r.why }; if (r && r.tight) return { saved: true, gutman_may_be_tight: true, guests: r.tight }; } catch (e) { console.error('adam route', e); } }
+        if (cfg.route !== false && chatD.leadId && lead && cfg.mode === 'auto') { try { const r = await applyRoute(chatD.leadId, lead, got.details, cfg.name); if (r) got.route = r; if (r && r.moved) return { saved: true, moved_to_7even: true, why: r.why }; } catch (e) { console.error('adam route', e); } }
         return { saved: true }; } },
     { name: 'schedule_callback', description: 'The customer asked to be contacted (called / written to) at a specific time or time range. Records it: at that time a team member is reminded to call and you write to the customer. Call it whenever the customer names a time for a call, then confirm to the customer in words that we will get back to them at that time.',
       input_schema: { type: 'object', properties: { date: { type: 'string', description: 'YYYY-MM-DD (Israel). Empty = the next time this hour comes (today, else tomorrow)' }, from: { type: 'string', description: 'HH:MM start of the range (24h)' }, to: { type: 'string', description: 'HH:MM end of the range, optional' }, note: { type: 'string', description: 'call or WhatsApp, anything the caller should know, short' } }, required: ['from'] },
@@ -294,7 +302,7 @@ exports.adamRouteNew = functions.region(REGION).firestore.document('leads/{id}')
   try { const r = await applyRoute(ctx.params.id, l, {}, cfg.name || DEFAULTS.name); if (r) await C.logRun('reply', { lead: ctx.params.id, route: r }); } catch (e) { console.error('adamRouteNew', e); }
 });
 
-exports._t = { isHuman, catOf, historyOf, systemBlocks, leadBrief, DEFAULTS, routeFor };
+exports._t = { routeSweep, isHuman, catOf, historyOf, systemBlocks, leadBrief, DEFAULTS, routeFor };
 // ---------- warm-up of recent event leads (owner, Nov 17: "Adam should write to everyone who left a lead yesterday, to warm the lead
 // and so they can reply and renew the 24 hours") ----------
 // warmRun({days}): event leads created since the start of (today − days) Israel time, still open (new/contacted), whose WhatsApp chat has

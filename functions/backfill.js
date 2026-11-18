@@ -64,6 +64,19 @@ const KEYS = ['hotel', 'month', 'date', 'shift', 'name', 'empUid', 'ooo', 'fault
         console.log('::notice title=warm template::' + (r.ok ? 'created, status ' + (j.status || '?') : ok ? 'already exists' : 'failed: ' + String(((j.error || {}).message) || r.status).slice(0, 150)));
       }
     } catch (e) { console.log('::notice title=warm template::error ' + String(e.message).slice(0, 120)); }
+    // Recruiting agent's opening template (owner, Nov 18): fixed "סבן קולקשן", only {{1}} = first name; Utility, create once
+    try {
+      const W = (await db.doc('wacfg/main').get()).data() || {}, ar = db.doc('waauto/main'), A = (await ar.get()).data() || {};
+      if (W.token && W.wabaId && !A.recruitTplMade) {
+        const r = await fetch('https://graph.facebook.com/v23.0/' + W.wabaId + '/message_templates', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + W.token },
+          body: JSON.stringify({ name: 'job_screening_start', language: 'he', category: 'UTILITY', components: [
+            { type: 'BODY', text: 'היי {{1}}, תודה שהשארת פרטים לעבודה בסבן קולקשן! אני העוזרת הדיגיטלית של צוות הגיוס. אפשר לשאול אותך כמה שאלות קצרות כאן בוואטסאפ?', example: { body_text: [['דנה']] } }] }) });
+        const j = await r.json().catch(() => ({}));
+        const ok = r.ok || /already exists|duplicate/i.test(JSON.stringify(j.error || {}));
+        if (ok) await ar.set({ recruitTplMade: Date.now() }, { merge: true });
+        console.log('::notice title=recruit template::' + (r.ok ? 'created, status ' + (j.status || '?') : ok ? 'already exists' : 'failed: ' + String(((j.error || {}).message) || r.status).slice(0, 150)));
+      }
+    } catch (e) { console.log('::notice title=recruit template::error ' + String(e.message).slice(0, 120)); }
     // Guy, the yield agent (Nov 12, owner asked to turn it on): create agentcfg/yield enabled, ONLY when missing
     const yr = db.doc('agentcfg/yield');
     if (!(await yr.get()).exists) { await yr.set({ enabled: true, name: 'גיא', createdAt: Date.now(), createdBy: 'setup' }); console.log('::notice title=Guy::agentcfg/yield created (on)'); }

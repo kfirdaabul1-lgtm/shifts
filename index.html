@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="lang.js?v=3a95c5a4fb"></script>
+<script src="lang.js?v=41287a1761"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -2816,6 +2816,20 @@ function jobsBoardHTML(){const F=S.jobF||(S.jobF={st:'act',h:'all'}),L=Object.en
       <div class="plist">${list.map(([id,l])=>`<button class="prow" data-act="lead-open" data-id="${id}" style="width:100%;text-align:start;cursor:pointer;background:none;border:0;border-bottom:1px solid var(--line)"><span class="who"><b>${esc(l.name||'ללא שם')}</b><small>${esc([l.phone,l.jobDept&&DMAP[l.jobDept]?DMAP[l.jobDept].n:'',l.nextAt&&leadOpen(l)?'לחזור '+dm(l.nextAt):''].filter(Boolean).join(' · '))}</small></span>${jobTag(l.stage)}</button>`).join('')}</div></div>`};
   return chips+(keys.length?keys.map(card).join(''):emptyBox('אין מועמדים כאן','כל מועמד שמגיע מקמפיין גיוס או נרשם ידנית מופיע כאן לפי המשרה והמלון.','<button class="btn pri" data-act="lead-new">+ מועמד חדש</button>'))}
 document.addEventListener('change',e=>{const t=e.target;if(!t.matches||!t.matches('[data-jobh]'))return;(S.jobF||(S.jobF={st:'act'})).h=t.value;render()});
+// recruiting agent Ariel's candidate form + CV (owner, Nov 18): owner / hr holders only (rules candidates, candidateCv)
+const CAND_F=[['position','משרה'],['hotelExp','ניסיון במלונאות'],['optima','אופטימה'],['salesExp','ניסיון במכירות'],['hebrew','עברית'],['english','אנגלית'],['availability','זמינות'],['startDate','מתי יכול/ה להתחיל'],['experience','ניסיון'],['languages','שפות נוספות'],['workPermit','אישור עבודה'],['commute','הגעה למלון'],['notes','עוד']];
+function candBoxHTML(id){if(!(S.isOwner||S.can.hr))return'';S.cands=S.cands||{};
+  if(S.cands[id]===undefined){S.cands[id]=null;fdb.doc('candidates/'+id).get().then(d=>{S.cands[id]=d.exists?d.data():false;render()}).catch(()=>{S.cands[id]=false;render()})}
+  const c=S.cands[id];if(!c)return'';const a=c.answers||{},pos=c.position||a.position||'';
+  const rows=CAND_F.map(([k,n])=>{const v=k==='position'?pos:a[k];return v?`<div style="display:flex;gap:8px;font-size:.88rem;margin:2px 0"><b style="min-width:110px">${esc(n)}</b><span>${esc(v)}</span></div>`:''}).join('');
+  const fit=c.fit?`<span class="pill" style="background:${c.fit==='high'?'#DCFCE7':c.fit==='low'?'#FEE2E2':'#FEF3C7'}">התאמה ${c.fit==='high'?'גבוהה':c.fit==='low'?'נמוכה':'בינונית'}${c.score!=null?' · '+esc(c.score):''}</span>`:'';
+  return`<div class="card" style="margin:8px 0;padding:10px"><div class="row" style="justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap"><b>🧑‍💼 מה אריאל אספה</b>${fit}</div>
+  ${rows||'<p class="muted" style="margin:4px 0">עוד אין תשובות.</p>'}${c.summary?`<p style="font-size:.88rem;margin:6px 0">${esc(c.summary)}</p>`:''}${(c.missing||[]).length?`<p class="muted" style="font-size:.82rem;margin:4px 0">חסר: ${esc(c.missing.join(', '))}</p>`:''}
+  <div class="actions" style="margin-top:6px">${c.cv?`<button class="btn sm pri" data-act="cv-open" data-id="${esc(id)}">📄 קורות חיים${c.cv.name?' · '+esc(c.cv.name):''}</button>`:'<span class="muted" style="font-size:.85rem">📄 עוד לא נשלחו קורות חיים</span>'}</div></div>`}
+async function cvOpen(id){const c=(S.cands||{})[id]||{},back=S.sheet;const V={tk:Date.now(),st:'load',pages:[],name:(c.cv&&c.cv.name)||'קורות חיים.pdf'};S.pdfV=V;S.sheet={type:'wapdf',id:'cv_'+id,back,cv:1};render();
+  const set=o=>{if(S.pdfV!==V)return false;Object.assign(V,o);render();return true};
+  try{const q=await fdb.collection('candidateCv').where('leadId','==',id).get();const parts=q.docs.map(d=>d.data()).sort((a,b)=>a.k-b.k);if(!parts.length)throw new Error('הקובץ לא נמצא');
+    await pdfDrawB64(V,set,parts.map(p=>p.data||'').join(''))}catch(e){set({st:'err',err:String((e&&e.message)||e).slice(0,200)})}}
 function sheetLeadJob(id,l,isNew,g){const st=g('stage','new'),own=leadOwners(),job=g('job',''),hs=myScopeHs(),acts=(l.acts||[]).slice().sort((a,b)=>(b.at||0)-(a.at||0)),tel=leadTel(l.phone);
   return sheetHead(isNew?'מועמד חדש':esc(l.name||'מועמד'),isNew?'גיוס עובדים':`${esc(JSTG[l.stage||'new']||'')}${l.createdAt?' · נפתח '+new Date(l.createdAt).toLocaleDateString('he-IL'):''}`)+`
   ${!isNew&&tel.length>=9?`<div class="actions"><a class="btn sm" href="tel:${esc(l.phone)}">📞 חיוג</a>${S.wapub&&S.wapub.on?`<button class="btn sm pri" data-act="wa-lead" data-id="${id}">💬 וואטסאפ במערכת</button>`:''}<a class="btn sm" href="https://wa.me/972${tel}" target="_blank" rel="noopener">${S.wapub&&S.wapub.on?'וואטסאפ בטלפון':'וואטסאפ'}</a>${l.email?`<a class="btn sm" href="mailto:${esc(l.email)}">מייל</a>`:''}</div>`:''}
@@ -2827,7 +2841,7 @@ function sheetLeadJob(id,l,isNew,g){const st=g('stage','new'),own=leadOwners(),j
   ${l.campaign?`<div class="muted" style="font-size:.85rem;margin:2px 0 6px">📣 קמפיין: ${esc(l.campaign)}${campHotelOf(l.campaign)?' · מכוון ל'+esc(campHotelTxt(campHotelOf(l.campaign))):''}</div>`:''}<div class="row"><label class="f">מלון<select data-f="lead.jobHotel"><option value="">— עוד לא ידוע —</option>${hs.map(h=>`<option value="${esc(h)}" ${g('jobHotel')===h?'selected':''}>${esc(hotelName(h))}</option>`).join('')}</select></label>
     <label class="f">מחלקה<select data-f="lead.jobDept"><option value="">—</option>${DEPTS.map(d=>`<option value="${d.k}" ${g('jobDept')===d.k?'selected':''}>${esc(d.n)}</option>`).join('')}</select></label></div>
   <div class="row"><label class="f">מי מטפל<select data-f="lead.owner"><option value="" ${g('owner')?'':'selected'}>— עוד לא נבחר —</option>${Object.entries(own).map(([u,n])=>`<option value="${u}" ${g('owner')===u?'selected':''}>${esc(n)}</option>`).join('')}</select></label><label class="f">לחזור למועמד בתאריך<input type="date" data-f="lead.nextAt" value="${esc(g('nextAt'))}"></label></div>
-  <label class="f">הערות<textarea rows="2" data-f="lead.notes">${esc(g('notes'))}</textarea></label>
+  ${isNew?'':candBoxHTML(id)}<label class="f">הערות<textarea rows="2" data-f="lead.notes">${esc(g('notes'))}</textarea></label>
   <div class="actions"><button class="btn pri" data-act="lead-save">שמירה</button>${isNew?'':`<button class="btn ghost" data-act="lead-del">${S.confirm==='lead-del'?'לחיצה נוספת תמחק':'מחיקה'}</button>`}</div>
   ${isNew?'':`<div class="sep"></div><h3>משימות</h3>${(()=>{tasksSub();const T=Object.entries(S.tasks||{}).filter(([,t])=>t.leadId===id);return (T.length?`<div class="plist">${T.map(([tid,t])=>taskRow(tid,t)).join('')}</div>`:'')+taskFormHTML(id)})()}
   <div class="sep"></div><h3>פעילות</h3>
@@ -2935,7 +2949,10 @@ async function waPdfOpen(chat,msg){const back=S.sheet&&S.sheet.type==='wachat'?S
     const r=await fetch(WA_DOC_URL(),{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+await fauth.currentUser.getIdToken()},body:JSON.stringify({chat,msg})});
     const j=await r.json().catch(()=>({}));if(!r.ok||!j.ok)throw new Error(j.error||('שגיאה '+r.status));
     if(!set({name:j.name||'מסמך.pdf',size:j.size||0}))return;
-    const bin=atob(j.data),u8=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u8[i]=bin.charCodeAt(i);
+    await pdfDrawB64(V,set,j.data)}
+  catch(e){set({st:'err',err:String((e&&e.message)||e).slice(0,200)})}}
+async function pdfDrawB64(V,set,b64){{
+    const bin=atob(b64),u8=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u8[i]=bin.charCodeAt(i);
     const L=await pdfjsLoad();
     const doc=await L.getDocument({data:u8,isEvalSupported:false,enableXfa:false,disableFontFace:false,useSystemFonts:false,stopAtErrors:false}).promise;
     const N=Math.min(doc.numPages,40);if(!set({n:doc.numPages,st:'draw'}))return;
@@ -2944,11 +2961,10 @@ async function waPdfOpen(chat,msg){const back=S.sheet&&S.sheet.type==='wachat'?S
       const cv=document.createElement('canvas');cv.width=Math.round(vp.width);cv.height=Math.round(vp.height);const cx=cv.getContext('2d');cx.fillStyle='#fff';cx.fillRect(0,0,cv.width,cv.height);
       await pg.render({canvasContext:cx,viewport:vp,annotationMode:L.AnnotationMode?L.AnnotationMode.DISABLE:0}).promise;
       const url=cv.toDataURL('image/jpeg',0.85);cv.width=cv.height=0;pg.cleanup();if(S.pdfV!==V){doc.destroy();return}V.pages.push(url);render()}
-    doc.destroy();set({st:'done'})}
-  catch(e){set({st:'err',err:String((e&&e.message)||e).slice(0,200)})}}
+    doc.destroy();set({st:'done'})}}
 function sheetWaPdf(){const V=S.pdfV||{},sh=S.sheet;
-  const head=`<div class="row" style="justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><h3 style="margin:0">📄 ${esc(V.name||'מסמך PDF')}</h3>${sh.back?`<button class="btn sm ghost" data-act="wapdf-back">→ חזרה לשיחה</button>`:''}</div>
-  <p class="muted" style="font-size:.85rem;margin:6px 0 10px">🔒 הקובץ מוצג כתמונות בלבד: קישורים, טפסים וקוד שבתוך ה-PDF לא פועלים. הקובץ לא נשמר במערכת.</p>`;
+  const head=`<div class="row" style="justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><h3 style="margin:0">📄 ${esc(V.name||'מסמך PDF')}</h3>${sh.back?`<button class="btn sm ghost" data-act="wapdf-back">${sh.cv?"→ חזרה למועמד":"→ חזרה לשיחה"}</button>`:''}</div>
+  <p class="muted" style="font-size:.85rem;margin:6px 0 10px">🔒 הקובץ מוצג כתמונות בלבד: קישורים, טפסים וקוד שבתוך ה-PDF לא פועלים.${sh.cv?' הקובץ שמור בתיק המועמד.':' הקובץ לא נשמר במערכת.'}</p>`;
   if(V.st==='err')return head+`<p class="bad-t">${esc(V.err||'לא הצלחנו לפתוח את הקובץ')}</p>`;
   const prog=V.st==='load'?'<p class="muted">מוריד את הקובץ…</p>':V.st==='draw'?`<p class="muted">מציג עמודים ${V.pages.length} מתוך ${Math.min(V.n||0,40)}…</p>`:'';
   const more=V.st==='done'&&V.n>40?`<p class="muted">מוצגים 40 העמודים הראשונים מתוך ${V.n}.</p>`:'';
@@ -6045,6 +6061,7 @@ const ACT={
     S.sheet={type:'spa',id:'sp'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),d:todayISO(),waChat:D.id,leadId:L?L[0]:''};render()},
   'wa-agent':D=>waAgentSet(D.id,''),
   'wa-pdf':D=>waPdfOpen(D.chat,D.msg),
+  'cv-open':b=>cvOpen(b.dataset.id),
   'wapdf-back':()=>{S.pdfV=null;S.sheet=S.sheet&&S.sheet.back||null;render()},
   'wagal-open':D=>{galSub();S.confirm=null;S.sheet={type:'wagal',chat:D.id,back:S.sheet&&S.sheet.type==='wachat'?S.sheet:null};render()},
   'wagal-back':()=>{S.confirm=null;S.sheet=S.sheet&&S.sheet.back||null;render()},

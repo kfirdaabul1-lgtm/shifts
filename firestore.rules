@@ -409,6 +409,11 @@ service cloud.firestore {
       allow read: if isOwner() || (hasRole() && roleApp('hr'));
       allow write: if false;
     }
+    // candidates' CVs (PDF, base64 chunks {leadId}__{k}), written by the recruiting agent only
+    match /candidateCv/{id} {
+      allow read: if isOwner() || (hasRole() && roleApp('hr'));
+      allow write: if false;
+    }
     match /leads/{id} {
       allow read: if isOwner() || leadReadOk(resource.data);
       allow create: if isOwner() || leadWriteOk(request.resource.data);

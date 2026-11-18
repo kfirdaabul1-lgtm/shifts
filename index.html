@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202611171900"></script>
+<script src="i18n.js?v=202611181100"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -2651,7 +2651,7 @@ function lbxSide(id,l){const lq=leadQuote(id,l),q=lq&&lq[1],busy=lbxBusy(l),t0=t
   const own=l.owner?`<b>${esc(l.ownerName||empName(l.owner)||'')}</b>${l.owner===S.uid?' <span class="muted">(אני)</span>':''}`:`<button class="btn sm pri" data-act="lbx-take" data-id="${id}">עוד לא נבחר · לקחת אותי</button>`;
   const bz=busy===null?'':!busy.length?`<div class="lbx-ok">✓ אין אירועים בלוח ב-${dm(l.date)}${l.venue?' ב'+esc(EV_VENUE[l.venue]||''):''}</div>`:`<div class="lbx-busy"><b>בלוח ב-${dm(l.date)}:</b> ${busy.map(b=>esc(b.sp)+' · '+(b.grp?'קבוצת מלון':b.ok?'סגור':'בהצעה')).join(' · ')}</div>`;
   return `<aside class="lbx-side card"><h3>פרטי ${leadCat(l)==='events'?'האירוע':'הפנייה'}</h3><dl class="lbx-dl">${kv('סוג',esc(String(l.type||'').replace(/_+/g,' ')))}${kv('תאריך',l.date?esc(dm(l.date)):'')}${kv('אורחים',gst?'⁦'+esc(gst)+'⁩':'')}${kv('מקום',esc(EV_VENUE[l.venue]||''))}${kv('סכום צפוי',+l.value?ils(l.value):'')}${kv('חברה',esc(l.company||''))}</dl>${bz}
-    <div class="lbx-box"><h3>הצעד הבא</h3><div>לחזור ללקוח: ${nx}</div><div class="lbx-nx">${[[0,'היום'],[1,'מחר'],[3,'בעוד 3 ימים'],[7,'בעוד שבוע']].map(([d,n])=>`<button class="btn sm ghost" data-act="lbx-next" data-id="${id}" data-v="${d}">${n}</button>`).join('')}</div></div>
+    ${leadCbHTML(id,l,true)}<div class="lbx-box"><h3>הצעד הבא</h3><div>לחזור ללקוח: ${nx}</div><div class="lbx-nx">${[[0,'היום'],[1,'מחר'],[3,'בעוד 3 ימים'],[7,'בעוד שבוע']].map(([d,n])=>`<button class="btn sm ghost" data-act="lbx-next" data-id="${id}" data-v="${d}">${n}</button>`).join('')}</div></div>
     <h3>מי מטפל</h3><div>${own}</div>
     ${leadCat(l)==='events'?`<h3>הצעת מחיר</h3><div>${q?`<b>#${esc(q.num||'')}</b> · ${esc({draft:'טיוטה',sent:'נשלחה',approved:'אושרה',declined:'נדחתה'}[q.status]||'')} · ${ils(quoteVal(q))}`:'<span class="muted">עוד אין הצעה</span>'}</div>`:''}
     ${l.tourAt&&l.tourAt>=t0?`<h3>סיור</h3><div><b>${DAYS[dow(l.tourAt)]} ${dm(l.tourAt)}${l.tourTime?' · '+esc(l.tourTime):''}</b></div>`:''}
@@ -2754,6 +2754,13 @@ function toursDayCardHTML(h,d,hideEmpty){const L=toursOf(h,d,d);if(L===undefined
   return `<div class="card"><h3>🗓 סיורים ${d===todayISO()?'היום':'ב-'+dm(d)} · ${L.length}</h3>${L.length?`<div class="plist">${L.map(([,t])=>tourRow(t)).join('')}</div>`:'<p class="muted" style="margin:0">אין סיורים ביום הזה.</p>'}</div>`}
 function toursGmCardHTML(h){const t0=todayISO(),L=toursOf(h,t0,addDays(t0,13));if(!L)return '';
   return `<div class="card"><h3>🗓 סיורים מתוכננים · ${L.length}</h3>${L.length?`<div class="plist">${L.map(([,t])=>tourRow(t,t.date===t0?'<span class="pill warn">היום</span> ':`יום ${DAYS[dow(t.date)]} ${dm(t.date)} · `)).join('')}</div>`:'<p class="muted" style="margin:0">אין סיורים בשבועיים הקרובים.</p>'}</div>`}
+// Adam's call-back (Nov 18, owner): the sales person sets the exact time → task in their schedule + a reminder 5 min before (server)
+function cbLeadSub(l){const ch=waIdOf(l&&l.phone);if(!ch)return null;S.cbL=S.cbL||{};const k='cbL:'+ch;if(!S.live[k]){S.live[k]=true;fdb.doc('adamCallbacks/'+ch).onSnapshot(s=>{S.cbL[ch]=s.exists?{id:ch,...s.data()}:null;render()},()=>{S.cbL[ch]=null})}return S.cbL[ch]}
+function leadCbHTML(id,l,box){if(!S.can.events)return '';const b=cbLeadSub(l);if(!b||b.status!=='pending')return '';
+  const asked=`יום ${DAYS[dow(b.date)]} ${dm(b.date)} ${esc(b.from||'')}${b.to?'–'+esc(b.to):''}`;
+  const ex=b.exact?`<div style="margin:4px 0"><b><span>✓ נקבע בלו״ז:</span> יום ${DAYS[dow(b.exactDate)]} ${dm(b.exactDate)} ${esc(b.exactHm||'')}</b> <small class="muted">· ${esc(b.exactByName||'')} · <span>תזכורת 5 דקות לפני</span></small></div>`:'<div style="margin:4px 0;color:var(--warn,#B45309)"><b>⚠️ עדיין לא נקבעה שעה מדויקת</b></div>';
+  const body=`<div class="muted"><span>הלקוח ביקש שיחזרו אליו:</span> ${asked}${b.note?' · '+esc(b.note):''}</div>${ex}<div class="row" style="align-items:flex-end"><label class="f">תאריך<input type="date" id="cb_d" min="${todayISO()}" value="${esc(b.exactDate||b.date||'')}"></label><label class="f">שעה<input type="time" id="cb_t" value="${esc(b.exactHm||b.from||'')}"></label></div><div class="actions"><button class="btn ${b.exact?'':'pri'} sm" data-act="cb-set" data-ch="${esc(b.id)}" data-lead="${esc(id)}">${b.exact?'עדכון השעה':'📅 קביעה בלו״ז שלי'}</button></div>`;
+  return box?`<div class="lbx-box"><h3>📞 שיחה שאדם קבע</h3>${body}</div>`:`<div class="sep"></div><h3>📞 שיחה שאדם קבע עם הלקוח</h3>${body}`}
 function leadToursHTML(id,l){if(!S.can.events)return '';const head='<div class="sep"></div><h3>🗓 סיור במקום</h3>';
   if(!l.venue)return head+'<p class="muted" style="margin:0">כדי לתאם סיור צריך לבחור מקום לליד ולשמור.</p>';
   const T=toursLeadSub(id,l.venue),L=Object.entries(T||{}).sort(([,a],[,b])=>(b.date+b.time).localeCompare(a.date+a.time));
@@ -2787,7 +2794,7 @@ ${isSpa?`<div class="f"><span>האם נסגר?</span><div class="chips" style="g
   <div class="actions"><button class="btn pri" data-act="lead-save">שמירה</button>${isNew?'':`${0?`<button class="btn" data-act="lead-spq" data-id="${id}">הצעת מחיר לספא</button>`:''}${(S.drafts.lead&&S.drafts.lead.cat||leadCat(l))!=='events'?'':`<button class="btn" data-act="lead-quote">${q?'פתיחת אפליקציית האירועים':'יצירת הצעת מחיר'}</button>`}<button class="btn ghost" data-act="lead-del">${S.confirm==='lead-del'?'לחיצה נוספת תמחק':'מחיקה'}</button>`}</div>
   ${isNew?'':`${isSpa?'':`<div class="sep"></div><h3>הצעת מחיר</h3>${q?`<p style="margin:0"><b>הצעה #${esc(q.num||'')}</b> · ${esc({draft:'טיוטה',sent:'נשלחה',approved:'אושרה',declined:'נדחתה'}[q.status]||'')} · ${ils(quoteVal(q))} לפני מע״מ</p><p class="muted" style="font-size:.82rem;margin:4px 0 0">השלב של הליד מתעדכן לבד לפי ההצעה.</p>`:'<p class="muted" style="margin:0">עוד אין הצעה. "יצירת הצעת מחיר" פותחת הצעה חדשה עם פרטי הליד. הצעה עם אותו טלפון מתחברת לבד.</p>'}
   ${S.can.events&&qOpts.length?`<label class="f" style="margin-top:8px">חיבור להצעה קיימת<select data-leadq="1"><option value="">${l.quoteId?'שינוי…':'בחירה…'}</option>${qOpts.map(([qid,x])=>`<option value="${qid}" ${l.quoteId===qid?'selected':''}>#${esc(x.num||'')} · ${esc((x.client&&x.client.name)||'')} · ${x.event&&x.event.date?dm(x.event.date):''}</option>`).join('')}</select></label>`:''}`}
-  ${leadToursHTML(id,l)}<div class="sep"></div><h3>משימות לליד</h3>${(()=>{tasksSub();const T=Object.entries(S.tasks||{}).filter(([,t])=>t.leadId===id);return (T.length?`<div class="plist">${T.map(([tid,t])=>taskRow(tid,t)).join('')}</div>`:'')+taskFormHTML(id)})()}
+  ${leadCbHTML(id,l)}${leadToursHTML(id,l)}<div class="sep"></div><h3>משימות לליד</h3>${(()=>{tasksSub();const T=Object.entries(S.tasks||{}).filter(([,t])=>t.leadId===id);return (T.length?`<div class="plist">${T.map(([tid,t])=>taskRow(tid,t)).join('')}</div>`:'')+taskFormHTML(id)})()}
   <div class="sep"></div><h3>פעילות</h3>
   <div class="row" style="align-items:flex-end"><label class="f" style="max-width:140px">סוג<select id="la_kind">${LEAD_ACTS.map(([k,n])=>`<option value="${k}">${n}</option>`).join('')}</select></label><label class="f" style="flex:3">מה היה<input type="text" id="la_text" placeholder="למשל: דיברנו, מחכה לאישור תקציב"></label><button class="btn" data-act="lead-act">הוספה</button></div>
   ${acts.length?`<div class="plist">${acts.map(a=>`<div class="prow"><span class="who"><b>${esc(LACT[a.kind]||'')}</b> ${esc(a.text||'')}<small class="muted">${new Date(a.at).toLocaleString('he-IL',{dateStyle:'short',timeStyle:'short'})} · ${esc(a.byName||'')}</small></span></div>`).join('')}</div>`:'<p class="muted" style="margin:0">עוד אין פעילות.</p>'}`}`}
@@ -5973,6 +5980,13 @@ const ACT={
     const owner=($('#tk_owner')||{}).value||S.uid,own=leadOwners(),l=D.lead?(S.leads||{})[D.lead]:null,id='t'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
     const t={title,due:($('#tk_due')||{}).value||'',owner,ownerName:own[owner]||'',leadId:D.lead||'',leadName:l?(l.name||''):'',venue:(l&&l.venue)||'',done:false,createdBy:S.uid,createdByName:S.meName||'',createdAt:Date.now()};
     S.tasks=S.tasks||{};S.tasks[id]=t;fdb.doc('tasks/'+id).set(t).then(()=>toast(owner===S.uid?'המשימה נוספה':'המשימה נשלחה ל'+(own[owner]||'')),e=>toast('השמירה נכשלה: '+errMsg(mapErr(e))));render()},
+  'cb-set':D=>{const d=($('#cb_d')||{}).value||'',t=($('#cb_t')||{}).value||'';if(!d||!/^\d{2}:\d{2}$/.test(t)){toast('צריך לבחור תאריך ושעה');return}
+    const at=new Date(d+'T'+t).getTime();if(!(at>Date.now()-5*60e3)){toast('השעה כבר עברה');return}
+    const l=(S.leads||{})[D.lead]||{},tid='tcb_'+D.ch;
+    fdb.doc('adamCallbacks/'+D.ch).update({exact:at,exactDate:d,exactHm:t,exactBy:S.uid,exactByName:S.meName||'',exactAt:Date.now(),taskId:tid,rem5:false}).then(()=>{
+      fdb.doc('tasks/'+tid).set({title:'📞 שיחה עם '+(l.name||'לקוח')+' · '+t,due:d,time:t,owner:S.uid,ownerName:S.meName||'',leadId:D.lead||'',leadName:l.name||'',venue:l.venue||'',done:false,createdBy:S.uid,createdByName:S.meName||'',createdAt:Date.now(),cb:D.ch}).catch(()=>{});
+      if(D.lead)fdb.doc('leads/'+D.lead).update({nextAt:d,updatedAt:Date.now()}).catch(()=>{});
+      toast('נקבע בלו״ז ✓ תזכורת תגיע 5 דקות לפני')},e=>toast('השמירה נכשלה: '+errMsg(mapErr(e))))},
   'task-del':D=>{delete S.tasks[D.id];fdb.doc('tasks/'+D.id).delete().catch(()=>{});render()},
   'lead-del':()=>{if(S.confirm!=='lead-del'){S.confirm='lead-del';render();return}const id=S.sheet.id;S.confirm=null;S.sheet=null;delete S.leads[id];fdb.doc('leads/'+id).delete().then(()=>toast('הליד נמחק'),e=>toast('המחיקה נכשלה: '+errMsg(mapErr(e))));render()},
   'tour-add':D=>{const id=D.id,l=(S.leads||{})[id];if(!l){toast('קודם שומרים את הליד');return}

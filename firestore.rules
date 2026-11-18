@@ -409,6 +409,13 @@ service cloud.firestore {
     }
     // hotel separation (Nov 5): a task is seen by its hotel (venue of its lead), its owner and its creator; no-venue tasks only by those two + chain roles
     function taskOk(d) { return leadVenueOk(d.get('venue', '')) || d.get('owner', '') == request.auth.uid || d.get('createdBy', '') == request.auth.uid; }
+    // Adam's scheduled call-backs (Nov 18): the sales person sets the exact time (server reminds 5 min before); doc id = the WhatsApp chat id
+    match /adamCallbacks/{c} {
+      allow get: if canEvents() && leadVenueOk(resource.data.get('venue', ''));
+      allow update: if canEvents() && leadVenueOk(resource.data.get('venue', '')) && resource.data.status == 'pending'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['exact', 'exactDate', 'exactHm', 'exactBy', 'exactByName', 'exactAt', 'taskId', 'rem5'])
+        && request.resource.data.exactBy == request.auth.uid && request.resource.data.exact is number && request.resource.data.get('rem5', false) == false;
+    }
     match /tasks/{id} {
       allow read, delete: if canEvents() && taskOk(resource.data);
       allow create: if canEvents() && request.resource.data.get('createdBy', '') == request.auth.uid && (request.resource.data.get('venue', '') == '' || leadVenueOk(request.resource.data.venue));

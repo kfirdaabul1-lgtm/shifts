@@ -396,10 +396,18 @@ async function cbSave(chat, leadId, a, src, name) {
   let date = C.isoOk(a.date) ? a.date : today, at = ilMs(date, from);
   if (!C.isoOk(a.date) && at < now - 15 * 60e3) { date = C.addDays(today, 1); at = ilMs(date, from); } // a time that already passed today = tomorrow
   if (at < now - 15 * 60e3 || at > now + 30 * 864e5) return { ok: false, error: 'the time must be in the next 30 days' };
-  let venue = '', lname = ''; if (leadId) { try { const l = (await db.doc('leads/' + leadId).get()).data() || {}; venue = l.venue || ''; lname = l.name || ''; } catch (e) { } }
+  let venue = '', lname = '', lowner = ''; if (leadId) { try { const l = (await db.doc('leads/' + leadId).get()).data() || {}; venue = l.venue || ''; lname = l.name || ''; lowner = l.owner || ''; } catch (e) { } }
+  const prev = (await db.doc('adamCallbacks/' + chat).get()).data() || {};
+  const same = prev.status === 'pending' && prev.date === date && prev.from === from && (prev.to || '') === to;
+  if (same) return { ok: true, date, from, to, when_text: `${date} ${from}${to ? '-' + to : ''}`, note: 'already scheduled' };
   await db.doc('adamCallbacks/' + chat).set({ chat, leadId: leadId || '', venue, name: lname, at, date, from, to, note: String(a.note || '').slice(0, 200), status: 'pending', src, createdAt: now });
   await db.doc('waChats/' + chat).set({ aiAgent: { cbAt: at } }, { merge: true });
   if (leadId) { try { await db.doc('leads/' + leadId).set({ nextAt: date, updatedAt: now, acts: admin.firestore.FieldValue.arrayUnion({ at: now, by: 'ai', byName: name || DEFAULTS.name, kind: 'note', text: `📞 הלקוח ביקש שיחזרו אליו ב-${date.split('-').reverse().slice(0, 2).join('/')} ${from}${to ? '–' + to : ''}${a.note ? ' · ' + String(a.note).slice(0, 120) : ''}` }) }, { merge: true }); } catch (e) { console.error('cb lead', e); } }
+  // owner, Nov 18: tell the sales person right away so they set the exact call time in their schedule (lead sheet "📞 שיחה שאדם קבע")
+  try {
+    const who = lname || 'לקוח', dd = date.split('-').reverse().slice(0, 2).join('/');
+    await require('./agent-ops.js')._t.sendPush(await cbPeople(venue, lowner), { title: '📞 ' + (name || DEFAULTS.name) + ' קבע שיחה עם ' + who, body: `הלקוח ביקש שיחזרו אליו ב-${dd} ${from}${to ? '–' + to : ''}. פתחו את הליד, קבעו שעה מדויקת ביומן ותקבלו תזכורת 5 דקות לפני.`, hash: leadId ? '#leads?lead=' + leadId : '#leads', tag: 'cbnew-' + chat });
+  } catch (e) { console.error('cb new push', e); }
   return { ok: true, date, from, to, when_text: `${date} ${from}${to ? '-' + to : ''}` };
 }
 // a customer's own words with a time range ("נוח לי בין 14:00 ל-18:00", "אחרי 17", "מחר ב-10") → from/to (+ tomorrow) without a model
@@ -421,19 +429,27 @@ async function cbPeople(venue, leadOwner) {
   try { const o = (await db.doc('orgcfg/main').get()).data() || {}; if (o.ownerEmail) { const u = await admin.auth().getUserByEmail(o.ownerEmail); if (u.emailVerified) out.add(u.uid); } } catch (e) { }
   return [...out];
 }
-exports.adamCallbackRun = functions.region(REGION).runWith({ timeoutSeconds: 300, memory: '512MB' }).pubsub.schedule('every 10 minutes').timeZone('Asia/Jerusalem').onRun(async () => {
+exports.adamCallbackRun = functions.region(REGION).runWith({ timeoutSeconds: 300, memory: '512MB' }).pubsub.schedule('every 1 minutes').timeZone('Asia/Jerusalem').onRun(async () => {
   const cfg = { ...DEFAULTS, ...(await C.cfg('reply')) }; if (cfg.callbacks === false) return null;
   const now = Date.now(), q = await db.collection('adamCallbacks').where('status', '==', 'pending').get();
   const push = require('./agent-ops.js')._t.sendPush;
   for (const d of q.docs) {
-    const b = d.data() || {}; if (+b.at > now) continue;
+    const b = d.data() || {}, T = +b.exact || +b.at;
+    // owner, Nov 18: an exact time set by the sales person → reminder to that person 5 minutes before
+    if (+b.exact && !b.rem5 && now >= b.exact - 5 * 60e3 && now < b.exact) {
+      await d.ref.set({ rem5: true, rem5At: now }, { merge: true });
+      let ln = b.name || 'לקוח'; try { if (b.leadId) ln = ((await db.doc('leads/' + b.leadId).get()).data() || {}).name || ln; } catch (e) { }
+      try { await push([b.exactBy], { title: '⏰ בעוד 5 דקות: שיחה עם ' + ln, body: `קבעת לדבר עם ${ln} ב-${b.exactHm || ''}. הטלפון בכרטיס הליד.`, hash: b.leadId ? '#leads?lead=' + b.leadId : '#leads', tag: 'cb5-' + b.chat }); } catch (e) { console.error('cb5 push', e); }
+      continue;
+    }
+    if (T > now) continue;
     await d.ref.set({ status: 'done', doneAt: now }, { merge: true });
     if (now - (+b.at || 0) > 6 * 3600e3) continue; // way too late (system was off): don't wake anyone
     const cref = db.doc('waChats/' + b.chat), c = (await cref.get()).data() || {};
     let lead = null; if (b.leadId) { try { const s = await db.doc('leads/' + b.leadId).get(); lead = s.exists ? s.data() : null; } catch (e) { } }
     if (lead && ['won', 'lost', 'junk'].includes(lead.stage)) continue;
     const who = (lead && lead.name) || c.name || b.name || 'לקוח';
-    try { await push(await cbPeople(b.venue || (lead && lead.venue) || '', lead && lead.owner), { title: '📞 לחזור עכשיו ללקוח · ' + who, body: `הלקוח ביקש שיחזרו אליו ${b.from}${b.to ? '–' + b.to : ''}${b.note ? ' · ' + b.note : ''}. הטלפון בכרטיס הליד.`, hash: b.leadId ? '#leads?lead=' + b.leadId : '#leads', tag: 'cb-' + b.chat }); } catch (e) { console.error('cb push', e); }
+    try { await push(+b.exact && b.exactBy ? [b.exactBy] : await cbPeople(b.venue || (lead && lead.venue) || '', lead && lead.owner), { title: '📞 לחזור עכשיו ללקוח · ' + who, body: +b.exact ? `קבעת לדבר עכשיו (${b.exactHm || ''}) עם ${who}. הטלפון בכרטיס הליד.` : `הלקוח ביקש שיחזרו אליו ${b.from}${b.to ? '–' + b.to : ''}${b.note ? ' · ' + b.note : ''}. הטלפון בכרטיס הליד.`, hash: b.leadId ? '#leads?lead=' + b.leadId : '#leads', tag: 'cb-' + b.chat }); } catch (e) { console.error('cb push', e); }
     // Adam writes too, only inside the free-text window and when no person took the chat
     const ai = c.aiAgent || {};
     if (cfg.enabled === true && cfg.mode === 'auto' && !c.agent && !ai.off && !ai.skip && +c.lastInAt && now - c.lastInAt < 23.5 * 3600e3) {

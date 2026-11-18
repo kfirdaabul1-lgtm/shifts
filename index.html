@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="i18n.js?v=202611181100"></script>
+<script src="i18n.js?v=202611181900"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -2472,7 +2472,7 @@ function adRepHTML(key,hs,W){if(!hs.length)return '';S.adSel=S.adSel||{};const s
   </div>`}
 // revenue of a weekly campaign report = won leads of the same campaign name closed that week (local date); falls back to the manual field (owner, Nov 7)
 const locISO=t=>{const d=new Date(t||0);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`};
-const campRev=c=>{const n=String(c.name||'').trim(),w=campWeek(c);let s=0;if(n)for(const l of Object.values(S.leads||{}))if(l.stage==='won'&&String(l.campaign||'').trim()===n&&weekOf(locISO(l.wonAt||l.updatedAt))===w)s+=+l.wonValue||+l.value||0;return s||+c.revenue||0};
+const campRev=c=>{const n=String(c.name||'').trim(),w=campWeek(c);let s=0;if(n)for(const l of Object.values(S.leads||{}))if(l.stage==='won'&&leadCat(l)!=='jobs'&&String(l.campaign||'').trim()===n&&weekOf(locISO(l.wonAt||l.updatedAt))===w)s+=+l.wonValue||+l.value||0;return s||+c.revenue||0};
 function vMkt(){liveColl('camps','campaigns');leadsSub();
   const f=S.mktF||(S.mktF={pl:'all',view:'week'}),W=S.mktW||(S.mktW=weekOf(todayISO()));
   const all=Object.entries(S.camps||{}).filter(([,c])=>f.pl==='all'||c.platform===f.pl);
@@ -2515,7 +2515,12 @@ function sheetCamp(){const id=S.sheet.id,c=(S.camps||{})[id]||{},g=k=>dv('camp',
    Stages follow the linked quote automatically (quote.leadId, or the same phone): sent → quote, approved → won, declined → lost.
    "יצירת הצעת מחיר" hands the lead to events.html through localStorage (sc_leadPrefill) and the saved quote keeps leadId. */
 const LEAD_STAGES=[['new','ליד חדש'],['contacted','נוצר קשר'],['meeting','פגישה / סיור'],['quote','נשלחה הצעה'],['won','נסגר'],['lost','לא נסגר'],['junk','לא רלוונטי']];
-const LSTG=Object.fromEntries(LEAD_STAGES),LSTG_I=Object.fromEntries(LEAD_STAGES.map(([k],i)=>[k,i]));
+// hiring leads (owner, Nov 18, patch leads-jobs): own stages; hired = the only "success" stage, no employee is created
+const JOB_STAGES=[['new','מועמד חדש'],['contacted','נוצר קשר'],['interview','ראיון'],['trial','ניסיון'],['hired','התקבל'],['rejected','לא התקבל'],['junk','לא רלוונטי']];
+const JSTG=Object.fromEntries(JOB_STAGES),JOB_OPEN=['new','contacted','interview','trial'];
+const JOB_TITLES=['חדרנית','קבלה','מלצר/ית','בר','מטבח','אחזקה','שטחים ציבוריים','ניקיון'];
+const LSTG={...Object.fromEntries(JOB_STAGES),...Object.fromEntries(LEAD_STAGES)},LSTG_I=Object.fromEntries(LEAD_STAGES.map(([k],i)=>[k,i]));
+const stgName=(l,s)=>(leadCat(l)==='jobs'?JSTG[s]:null)||LSTG[s]||s||'';
 const LEAD_SRC=[['arsona','ארסונה'],['instagram','אינסטגרם'],['facebook','פייסבוק'],['google','גוגל'],['tiktok','טיקטוק'],['website','אתר'],['whatsapp','וואטסאפ'],['phone','טלפון'],['email','מייל'],['referral','המלצה'],['returning','לקוח חוזר'],['walkin','הגיע למקום'],['other','אחר']];
 const LSRC=Object.fromEntries(LEAD_SRC);
 const LEAD_ACTS=[['call','שיחה'],['whatsapp','וואטסאפ'],['email','מייל'],['meeting','פגישה / סיור'],['note','הערה']];
@@ -2525,10 +2530,13 @@ const qTime=q=>typeof q.createdAt==='number'?q.createdAt:(Date.parse(q.createdAt
 const leadTel=p=>String(p||'').replace(/\D/g,'').replace(/^972/,'0').slice(-9);
 // three kinds of leads (owner, Nov 2): events / rooms / spa. A lead's kind = its own `cat`, else the kind its campaign is mapped to
 // (leadcats/main.campCat {campaign name: cat}, set on the leads page), else a guess from the campaign/type/notes words, else events.
-const LEAD_CAT=[['events','אירועים','🎉'],['rooms','חדרים','🛏️'],['spa','ספא','💆'],['bride','התארגנות כלה','👰']],LCAT=Object.fromEntries(LEAD_CAT.map(([k,n])=>[k,n]));
+const LEAD_CAT=[['events','אירועים','🎉'],['rooms','חדרים','🛏️'],['spa','ספא','💆'],['bride','התארגנות כלה','👰'],['jobs','גיוס עובדים','🧑‍💼']],LCAT=Object.fromEntries(LEAD_CAT.map(([k,n])=>[k,n]));
 // lead kinds a person sees (owner, Nov 8): roles/{uid}.leadCats, empty = all; the owner always sees all
-const myLeadCats=()=>{const all=LEAD_CAT.map(x=>x[0]);if(S.isOwner)return all;const c=((S.role&&S.role.leadCats)||[]).filter(k=>LCAT[k]);return c.length?c:all};
-function leadCatGuess(t){t=String(t||'');if(/כלה|כלות|התארגנות|bride|bridal/i.test(t))return 'bride';if(/ספא|spa|עיסוי|massage|טיפולי|טיפול זוגי|wellness/i.test(t))return 'spa';if(/חדר|חדרים|room|לינה|נופש|חופש|stay|night|לילה|לילות|סוויט|suite|booking|הזמנת מלון/i.test(t))return 'rooms';return ''}
+// jobs (hiring) only when listed explicitly: an empty leadCats = every kind EXCEPT jobs (owner, Nov 18; rules enforce it too)
+const myLeadCats=()=>{const all=LEAD_CAT.map(x=>x[0]);if(S.isOwner)return all;const c=((S.role&&S.role.leadCats)||[]).filter(k=>LCAT[k]);return c.length?c:all.filter(k=>k!=='jobs')};
+const myJobs=()=>myLeadCats().includes('jobs');
+const JOBS_RE=/גיוס|דרוש|דרושים|משרה|משרות|קורות חיים|הגשת מועמדות|לעבוד אצלנו|job|jobs|hiring|career|recruit/i;
+function leadCatGuess(t){t=String(t||'');if(JOBS_RE.test(t))return 'jobs';if(/כלה|כלות|התארגנות|bride|bridal/i.test(t))return 'bride';if(/ספא|spa|עיסוי|massage|טיפולי|טיפול זוגי|wellness/i.test(t))return 'spa';if(/חדר|חדרים|room|לינה|נופש|חופש|stay|night|לילה|לילות|סוויט|suite|booking|הזמנת מלון/i.test(t))return 'rooms';return ''}
 function campCatOf(name){name=String(name||'').trim();if(!name)return '';const m=(S.leadCats&&S.leadCats.campCat)||{};return m[name]||leadCatGuess(name)}
 function leadCat(l){if(l.cat&&LCAT[l.cat])return l.cat;return campCatOf(l.campaign)||leadCatGuess([l.type,l.notes].join(' '))||'events'}
 function leadCatsLive(){if(S.live.leadCats)return;S.live.leadCats=true;fdb.doc('leadcats/main').onSnapshot(d=>{S.leadCats=d.exists?d.data():{};render()},()=>{S.leadCats={}})}
@@ -2539,7 +2547,7 @@ function leadCatCardHTML(){const m=(S.leadCats&&S.leadCats.campCat)||{},camps=le
 document.addEventListener('change',e=>{const t=e.target;if(!t.matches||!t.matches('[data-leadcat]'))return;const name=t.dataset.leadcat,v=t.value;
   S.leadCats=S.leadCats||{};S.leadCats.campCat={...(S.leadCats.campCat||{}),[name]:v};
   fdb.doc('leadcats/main').set({campCat:{[name]:v?v:firebase.firestore.FieldValue.delete()},updatedAt:Date.now(),by:S.uid},{merge:true}).then(()=>{toast('הקמפיין שויך ל'+(v?LCAT[v]:'זיהוי אוטומטי'));render()},err=>toast('לא נשמר: '+errMsg(mapErr(err))))});
-const leadOpen=l=>l.stage!=='won'&&l.stage!=='lost'&&l.stage!=='junk';
+const leadOpen=l=>!['won','lost','junk','hired','rejected'].includes(l.stage);
 const leadLate=l=>leadOpen(l)&&l.nextAt&&l.nextAt<=todayISO();
 // leads are separated per hotel (owner, Nov 1): a role scoped to hotels sees only leads whose venue is in those hotels' settings.venues,
 // plus leads with no venue yet (venue ''), so someone can pick them up; owner and all-hotel roles (hotels []) see everything. Rules enforce it (leadVenueOk).
@@ -2547,9 +2555,16 @@ function leadScope(){if(S.isOwner)return null;const hs=(S.role&&S.role.hotels)||
 async function leadScopeLoad(){S.settingsAll=S.settingsAll||{};for(const h of (S.role&&S.role.hotels)||[]){if(!S.settingsAll[h]){try{const d=await S.db.doc('settings/'+h).get();S.settingsAll[h]=d.exists?d.data():{}}catch(_){}}}}
 function leadsLive(){if(S.live.leads)return;S.live.leads=true;S.leads=S.leads||{};
   // scoped: one equality listener per venue so the rules can check each query; results merged. Leads with no venue ('') are seen only by owner + chain (all-hotel) roles until someone sets the place (owner, Nov 3)
-  (async()=>{if(!S.isOwner)await leadScopeLoad();const vs=leadScope(),col=S.db.collection('leads');
-    if(!vs){col.onSnapshot(x=>{S.leads=docsMap(x);S.leadsReady=true;waApply();render()},e=>{S.leadsErr=errMsg(mapErr(e));render()});return}
-    const parts={},keys=[...vs];if(!keys.length){S.leads={};S.leadsReady=true;waApply();render();return}keys.forEach(v=>col.where('venue','==',v).onSnapshot(x=>{parts[v]=docsMap(x);if(keys.every(k=>parts[k])){S.leads=Object.assign({},...keys.map(k=>parts[k]));S.leadsReady=true;waApply();render()}},e=>{S.leadsErr=errMsg(mapErr(e));render()}))})()}
+  // hiring leads (cat 'jobs', Nov 18): everyone except the owner queries with cat in [non-jobs kinds] so the rules can prove no jobs doc is read,
+  // and only people with 'jobs' in leadCats add a separate cat=='jobs' query (scoped: jobHotel in their hotels or '').
+  (async()=>{if(!S.isOwner)await leadScopeLoad();const vs=leadScope(),col=S.db.collection('leads'),parts={},keys=[];
+    const done=()=>{if(keys.every(k=>parts[k])){S.leads=Object.assign({},...keys.map(k=>parts[k]));S.leadsReady=true;waApply();render()}};
+    const lis=(k,q)=>{keys.push(k);q.onSnapshot(x=>{parts[k]=docsMap(x);done()},e=>{S.leadsErr=errMsg(mapErr(e));render()})};
+    if(S.isOwner){col.onSnapshot(x=>{S.leads=docsMap(x);S.leadsReady=true;waApply();render()},e=>{S.leadsErr=errMsg(mapErr(e));render()});return}
+    const NJ=LEAD_CAT.map(x=>x[0]).filter(k=>k!=='jobs').concat(['']),base=col.where('cat','in',NJ);
+    if(!vs)lis('all',base);else vs.forEach(v=>lis('v:'+v,base.where('venue','==',v)));
+    if(myJobs()){const hs=(S.role&&S.role.hotels)||[];lis('jobs',hs.length?col.where('cat','==','jobs').where('jobHotel','in',[...hs.slice(0,29),'']):col.where('cat','==','jobs'))}
+    if(!keys.length){S.leads={};S.leadsReady=true;waApply();render()}})()}
 const leadVenueOpts=()=>{const vs=leadScope();return Object.entries(EV_VENUE).filter(([k])=>!vs||vs.includes(k))};
 function waApply(){const sc=leadScope(),raw=S.waChatsRaw||{};S.waChats=sc?Object.fromEntries(Object.entries(raw).filter(([,c])=>!c.leadId||(S.leads||{})[c.leadId])):raw}
 // quotes for the leads page: scoped to the user's hotels' venues like everywhere else (quotesQ; owner/ceo/chain-wide = all)
@@ -2571,11 +2586,14 @@ function leadsSync(){if(!S.can.events||!S.lquotesReady||!S.leadsReady)return;con
     if(Object.keys(up).length){up.updatedAt=now;S.leads[id]={...l,...up};fdb.doc('leads/'+id).set(up,{merge:true}).catch(()=>{})}}}
 function leadSave(){const id=S.sheet.id,l=(S.leads||{})[id]||{},d=S.drafts.lead||{},isNew=!(S.leads||{})[id],v=k=>d[k]!==undefined?d[k]:l[k];
   const name=String(v('name')||'').trim();if(!name){toast('צריך למלא שם');return}
-  if(leadScope()&&!v('venue')){toast('צריך לבחור מקום. ליד בלי מקום רואים רק עובדי הרשת.');return}
+  const isJob=(d.cat||leadCat(l))==='jobs';
+  if(!isJob&&leadScope()&&!v('venue')){toast('צריך לבחור מקום. ליד בלי מקום רואים רק עובדי הרשת.');return}
   const own=leadOwners(),owner=v('owner')||'',now=Date.now(),stage=v('stage')||'new';
   const o={name,phone:String(v('phone')||'').trim(),email:String(v('email')||'').trim(),company:String(v('company')||'').trim(),type:String(v('type')||'').trim(),date:v('date')||'',guests:+v('guests')||0,venue:v('venue')||'',
     source:v('source')||'',campaign:String(v('campaign')==='__other'?(v('campOther')||''):(v('campaign')||'')).trim(),stage,owner,ownerName:owner?(own[owner]||(owner===l.owner?l.ownerName:'')||''):'',nextAt:v('nextAt')||'',value:+v('value')||0,notes:String(v('notes')||''),lostReason:stage==='lost'?(v('lostReason')||''):'',updatedAt:now};
   if(d.cat!==undefined||isNew)o.cat=d.cat||leadCat(l.name?l:{...l,campaign:o.campaign,type:o.type,notes:o.notes})||'events';
+  if(isJob){o.cat='jobs';o.job=String(v('job')||'').trim().slice(0,60);o.jobHotel=v('jobHotel')||'';o.jobDept=v('jobDept')||'';o.venue='';o.value=0;o.lostReason='';if(!JSTG[stage])o.stage='new'}
+  else if(!o.cat)o.cat=l.cat||'';
   if(stage==='won'&&l.stage!=='won')o.wonAt=now;
   if(stage==='won'&&o.value&&(!+l.wonValue||+l.wonValue===+l.value))o.wonValue=o.value; // closed = the amount is real revenue (Nov 7)
   if(d.guests!==undefined)o.guestsTxt='';
@@ -2586,7 +2604,7 @@ function leadSave(){const id=S.sheet.id,l=(S.leads||{})[id]||{},d=S.drafts.lead|
 function leadMove(id,s){const l=(S.leads||{})[id];if(!l||(l.stage||'new')===s)return;const now=Date.now(),from=l.stage||'new';
   const up={stage:s,updatedAt:now,acts:[...(l.acts||[]),{at:now,by:S.uid,byName:S.meName||empName(S.uid)||'',kind:'note',text:'שלב: '+(LSTG[from]||from)+' ← '+(LSTG[s]||s)}]};
   if(s==='won'&&!l.wonAt){up.wonAt=now;if(!+l.wonValue&&+l.value)up.wonValue=+l.value}if(s!=='lost')up.lostReason='';
-  S.leads[id]={...l,...up};render();fdb.doc('leads/'+id).set(up,{merge:true}).then(()=>{toast('הועבר ל"'+(LSTG[s]||s)+'"');if(s==='lost'){S.drafts.lead={stage:'lost'};S.sheet={type:'lead',id};render()}},e=>toast('לא הצלחתי: '+errMsg(mapErr(e))))}
+  S.leads[id]={...l,...up};render();fdb.doc('leads/'+id).set(up,{merge:true}).then(()=>{toast('הועבר ל"'+stgName(l,s)+'"');if(s==='lost'){S.drafts.lead={stage:'lost'};S.sheet={type:'lead',id};render()}},e=>toast('לא הצלחתי: '+errMsg(mapErr(e))))}
 document.addEventListener('input',e=>{const t=e.target;if(t.matches&&t.matches('.wac-in textarea')){t.style.height='auto';t.style.height=Math.min(140,t.scrollHeight)+'px'}});
 document.addEventListener('dragstart',e=>{const c=e.target.closest&&e.target.closest('[data-ldrag]');if(!c)return;S.ldrag=c.dataset.ldrag;c.classList.add('dragging');try{e.dataTransfer.setData('text/plain',S.ldrag);e.dataTransfer.effectAllowed='move'}catch(_){}});
 document.addEventListener('dragend',()=>{S.ldrag=null;document.querySelectorAll('.lead-card.dragging,.lead-col.drop').forEach(x=>x.classList.remove('dragging','drop'))});
@@ -2664,8 +2682,8 @@ function lpermHTML(){if(!lpermOk())return '<div class="notice">רק מי שמנ�
   const rows=Object.entries(R).filter(([u,r])=>r&&!r.station&&r.apps&&r.apps.events).map(([u,r])=>[u,r,r.name||empName(u)||'']).sort((a,b)=>a[2].localeCompare(b[2],'he'));
   const body=rows.length?rows.map(([u,r,nm])=>{const lc=(r.leadCats||[]).filter(k=>LCAT[k]),all=!lc.length,hs=(r.hotels||[]).length?(r.hotels||[]).map(hotelName).join(', '):'כל הרשת';
     return `<div class="prow" style="flex-wrap:wrap;gap:8px"><span class="who"><b>${esc(nm)}</b><small>${esc(r.jobName||'')}${r.jobName?' · ':''}${esc(hs)}</small></span>
-      <span class="chips" data-nosel style="gap:6px"><button class="dchip ${all?'':'off'}" data-act="lperm-t" data-u="${esc(u)}" data-k="">כל התחומים</button>${LEAD_CAT.map(([k,n,ic])=>`<button class="dchip ${!all&&lc.includes(k)?'':'off'}" data-act="lperm-t" data-u="${esc(u)}" data-k="${k}">${ic} ${n}</button>`).join('')}</span></div>`}).join(''):'<p class="muted">עוד אין אנשים עם הרשאת אירועים ולידים.</p>';
-  return `<div class="card"><h3>🔑 מי רואה אילו לידים</h3><p class="muted" style="font-size:.88rem;margin-top:0">מסמנים לכל אחד את סוגי הלידים שהוא מטפל בהם. הוא יראה רק אותם בעמוד הלידים ובוואטסאפ, ויקבל התראות רק עליהם. "כל התחומים" = רואה הכל. ההרשאה לעמוד עצמו ניתנת בהגדרות הרשת.</p><div class="plist">${body}</div></div>`}
+      <span class="chips" data-nosel style="gap:6px"><button class="dchip ${all?'':'off'}" data-act="lperm-t" data-u="${esc(u)}" data-k="">כל התחומים (בלי גיוס)</button>${LEAD_CAT.map(([k,n,ic])=>`<button class="dchip ${!all&&lc.includes(k)?'':'off'}" data-act="lperm-t" data-u="${esc(u)}" data-k="${k}">${ic} ${n}</button>`).join('')}</span></div>`}).join(''):'<p class="muted">עוד אין אנשים עם הרשאת אירועים ולידים.</p>';
+  return `<div class="card"><h3>🔑 מי רואה אילו לידים</h3><p class="muted" style="font-size:.88rem;margin-top:0">מסמנים לכל אחד את סוגי הלידים שהוא מטפל בהם. הוא יראה רק אותם בעמוד הלידים ובוואטסאפ, ויקבל התראות רק עליהם. "כל התחומים" = רואה הכל חוץ מגיוס עובדים: את לידי הגיוס רואים רק מי שסומן להם "גיוס עובדים". ההרשאה לעמוד עצמו ניתנת בהגדרות הרשת.</p><div class="plist">${body}</div></div>`}
 // counts only the lead kinds the person sees (owner, Nov 8: a spa-only employee saw "(4)" from events leads)
 const myCatOk=l=>!l||myLeadCats().includes(leadCat(l));
 const myTasksDue=()=>Object.values(S.tasks||{}).filter(t=>!t.done&&t.owner===S.uid&&t.due&&t.due<=todayISO()&&myCatOk(t.leadId&&(S.leads||{})[t.leadId])).length;
@@ -2673,14 +2691,15 @@ const myLateLeads=()=>Object.values(S.leads||{}).filter(l=>l.owner===S.uid&&lead
 function vLeads(){leadsSub();tasksSub();waSub();leadCatsLive();leadsSync();const f=S.leadF||(S.leadF={view:'box',own:'all',src:'all',q:''});const mlc=myLeadCats();if(!mlc.includes(f.cat))f.cat=mlc[0];const cat=f.cat;
   const catN=k=>Object.values(S.leads||{}).filter(l=>leadCat(l)===k&&leadOpen(l)).length,catNew=k=>Object.values(S.leads||{}).filter(l=>leadCat(l)===k&&(l.stage||'new')==='new').length;
   const catBar=`<div class="lead-cats">${LEAD_CAT.filter(([k])=>mlc.includes(k)).map(([k,n,i])=>`<button class="lead-cat ${cat===k?'on':''}" data-act="lead-catv" data-v="${k}"><span>${i}</span><b>${n}</b><small>${f.view==='wa'?`💬 ${waUnreadCat(k)?`<i>${waUnreadCat(k)} לא נקראו</i>`:'אין חדשות'}`:`${catN(k)} פתוחים${catNew(k)?` · <i>${catNew(k)} חדשים</i>`:''}`}</small></button>`).join('')}</div>`;
-  const head=`<section class="head"><div class="head-t"><h1>לידים ומכירות</h1><span class="row" style="gap:6px;flex-wrap:wrap"><button class="btn" data-act="qlead-new">⚡ ליד מהיר מוואטסאפ</button><button class="btn pri" data-act="lead-new">+ ליד חדש · ${LCAT[cat]}</button></span></div>${catBar}
-    <div class="chips" style="gap:6px;margin-top:8px"><button class="dchip ${f.view==='box'?'':'off'}" data-act="lead-view" data-v="box">תיבת עבודה</button><button class="dchip ${f.view==='pipe'?'':'off'}" data-act="lead-view" data-v="pipe">פייפליין</button><button class="dchip ${f.view==='list'?'':'off'}" data-act="lead-view" data-v="list">רשימה</button>${cat==='events'?`<button class="dchip ${f.view==='clients'?'':'off'}" data-act="lead-view" data-v="clients">לקוחות</button>`:''}<button class="dchip ${f.view==='tasks'?'':'off'}" data-act="lead-view" data-v="tasks">משימות${myTasksDue()?` (${myTasksDue()})`:''}</button><button class="dchip ${f.view==='sales'?'':'off'}" data-act="lead-view" data-v="sales">דשבורד מכירות</button><button class="dchip ${f.view==='wa'?'':'off'}" data-act="lead-view" data-v="wa">💬 וואטסאפ${waUnread()?` (${waUnread()})`:''}</button><button class="dchip ${f.view==='auto'?'':'off'}" data-act="lead-view" data-v="auto">⚡ אוטומציות</button>
-    ${f.view==='wa'||f.view==='auto'?'':`    <select data-leadf="own" style="width:auto"><option value="all">כל המטפלים</option><option value="me" ${f.own==='me'?'selected':''}>רק שלי</option><option value="none" ${f.own==='none'?'selected':''}>ללא מטפל</option></select>
+  const head=`<section class="head"><div class="head-t"><h1>לידים ומכירות</h1><span class="row" style="gap:6px;flex-wrap:wrap"><button class="btn" data-act="qlead-new">⚡ ליד מהיר מוואטסאפ</button><button class="btn pri" data-act="lead-new">${cat==='jobs'?'+ מועמד חדש':'+ ליד חדש · '+LCAT[cat]}</button></span></div>${catBar}
+    <div class="chips" style="gap:6px;margin-top:8px">${cat==='jobs'?`<button class="dchip ${['box','pipe','list','clients','sales'].includes(f.view)?'':'off'}" data-act="lead-view" data-v="box">משרות ומועמדים</button>`:`<button class="dchip ${f.view==='box'?'':'off'}" data-act="lead-view" data-v="box">תיבת עבודה</button><button class="dchip ${f.view==='pipe'?'':'off'}" data-act="lead-view" data-v="pipe">פייפליין</button><button class="dchip ${f.view==='list'?'':'off'}" data-act="lead-view" data-v="list">רשימה</button>`}${cat==='events'?`<button class="dchip ${f.view==='clients'?'':'off'}" data-act="lead-view" data-v="clients">לקוחות</button>`:''}<button class="dchip ${f.view==='tasks'?'':'off'}" data-act="lead-view" data-v="tasks">משימות${myTasksDue()?` (${myTasksDue()})`:''}</button>${cat==='jobs'?'':`<button class="dchip ${f.view==='sales'?'':'off'}" data-act="lead-view" data-v="sales">דשבורד מכירות</button>`}<button class="dchip ${f.view==='wa'?'':'off'}" data-act="lead-view" data-v="wa">💬 וואטסאפ${waUnread()?` (${waUnread()})`:''}</button><button class="dchip ${f.view==='auto'?'':'off'}" data-act="lead-view" data-v="auto">⚡ אוטומציות</button>
+    ${f.view==='wa'||f.view==='auto'||cat==='jobs'?'':`    <select data-leadf="own" style="width:auto"><option value="all">כל המטפלים</option><option value="me" ${f.own==='me'?'selected':''}>רק שלי</option><option value="none" ${f.own==='none'?'selected':''}>ללא מטפל</option></select>
     <select data-leadf="ven" style="width:auto"><option value="all">כל המקומות</option>${leadVenueOpts().map(([k,n])=>`<option value="${k}" ${f.ven===k?'selected':''}>${esc(n)}</option>`).join('')}${leadScope()?'':`<option value="none" ${f.ven==='none'?'selected':''}>מקום לא ידוע</option>`}</select>
     <select data-leadf="src" style="width:auto"><option value="all">כל המקורות</option>${LEAD_SRC.map(([k,n])=>`<option value="${k}" ${f.src===k?'selected':''}>${n}</option>`).join('')}</select>
     <input type="search" data-leadf="q" value="${esc(f.q||'')}" placeholder="חיפוש לפי שם, טלפון או חברה" style="max-width:240px">`}</div></section>`;
   if(S.leadsErr)return wrap(head+`<div class="notice">לא הצלחתי לטעון: ${esc(S.leadsErr)}</div>`);
   if(!S.leadsReady)return wrap(head+'<p class="muted">טוען…</p>');
+  if(cat==='jobs'&&!['wa','auto','tasks'].includes(f.view))return wrap(head+jobsBoardHTML());
   const q=String(f.q||'').trim().toLowerCase(),qt=leadTel(q);
   let all=Object.entries(S.leads||{}).filter(([,l])=>leadCat(l)===cat&&(f.own!=='me'||l.owner===S.uid)&&(f.own!=='none'||!l.owner)&&(f.src==='all'||l.source===f.src)&&(!f.ven||f.ven==='all'||(f.ven==='none'?!l.venue:l.venue===f.ven))&&(!q||[l.name,l.company,l.email].some(x=>String(x||'').toLowerCase().includes(q))||(qt.length>=4&&leadTel(l.phone).includes(qt))));
   all.sort(([,a],[,b])=>(b.updatedAt||b.createdAt||0)-(a.updatedAt||a.createdAt||0));
@@ -2728,11 +2747,11 @@ function qleadSave(force){const d=S.drafts.lead||{},name=String(d.name||'').trim
   if(!name&&!phone){toast('צריך שם או טלפון');return}
   if(phone&&leadTel(phone).length<9){toast('מספר הטלפון לא נראה תקין');return}
   const vs=leadVenueOpts(),venue=d.venue||(leadScope()&&vs.length===1?vs[0][0]:'');
-  if(leadScope()&&!venue){toast('צריך לבחור מקום');return}
+  if(d.cat!=='jobs'&&leadScope()&&!venue){toast('צריך לבחור מקום');return}
   const dup=qleadDup(phone);if(dup&&!force&&S.confirm!=='qlead'){S.confirm='qlead';renderSheet();toast('יש כבר ליד עם המספר הזה. לחיצה נוספת תפתח ליד חדש בכל זאת');return}
   const now=Date.now(),id='l'+now.toString(36)+Math.random().toString(36).slice(2,6),campaign=String(d.campaign==='__other'?(d.campOther||''):(d.campaign||'')).trim();
   const o={name:name||phone,phone,email:'',company:'',type:'',date:'',guests:0,venue,source:'whatsapp',campaign,stage:'new',owner:'',ownerName:'',nextAt:todayISO(),value:0,notes:String(d.notes||'').trim(),
-    cat:d.cat||'events',createdAt:now,createdBy:S.uid,updatedAt:now,acts:[{at:now,by:S.uid,byName:S.meName||empName(S.uid)||'',kind:'whatsapp',text:'פנייה בוואטסאפ (ליד מהיר)'}]};
+    cat:d.cat||'events',...(d.cat==='jobs'?{venue:'',jobHotel:'',job:''}:{}),createdAt:now,createdBy:S.uid,updatedAt:now,acts:[{at:now,by:S.uid,byName:S.meName||empName(S.uid)||'',kind:'whatsapp',text:'פנייה בוואטסאפ (ליד מהיר)'}]};
   S.leads=S.leads||{};S.leads[id]=o;S.drafts.lead=null;S.confirm=null;S.sheet=null;render();
   fdb.doc('leads/'+id).set(o).then(()=>toast('הליד נפתח'),e=>{delete S.leads[id];render();toast('השמירה נכשלה: '+errMsg(mapErr(e)))})}
 function leadCampHTML(g){const wk={};for(const c of Object.values(S.camps||{})){const n=String(c.name||'').trim();if(n){const w=campWeek(c);if(!wk[n]||w>wk[n])wk[n]=w}}
@@ -2769,14 +2788,48 @@ function leadToursHTML(id,l){if(!S.can.events)return '';const head='<div class="
   <label class="f">הערה לסיור (לא חובה)<input type="text" data-f="tour.n" value="${esc(dv('tour','n',''))}" placeholder="למשל: מגיעים 4 אנשים, להראות את הגג"></label>
   <div class="actions"><button class="btn pri" data-act="tour-add" data-id="${id}">📅 תיאום סיור</button></div>
   <p class="muted" style="font-size:.8rem;margin:4px 0 0">ביום הסיור הוא יופיע בבריף היומי, בעמוד מנהל המלון ובקבלה, ותישלח תזכורת לך, לקבלה ולמנהל המלון.</p>`}
+// hiring board (owner chose sketch ב, Nov 18): one card per job + hotel, rows = candidates with a stage tag
+const JOB_TAG={new:'#2563EB',contacted:'#15803D',interview:'#15803D',trial:'#EA580C',hired:'#15803D',rejected:'#6B7280',junk:'#6B7280'};
+function jobTag(st){st=st||'new';return `<span class="pill" style="background:${JOB_TAG[st]||'#6B7280'};color:#fff">${st==='hired'?'✓ ':''}${esc(JSTG[st]||st)}</span>`}
+function jobsBoardHTML(){const F=S.jobF||(S.jobF={st:'act',h:'all'}),L=Object.entries(S.leads||{}).filter(([,l])=>leadCat(l)==='jobs');
+  const inSt=l=>{const st=l.stage||'new';return F.st==='act'?JOB_OPEN.includes(st):F.st==='hired'?st==='hired':['rejected','junk'].includes(st)};
+  const hs=[...new Set(L.map(([,l])=>l.jobHotel||'').filter(Boolean))],cnt=k=>L.filter(([,l])=>{const st=l.stage||'new';return k==='act'?JOB_OPEN.includes(st):k==='hired'?st==='hired':['rejected','junk'].includes(st)}).length;
+  const rows=L.filter(([,l])=>inSt(l)&&(F.h==='all'||(l.jobHotel||'')===F.h)),G={};
+  for(const [id,l] of rows){const job=String(l.job||'').trim(),h=l.jobHotel||'',k=job&&h?job+'|'+h:'__none';(G[k]=G[k]||[]).push([id,l])}
+  const keys=Object.keys(G).sort((a,b)=>a==='__none'?1:b==='__none'?-1:a.localeCompare(b,'he'));
+  const chips=`<div class="chips" data-nosel style="gap:6px;margin-bottom:10px">${[['act','פעילים'],['hired','התקבלו'],['out','לא התקבלו']].map(([k,n])=>`<button class="dchip ${F.st===k?'':'off'}" data-act="job-f" data-k="st" data-v="${k}">${n} (${cnt(k)})</button>`).join('')}
+    <select data-jobh style="width:auto"><option value="all">כל המלונות ▾</option>${hs.map(h=>`<option value="${esc(h)}" ${F.h===h?'selected':''}>${esc(hotelName(h))}</option>`).join('')}</select></div>`;
+  const card=k=>{const list=G[k].sort(([,a],[,b])=>(b.updatedAt||b.createdAt||0)-(a.updatedAt||a.createdAt||0)),[job,h]=k==='__none'?['','']:k.split('|');
+    return `<div class="card"><div class="row" style="justify-content:space-between;align-items:center;margin-bottom:6px"><h3 style="margin:0">${k==='__none'?'ללא משרה':`${esc(job)} · ${esc(hotelName(h))}`} <span class="muted" style="font-weight:400">· ${list.length} מועמדים</span></h3>${k==='__none'?'':`<button class="btn sm" data-act="job-new" data-job="${esc(job)}" data-h="${esc(h)}">+ מועמד</button>`}</div>
+      <div class="plist">${list.map(([id,l])=>`<button class="prow" data-act="lead-open" data-id="${id}" style="width:100%;text-align:start;cursor:pointer;background:none;border:0;border-bottom:1px solid var(--line)"><span class="who"><b>${esc(l.name||'ללא שם')}</b><small>${esc([l.phone,l.jobDept&&DMAP[l.jobDept]?DMAP[l.jobDept].n:'',l.nextAt&&leadOpen(l)?'לחזור '+dm(l.nextAt):''].filter(Boolean).join(' · '))}</small></span>${jobTag(l.stage)}</button>`).join('')}</div></div>`};
+  return chips+(keys.length?keys.map(card).join(''):emptyBox('אין מועמדים כאן','כל מועמד שמגיע מקמפיין גיוס או נרשם ידנית מופיע כאן לפי המשרה והמלון.','<button class="btn pri" data-act="lead-new">+ מועמד חדש</button>'))}
+document.addEventListener('change',e=>{const t=e.target;if(!t.matches||!t.matches('[data-jobh]'))return;(S.jobF||(S.jobF={st:'act'})).h=t.value;render()});
+function sheetLeadJob(id,l,isNew,g){const st=g('stage','new'),own=leadOwners(),job=g('job',''),hs=myScopeHs(),acts=(l.acts||[]).slice().sort((a,b)=>(b.at||0)-(a.at||0)),tel=leadTel(l.phone);
+  return sheetHead(isNew?'מועמד חדש':esc(l.name||'מועמד'),isNew?'גיוס עובדים':`${esc(JSTG[l.stage||'new']||'')}${l.createdAt?' · נפתח '+new Date(l.createdAt).toLocaleDateString('he-IL'):''}`)+`
+  ${!isNew&&tel.length>=9?`<div class="actions"><a class="btn sm" href="tel:${esc(l.phone)}">📞 חיוג</a>${S.wapub&&S.wapub.on?`<button class="btn sm pri" data-act="wa-lead" data-id="${id}">💬 וואטסאפ במערכת</button>`:''}<a class="btn sm" href="https://wa.me/972${tel}" target="_blank" rel="noopener">${S.wapub&&S.wapub.on?'וואטסאפ בטלפון':'וואטסאפ'}</a>${l.email?`<a class="btn sm" href="mailto:${esc(l.email)}">מייל</a>`:''}</div>`:''}
+  <div class="f"><span>סוג ליד</span><div class="chips" style="gap:6px">${LEAD_CAT.filter(([k])=>myLeadCats().includes(k)).map(([k,n,i])=>`<button class="dchip ${k==='jobs'?'':'off'}" data-act="lead-catset" data-v="${k}">${i} ${n}</button>`).join('')}</div></div>
+  <div class="f"><span>שלב</span><div class="chips" style="gap:6px">${JOB_STAGES.map(([k,n])=>`<button class="dchip ${st===k?'':'off'}" style="--h:${k==='hired'?150:k==='trial'?28:['rejected','junk'].includes(k)?30:210}" data-act="lead-stage" data-v="${k}">${n}</button>`).join('')}</div></div>
+  <div class="row"><label class="f">שם מלא<input type="text" data-f="lead.name" value="${esc(g('name'))}"></label><label class="f">טלפון<input type="tel" dir="ltr" data-f="lead.phone" value="${esc(g('phone'))}"></label></div>
+  <div class="row"><label class="f">אימייל<input type="email" dir="ltr" data-f="lead.email" value="${esc(g('email'))}"></label></div>
+  <div class="f"><span>משרה</span><input type="text" data-f="lead.job" value="${esc(job)}" placeholder="למשל חדרנית"><div class="chips" style="gap:6px;margin-top:6px">${JOB_TITLES.map(x=>`<button class="dchip ${job===x?'':'off'}" data-act="job-title" data-v="${esc(x)}">${esc(x)}</button>`).join('')}</div></div>
+  <div class="row"><label class="f">מלון<select data-f="lead.jobHotel"><option value="">— עוד לא ידוע —</option>${hs.map(h=>`<option value="${esc(h)}" ${g('jobHotel')===h?'selected':''}>${esc(hotelName(h))}</option>`).join('')}</select></label>
+    <label class="f">מחלקה<select data-f="lead.jobDept"><option value="">—</option>${DEPTS.map(d=>`<option value="${d.k}" ${g('jobDept')===d.k?'selected':''}>${esc(d.n)}</option>`).join('')}</select></label></div>
+  <div class="row"><label class="f">מי מטפל<select data-f="lead.owner"><option value="" ${g('owner')?'':'selected'}>— עוד לא נבחר —</option>${Object.entries(own).map(([u,n])=>`<option value="${u}" ${g('owner')===u?'selected':''}>${esc(n)}</option>`).join('')}</select></label><label class="f">לחזור למועמד בתאריך<input type="date" data-f="lead.nextAt" value="${esc(g('nextAt'))}"></label></div>
+  <label class="f">הערות<textarea rows="2" data-f="lead.notes">${esc(g('notes'))}</textarea></label>
+  <div class="actions"><button class="btn pri" data-act="lead-save">שמירה</button>${isNew?'':`<button class="btn ghost" data-act="lead-del">${S.confirm==='lead-del'?'לחיצה נוספת תמחק':'מחיקה'}</button>`}</div>
+  ${isNew?'':`<div class="sep"></div><h3>משימות</h3>${(()=>{tasksSub();const T=Object.entries(S.tasks||{}).filter(([,t])=>t.leadId===id);return (T.length?`<div class="plist">${T.map(([tid,t])=>taskRow(tid,t)).join('')}</div>`:'')+taskFormHTML(id)})()}
+  <div class="sep"></div><h3>פעילות</h3>
+  <div class="row" style="align-items:flex-end"><label class="f" style="max-width:140px">סוג<select id="la_kind">${LEAD_ACTS.map(([k,n])=>`<option value="${k}">${n}</option>`).join('')}</select></label><label class="f" style="flex:3">מה היה<input type="text" id="la_text" placeholder="למשל: נקבע ראיון ליום ראשון"></label><button class="btn" data-act="lead-act">הוספה</button></div>
+  ${acts.length?`<div class="plist">${acts.map(a=>`<div class="prow"><span class="who"><b>${esc(LACT[a.kind]||'')}</b> ${esc(a.text||'')}<small class="muted">${new Date(a.at).toLocaleString('he-IL',{dateStyle:'short',timeStyle:'short'})} · ${esc(a.byName||'')}</small></span></div>`).join('')}</div>`:'<p class="muted" style="margin:0">עוד אין פעילות.</p>'}`}`}
 function sheetLead(){const id=S.sheet.id,l=(S.leads||{})[id]||{},isNew=!(S.leads||{})[id],g=(k,d='')=>dv('lead',k,l[k]??d);liveColl('camps','campaigns');
+  if((S.drafts.lead&&S.drafts.lead.cat||leadCat(l))==='jobs')return sheetLeadJob(id,l,isNew,g);
   const st=g('stage','new'),own=leadOwners(),lq=isNew?null:leadQuote(id,l),q=lq&&lq[1],camps=leadCamps(),tel=leadTel(l.phone);
   const isSpa=['spa','bride'].includes(S.drafts.lead&&S.drafts.lead.cat||leadCat(l));
   const acts=(l.acts||[]).slice().sort((a,b)=>(b.at||0)-(a.at||0));
   const qOpts=Object.entries(S.lquotes||{}).filter(([,x])=>x.kind!=='group').sort(([,a],[,b])=>qTime(b)-qTime(a)).slice(0,80);
   return sheetHead(isNew?'ליד חדש':esc(l.name||'ליד'),isNew?'פנייה חדשה של לקוח':`${LSTG[l.stage]||''}${l.createdAt?' · נפתח '+new Date(l.createdAt).toLocaleDateString('he-IL'):''}`)+`
   ${!isNew&&tel.length>=9?`<div class="actions"><a class="btn sm" href="tel:${esc(l.phone)}">📞 חיוג</a>${S.wapub&&S.wapub.on?`<button class="btn sm pri" data-act="wa-lead" data-id="${id}">💬 וואטסאפ במערכת</button>`:''}<a class="btn sm" href="https://wa.me/972${tel}" target="_blank" rel="noopener">${S.wapub&&S.wapub.on?'וואטסאפ בטלפון':'וואטסאפ'}</a>${l.email?`<a class="btn sm" href="mailto:${esc(l.email)}">מייל</a>`:''}</div>`:''}
-  ${(()=>{const c=S.drafts.lead&&S.drafts.lead.cat||leadCat(l);return `<div class="f"><span>סוג ליד</span><div class="chips" style="gap:6px">${LEAD_CAT.map(([k,n,i])=>`<button class="dchip ${c===k?'':'off'}" data-act="lead-catset" data-v="${k}">${i} ${n}</button>`).join('')}</div></div>`})()}
+  ${(()=>{const c=S.drafts.lead&&S.drafts.lead.cat||leadCat(l);return `<div class="f"><span>סוג ליד</span><div class="chips" style="gap:6px">${LEAD_CAT.filter(([k])=>myLeadCats().includes(k)).map(([k,n,i])=>`<button class="dchip ${c===k?'':'off'}" data-act="lead-catset" data-v="${k}">${i} ${n}</button>`).join('')}</div></div>`})()}
 ${isSpa?`<div class="f"><span>האם נסגר?</span><div class="chips" style="gap:6px">${[[leadOpen({stage:st})?st:'new','פתוח',210,leadOpen({stage:st})],['won','✓ נסגר',150,st==='won'],['lost','לא נסגר',5,st==='lost'],['junk','לא רלוונטי',30,st==='junk']].map(([v,n,h,on])=>`<button class="dchip ${on?'':'off'}" style="--h:${h}" data-act="lead-stage" data-v="${v}">${n}</button>`).join('')}</div></div>
   ${st==='lost'?`<label class="f">למה לא נסגר<select data-f="lead.lostReason"><option value="">בחירה…</option>${LEAD_LOST.map(x=>`<option ${g('lostReason')===x?'selected':''}>${x}</option>`).join('')}</select></label>`:''}
   <div class="row"><label class="f">מי מטפל<select data-f="lead.owner"><option value="" ${g('owner')?'':'selected'}>— עוד לא נבחר —</option>${Object.entries(own).map(([u,n])=>`<option value="${u}" ${g('owner')===u?'selected':''}>${esc(n)}</option>`).join('')}</select></label><label class="f">סכום (₪)<input type="number" min="0" inputmode="decimal" data-f="lead.value" value="${esc(g('value'))}"></label></div>
@@ -2804,7 +2857,7 @@ ${isSpa?`<div class="f"><span>האם נסגר?</span><div class="chips" style="g
 const clientKey=(phone,email,name)=>{const t=leadTel(phone);if(t.length>=9)return 'p'+t;const e=String(email||'').trim().toLowerCase();if(e)return 'e'+e.replace(/[^a-z0-9@._-]/g,'');const n=String(name||'').trim();return n?'n'+n.replace(/[\/\s]+/g,'_').slice(0,60):''};
 function crmClients(){const C={};const add=(k,o)=>{if(!k)return;const c=C[k]||(C[k]={key:k,name:'',company:'',phone:'',email:'',leads:[],quotes:[],first:0,last:0});
     for(const f of ['name','company','phone','email'])if(!c[f]&&o[f])c[f]=o[f];return c};
-  for(const [id,l] of Object.entries(S.leads||{})){const c=add(clientKey(l.phone,l.email,l.name),l);if(c)c.leads.push([id,l])}
+  for(const [id,l] of Object.entries(S.leads||{})){if(leadCat(l)==='jobs')continue;const c=add(clientKey(l.phone,l.email,l.name),l);if(c)c.leads.push([id,l])}
   for(const [id,q] of Object.entries(S.lquotes||{})){if(q.kind==='group')continue;const cl=q.client||{},c=add(clientKey(cl.phone,cl.email,cl.name),cl);if(c)c.quotes.push([id,q])}
   for(const c of Object.values(C)){const won=c.quotes.filter(([,q])=>q.status==='approved');c.won=won.length;c.rev=won.reduce((a,[,q])=>a+quoteVal(q),0);
     const dates=c.quotes.map(([,q])=>q.event&&q.event.date).filter(Boolean).sort();c.lastEvent=dates.filter(d=>d<=todayISO()).pop()||'';c.nextEvent=dates.find(d=>d>todayISO())||'';
@@ -3027,7 +3080,7 @@ function salesHTML(f){const per=f.per||'month',now=todayISO(),M=now.slice(0,7),P
 // social media dashboard: a month of spend (weekly reports) next to what the leads page shows really came in
 const SRC_PLAT={instagram:'meta',facebook:'meta',google:'google',tiktok:'tiktok'};
 function mktDashHTML(){leadsSub();if(!S.leadsReady)return '<p class="muted">טוען לידים…</p>';if(S.leadsErr)return `<div class="notice">אין גישה ללידים: ${esc(S.leadsErr)}</div>`;
-  const M=S.mktM||(S.mktM=todayISO().slice(0,7)),camps=Object.values(S.camps||{}),leads=Object.values(S.leads||{});
+  const M=S.mktM||(S.mktM=todayISO().slice(0,7)),camps=Object.values(S.camps||{}),leads=Object.values(S.leads||{}).filter(l=>leadCat(l)!=='jobs');
   const cPlat={};camps.forEach(c=>{if(c.name)cPlat[String(c.name).trim()]=c.platform||'other'});
   const plat=l=>(l.campaign&&cPlat[l.campaign])||SRC_PLAT[l.source]||'organic';
   const mOf=t=>t?new Date(t).toISOString().slice(0,7):'';
@@ -3048,7 +3101,7 @@ function mktDashHTML(){leadsSub();if(!S.leadsReady)return '<p class="muted">טו
 // social media: what the campaigns really brought, from the leads that name them
 function mktLeadsHTML(){leadsSub();if(!S.leadsReady)return '<p class="muted">טוען לידים…</p>';if(S.leadsErr)return `<div class="notice">אין גישה ללידים: ${esc(S.leadsErr)}</div>`;
   const by={},spend={};for(const c of Object.values(S.camps||{})){const n=String(c.name||'').trim();if(n)spend[n]=(spend[n]||0)+(+c.spend||0)}
-  for(const l of Object.values(S.leads||{})){const n=l.campaign||(l.source?'· '+(LSRC[l.source]||l.source):'· ללא מקור');const x=by[n]||(by[n]={n:0,won:0,lost:0,rev:0,open:0});x.n++;if(l.stage==='won'){x.won++;x.rev+=+l.wonValue||0}else if(l.stage==='lost')x.lost++;else x.open++}
+  for(const l of Object.values(S.leads||{})){if(leadCat(l)==='jobs')continue;const n=l.campaign||(l.source?'· '+(LSRC[l.source]||l.source):'· ללא מקור');const x=by[n]||(by[n]={n:0,won:0,lost:0,rev:0,open:0});x.n++;if(l.stage==='won'){x.won++;x.rev+=+l.wonValue||0}else if(l.stage==='lost')x.lost++;else x.open++}
   for(const n of Object.keys(spend))if(!by[n])by[n]={n:0,won:0,lost:0,rev:0,open:0};
   const rows=Object.entries(by).sort((a,b)=>b[1].rev-a[1].rev||b[1].n-a[1].n);
   const T=rows.reduce((t,[k,x])=>({n:t.n+x.n,won:t.won+x.won,rev:t.rev+x.rev,sp:t.sp+(spend[k]||0)}),{n:0,won:0,rev:0,sp:0});
@@ -5320,7 +5373,7 @@ function sheetPerm(){
   ${d.job?'<p class="muted" style="font-size:.85rem;margin:4px 0">ההרשאות של התפקיד מסומנות ונעולות. אפשר להוסיף הרשאות אישיות נוספות.</p>':''}
   <div class="plist">${appsOn().map(([k,n,desc])=>{const fj=!!(d.job&&((jobsSub()[d.job]||{}).apps||{})[k]);return `<label class="prow" style="cursor:${mine[k]&&!fj?'pointer':'default'}"><span class="who"><b>${n}${fj?' <span class="pill brass">מהתפקיד</span>':''}</b><small>${mine[k]?desc:'אין לך את ההרשאה הזו, ולכן אי אפשר לתת אותה'}</small></span><input type="checkbox" id="pa_${k}" data-act="perm-app" data-k="${k}" ${d.apps[k]||fj?'checked':''} ${mine[k]&&!outside&&!fj?'':'disabled'}></label>`}).join('')}</div>
   ${d.apps.dept?`<div class="f"><span>מנהל מחלקה של:</span><div class="chips" style="gap:6px">${grantDepts().map(x=>`<button class="dchip ${d.depts.includes(x.k)?'':'off'}" style="--h:${x.h};cursor:pointer" data-act="perm-dept" data-k="${x.k}" aria-pressed="${d.depts.includes(x.k)}">${x.n}</button>`).join('')}</div></div>`:''}
-  ${d.apps.events||(d.job&&((jobsSub()[d.job]||{}).apps||{}).events)?`<div class="f"><span>תחומי לידים שהוא רואה <small class="muted">(בלי סימון = כל התחומים)</small></span><div class="chips" style="gap:6px">${LEAD_CAT.map(([k,n,i])=>`<button class="dchip ${(d.leadCats||[]).includes(k)?'':'off'}" style="--h:var(--brass);cursor:pointer" data-act="perm-lcat" data-k="${k}" aria-pressed="${(d.leadCats||[]).includes(k)}">${i} ${n}</button>`).join('')}</div></div>`:''}
+  ${d.apps.events||(d.job&&((jobsSub()[d.job]||{}).apps||{}).events)?`<div class="f"><span>תחומי לידים שהוא רואה <small class="muted">(בלי סימון = כל התחומים חוץ מגיוס עובדים)</small></span><div class="chips" style="gap:6px">${LEAD_CAT.map(([k,n,i])=>`<button class="dchip ${(d.leadCats||[]).includes(k)?'':'off'}" style="--h:var(--brass);cursor:pointer" data-act="perm-lcat" data-k="${k}" aria-pressed="${(d.leadCats||[]).includes(k)}">${i} ${n}</button>`).join('')}</div></div>`:''}
   ${curH===CHAIN?'<div class="notice" style="font-size:.88rem">ההרשאות חלות על <b>כל המלונות</b> (עובד רשת).</div>':(()=>{const ex=d.extraHotels||[],opts=grantableHotels().filter(x=>x!==curH);return `<div class="f"><span>ההרשאות חלות על המלון שבו העובד רשום: <b>${esc(hotelName(curH))}</b>${opts.length?', ועל המלונות הנוספים שמסמנים כאן:':'.'}</span>${opts.length?`<div class="chips" style="gap:6px;margin-top:4px">${opts.map(x=>`<button class="dchip ${ex.includes(x)?'':'off'}" style="--h:var(--brass);cursor:pointer" data-act="perm-xh" data-h="${x}">${esc(hotelName(x))}</button>`).join('')}</div>`:''}</div>`})()}
   <p class="muted" style="font-size:.82rem">השינוי נכנס לתוקף כשהאדם מרענן את האתר.</p>
   <div class="actions"><button class="btn pri" data-act="perm-save" ${outside?'disabled':''}>שמירה</button><button class="btn ghost" data-act="close">ביטול</button></div>`;
@@ -5862,7 +5915,10 @@ const ACT={
   'lead-open':D=>{S.drafts.lead=null;S.confirm=null;S.sheet={type:'lead',id:D.id};render()},
   'lead-view':D=>{S.leadF.view=D.v;render()},
   'lead-catv':D=>{S.leadF.cat=D.v;if(S.leadF.view==='clients'&&D.v!=='events')S.leadF.view='pipe';render()},
-  'lead-catset':D=>{S.drafts.lead={...(S.drafts.lead||{}),cat:D.v};render()},
+  'job-f':D=>{(S.jobF||(S.jobF={st:'act',h:'all'}))[D.k]=D.v;render()},
+  'job-new':D=>{S.drafts.lead={stage:'new',owner:'',cat:'jobs',job:D.job||'',jobHotel:D.h||''};S.confirm=null;S.sheet={type:'lead',id:'l'+Date.now().toString(36)+Math.random().toString(36).slice(2,6)};render()},
+  'job-title':D=>{(S.drafts.lead||(S.drafts.lead={})).job=D.v;renderSheet()},
+  'lead-catset':D=>{if(D.v==='jobs'&&!myJobs())return;S.drafts.lead={...(S.drafts.lead||{}),cat:D.v};render()},
   'wa-open':D=>waOpen(D.id),
   'wa-cfgt':()=>{S.waCfgOpen=!S.waCfgOpen;render()},
   'wa-newt':()=>{S.waNewOpen=!S.waNewOpen;render()},
@@ -5893,7 +5949,8 @@ const ACT={
   'lead-openall':()=>{S.leadOpenAll=!S.leadOpenAll;render()},
   'lbx-sel':D=>{S.lbxSel=D.id;S.drafts.wa=null;S.waAtBottom=true;render()},
   'lperm-t':async D=>{if(!lpermOk())return;const r=(S.roles||{})[D.u];if(!r)return;let lc=(r.leadCats||[]).filter(k=>LCAT[k]);
-    if(!D.k)lc=[];else{lc=lc.includes(D.k)?lc.filter(x=>x!==D.k):[...lc,D.k];if(lc.length===LEAD_CAT.length)lc=[]}
+    const NJ=LEAD_CAT.map(x=>x[0]).filter(k=>k!=='jobs');
+    if(!D.k)lc=lc.includes('jobs')?[]:[];else if(!lc.length&&D.k==='jobs')lc=[...NJ,'jobs'];else{lc=lc.includes(D.k)?lc.filter(x=>x!==D.k):[...lc,D.k];if(!lc.includes('jobs')&&NJ.every(k=>lc.includes(k)))lc=[]}
     const old=r.leadCats;S.roles[D.u]={...r,leadCats:lc};render();
     try{await fdb.doc('roles/'+D.u).update({leadCats:lc});toast('נשמר')}catch(e){S.roles[D.u]={...r,leadCats:old};render();toast('לא נשמר: '+errMsg(mapErr(e)))}},
   'lbx-wa':()=>{const b=document.querySelector('.lbx-chat');if(!b)return;b.scrollIntoView({behavior:'smooth',block:'start'});const t=b.querySelector('.wac-in textarea,select[data-f="wa.tpl"]');if(t)setTimeout(()=>t.focus({preventScroll:true}),300)},

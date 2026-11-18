@@ -392,11 +392,20 @@ service cloud.firestore {
     match /qcounter/{id} { allow read, write: if canEvents(); }
     // a lead with no venue: only owner + chain (all-hotel) roles until someone sets its place (owner, Nov 3)
     function leadVenueOk(v) { return isOwner() || (v == '' ? roleHotels().size() == 0 : hotelVenueOk(v)); }
+    // hiring leads (cat 'jobs', owner Nov 18): only the owner or a role with 'jobs' listed in leadCats (empty leadCats does NOT include jobs),
+    // limited to its hotels by jobHotel ('' = no hotel yet). Clients query non-jobs leads with cat in [other kinds] and jobs with cat == 'jobs'.
+    function jobsOk(h) {
+      let r = roleData();
+      return r.get('station', false) != true && r.get('apps', {}).get('events', false) == true && 'jobs' in r.get('leadCats', [])
+        && (r.get('hotels', []).size() == 0 || h == '' || h in r.get('hotels', []));
+    }
+    function leadReadOk(d) { return d.get('cat', '') == 'jobs' ? jobsOk(d.get('jobHotel', '')) : ((canEvents() || canMkt()) && leadVenueOk(d.get('venue', ''))); }
+    function leadWriteOk(d) { return d.get('cat', '') == 'jobs' ? jobsOk(d.get('jobHotel', '')) : (canEvents() && leadVenueOk(d.get('venue', ''))); }
     match /leads/{id} {
-      allow read: if (canEvents() || canMkt()) && leadVenueOk(resource.data.get('venue', ''));
-      allow create: if canEvents() && leadVenueOk(request.resource.data.get('venue', ''));
-      allow update: if canEvents() && leadVenueOk(resource.data.get('venue', '')) && leadVenueOk(request.resource.data.get('venue', ''));
-      allow delete: if canEvents() && leadVenueOk(resource.data.get('venue', ''));
+      allow read: if isOwner() || leadReadOk(resource.data);
+      allow create: if isOwner() || leadWriteOk(request.resource.data);
+      allow update: if isOwner() || (leadWriteOk(resource.data) && leadWriteOk(request.resource.data));
+      allow delete: if isOwner() || leadWriteOk(resource.data);
     }
     // משימות ותזכורות של צוות המכירות, והערות לכל לקוח
     // site tours (Nov 4): events users schedule them from a lead; the hotel's brief / manager / reception read them by hotel

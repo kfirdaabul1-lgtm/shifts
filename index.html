@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="lang.js?v=1df72aa319"></script>
+<script src="lang.js?v=07fecaa61f"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -2713,7 +2713,7 @@ function vLeads(){leadsSub();tasksSub();waSub();leadCatsLive();leadsSync();const
   const openS=open.slice().sort(([,a],[,b])=>(b.createdAt||0)-(a.createdAt||0)),openMore=!!S.leadOpenAll;
   const today=openS.length?`<div class="card"><h3>לידים פתוחים · ${openS.length}</h3><div class="lead-row">${openS.slice(0,openMore?400:12).map(([id,l])=>leadCard(id,l)).join('')}</div>${openS.length>12?`<div class="actions" style="margin-top:8px"><button class="btn sm ghost" data-act="lead-openall">${openMore?'הצגת פחות':'הצגת כל הלידים הפתוחים ('+openS.length+')'}</button></div>`:''}</div>`:'';
   if(f.view==='wa')return wrap(head+waListHTML(f));
-  if(f.view==='auto'){waSub();const W=S.wapub||{};return wrap(head+(S.isOwner?adamCardHTML():'')+(!S.isOwner?'<div class="notice">את האוטומציות מגדיר בעל המערכת.</div>':!W.on?'<div class="notice">קודם מחברים את וואטסאפ (בלשונית "💬 וואטסאפ"), ואז אפשר להגדיר כאן הודעות אוטומטיות.</div>':waAutoHTML()))}
+  if(f.view==='auto'){waSub();const W=S.wapub||{};return wrap(head+(S.isOwner?agentCardFor(f.cat):'')+(!S.isOwner?'<div class="notice">את האוטומציות מגדיר בעל המערכת.</div>':!W.on?'<div class="notice">קודם מחברים את וואטסאפ (בלשונית "💬 וואטסאפ"), ואז אפשר להגדיר כאן הודעות אוטומטיות.</div>':f.cat==='jobs'?'':waAutoHTML()))}
   if(!Object.keys(S.leads||{}).length)return wrap(head+k+emptyBox('עוד אין לידים','כל פנייה של לקוח לאירוע נרשמת כאן כליד: מאיפה הגיע, מי מטפל ומתי לחזור אליו. כשנשלחת לו הצעה ונסגרת, הליד מתעדכן לבד.','<button class="btn pri" data-act="lead-new">+ ליד ראשון</button>'));
   let body;
   if(f.view==='clients')return wrap(head+clientsHTML(f));
@@ -2969,6 +2969,20 @@ function adamCardHTML(){adamCfgSub();const A=S.adamCfg;if(A===undefined)return '
   return `<div class="card"><div class="row" style="justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><div><b>🤵 אדם עונה ללידים של אירועים</b> <span class="pill ${on?'ok':''}">${on?'פעיל · עונה לבד':'כבוי'}</span></div>
   <button class="btn ${on?'':'primary'}" data-act="adam-on" data-v="${on?0:1}">${on?'⏸ עצירת אדם':'▶ הפעלת אדם'}</button></div>
   <div class="muted" style="margin-top:6px">עונה רק ללידים של אירועים, ושומר עליהם חמים (תזכורת אחת בתוך 24 השעות). ליד לגוטמן מעל 80 אורחים או חתונה עובר לבד ל-7EVEN, גג הסולה. כשאיש צוות כותב ללקוח, אדם מפסיק לענות בשיחה הזו.</div></div>`}
+// the agent card follows the lead kind of the automations view (owner, Nov 18: hiring showed Adam instead of Ariel)
+function agentCardFor(cat){return cat==='jobs'?arielCardHTML():(cat==='spa'||cat==='bride')?hilaCardHTML():cat==='rooms'?'':adamCardHTML()}
+function arielCfgSub(){if(S.live.arielcfg)return;S.live.arielcfg=true;S.db.doc('agentcfg/recruit').onSnapshot(d=>{S.arielCfg=d.exists?d.data():{};render()},()=>{S.arielCfg={}})}
+function arielCardHTML(){arielCfgSub();const A=S.arielCfg;if(A===undefined)return '';const on=A.enabled===true,nm=A.name||'אריאל',tn=A.openTemplate||'',W=S.wapub||{};
+  const tok=!tn?null:((W.templates||[]).some(t=>t.name===tn));
+  const tl=!tn?'<span class="pill bad">לא נבחרה תבנית פתיחה</span>':tok?`<span class="pill ok">תבנית הפתיחה מאושרת</span>`:`<span class="pill warn">תבנית הפתיחה עוד מחכה לאישור של Meta</span>`;
+  return `<div class="card"><div class="row" style="justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><div><b>🧑‍💼 ${esc(nm)} מסנן מועמדים לעבודה</b> <span class="pill ${on?'ok':''}">${on?'פעיל':'כבוי'}</span></div>
+  <button class="btn ${on?'':'primary'}" data-act="ariel-on" data-v="${on?0:1}">${on?'⏸ עצירת '+esc(nm):'▶ הפעלת '+esc(nm)}</button></div>
+  <div class="muted" style="margin-top:6px">כשמגיע ליד של גיוס עובדים, ${esc(nm)} שולח למועמד הודעת פתיחה בוואטסאפ, שואל כמה שאלות קצרות וממלא את טופס המועמד. אחר כך הוא מעביר את המועמד לצוות. מועמד שלא עונה 48 שעות מסומן כ"לא ענה". כשאיש צוות כותב למועמד, ${esc(nm)} מפסיק לכתוב בשיחה הזו.</div>
+  <div style="margin-top:6px">${tl}</div></div>`}
+function hilaCfgSub(){if(S.live.hilacfg)return;S.live.hilacfg=true;S.db.doc('agentcfg/hila').onSnapshot(d=>{S.hilaCfg=d.exists?d.data():{};render()},()=>{S.hilaCfg={}})}
+function hilaCardHTML(){hilaCfgSub();const A=S.hilaCfg;if(A===undefined)return '';
+  return `<div class="card"><b>💆 ${esc(A.name||'הילה')} · ספא והתארגנות כלה</b> <span class="pill">באימון · עוד לא עונה ללקוחות</span>
+  <div class="muted" style="margin-top:6px">את ${esc(A.name||'הילה')} מאמנים עכשיו בצ׳אט (כפתור ✦). כשהיא תהיה מוכנה לענות ללקוחות של ספא והתארגנות כלה, ההפעלה תופיע כאן.</div></div>`}
 function waAutoSub(){if(S.live.waauto)return;S.live.waauto=true;S.db.doc('waauto/main').onSnapshot(d=>{S.waAuto=d.exists?d.data():{};render()},()=>{S.waAuto={}})}
 const WAA_SRC=[['first','שם פרטי של הליד'],['name','שם מלא של הליד'],['venue','שם המקום'],['spalink','קישור להזמנת טיפול בספא'],['text','טקסט קבוע']];
 function waAutoHTML(){waAutoSub();const A=S.waAuto;if(A===undefined)return '';const D=S.waaD||(S.waaD=JSON.parse(JSON.stringify({on:!!A.on,metaOnly:!!A.metaOnly,rules:A.rules||{}})));
@@ -5972,6 +5986,7 @@ const ACT={
   'emp-pwmail':async D=>{try{const j=await pwGuard({op:'sendreset',uid:D.u},true);toast(j.ok?'נשלח לעובד מייל עם קישור לבחירת סיסמה חדשה':'השליחה נכשלה')}catch(e){toast('השליחה נכשלה ('+(e.code||'')+')')}},
   'bc-hk':D=>{ACT['bc-read'](D);setTab('hk')},
   'bc-read':D=>{const b=(S.myBc||{})[D.id];if(b){S.myBc[D.id]={...b,reads:{...(b.reads||{}),[S.uid]:Date.now()}};render()}fdb.doc('broadcasts/'+D.id).update({['reads.'+S.uid]:Date.now()}).catch(e=>toast('לא הצלחתי: '+errMsg(mapErr(e))))},
+  'ariel-on':async D=>{if(!S.isOwner)return;const on=D.v==='1';try{await S.db.doc('agentcfg/recruit').set({enabled:on,updatedAt:Date.now()},{merge:true});toast(on?'אריאל פעיל':'אריאל נעצר')}catch(e){toast('לא נשמר')}},
   'adam-on':async D=>{if(!S.isOwner)return;const on=D.v==='1';try{await S.db.doc('agentcfg/reply').set(on?{enabled:true,mode:'auto',updatedAt:Date.now()}:{enabled:false,updatedAt:Date.now()},{merge:true});toast(on?'אדם פעיל ועונה ללידים':'אדם נעצר')}catch(e){toast('לא נשמר')}},
   'waa-save':async()=>{const D=S.waaD;if(!D)return;document.querySelectorAll('[data-waa^="text|"]').forEach(el=>{const [,v,i]=el.dataset.waa.split('|');const r=D.rules[v];if(r&&r.params&&r.params[+i])r.params[+i].text=el.value});
     for(const [v,r] of Object.entries(D.rules)){const [c0,v0]=v.includes(':')?v.split(':'):['events',v];r.venueName=v0==='*'?'':(EV_VENUE[v0]||'');if((r.params||[]).some(p=>p.src==='text'&&!String(p.text||'').trim())){toast('צריך למלא את הטקסט הקבוע בתבנית של '+LCAT[c0]+' · '+(v0==='*'?'כל ליד אחר':EV_VENUE[v0]||v0));return}}

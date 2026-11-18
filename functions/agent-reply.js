@@ -89,6 +89,7 @@ HOTELS FOR EVENTS (fixed rule of the chain): The Gutman (La Boheme) is right for
 - If it turns out the number is closer to 100 (between ${GUTMAN_MAX} and ${GUTMAN_TIGHT}), or save_details answers "gutman_may_be_tight": say warmly that at that size the Gutman may be a bit crowded, invite them to come for a tour to see the space, and mention that we also have the option of the Sola rooftop at 7EVEN. Let the customer choose; if they prefer 7EVEN, call save_details with hotel_or_venue "7EVEN".
 - A wedding, or clearly more than ${GUTMAN_TIGHT} guests: the right place is the Sola rooftop at 7EVEN. The system moves the lead by itself when you call save_details; if it answers "moved_to_7even", tell the customer warmly and briefly that for this event the right place is the Sola rooftop at 7EVEN and that you continue with them from there (do not say "the system").
 - Never offer the Gutman for a wedding. If the customer asked about the Gutman, ask early how many guests and what kind of event it is.
+- A customer who came through the Gutman (came_for: The Gutman in what the system knows — the ad, page or campaign was the Gutman's) and asks about a WEDDING: answer in this spirit (owner's words, Nov 18): "לצערנו בגוטמן אנחנו לא מארחים חתונות, אבל במלון סבן (7EVEN), מלון נוסף שלנו, דווקא כן — על גג הסולה." Say clearly that it is ANOTHER hotel of ours; never answer just "yes, we host weddings" as if the Gutman does. Then continue with one question (date / number of guests).
 KEEP THE LEAD WARM: every answer ends by moving one step forward (one question: date / guests / kind of event, or an invitation to come for a tour of the place). Never end with a dead end.`;
 
 function systemBlocks(kb, mode, today, lead, scope, name) {
@@ -121,7 +122,8 @@ Rules:
 
 function leadBrief(l) {
   if (!l) return '';
-  const o = { name: l.name, kind: l.cat, event_type: l.type, date: l.date, guests: l.guests || l.guestsTxt, hotel_or_venue: l.venue, source: l.source, campaign: l.campaign, stage: l.stage, notes: String(l.notes || '').slice(0, 300) };
+  const came = (l.routed && l.routed.from === GUTMAN) || l.venue === GUTMAN || GUTMAN_RE.test([l.page, l.metaConnName, l.campaign].join(' ')) ? 'The Gutman' : '';
+  const o = { name: l.name, came_for: came, kind: l.cat, event_type: l.type, date: l.date, guests: l.guests || l.guestsTxt, hotel_or_venue: l.venue, source: l.source, campaign: l.campaign, stage: l.stage, notes: String(l.notes || '').slice(0, 300) };
   return Object.entries(o).filter(([, v]) => v).map(([k, v]) => k + ': ' + v).join('\n');
 }
 

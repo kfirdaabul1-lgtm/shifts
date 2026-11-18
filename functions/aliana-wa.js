@@ -106,6 +106,32 @@ KNOWN: ${JSON.stringify(known)}`;
   return { summary: clip(r.summary, 600), items };
 }
 
+
+// Groups API test (Nov 18, owner): the agents' number opens a NEW WhatsApp group and sends the owner its invite link
+// (a business number can't be added to an existing group and can't add people; joining is by link only).
+async function groupTest(subject) {
+  const c = await waCfg();
+  if (!c.token || !c.aliPhoneId) return { ok: false, why: 'no agents number' };
+  if (!c.aliOwnerPhone) return { ok: false, why: 'no owner phone (aliOwnerPhone)' };
+  const to = '972' + tail9(c.aliOwnerPhone);
+  const w = (await db.doc('aliWa/' + to).get()).data() || {};
+  if (!(Date.now() - (+w.lastInAt || 0) < 23.5 * 3600e3)) return { ok: false, why: 'window closed: owner must write to the agents number first' };
+  let g;
+  try { g = await graph(c, 'POST', c.aliPhoneId + '/groups', { messaging_product: 'whatsapp', subject: clip(subject || 'Seven · סוכנים', 100), description: 'קבוצת עבודה עם סוכני המערכת', join_approval_mode: 'auto_approve' }); }
+  catch (e) { return { ok: false, step: 'create', why: clip(e.message, 300) }; }
+  const id = g.id || g.group_id || (g.data && g.data.id) || '';
+  let link = g.invite_link || '';
+  for (let i = 0; !link && id && i < 6; i++) {
+    await new Promise((r) => setTimeout(r, 4000));
+    try { const j = await graph(c, 'GET', id + '/invite_link'); link = j.invite_link || ''; } catch (e) { if (i === 5) return { ok: false, step: 'link', id: !!id, why: clip(e.message, 300) }; }
+  }
+  if (!link) return { ok: false, step: 'link', id: !!id, keys: Object.keys(g).join(',') };
+  await db.doc('aliGroups/' + (id || 'g' + Date.now())).set({ id, subject: subject || 'Seven · סוכנים', link, at: Date.now(), by: 'owner-test' });
+  try { await say(c, to, 'פתחתי קבוצה חדשה מהמספר של הסוכנים. להצטרפות לחץ כאן:\n' + link + '\n\n(שים לב: בשלב הזה הסוכנים עוד לא עונים בתוך הקבוצה)'); }
+  catch (e) { return { ok: false, step: 'send', id: !!id, why: clip(e.message, 300) }; }
+  return { ok: true, id: !!id };
+}
+exports.groupTest = groupTest;
 exports.aliHook = aliHook;
 exports.onAliIn = functions.region(REGION).runWith({ timeoutSeconds: 300, memory: '1GB' }).firestore.document('aliIn/{id}').onCreate(async (snap) => {
   const m = snap.data() || {}, c = await waCfg();

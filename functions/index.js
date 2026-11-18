@@ -1430,10 +1430,24 @@ exports.waTplSync = functions.region(REGION).pubsub.schedule('every 30 minutes')
 const waIdFrom = (p) => { let d = String(p || '').replace(/\D/g, ''); if (d.startsWith('00')) d = d.slice(2); if (d.startsWith('0')) d = '972' + d.slice(1); else if (d.length === 9 && d[0] === '5') d = '972' + d; return d.length >= 11 && d.length <= 15 ? d : ''; };
 // hiring leads (Nov 18): a lead created without cat gets cat 'jobs' when its kind is jobs, else cat '' — every lead needs a cat field,
 // because non-hiring users list leads with where('cat','in',[...]) and the rules hide cat 'jobs' from them
+// the hotel a campaign is aimed at (owner, Nov 18): leadcats/main.campHotel[name] ('chain' | hotelId), else the newest report's hotelAuto ('' = chain)
+async function campTarget(name) {
+  name = String(name || '').trim(); if (!name) return '';
+  try { const m = ((await db.doc('leadcats/main').get()).data() || {}).campHotel || {}; if (m[name]) return m[name]; } catch (e) { }
+  try { const q = await db.collection('campaigns').where('name', '==', name).get(); let best = null; q.docs.forEach((d) => { const c = d.data() || {}; if (!best || String(c.week || '') > String(best.week || '')) best = c; }); return best ? (best.hotelAuto || 'chain') : ''; } catch (e) { return ''; }
+}
 exports.onLeadCat = trig('leads/{id}').onCreate(async (snap) => {
-  const l = snap.data() || {}; if (typeof l.cat === 'string') return null;
+  const l = snap.data() || {}; if (typeof l.cat === 'string') { if (l.cat === 'jobs' && !l.jobHotel && l.campaign) { const t = await campTarget(l.campaign); if (t && t !== 'chain') await snap.ref.set({ jobHotel: t }, { merge: true }); } return null; }
   const k = await leadKind(l);
-  return snap.ref.set(k === 'jobs' ? { cat: 'jobs', jobHotel: l.jobHotel || '', job: l.job || require('./agent-recruit').jobGuess(l) } : { cat: '' }, { merge: true });
+  let jh = l.jobHotel || ''; if (k === 'jobs' && !jh && l.campaign) { const t = await campTarget(l.campaign); if (t && t !== 'chain') jh = t; }
+  return snap.ref.set(k === 'jobs' ? { cat: 'jobs', jobHotel: jh, job: l.job || require('./agent-recruit').jobGuess(l) } : { cat: '' }, { merge: true });
+});
+// re-tag campaign reports when the owner changes which hotel a campaign is aimed at (expenses per hotel follow it)
+exports.onCampHotelMap = trig('leadcats/main').onWrite(async (ch) => {
+  const a = ((ch.after.exists && ch.after.data()) || {}).campHotel || {}, b = ((ch.before.exists && ch.before.data()) || {}).campHotel || {};
+  const names = [...new Set([...Object.keys(a), ...Object.keys(b)])].filter((n) => a[n] !== b[n]); if (!names.length) return;
+  _campX = await campCtx(db); _campAt = Date.now();
+  for (const n of names.slice(0, 30)) { const q = await db.collection('campaigns').where('name', '==', n).get(); for (const d of q.docs) { const h = campHotelOf(d.data() || {}, _campX); if ((d.data() || {}).hotelAuto !== h) await d.ref.update({ hotelAuto: h }); } }
 });
 exports.onLeadAuto = trig('leads/{id}').onCreate(async (snap) => {
   const l = snap.data() || {}, id = snap.id;

@@ -193,4 +193,28 @@ exports.recruitSweep = functions.region(REGION).pubsub.schedule('0 11 * * *').ti
   return null;
 });
 
-exports._t = { isJobLead, openCandidate, systemBlocks, historyOf, waIdFrom, FIELDS, DEFAULTS };
+// ---------- 4. send the opening to every existing job candidate (owner, Nov 18: "send Ariel's automation to all the candidates") ----------
+// Leads with cat 'jobs' that are still open (not hired / rejected / junk) and were never contacted get the same opening as a new lead.
+// A candidate stuck on waiting_template / no template is retried. Needs the opening template approved; turns Ariel on when it sends.
+async function sendAll(o) {
+  const dry = !!(o && o.dry), cfg = { ...DEFAULTS, ...(await C.cfg('recruit')) }, T = cfg.openTemplate || {};
+  const pub = (await db.doc('wapub/main').get()).data() || {}, tplOk = !!(T.tpl && (pub.templates || []).some((x) => x.name === T.tpl && (!T.lang || x.lang === T.lang)));
+  const out = { tpl: T.tpl || '', tplOk, enabledBefore: cfg.enabled === true, leads: 0, sent: 0, closed: 0, already: 0, retried: 0, noPhone: 0, staff: 0, other: 0, dry };
+  if (!tplOk) return out;
+  const leads = (await db.collection('leads').where('cat', '==', 'jobs').get()).docs;
+  out.leads = leads.length;
+  if (!dry && cfg.enabled !== true) { await db.doc('agentcfg/recruit').set({ enabled: true, updatedAt: Date.now(), enabledBy: 'sendAll' }, { merge: true }); cfg.enabled = true; out.enabledNow = true; }
+  for (const d of leads) {
+    const l = d.data() || {};
+    if (['hired', 'rejected', 'junk'].includes(l.stage)) { out.closed++; continue; }
+    const cref = db.doc('candidates/' + d.id), cs = await cref.get();
+    if (cs.exists) { const st = (cs.data() || {}).status; if (st === 'waiting_template') { out.retried++; if (!dry) await cref.delete(); } else { out.already++; continue; } }
+    if (dry) { out.sent++; continue; }
+    try { const r = await openCandidate(d.id, l, cfg); if (r.contacted) out.sent++; else if (r.skipped === 'no phone') out.noPhone++; else if (r.skipped === 'staff chat') out.staff++; else out.other++; }
+    catch (e) { out.other++; console.warn('sendAll', e.message); }
+    await new Promise((x) => setTimeout(x, 400));
+  }
+  await C.logRun('recruit', { kind: 'sendAll', ...out });
+  return out;
+}
+exports._t = { isJobLead, openCandidate, sendAll, systemBlocks, historyOf, waIdFrom, FIELDS, DEFAULTS };

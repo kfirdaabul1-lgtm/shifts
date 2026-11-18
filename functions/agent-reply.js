@@ -163,21 +163,25 @@ async function applyToLead(leadId, d, name) {
   await ref.set(up, { merge: true });
 }
 
-exports.agentReply = functions.region(REGION).runWith({ timeoutSeconds: 120, memory: '512MB' }).firestore.document('waChats/{chat}/msgs/{id}').onCreate(async (snap, ctx) => {
-  const m = snap.data() || {}, chat = ctx.params.chat, id = ctx.params.id;
+exports.agentReply = functions.region(REGION).runWith({ timeoutSeconds: 120, memory: '512MB' }).firestore.document('waChats/{chat}/msgs/{id}').onCreate(async (snap, ctx) => replyRun(snap.data() || {}, ctx.params.chat, ctx.params.id, false));
+// morning = a message that arrived outside 08:00–20:00 (owner, Nov 19), answered by aiMorning at 08:00
+async function replyRun(m, chat, id, morning) {
   if (m.dir !== 'in' || m.src === 'history' || !['text', 'button', 'interactive'].includes(m.type) || !String(m.text || '').trim()) return; // media: a person sees it in the inbox
   const cfg = { ...DEFAULTS, ...(await C.cfg('reply')) };
   if (cfg.enabled !== true) return;
-  if (Date.now() - (+m.at || 0) > cfg.maxAgeMin * 60e3) return; // never answer a backlog
-  try { await db.doc('agentClaims/reply_' + chat + '_' + id).create({ at: Date.now() }); } catch (e) { return; } // the same event delivered twice
+  if (!morning) {
+    if (Date.now() - (+m.at || 0) > cfg.maxAgeMin * 60e3) return; // never answer a backlog
+    try { await db.doc('agentClaims/reply_' + chat + '_' + id).create({ at: Date.now() }); } catch (e) { return; } // the same event delivered twice
+  }
 
   const cref = db.doc('waChats/' + chat), cs = await cref.get(), chatD = cs.exists ? cs.data() || {} : {};
   if (chatD.guide) return;
   if (chatD.recruit || chatD.cat === 'jobs') return; // job candidates: the recruiting agent's chats                       // hotel group guides: never
   if (chatD.aiAgent && (chatD.aiAgent.off || chatD.aiAgent.skip)) return; // a person switched it off, or an earlier message showed it is not about events
   if (chatD.agent) return; // a staff member took this chat (waClaim): the person handles it from now on (owner, Nov 17)
+  if (!morning && !C.inHours(cfg)) { await cref.set({ aiNight: { reply: { msg: id, at: +m.at || Date.now() } }, aiNightAt: Date.now() }, { merge: true }); await C.logRun('reply', { chat, msg: id, skipped: 'outside answer hours, queued for the morning' }); return; }
 
-  await C.sleep(cfg.debounceSec * 1000);         // customers send several short messages: answer once, to the last one
+  if (!morning) await C.sleep(cfg.debounceSec * 1000);         // customers send several short messages: answer once, to the last one
   const recent = await cref.collection('msgs').orderBy('at', 'desc').limit(14).get();
   const rows = recent.docs.map((d) => ({ id: d.id, ...d.data() }));
   const latestIn = rows.find((r) => r.dir === 'in'); if (!latestIn || latestIn.id !== id) return;
@@ -244,7 +248,34 @@ exports.agentReply = functions.region(REGION).runWith({ timeoutSeconds: 120, mem
     if (cfg.mode === 'auto') { await cref.collection('msgs').add({ dir: 'out', type: 'text', text, status: 'queued', by: 'ai', byName: cfg.name || DEFAULTS.name, at: now, src: 'system' }); await cref.set({ lastAt: now, lastText: text.slice(0, 200), lastDir: 'out' }, { merge: true }); }
     else await db.doc('waDrafts/' + chat).set({ text, forMsg: id, at: now, status: 'pending', handoff: !!got.handoff, model, details: got.details });
   }
-  await C.logRun('reply', { chat, msg: id, mode: cfg.mode, model, usage: out.U, tools: out.used, handoff: !!got.handoff, replied: !!text, route: got.route || null, textLen: text.length });
+  await C.logRun('reply', { chat, msg: id, mode: cfg.mode, model, usage: out.U, tools: out.used, handoff: !!got.handoff, replied: !!text, route: got.route || null, textLen: text.length, morning: !!morning });
+}
+exports._replyRun = replyRun;
+// answer hours (owner, Nov 19): Adam and Ariel write to customers only 08:00–20:00 Israel time. Messages that came at night were
+// queued on the chat (aiNight.reply / aiNight.recruit + aiNightAt) and new job leads in recruitQueue; from 08:00 they are answered here.
+exports.aiMorning = functions.region(REGION).runWith({ timeoutSeconds: 540, memory: '512MB' }).pubsub.schedule('every 10 minutes').timeZone('Asia/Jerusalem').onRun(async () => {
+  if (!C.inHours({})) return null;
+  const R = require('./agent-recruit.js');
+  const q = await db.collection('waChats').where('aiNightAt', '>', 0).limit(40).get();
+  for (const d of q.docs) {
+    const n = (d.data() || {}).aiNight || {};
+    await d.ref.update({ aiNight: admin.firestore.FieldValue.delete(), aiNightAt: admin.firestore.FieldValue.delete() });
+    for (const [k, run] of [['reply', replyRun], ['recruit', R._t.recruitRun]]) {
+      const x = n[k]; if (!x || !x.msg || Date.now() - (+x.at || 0) > 36 * 3600e3) continue;
+      try { const ms = await d.ref.collection('msgs').doc(x.msg).get(); if (ms.exists) await run(ms.data() || {}, d.id, x.msg, true); } catch (e) { console.error('aiMorning', k, d.id, e.message); }
+    }
+  }
+  const rq = await db.collection('recruitQueue').limit(40).get();
+  if (rq.size) {
+    const cfg = { ...R._t.DEFAULTS, ...(await C.cfg('recruit')) };
+    for (const d of rq.docs) {
+      await d.ref.delete();
+      if (cfg.enabled !== true) continue;
+      try { const ls = await db.doc('leads/' + d.id).get(); const l = ls.exists ? ls.data() : null; if (!l || !R._t.isJobLead(l, cfg) || Date.now() - (+l.createdAt || Date.now()) > 3 * 864e5) continue;
+        const r = await R._t.openCandidate(d.id, l, cfg); await C.logRun('recruit', { kind: 'open', lead: d.id, morning: true, ...r }); } catch (e) { console.error('aiMorning open', d.id, e.message); }
+    }
+  }
+  return null;
 });
 
 // ---------- keeping leads warm (owner, Nov 17: "start answering event leads and keep them warm") ----------
@@ -256,7 +287,7 @@ exports.adamFollow = functions.region(REGION).runWith({ timeoutSeconds: 300, mem
   const cfg = { ...DEFAULTS, ...(await C.cfg('reply')) };
   if (cfg.enabled !== true || cfg.mode !== 'auto' || cfg.follow === false) return null;
   const hr = +new Intl.DateTimeFormat('en-GB', { hour: 'numeric', hourCycle: 'h23', timeZone: 'Asia/Jerusalem' }).format(new Date());
-  if (hr < cfg.followFrom || hr >= cfg.followTo) return null;
+  if (hr < cfg.followFrom || hr >= Math.min(cfg.followTo, 20) || !C.inHours(cfg)) return null; // owner, Nov 19: never after 20:00
   try { await warmPending(cfg); } catch (e) { console.error('warmPending', e); }
   const now = Date.now(), q = await db.collection('waChats').where('lastDir', '==', 'out').get();
   let campCat = {}; try { const s = await db.doc('leadcats/main').get(); campCat = (s.exists && s.data().campCat) || {}; } catch (e) { }
@@ -332,6 +363,7 @@ async function warmRun(opt = {}) {
   const cfg = { ...DEFAULTS, ...(await C.cfg('reply')) }, out = { open: 0, tpl: 0, pend: 0, skip: {}, err: 0 };
   const skip = (k) => { out.skip[k] = (out.skip[k] || 0) + 1; };
   if (cfg.enabled !== true || cfg.mode !== 'auto') { out.off = true; return out; }
+  if (!opt.dry && !C.inHours(cfg)) { out.offHours = true; return out; } // owner, Nov 19: customers get messages only 08:00–20:00
   const now = Date.now(), from = C.addDays(C.ilDate(new Date()), -(opt.days == null ? 1 : +opt.days));
   const ls = (await db.collection('leads').where('createdAt', '>=', now - ((+opt.days || 1) + 2) * 864e5).get()).docs.filter((d) => C.ilDate(new Date(+d.data().createdAt || 0)) >= from);
   let campCat = {}; try { const s = await db.doc('leadcats/main').get(); campCat = (s.exists && s.data().campCat) || {}; } catch (e) { }
@@ -462,7 +494,7 @@ exports.adamCallbackRun = functions.region(REGION).runWith({ timeoutSeconds: 300
     try { await push(+b.exact && b.exactBy ? [b.exactBy] : await cbPeople(b.venue || (lead && lead.venue) || '', lead && lead.owner), { title: '📞 לחזור עכשיו ללקוח · ' + who, body: +b.exact ? `קבעת לדבר עכשיו (${b.exactHm || ''}) עם ${who}. הטלפון בכרטיס הליד.` : `הלקוח ביקש שיחזרו אליו ${b.from}${b.to ? '–' + b.to : ''}${b.note ? ' · ' + b.note : ''}. הטלפון בכרטיס הליד.`, hash: b.leadId ? '#leads?lead=' + b.leadId : '#leads', tag: 'cb-' + b.chat }); } catch (e) { console.error('cb push', e); }
     // Adam writes too, only inside the free-text window and when no person took the chat
     const ai = c.aiAgent || {};
-    if (cfg.enabled === true && cfg.mode === 'auto' && !c.agent && !ai.off && !ai.skip && +c.lastInAt && now - c.lastInAt < 23.5 * 3600e3) {
+    if (cfg.enabled === true && cfg.mode === 'auto' && C.inHours(cfg) && !c.agent && !ai.off && !ai.skip && +c.lastInAt && now - c.lastInAt < 23.5 * 3600e3) {
       try {
         const rows = (await cref.collection('msgs').orderBy('at', 'desc').limit(14).get()).docs.map((x) => ({ id: x.id, ...x.data() }));
         const hist = historyOf(rows); const note = `[NOTE FROM THE SYSTEM, not from the customer: it is now the time the customer asked to be contacted (${b.from}${b.to ? '–' + b.to : ''}). Write ONE short warm message in the customer's language: you are getting back to them as promised, a team member is calling / will call them now, and ask if now is still a good time. Nothing that is not in the knowledge base.]`;

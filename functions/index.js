@@ -2328,6 +2328,7 @@ exports.adamChat = require('./agent-reply.js').adamChat; // owner talks with Ada
 exports.adamFollow = require('./agent-reply.js').adamFollow;
 exports.adamCallbackRun = require('./agent-reply.js').adamCallbackRun; // calls back at the time the customer asked (Nov 17)
 exports.adamRouteNew = require('./agent-reply.js').adamRouteNew; // Gutman → 7EVEN rule on new event leads (Nov 17)
+exports.aiMorning = require('./agent-reply.js').aiMorning; // answers night messages / opens night job leads from 08:00 (owner, Nov 19: agents answer 08:00–20:00 only)
 const rec = require('./agent-recruit.js'); // recruiting agent (Nov 18): off until agentcfg/recruit.enabled === true
 exports.recruitNewLead = rec.recruitNewLead;
 exports.agentRecruit = rec.agentRecruit;

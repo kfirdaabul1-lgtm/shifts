@@ -1,3 +1,5 @@
+// ANSWER HOURS (owner, Nov 19): when Hila's customer-facing reply is built, it must answer only inside C.inHours(cfg) (08:00–20:00 Israel)
+// and queue night messages like agent-reply.js (aiNight + aiMorning).
 // Hila (הילה) — sales agent for SPA and BRIDE-PREPARATION leads (owner, Nov 17: "a new agent named Hila, also a sales agent;
 // take from Adam everything he knows about sales but not the data about events"; owner chose: spa + bride preparation, training only first).
 // Built like Adam's trainer chat (agent-reply.js adamCore): her own knowledge agentKB/hila, her own settings agentcfg/hila

@@ -1209,6 +1209,7 @@ async function waIncoming(m, name, push) {
         if (leadId) {
           const lr = db.doc('leads/' + leadId), lx = (await lr.get()).data() || {}, lu = { updatedAt: Date.now() };
           if (g.cat && !lx.cat) lu.cat = g.cat;
+          if (lu.cat === 'jobs' && typeof lx.jobHotel !== 'string') lu.jobHotel = '';
           if (g.campaign && !lx.campaign) lu.campaign = g.campaign;
           if (g.ref) lu.adRef = g.ref;
           if (Object.keys(lu).length > 1) await lr.set(lu, { merge: true });

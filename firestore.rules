@@ -399,7 +399,10 @@ service cloud.firestore {
       return r.get('station', false) != true && r.get('apps', {}).get('events', false) == true && 'jobs' in r.get('leadCats', [])
         && (r.get('hotels', []).size() == 0 || h == '' || h in r.get('hotels', []));
     }
-    function leadReadOk(d) { return d.get('cat', '') == 'jobs' ? jobsOk(d.get('jobHotel', '')) : ((canEvents() || canMkt()) && leadVenueOk(d.get('venue', ''))); }
+    // READ uses d.cat / d.jobHotel directly (no get() default): in a list query a get() default stands in for an unconstrained field,
+    // so get('cat','') let a query without a cat filter read jobs leads (found by the live test, Nov 18). Every lead has cat (onLeadCat + backfill),
+    // every jobs lead has jobHotel. Single-doc writes keep get() (no query there).
+    function leadReadOk(d) { return d.cat == 'jobs' ? jobsOk(d.jobHotel) : ((canEvents() || canMkt()) && leadVenueOk(d.get('venue', ''))); }
     function leadWriteOk(d) { return d.get('cat', '') == 'jobs' ? jobsOk(d.get('jobHotel', '')) : (canEvents() && leadVenueOk(d.get('venue', ''))); }
     match /leads/{id} {
       allow read: if isOwner() || leadReadOk(resource.data);

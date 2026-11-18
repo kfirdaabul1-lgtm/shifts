@@ -92,6 +92,8 @@ const KEYS = ['hotel', 'month', 'date', 'shift', 'name', 'empUid', 'ooo', 'fault
         console.log('::notice title=recruit template v2::' + (r.ok ? 'created, status ' + (j.status || '?') : ok ? 'already exists' : 'failed: ' + String(((j.error || {}).message) || r.status).slice(0, 150)));
       }
     } catch (e) { console.log('::notice title=recruit template v2::error ' + String(e.message).slice(0, 120)); }
+    // Nov 18 (owner): the recruiting agent is called Ariel — once
+    { const r = db.doc('agentcfg/recruit'), d = (await r.get()).data() || {}; if (!d.nameNov18) await r.set({ name: 'אריאל', nameNov18: Date.now() }, { merge: true }); }
     // Guy, the yield agent (Nov 12, owner asked to turn it on): create agentcfg/yield enabled, ONLY when missing
     const yr = db.doc('agentcfg/yield');
     if (!(await yr.get()).exists) { await yr.set({ enabled: true, name: 'גיא', createdAt: Date.now(), createdBy: 'setup' }); console.log('::notice title=Guy::agentcfg/yield created (on)'); }

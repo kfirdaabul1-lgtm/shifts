@@ -469,7 +469,8 @@ exports.quoteExpiry = functions.region(REGION).pubsub.schedule('0 9 * * *').time
 // events users; with a venue, only those who may see that venue's leads (owner, Nov 1: leads separated per hotel):
 // roles with no hotels = all, otherwise one of their hotels' settings.venues must include it (a lead with no venue goes to everyone)
 // lead kind (events / rooms / spa / bride), same as the client's leadCat: own cat, else the campaign's mapping, else words, else events
-const leadKindRe = (x) => /כלה|כלות|התארגנות|bride|bridal/i.test(x) ? 'bride' : /ספא|spa|עיסוי|massage|טיפולי|טיפול זוגי|wellness/i.test(x) ? 'spa' : /חדר|חדרים|room|לינה|נופש|חופש|stay|night|לילה|לילות|סוויט|suite|booking|הזמנת מלון/i.test(x) ? 'rooms' : '';
+const JOBS_RE = /גיוס|דרוש|דרושים|משרה|משרות|קורות חיים|הגשת מועמדות|לעבוד אצלנו|job|jobs|hiring|career|recruit/i;
+const leadKindRe = (x) => JOBS_RE.test(x) ? 'jobs' : /כלה|כלות|התארגנות|bride|bridal/i.test(x) ? 'bride' : /ספא|spa|עיסוי|massage|טיפולי|טיפול זוגי|wellness/i.test(x) ? 'spa' : /חדר|חדרים|room|לינה|נופש|חופש|stay|night|לילה|לילות|סוויט|suite|booking|הזמנת מלון/i.test(x) ? 'rooms' : '';
 async function leadKind(l) {
   let cat = (l && l.cat) || ''; if (!l) return 'events';
   if (!cat) { try { const m = ((await db.doc('leadcats/main').get()).data() || {}).campCat || {}; cat = m[String(l.campaign || '').trim()] || ''; } catch (e) {} }
@@ -480,7 +481,13 @@ async function eventsPeople(venue, lead, cat) {
   const out = new Set(), rs = await db.collection('roles').get(), vc = {};
   const vOf = async (h) => { if (!(h in vc)) { try { const d = await db.doc('settings/' + h).get(); vc[h] = (d.exists && d.data().venues) || []; } catch (e) { vc[h] = []; } } return vc[h]; };
   for (const d of rs.docs) {
-    const r = d.data() || {}; if (r.station || !(r.apps && r.apps.events)) continue;
+    const r = d.data() || {}; if (r.station || !(r.apps && r.apps.events)) continue; // apps.events = the key that opens the leads page
+    if (cat === 'jobs') { // hiring leads (Nov 18): only roles that list 'jobs' explicitly (empty leadCats does not count), by the lead's jobHotel
+      if (!(Array.isArray(r.leadCats) && r.leadCats.includes('jobs'))) continue;
+      const jh = lead && typeof lead === 'object' ? lead.jobHotel || '' : '', hs = r.hotels || [];
+      if (!hs.length || !jh || hs.includes(jh)) out.add(d.id);
+      continue;
+    }
     if (cat && Array.isArray(r.leadCats) && r.leadCats.length && !r.leadCats.includes(cat)) continue;
     const hs = r.hotels || []; if (!hs.length) { out.add(d.id); continue; } if (!venue) { if (!lead) out.add(d.id); continue; } // lead with no place → chain staff only
     for (const h of hs) if ((await vOf(h)).includes(venue)) { out.add(d.id); break; }
@@ -918,8 +925,8 @@ async function waLead(waId, name) {
 }
 // automatic inbox for a new WhatsApp chat (owner, Nov 13): Click-to-WhatsApp ad referral → the ad's campaign → leadcats campCat / words;
 // else a known pre-filled phrase from our wa.me links. Never a general word guess ("חתונה" can be a hall event or a bride).
-const WA_CAT_WORDS = (x) => /כלה|כלות|התארגנות|bride|bridal/i.test(x) ? 'bride' : /ספא|spa|עיסוי|massage|טיפולי|טיפול זוגי|wellness/i.test(x) ? 'spa' : /חדר|חדרים|room|לינה|נופש|stay|night|לילה|לילות|סוויט|suite/i.test(x) ? 'rooms' : /אירוע|אירועים|event|כנס|בר מצו|בת מצו|חינה|ברית/i.test(x) ? 'events' : '';
-const WA_PHRASES = { 'התארגנות כלה': 'bride', 'חבילת כלה': 'bride', 'טיפול ספא': 'spa', 'הזמנת טיפול': 'spa', 'עיסוי': 'spa', 'הזמנת חדר': 'rooms', 'לינה במלון': 'rooms' };
+const WA_CAT_WORDS = (x) => JOBS_RE.test(x) ? 'jobs' : /כלה|כלות|התארגנות|bride|bridal/i.test(x) ? 'bride' : /ספא|spa|עיסוי|massage|טיפולי|טיפול זוגי|wellness/i.test(x) ? 'spa' : /חדר|חדרים|room|לינה|נופש|stay|night|לילה|לילות|סוויט|suite/i.test(x) ? 'rooms' : /אירוע|אירועים|event|כנס|בר מצו|בת מצו|חינה|ברית/i.test(x) ? 'events' : '';
+const WA_PHRASES = { 'גיוס עובדים': 'jobs', 'הגשת מועמדות': 'jobs', 'התארגנות כלה': 'bride', 'חבילת כלה': 'bride', 'טיפול ספא': 'spa', 'הזמנת טיפול': 'spa', 'עיסוי': 'spa', 'הזמנת חדר': 'rooms', 'לינה במלון': 'rooms' };
 async function waAdCampaign(adId) {
   if (!/^\d{5,25}$/.test(String(adId || ''))) return '';
   const m = (await db.doc('metacfg/main').get()).data() || {};
@@ -939,7 +946,7 @@ async function waGuessCat(m, text) {
   }
   if (!out.cat) {
     const t = String(text || '').toLowerCase(), P = { ...WA_PHRASES, ...(lc.waPhrases || {}) };
-    const hit = Object.keys(P).find((p) => p && t.includes(String(p).toLowerCase()) && ['events', 'rooms', 'spa', 'bride'].includes(P[p]));
+    const hit = Object.keys(P).find((p) => p && t.includes(String(p).toLowerCase()) && ['events', 'rooms', 'spa', 'bride', 'jobs'].includes(P[p]));
     if (hit) out.cat = P[hit];
   }
   return out;
@@ -1418,6 +1425,13 @@ exports.waTplSync = functions.region(REGION).pubsub.schedule('every 30 minutes')
 
 // automatic WhatsApp template to every new lead, chosen by the lead's place (waauto/main, owner card on the leads WhatsApp tab)
 const waIdFrom = (p) => { let d = String(p || '').replace(/\D/g, ''); if (d.startsWith('00')) d = d.slice(2); if (d.startsWith('0')) d = '972' + d.slice(1); else if (d.length === 9 && d[0] === '5') d = '972' + d; return d.length >= 11 && d.length <= 15 ? d : ''; };
+// hiring leads (Nov 18): a lead created without cat gets cat 'jobs' when its kind is jobs, else cat '' — every lead needs a cat field,
+// because non-hiring users list leads with where('cat','in',[...]) and the rules hide cat 'jobs' from them
+exports.onLeadCat = trig('leads/{id}').onCreate(async (snap) => {
+  const l = snap.data() || {}; if (typeof l.cat === 'string') return null;
+  const k = await leadKind(l);
+  return snap.ref.set(k === 'jobs' ? { cat: 'jobs', jobHotel: l.jobHotel || '', job: l.job || '' } : { cat: '' }, { merge: true });
+});
 exports.onLeadAuto = trig('leads/{id}').onCreate(async (snap) => {
   const l = snap.data() || {}, id = snap.id;
   if (l.source === 'whatsapp' || l.source === 'arsona' || l.waAutoAt || /^wa_/.test(id)) return; // Arsona guests are handled by a person, never an automatic template

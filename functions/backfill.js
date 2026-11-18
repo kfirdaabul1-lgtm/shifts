@@ -125,4 +125,15 @@ const KEYS = ['hotel', 'month', 'date', 'shift', 'name', 'empUid', 'ooo', 'fault
     for (const d of mq.docs) { const x = d.data() || {}, p = arsMailParse(x.raw); if (!p) continue;
       await d.ref.update({ type: T[p.key] || 'agent', kind: p.typeTxt, hotelTxt: p.hotelTxt, guest: p.guest, conf: p.conf, room: p.room, channel: p.channel || 'מייל', when: p.when, summary: p.summary, src: 'mail', hotel: x.hotel || (p.hotelTxt && pick(p.hotelTxt)) || pick(x.raw) }); mn++; }
     console.log('::notice title=Backfill::Arsona mails re-read ' + mn + ' of ' + mq.size); }
+  // hiring leads (Nov 18): every lead needs a `cat` field (clients now list leads with where('cat','in',…) / cat == 'jobs');
+  // leads without one get 'jobs' when their kind is jobs (same words as index.js leadKind), else ''. Prints counts only.
+  { const JOBS_RE = /גיוס|דרוש|דרושים|משרה|משרות|קורות חיים|הגשת מועמדות|לעבוד אצלנו|job|jobs|hiring|career|recruit/i;
+    const cc = ((await db.doc('leadcats/main').get()).data() || {}).campCat || {};
+    const lq = await db.collection('leads').get(); let nc = 0, nj = 0, b = db.batch(), bn = 0;
+    for (const d of lq.docs) { const l = d.data() || {}; if (typeof l.cat === 'string') continue;
+      const mapped = cc[String(l.campaign || '').trim()] || '', isJ = mapped ? mapped === 'jobs' : (JOBS_RE.test(String(l.campaign || '')) || (!/כלה|כלות|ספא|spa|חדר|room|לינה/i.test(String(l.campaign || '')) && JOBS_RE.test([l.type, l.notes].join(' '))));
+      b.set(d.ref, isJ ? { cat: 'jobs', jobHotel: l.jobHotel || '', job: l.job || '' } : { cat: '' }, { merge: true }); nc++; if (isJ) nj++;
+      if (++bn >= 400) { await b.commit(); b = db.batch(); bn = 0; } }
+    if (bn) await b.commit();
+    console.log('::notice title=Backfill::leads without cat ' + nc + ' (set to jobs: ' + nj + ') of ' + lq.size); }
 })().catch((e) => { console.error(e); console.log('::error title=Backfill failed::' + String(e && e.message || e).slice(0, 300)); process.exit(1); });

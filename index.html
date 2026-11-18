@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="lang.js?v=07fecaa61f"></script>
+<script src="lang.js?v=ab9da41d58"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -2518,7 +2518,7 @@ const LEAD_STAGES=[['new','ליד חדש'],['contacted','נוצר קשר'],['mee
 // hiring leads (owner, Nov 18, patch leads-jobs): own stages; hired = the only "success" stage, no employee is created
 const JOB_STAGES=[['new','מועמד חדש'],['contacted','נוצר קשר'],['interview','ראיון'],['trial','ניסיון'],['hired','התקבל'],['rejected','לא התקבל'],['junk','לא רלוונטי']];
 const JSTG=Object.fromEntries(JOB_STAGES),JOB_OPEN=['new','contacted','interview','trial'];
-const JOB_TITLES=['חדרנית','קבלה','מלצר/ית','בר','מטבח','אחזקה','שטחים ציבוריים','ניקיון'];
+const JOB_TITLES=['פקיד/ת קבלה','איש/אשת מכירות אירועים','פקיד/ת מחלקת הזמנות'];
 const LSTG={...Object.fromEntries(JOB_STAGES),...Object.fromEntries(LEAD_STAGES)},LSTG_I=Object.fromEntries(LEAD_STAGES.map(([k],i)=>[k,i]));
 const stgName=(l,s)=>(leadCat(l)==='jobs'?JSTG[s]:null)||LSTG[s]||s||'';
 const LEAD_SRC=[['arsona','ארסונה'],['instagram','אינסטגרם'],['facebook','פייסבוק'],['google','גוגל'],['tiktok','טיקטוק'],['website','אתר'],['whatsapp','וואטסאפ'],['phone','טלפון'],['email','מייל'],['referral','המלצה'],['returning','לקוח חוזר'],['walkin','הגיע למקום'],['other','אחר']];

@@ -1433,7 +1433,7 @@ const waIdFrom = (p) => { let d = String(p || '').replace(/\D/g, ''); if (d.star
 exports.onLeadCat = trig('leads/{id}').onCreate(async (snap) => {
   const l = snap.data() || {}; if (typeof l.cat === 'string') return null;
   const k = await leadKind(l);
-  return snap.ref.set(k === 'jobs' ? { cat: 'jobs', jobHotel: l.jobHotel || '', job: l.job || '' } : { cat: '' }, { merge: true });
+  return snap.ref.set(k === 'jobs' ? { cat: 'jobs', jobHotel: l.jobHotel || '', job: l.job || require('./agent-recruit').jobGuess(l) } : { cat: '' }, { merge: true });
 });
 exports.onLeadAuto = trig('leads/{id}').onCreate(async (snap) => {
   const l = snap.data() || {}, id = snap.id;

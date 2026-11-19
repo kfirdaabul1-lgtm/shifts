@@ -63,6 +63,8 @@ service cloud.firestore {
 
     function canShifts() { return isOwner() || (hasRole() && roleApp('shifts')); }
     function canEvents() { return isOwner() || (hasRole() && roleApp('events')); }
+    // leads page (leads, WhatsApp, tasks, clients, candidates) = its own app 'leads' since Nov 19 (owner); 'events' = quotes/board only
+    function canLeads() { return isOwner() || (hasRole() && roleApp('leads')); }
     function canPerms()  { return isOwner() || (hasRole() && roleApp('perms')); }
     function canCeo()    { return isOwner() || (hasRole() && roleApp('ceo')); }
     function canMkt()    { return isOwner() || (hasRole() && roleApp('mkt')); }
@@ -159,6 +161,7 @@ service cloud.firestore {
     function appsWithin(a) {
       return (!a.get('shifts', false) || roleApp('shifts'))
         && (!a.get('events', false) || roleApp('events'))
+        && (!a.get('leads', false) || roleApp('leads'))
         && (!a.get('perms', false) || roleApp('perms'))
         && (!a.get('ceo', false) || roleApp('ceo'))
         && (!a.get('dept', false) || roleApp('dept') || roleApp('shifts'))
@@ -183,7 +186,7 @@ service cloud.firestore {
     }
     function grantOk(n) {
       return n.apps is map
-        && n.apps.keys().hasOnly(['shifts', 'events', 'perms', 'ceo', 'dept', 'mkt', 'exp', 'gm', 'brief', 'front', 'maint', 'fin', 'hk', 'hr', 'spa', 'grp', 'cmp', 'vch', 'vchr', 'hkchk', 'rates', 'greq', 'bk'])
+        && n.apps.keys().hasOnly(['shifts', 'events', 'leads', 'perms', 'ceo', 'dept', 'mkt', 'exp', 'gm', 'brief', 'front', 'maint', 'fin', 'hk', 'hr', 'spa', 'grp', 'cmp', 'vch', 'vchr', 'hkchk', 'rates', 'greq', 'bk'])
         && n.get('hotels', []) is list
         && n.get('depts', []) is list
         && (isOwner() || roleApp('shifts') || n.get('depts', []).hasOnly(roleDepts()))
@@ -200,7 +203,7 @@ service cloud.firestore {
     function chainTarget(uid) { return exists(/databases/$(database)/documents/employees/$(uid)) && get(/databases/$(database)/documents/employees/$(uid)).data.get('hotel', 'main') == 'chain'; }
     function chainGrantOk(n) {
       return n.apps is map
-        && n.apps.keys().hasOnly(['shifts', 'events', 'perms', 'ceo', 'dept', 'mkt', 'exp', 'gm', 'brief', 'front', 'maint', 'fin', 'hk', 'hr', 'spa', 'grp', 'cmp', 'vch', 'vchr', 'hkchk', 'rates', 'greq', 'bk'])
+        && n.apps.keys().hasOnly(['shifts', 'events', 'leads', 'perms', 'ceo', 'dept', 'mkt', 'exp', 'gm', 'brief', 'front', 'maint', 'fin', 'hk', 'hr', 'spa', 'grp', 'cmp', 'vch', 'vchr', 'hkchk', 'rates', 'greq', 'bk'])
         && n.get('hotels', []) is list && n.get('hotels', []).size() == 0
         && n.get('depts', []) is list
         && (isOwner() || roleApp('shifts') || n.get('depts', []).hasOnly(roleDepts()))
@@ -396,14 +399,14 @@ service cloud.firestore {
     // limited to its hotels by jobHotel ('' = no hotel yet). Clients query non-jobs leads with cat in [other kinds] and jobs with cat == 'jobs'.
     function jobsOk(h) {
       let r = roleData();
-      return r.get('station', false) != true && r.get('apps', {}).get('events', false) == true && ('jobs' in r.get('leadCats', []) || r.get('apps', {}).get('hr', false) == true)
+      return r.get('station', false) != true && r.get('apps', {}).get('leads', false) == true && ('jobs' in r.get('leadCats', []) || r.get('apps', {}).get('hr', false) == true)
         && (r.get('hotels', []).size() == 0 || h == '' || h in r.get('hotels', []));
     }
     // READ uses d.cat / d.jobHotel directly (no get() default): in a list query a get() default stands in for an unconstrained field,
     // so get('cat','') let a query without a cat filter read jobs leads (found by the live test, Nov 18). Every lead has cat (onLeadCat + backfill),
     // every jobs lead has jobHotel. Single-doc writes keep get() (no query there).
-    function leadReadOk(d) { return d.cat == 'jobs' ? jobsOk(d.jobHotel) : ((canEvents() || canMkt()) && leadVenueOk(d.get('venue', ''))); }
-    function leadWriteOk(d) { return d.get('cat', '') == 'jobs' ? jobsOk(d.get('jobHotel', '')) : (canEvents() && leadVenueOk(d.get('venue', ''))); }
+    function leadReadOk(d) { return d.cat == 'jobs' ? jobsOk(d.jobHotel) : ((canLeads() || canMkt()) && leadVenueOk(d.get('venue', ''))); }
+    function leadWriteOk(d) { return d.get('cat', '') == 'jobs' ? jobsOk(d.get('jobHotel', '')) : (canLeads() && leadVenueOk(d.get('venue', ''))); }
     // recruiting agent's candidate forms (Nov 18): owner + employees-app (hr) holders read; only the server writes
     match /candidates/{id} {
       allow read: if isOwner() || (hasRole() && roleApp('hr'));
@@ -423,25 +426,25 @@ service cloud.firestore {
     // משימות ותזכורות של צוות המכירות, והערות לכל לקוח
     // site tours (Nov 4): events users schedule them from a lead; the hotel's brief / manager / reception read them by hotel
     match /tours/{id} {
-      allow read: if (canEvents() && leadVenueOk(resource.data.venue)) || briefIn(resource.data.hotel) || frontIn(resource.data.hotel) || gmIn(resource.data.hotel) || manages(resource.data.hotel);
-      allow create: if canEvents() && request.resource.data.by == request.auth.uid && request.resource.data.venue is string && request.resource.data.venue != '' && leadVenueOk(request.resource.data.venue)
+      allow read: if (canLeads() && leadVenueOk(resource.data.venue)) || briefIn(resource.data.hotel) || frontIn(resource.data.hotel) || gmIn(resource.data.hotel) || manages(resource.data.hotel);
+      allow create: if canLeads() && request.resource.data.by == request.auth.uid && request.resource.data.venue is string && request.resource.data.venue != '' && leadVenueOk(request.resource.data.venue)
         && request.resource.data.status == 'scheduled' && request.resource.data.date is string && request.resource.data.date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
-      allow update: if canEvents() && leadVenueOk(resource.data.venue) && request.resource.data.venue == resource.data.venue && request.resource.data.hotel == resource.data.hotel;
-      allow delete: if canEvents() && leadVenueOk(resource.data.venue);
+      allow update: if canLeads() && leadVenueOk(resource.data.venue) && request.resource.data.venue == resource.data.venue && request.resource.data.hotel == resource.data.hotel;
+      allow delete: if canLeads() && leadVenueOk(resource.data.venue);
     }
     // hotel separation (Nov 5): a task is seen by its hotel (venue of its lead), its owner and its creator; no-venue tasks only by those two + chain roles
     function taskOk(d) { return leadVenueOk(d.get('venue', '')) || d.get('owner', '') == request.auth.uid || d.get('createdBy', '') == request.auth.uid; }
     // Adam's scheduled call-backs (Nov 18): the sales person sets the exact time (server reminds 5 min before); doc id = the WhatsApp chat id
     match /adamCallbacks/{c} {
-      allow get: if canEvents() && leadVenueOk(resource.data.get('venue', ''));
-      allow update: if canEvents() && leadVenueOk(resource.data.get('venue', '')) && resource.data.status == 'pending'
+      allow get: if canLeads() && leadVenueOk(resource.data.get('venue', ''));
+      allow update: if canLeads() && leadVenueOk(resource.data.get('venue', '')) && resource.data.status == 'pending'
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['exact', 'exactDate', 'exactHm', 'exactBy', 'exactByName', 'exactAt', 'taskId', 'rem5'])
         && request.resource.data.exactBy == request.auth.uid && request.resource.data.exact is number && request.resource.data.get('rem5', false) == false;
     }
     match /tasks/{id} {
-      allow read, delete: if canEvents() && taskOk(resource.data);
-      allow create: if canEvents() && request.resource.data.get('createdBy', '') == request.auth.uid && (request.resource.data.get('venue', '') == '' || leadVenueOk(request.resource.data.venue));
-      allow update: if canEvents() && taskOk(resource.data) && request.resource.data.get('venue', '') == resource.data.get('venue', '');
+      allow read, delete: if canLeads() && taskOk(resource.data);
+      allow create: if canLeads() && request.resource.data.get('createdBy', '') == request.auth.uid && (request.resource.data.get('venue', '') == '' || leadVenueOk(request.resource.data.venue));
+      allow update: if canLeads() && taskOk(resource.data) && request.resource.data.get('venue', '') == resource.data.get('venue', '');
     }
     // WhatsApp (Oct 26): conversations for events users; the server (admin) writes incoming messages and statuses
     // chat ownership (Nov 8): agent = the employee who wrote to the customer first (set by the server); others see the chat only while
@@ -450,8 +453,8 @@ service cloud.firestore {
     function waChatOk(id) { let c = get(/databases/$(database)/documents/waChats/$(id)).data; return leadVenueOk(c.get('venue', '')) && waSee(c); }
     // pictures sent from a WhatsApp chat (Nov 13): the sender writes the compressed image, onWaOut uploads it to WhatsApp
     match /waMedia/{m} {
-      allow read: if canEvents() && waChatOk(resource.data.chat);
-      allow create: if canEvents() && request.resource.data.by == request.auth.uid && request.resource.data.chat is string
+      allow read: if canLeads() && waChatOk(resource.data.chat);
+      allow create: if canLeads() && request.resource.data.by == request.auth.uid && request.resource.data.chat is string
         && request.resource.data.keys().hasOnly(['data', 'by', 'chat', 'at', 'mime'])
         && request.resource.data.data is string && request.resource.data.data.size() < 900000
         && request.resource.data.data.matches('^data:image/(jpeg|png);base64,[A-Za-z0-9+/=]+$')
@@ -459,33 +462,33 @@ service cloud.firestore {
     }
     // ready-made picture galleries for WhatsApp (Nov 13): any events user may use and edit them; the creator or the owner deletes
     match /waGalleries/{g} {
-      allow read: if canEvents();
-      allow create: if canEvents() && request.resource.data.createdBy == request.auth.uid && request.resource.data.name is string
+      allow read: if canLeads();
+      allow create: if canLeads() && request.resource.data.createdBy == request.auth.uid && request.resource.data.name is string
         && request.resource.data.imgs is list && request.resource.data.imgs.size() <= 10
         && request.resource.data.keys().hasOnly(['name', 'cat', 'caption', 'imgs', 'createdBy', 'createdByName', 'createdAt', 'updatedAt', 'updatedBy']);
-      allow update: if canEvents() && request.resource.data.imgs is list && request.resource.data.imgs.size() <= 10
+      allow update: if canLeads() && request.resource.data.imgs is list && request.resource.data.imgs.size() <= 10
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'cat', 'caption', 'imgs', 'updatedAt', 'updatedBy']);
-      allow delete: if canEvents() && (resource.data.createdBy == request.auth.uid || isOwner());
+      allow delete: if canLeads() && (resource.data.createdBy == request.auth.uid || isOwner());
     }
     match /waGalImgs/{m} {
-      allow read: if canEvents();
-      allow create: if canEvents() && request.resource.data.by == request.auth.uid && request.resource.data.keys().hasOnly(['data', 'by', 'at'])
+      allow read: if canLeads();
+      allow create: if canLeads() && request.resource.data.by == request.auth.uid && request.resource.data.keys().hasOnly(['data', 'by', 'at'])
         && request.resource.data.data is string && request.resource.data.data.size() < 900000
         && request.resource.data.data.matches('^data:image/(jpeg|png);base64,[A-Za-z0-9+/=]+$');
-      allow delete: if canEvents();
+      allow delete: if canLeads();
     }
     match /waChats/{id} {
       // hotel separation (Nov 5): venue = the linked lead's venue (kept by the server, waChatVenue); '' = chain roles only
-      allow read: if canEvents() && leadVenueOk(resource.data.get('venue', '')) && waSee(resource.data);
-      allow create: if canEvents() && request.resource.data.keys().hasOnly(['waId', 'phone', 'name', 'leadId', 'createdAt', 'createdBy', 'unread', 'cat', 'venue', 'agent']) && request.resource.data.get('agent', '') == '' && leadVenueOk(request.resource.data.get('venue', ''));
-      allow update: if canEvents() && leadVenueOk(resource.data.get('venue', '')) && waSee(resource.data)
+      allow read: if canLeads() && leadVenueOk(resource.data.get('venue', '')) && waSee(resource.data);
+      allow create: if canLeads() && request.resource.data.keys().hasOnly(['waId', 'phone', 'name', 'leadId', 'createdAt', 'createdBy', 'unread', 'cat', 'venue', 'agent']) && request.resource.data.get('agent', '') == '' && leadVenueOk(request.resource.data.get('venue', ''));
+      allow update: if canLeads() && leadVenueOk(resource.data.get('venue', '')) && waSee(resource.data)
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['unread', 'readAt', 'readBy', 'leadId', 'name', 'status', 'doneAt', 'doneBy', 'cat', 'agent', 'agentName', 'agentAt'])
         && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['agent', 'agentName', 'agentAt']) || isOwner()
             || (resource.data.get('agent', '') == request.auth.uid && request.resource.data.get('agent', '') == ''));
       match /msgs/{m} {
-        allow read: if canEvents() && waChatOk(id);
+        allow read: if canLeads() && waChatOk(id);
         // a message to a number with no chat yet is allowed (the server opens the chat)
-        allow create: if canEvents() && request.resource.data.dir == 'out' && request.resource.data.status == 'queued' && request.resource.data.by == request.auth.uid
+        allow create: if canLeads() && request.resource.data.dir == 'out' && request.resource.data.status == 'queued' && request.resource.data.by == request.auth.uid
           && (!exists(/databases/$(database)/documents/waChats/$(id)) || waChatOk(id));
       }
     }
@@ -503,21 +506,21 @@ service cloud.firestore {
       allow update: if request.auth != null && request.auth.uid in resource.data.to && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reads']);
     }
     match /leadcats/{id} {
-      allow read: if canEvents() || canMkt();
-      allow write: if canEvents();
+      allow read: if canLeads() || canMkt();
+      allow write: if canLeads();
     }
     match /waauto/{id} {
-      allow read: if canEvents();
+      allow read: if canLeads() || canEvents();
       allow write: if isOwner();
     }
     match /wapub/{id} {
-      allow read: if canEvents();
+      allow read: if canLeads() || canEvents();
       allow write: if isOwner();
     }
     match /clients/{id} {
-      allow read, delete: if canEvents() && leadVenueOk(resource.data.get('venue', ''));
-      allow create: if canEvents() && leadVenueOk(request.resource.data.get('venue', ''));
-      allow update: if canEvents() && leadVenueOk(resource.data.get('venue', '')) && leadVenueOk(request.resource.data.get('venue', ''));
+      allow read, delete: if canLeads() && leadVenueOk(resource.data.get('venue', ''));
+      allow create: if canLeads() && leadVenueOk(request.resource.data.get('venue', ''));
+      allow update: if canLeads() && leadVenueOk(resource.data.get('venue', '')) && leadVenueOk(request.resource.data.get('venue', ''));
     }
 
     // ---------- שיווק ----------

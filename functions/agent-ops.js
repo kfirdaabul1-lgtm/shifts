@@ -527,7 +527,7 @@ async function runWatch(cfg) {
       const a = ch.aiAgent || {}; if (!a.handoff || !a.at || (+ch.lastInAt || 0) < a.at - 60e3 || now < handoffDue(a.at, cfg)) continue;
       const key = 'handoff_' + ch.id + '_' + a.at; if (sent.has(key)) continue;
       let to = ch.agent ? [ch.agent] : [];
-      if (!to.length) (await db.collection('roles').get()).forEach((d) => { const r = d.data() || {}; if (!r.station && r.apps && r.apps.events) to.push(d.id); });
+      if (!to.length) (await db.collection('roles').get()).forEach((d) => { const r = d.data() || {}; if (!r.station && r.apps && r.apps.leads) to.push(d.id); });
       await sendPush(to, { title: '💬 לקוח מחכה לתשובה', body: clip(`${ch.name || ch.phone || ''}: אדם העביר את השיחה לנציג ואף אחד עוד לא ענה.${a.reason ? ' ' + a.reason : ''}`, 300), hash: '#leads?wa=' + ch.id, tag: 'opsw-' + key });
       sent.add(key); fresh.push(key);
     }

@@ -1,5 +1,5 @@
 <!doctype html><html lang="he" dir="rtl"><head><meta name="theme-color" content="#14213D"><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}.vatpick{background:var(--soft,rgba(176,141,87,.12));border-radius:6px;padding:8px 10px;margin-bottom:8px}
-</style><script src="lang.js?v=8759f47b48"></script></head><body>
+</style><script src="lang.js?v=d3825d32c1"></script></head><body>
 <style>
 .evtop{background:var(--surface);border-bottom:1px solid var(--line)}
 .evtop-in{max-width:1240px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:10px;padding-block:6px;padding-left:max(10px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
@@ -1021,6 +1021,7 @@ const D = &lt;?!= dJson ?&gt;, S = &lt;?!= sJson ?&gt;;
       // events.html#ceo is the CEO view (needs the ceo permission); events.html is the quotes app (needs events)
       const ceoMode=location.hash==='#ceo',canEv=ctx.isOwner||!!apps.events,canCeo=ctx.isOwner||!!apps.ceo;
       ctx.allowed=ceoMode?canCeo:canEv;
+      window.HAS_LEADS=ctx.isOwner||(!!apps.leads&&!(role&&role.station)); // Nov 19: the system WhatsApp lives with the leads app
       let depts=[];if(!ctx.isOwner){try{const e=await ctx.fdb.doc('employees/'+u.uid).get();if(e.exists&&!e.data().mgmt)depts=e.data().depts||[]}catch(_){ }}
       let mods={},ocMods={};try{const oc=await ctx.fdb.doc('orgcfg/main').get();if(oc.exists){const od=oc.data()||{};ocMods=od.mods||{};mods=Object.assign({},od.lic||{},od.mods||{})}}catch(_){ }
       // page permissions from the home registry chains/{id}.lic (set in Kfir app, Nov 6) — a registry false/true wins over the chain's own lic
@@ -1045,7 +1046,7 @@ AB_ICO.events=`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" strok
 AB_ICO.perms=`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M12 3l7 3v5c0 5-3 8-7 10-4-2-7-5-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg>`;
 // the drawer lists the same pages as the main app's menu (index.html), by the same permissions
 function abMenuItems(o,a,depts,ceoMode,mods){const d=depts||[],dept=!o&&!a.shifts&&!!a.dept,M=mods||{},MK={vchr:'vch',hkchk:'hk',leads:'events'},A=k=>(o||!!a[k])&&M[MK[k]||k]!==false;
-  return [['shifts','סידור עבודה','./',true],['hr','עובדים','./#hr',A('hr')],['events','אירועים','events.html',A('events')],['spa','ספא','./#spa',A('spa')],['grp','קבוצות','./#grp',A('grp')],['leads','לידים ומכירות','./#leads',A('events')],
+  return [['shifts','סידור עבודה','./',true],['hr','עובדים','./#hr',A('hr')],['events','אירועים','events.html',A('events')],['spa','ספא','./#spa',A('spa')],['grp','קבוצות','./#grp',A('grp')],['leads','לידים ומכירות','./#leads',A('leads')],
     ['front','קבלה','./#front',A('front')],['brief','בריף יומי','./#brief',A('brief')||A('gm')],['gm','מנהל מלון','./#gm',A('gm')],['ceo','מבט מנכ״ל','./#ceo',A('ceo')],['fin','כספים','./#fin',A('fin')],
     ['hk','משק','./#hk',A('shifts')||A('gm')||A('front')||A('hk')||A('hkchk')||d.includes('housekeeping')],['pub','שטחים ציבוריים','./#pub',A('shifts')||A('gm')||A('front')||d.includes('public')],['bar','בר','./#bar',A('shifts')||A('gm')||d.includes('bar')],['ceo','השוואת מחירים','./#rates',A('gm')||A('ceo')||A('rates')],
     ['cmp','תלונות אורחים','./#cmp',A('cmp')],['vch','שוברים','./#vch',A('vch')||A('vchr')],['maint','אחזקה','./#maint',A('shifts')||A('gm')||A('maint')||(dept&&d.includes('maintenance'))],
@@ -2365,7 +2366,7 @@ $('#syncState').textContent='';
   settings=structuredClone(DEF_SETTINGS);quotes=[];menus=[];contracts=[];
   try{const o=await db.doc('orgcfg/main').get();if(o.exists){const od=o.data()||{};if(Array.isArray(od.venues)){setVenues(od.venues);brandLine()}if(od.name){document.querySelectorAll('.evbrand,.drawer-h b').forEach(e=>e.textContent=od.name);document.title=document.title.replace('Seven Collection',od.name)}renderVenues&&renderVenues()}}catch(_){ }
   if(Array.isArray(window.QVENUES)){const keep=VENUES.filter(v=>window.QVENUES.includes(v.id));if(keep.length){VENUES.splice(0,VENUES.length,...keep);if(cur&&!cur.id&&!VENUES.some(v=>v.id===cur.event.venue)){cur.event.venue=VENUES[0].id;cur.event.areas=[];cur.event.area='';try{fillForm()}catch(_){ }}if(typeof SPACES!=='undefined')SPACES.splice(0,SPACES.length,...mkSpaces());brandLine();renderVenues&&renderVenues()}}
-  db.doc('wapub/main').onSnapshot(s=>{$('#btnWaSys').hidden=!(s.exists&&s.data().on);$('#prWaSys').hidden=$('#btnWaSys').hidden},()=>{});
+  if(window.HAS_LEADS)db.doc('wapub/main').onSnapshot(s=>{$('#btnWaSys').hidden=!(s.exists&&s.data().on);$('#prWaSys').hidden=$('#btnWaSys').hidden},()=>{});
   db.doc('config/main').onSnapshot(s=>{
     if(s.exists){settings=Object.assign(structuredClone(DEF_SETTINGS),structuredClone(s.data()));settings.business=Object.assign({},DEF_SETTINGS.business,settings.business||{})}
     applySettings();if(!$('#tab-settings').hidden)renderSettings();

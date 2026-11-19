@@ -463,7 +463,7 @@ async function cbPeople(venue, leadOwner) {
   if (leadOwner) return [leadOwner];
   const out = new Set(), rs = await db.collection('roles').get(), vh = {};
   for (const d of rs.docs) {
-    const r = d.data() || {}; if (r.station || !(r.apps || {}).events) continue;
+    const r = d.data() || {}; if (r.station || !(r.apps || {}).leads) continue;
     const lc = r.leadCats || []; if (lc.length && !lc.includes('events')) continue;
     const hs = r.hotels || []; if (!hs.length) { out.add(d.id); continue; }
     for (const h of hs) { if (!(h in vh)) vh[h] = ((await db.doc('settings/' + h).get()).data() || {}).venues || []; if (!venue || vh[h].includes(venue)) { out.add(d.id); break; } }

@@ -478,18 +478,22 @@ async function leadKind(l) {
   return cat || (JOBS_CAMP.test(String(l.campaign || '')) ? 'jobs' : '') || leadKindRe(String(l.campaign || '')) || leadKindRe([l.type, l.notes].join(' ')) || 'events';
 }
 // cat (owner, Nov 12): only people whose roles/{uid}.leadCats is empty (= all kinds) or includes it
-async function eventsPeople(venue, lead, cat) {
+// Nov 19 (owner): the leads page has its own app 'leads'. leadsPeople = lead / WhatsApp / task / hiring pushes (apps.leads);
+// eventsPeople = quote pushes only (apps.events: quoteExpiry, onSignDone). Same venue / kind filters.
+const eventsPeople = (venue, lead, cat) => appPeople('events', venue, lead, cat);
+const leadsPeople = (venue, lead, cat) => appPeople('leads', venue, lead, cat);
+async function appPeople(app, venue, lead, cat) {
   const out = new Set(), rs = await db.collection('roles').get(), vc = {};
   const vOf = async (h) => { if (!(h in vc)) { try { const d = await db.doc('settings/' + h).get(); vc[h] = (d.exists && d.data().venues) || []; } catch (e) { vc[h] = []; } } return vc[h]; };
   for (const d of rs.docs) {
     const r = d.data() || {};
-    if (cat === 'jobs') { // hiring leads (Nov 18): employees-app (hr) holders + events roles that list 'jobs' explicitly, by the lead's jobHotel
-      if (r.station || !((r.apps && r.apps.hr) || (r.apps && r.apps.events && Array.isArray(r.leadCats) && r.leadCats.includes('jobs')))) continue;
+    if (cat === 'jobs') { // hiring leads (Nov 18/19): leads-app holders who have the employees (hr) app or list 'jobs' explicitly, by the lead's jobHotel (same as rules jobsOk)
+      if (r.station || !(r.apps && r.apps.leads) || !(r.apps.hr || (Array.isArray(r.leadCats) && r.leadCats.includes('jobs')))) continue;
       const jh = lead && typeof lead === 'object' ? lead.jobHotel || '' : '', hs = r.hotels || [];
       if (!hs.length || !jh || hs.includes(jh)) out.add(d.id);
       continue;
     }
-    if (r.station || !(r.apps && r.apps.events)) continue; // apps.events = the key that opens the leads page
+    if (r.station || !(r.apps && r.apps[app])) continue;
     if (cat && Array.isArray(r.leadCats) && r.leadCats.length && !r.leadCats.includes(cat)) continue;
     const hs = r.hotels || []; if (!hs.length) { out.add(d.id); continue; } if (!venue) { if (!lead) out.add(d.id); continue; } // lead with no place → chain staff only
     for (const h of hs) if ((await vOf(h)).includes(venue)) { out.add(d.id); break; }
@@ -536,7 +540,7 @@ async function metaLeads(cfg) {
   }
   const byV = {}; for (const l of fresh) { const k = (l.venue || '') + '|' + (await leadKind(l)); (byV[k] = byV[k] || []).push(l); }
   for (const [vk, fl] of Object.entries(byV)) {
-    const [v, kc] = vk.split('|'), who = await eventsPeople(v, true, kc);
+    const [v, kc] = vk.split('|'), who = await leadsPeople(v, true, kc);
     await sendTo(who, { title: fl.length === 1 ? 'ליד חדש מ-Meta' : `${fl.length} לידים חדשים מ-Meta`, body: fl.slice(0, 3).map((l) => l.name + (l.campaign ? ' · ' + l.campaign : '')).join(' | '), hash: fl.length === 1 && fl[0]._id ? '#leads?lead=' + fl[0]._id : '#leads', tag: 'meta-leads-' + vk });
   }
   return { pages: pages.map((p) => p.name), forms, newLeads: fresh.length, leadsAt: started };
@@ -1220,7 +1224,7 @@ async function waIncoming(m, name, push) {
     } catch (e) { console.warn('wa cat', e.message); }
   }
   const kc = c.cat || autoCat || (ld ? await leadKind(ld) : 'events'); // the chat's inbox kind (unsorted chats live in the events inbox)
-  if (push) await sendTo(owner ? [owner] : await eventsPeople(venue, true, kc), { title: '💬 ' + (name || c.name || waLocal(chat)), body: text.slice(0, 140), hash: '#leads?wa=' + chat, tag: 'wa-' + chat });
+  if (push) await sendTo(owner ? [owner] : await leadsPeople(venue, true, kc), { title: '💬 ' + (name || c.name || waLocal(chat)), body: text.slice(0, 140), hash: '#leads?wa=' + chat, tag: 'wa-' + chat });
 }
 async function waOutgoing(chat, m, src) {
   const at = (+m.timestamp || Date.now() / 1000) * 1000, text = waText(m);
@@ -2249,7 +2253,7 @@ exports.waChatVenue = trig('waChats/{id}').onWrite(async (ch) => {
   // Adam asked for a person (aiAgent.handoff, owner Nov 17: he now answers event leads by himself) → push the events people of the chat's place
   const ha = a.aiAgent || {}, hb = b.aiAgent || {};
   if (ha.handoff && ha.at && ha.at !== hb.at && !hb.handoff) { try { let lead = null; if (a.leadId) { const s = await db.doc('leads/' + a.leadId).get(); lead = s.exists ? s.data() : null; }
-    const to = a.agent ? [a.agent] : await eventsPeople(lead ? lead.venue || '' : (a.venue || ''), lead || true, 'events');
+    const to = a.agent ? [a.agent] : await leadsPeople(lead ? lead.venue || '' : (a.venue || ''), lead || true, 'events');
     await sendTo(to, { title: (ha.urgency === 'urgent' ? '🔴 ' : '') + '🤵 אדם מבקש נציג בוואטסאפ', body: [(lead && lead.name) || a.name || ('+' + ch.after.id), ha.reason].filter(Boolean).join(' · '), hash: '#leads?wa=' + ch.after.id, tag: 'wa-' + ch.after.id }); } catch (e) { console.error('handoff push', e); } }
   // every chat carries `agent` ('' = nobody took it yet), so employees can query agent in ['', me] (Nov 8)
   if (a.agent === undefined) await ch.after.ref.set({ agent: '' }, { merge: true });
@@ -2271,7 +2275,7 @@ exports.leadVenueSync = trig('leads/{id}').onUpdate(async (ch, ctx) => {
   // Adam moved a Gutman lead to 7EVEN (wedding / over 80 guests, owner Nov 17) → tell the 7EVEN events people
   const ra = a.routed || {}, rb = b.routed || {};
   if (ra.at && ra.at !== rb.at && ra.to === v) { try { const g = a.guestsTxt || a.guests;
-    await sendTo(await eventsPeople(v, a, 'events'), { title: '🤵 אדם העביר ליד מגוטמן ל-7EVEN', body: [a.name || 'ליד', a.type, g && g + ' אורחים', ra.why].filter(Boolean).join(' · '), hash: '#leads?lead=' + id, tag: 'route-' + id }); } catch (e) { console.error('route push', e); } }
+    await sendTo(await leadsPeople(v, a, 'events'), { title: '🤵 אדם העביר ליד מגוטמן ל-7EVEN', body: [a.name || 'ליד', a.type, g && g + ' אורחים', ra.why].filter(Boolean).join(' · '), hash: '#leads?lead=' + id, tag: 'route-' + id }); } catch (e) { console.error('route push', e); } }
   for (const col of ['waChats', 'tasks']) {
     const q = await db.collection(col).where('leadId', '==', id).get();
     for (const d of q.docs) if ((d.data().venue || '') !== v) await d.ref.set({ venue: v }, { merge: true });
@@ -2459,7 +2463,7 @@ exports.waDoc = functions.region(REGION).runWith({ timeoutSeconds: 60, memory: '
     const c = cs.data() || {}, m = ms.data() || {};
     if (!owner) {
       const rs = await db.doc('roles/' + tok.uid).get(), role = rs.exists ? rs.data() || {} : null;
-      if (!role || role.station || !(role.apps || {}).events) { res.status(403).json({ error: 'אין הרשאה' }); return; }
+      if (!role || role.station || !(role.apps || {}).leads) { res.status(403).json({ error: 'אין הרשאה' }); return; }
       const ag = c.agent || ''; if (ag && ag !== tok.uid) { res.status(403).json({ error: 'השיחה שייכת לעובד אחר' }); return; }
       const hs = Array.isArray(role.hotels) ? role.hotels : [], v = c.venue || '';
       if (hs.length) {

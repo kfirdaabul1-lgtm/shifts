@@ -33,10 +33,10 @@ const LEADS = ['ztest_j3', 'ztest_j1', 'ztest_j2', 'ztest_e1', 'ztest_t1', 'ztes
 (async () => {
   try {
     const now = Date.now();
-    await db.doc('roles/' + U.A).set({ apps: { events: true }, hotels: [], leadCats: ['jobs', 'events'], name: 'ztest' });
-    await db.doc('roles/' + U.B).set({ apps: { events: true }, hotels: [], leadCats: [], name: 'ztest' });
-    await db.doc('roles/' + U.C).set({ apps: { events: true }, hotels: [H7], leadCats: ['jobs'], name: 'ztest' });
-    await db.doc('roles/' + U.D).set({ apps: { events: true }, hotels: [H7], leadCats: [], name: 'ztest' });
+    await db.doc('roles/' + U.A).set({ apps: { events: true, leads: true }, hotels: [], leadCats: ['jobs', 'events'], name: 'ztest' });
+    await db.doc('roles/' + U.B).set({ apps: { events: true, leads: true }, hotels: [], leadCats: [], name: 'ztest' });
+    await db.doc('roles/' + U.C).set({ apps: { events: true, leads: true }, hotels: [H7], leadCats: ['jobs'], name: 'ztest' });
+    await db.doc('roles/' + U.D).set({ apps: { events: true, leads: true }, hotels: [H7], leadCats: [], name: 'ztest' });
     await db.doc('leads/ztest_j1').set({ name: 'ztest', cat: 'jobs', job: 'חדרנית', jobHotel: H7, venue: '', stage: 'new', createdAt: now, source: 'other' });
     await db.doc('leads/ztest_j2').set({ name: 'ztest', cat: 'jobs', job: 'קבלה', jobHotel: HG, venue: '', stage: 'new', createdAt: now, source: 'other' });
     await db.doc('leads/ztest_e1').set({ name: 'ztest', cat: 'events', venue: 'sola', stage: 'new', createdAt: now, source: 'other' });

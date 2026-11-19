@@ -391,7 +391,7 @@ const PAGE_OK = {
   maint: (c) => ['maint', 'shifts', 'gm'].some((a) => app(c, a)) || (app(c, 'dept') && (c.depts || []).includes('maintenance')),
   stock: (c) => ['shifts', 'gm', 'dept'].some((a) => app(c, a)),
   cmp: (c) => app(c, 'cmp'), greq: (c) => app(c, 'greq'), vch: (c) => app(c, 'vch') || app(c, 'vchr'), spa: (c) => app(c, 'spa'),
-  grp: (c) => app(c, 'grp') || app(c, 'front'), leads: (c) => app(c, 'events'), events: (c) => app(c, 'events'),
+  grp: (c) => app(c, 'grp') || app(c, 'front'), leads: (c) => app(c, 'leads'), events: (c) => app(c, 'events'),
 };
 const HELP_TOOLS = [
   { name: 'app_help', description: 'The written how-to guide of the app (only the pages this person can open). Call it for every "how do I / where is" question and answer only from it.', input_schema: { type: 'object', properties: { topic: { type: 'string', description: 'optional words to narrow it, e.g. "החלפת משמרת"' } } },

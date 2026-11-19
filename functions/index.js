@@ -2474,8 +2474,10 @@ exports.waDoc = functions.region(REGION).runWith({ timeoutSeconds: 60, memory: '
       }
     }
     const nm = String(m.text || '').replace(/^📄\s*/, '').split(':')[0].trim();
-    if (m.dir !== 'in' || m.type !== 'document' || !m.media) { res.status(400).json({ error: 'זו לא הודעה עם מסמך' }); return; }
-    if (!(String(m.mime || '').toLowerCase() === 'application/pdf' || /\.pdf$/i.test(nm))) { res.status(415).json({ error: 'אפשר לפתוח כאן רק קובצי PDF' }); return; }
+    // Nov 19 (owner): incoming customer pictures can be viewed too (jpeg/png/webp, checked by their first bytes below)
+    const isImg = m.dir === 'in' && m.type === 'image' && !!m.media;
+    if (!isImg && (m.dir !== 'in' || m.type !== 'document' || !m.media)) { res.status(400).json({ error: 'זו לא הודעה עם מסמך או תמונה' }); return; }
+    if (!isImg && !(String(m.mime || '').toLowerCase() === 'application/pdf' || /\.pdf$/i.test(nm))) { res.status(415).json({ error: 'אפשר לפתוח כאן רק קובצי PDF' }); return; }
     const ref = db.doc('authRate/wadoc_' + tok.uid + '_' + new Date().toISOString().slice(0, 13));
     const n = await db.runTransaction(async (tx) => { const s = await tx.get(ref); const k = ((s.exists && s.data().n) || 0) + 1; tx.set(ref, { n: k, at: Date.now() }); return k; });
     if (n > 60) { res.status(429).json({ error: 'יותר מדי פתיחות בשעה האחרונה. נסו שוב מאוחר יותר.' }); return; }
@@ -2489,6 +2491,11 @@ exports.waDoc = functions.region(REGION).runWith({ timeoutSeconds: 60, memory: '
     if (!r.ok) { res.status(502).json({ error: 'ההורדה מוואטסאפ נכשלה' }); return; }
     const buf = Buffer.from(await r.arrayBuffer());
     if (buf.length > 12e6) { res.status(413).json({ error: 'הקובץ גדול מדי' }); return; }
+    if (isImg) {
+      const h = buf.slice(0, 12), mt = (h[0] === 0xff && h[1] === 0xd8 && h[2] === 0xff) ? 'image/jpeg' : (h.slice(0, 8).toString('hex') === '89504e470d0a1a0a') ? 'image/png' : (h.slice(0, 4).toString('latin1') === 'RIFF' && h.slice(8, 12).toString('latin1') === 'WEBP') ? 'image/webp' : '';
+      if (!mt) { res.status(415).json({ error: 'הקובץ לא נראה כמו תמונה רגילה, ולכן לא נפתח' }); return; }
+      res.json({ ok: true, kind: 'image', mime: mt, name: 'תמונה', size: buf.length, data: buf.toString('base64') }); return;
+    }
     if (buf.slice(0, 1024).toString('latin1').indexOf('%PDF-') < 0) { res.status(415).json({ error: 'הקובץ לא נראה כמו PDF אמיתי, ולכן לא נפתח' }); return; }
     res.json({ ok: true, name: nm.slice(0, 120) || 'מסמך.pdf', size: buf.length, data: buf.toString('base64') });
   } catch (e) { console.error('waDoc', e.message); res.status(500).json({ error: 'שגיאה בפתיחת הקובץ' }); }

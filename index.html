@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="lang.js?v=29009abd46"></script>
+<script src="lang.js?v=9fab8b3c6d"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -2939,15 +2939,19 @@ function waSub(){if(!S.can||!S.can.leads||S.live.wa)return;S.live.wa=true;
 // (checks permission, accepts only a real PDF), then drawn here as page IMAGES with pdf.js (scripts/eval off, no links,
 // no forms, no annotations) — the PDF never opens in the browser's own viewer, so nothing inside it can run or be clicked.
 const PDFJS_V='4.10.38',WA_DOC_URL=()=>`https://europe-west1-${(CFG.firebase&&CFG.firebase.projectId)||'hotel-shifts'}.cloudfunctions.net/waDoc`;
+function waIsImg(m){return m&&m.dir==='in'&&m.type==='image'&&!!m.media&&!m.mediaRef}
+// incoming pictures: drawn again on a canvas and shown as a fresh JPEG (nothing from the original file is kept)
+function imgRedraw(mime,b64){return new Promise((ok,no)=>{const im=new Image();im.onload=()=>{try{const k=Math.min(1,2000/Math.max(im.naturalWidth,im.naturalHeight)),cv=document.createElement('canvas');cv.width=Math.round(im.naturalWidth*k);cv.height=Math.round(im.naturalHeight*k);const cx=cv.getContext('2d');cx.fillStyle='#fff';cx.fillRect(0,0,cv.width,cv.height);cx.drawImage(im,0,0,cv.width,cv.height);const u=cv.toDataURL('image/jpeg',0.88);cv.width=cv.height=0;ok(u)}catch(e){no(e)}};im.onerror=()=>no(new Error('התמונה לא נפתחה'));im.src='data:'+mime+';base64,'+b64})}
 function waIsPdf(m){return m&&m.dir==='in'&&m.type==='document'&&!!m.media&&(String(m.mime||'').toLowerCase()==='application/pdf'||/\.pdf\b/i.test(String(m.text||'')))}
 let pdfjsP=null;
 function pdfjsLoad(){if(!pdfjsP)pdfjsP=import(`https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${PDFJS_V}/pdf.min.mjs`).then(L=>{L.GlobalWorkerOptions.workerSrc=`https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${PDFJS_V}/pdf.worker.min.mjs`;return L}).catch(e=>{pdfjsP=null;throw e});return pdfjsP}
-async function waPdfOpen(chat,msg){const back=S.sheet&&S.sheet.type==='wachat'?S.sheet:null;const tk=Date.now();
-  S.pdfV={chat,msg,tk,st:'load',pages:[],name:''};S.confirm=null;S.sheet={type:'wapdf',id:msg,back};render();
+async function waPdfOpen(chat,msg,img){const back=S.sheet&&S.sheet.type==='wachat'?S.sheet:null;const tk=Date.now();
+  S.pdfV={chat,msg,tk,st:'load',pages:[],name:''};S.confirm=null;S.sheet={type:'wapdf',id:msg,back,img:!!img};render();
   const V=S.pdfV,set=o=>{if(S.pdfV!==V)return false;Object.assign(V,o);render();return true};
   try{if(!fauth.currentUser)throw new Error('צריך להתחבר מחדש');
     const r=await fetch(WA_DOC_URL(),{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+await fauth.currentUser.getIdToken()},body:JSON.stringify({chat,msg})});
     const j=await r.json().catch(()=>({}));if(!r.ok||!j.ok)throw new Error(j.error||('שגיאה '+r.status));
+    if(j.kind==='image'){if(!/^image\/(jpeg|png|webp)$/.test(j.mime||''))throw new Error('סוג תמונה לא נתמך');const u=await imgRedraw(j.mime,j.data);if(S.pdfV!==V)return;V.pages.push(u);set({img:true,name:'תמונה',size:j.size||0,n:1,st:'done'});return}
     if(!set({name:j.name||'מסמך.pdf',size:j.size||0}))return;
     await pdfDrawB64(V,set,j.data)}
   catch(e){set({st:'err',err:String((e&&e.message)||e).slice(0,200)})}}
@@ -2963,12 +2967,12 @@ async function pdfDrawB64(V,set,b64){{
       const url=cv.toDataURL('image/jpeg',0.85);cv.width=cv.height=0;pg.cleanup();if(S.pdfV!==V){doc.destroy();return}V.pages.push(url);render()}
     doc.destroy();set({st:'done'})}}
 function sheetWaPdf(){const V=S.pdfV||{},sh=S.sheet;
-  const head=`<div class="row" style="justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><h3 style="margin:0">📄 ${esc(V.name||'מסמך PDF')}</h3>${sh.back?`<button class="btn sm ghost" data-act="wapdf-back">${sh.cv?"→ חזרה למועמד":"→ חזרה לשיחה"}</button>`:''}</div>
-  <p class="muted" style="font-size:.85rem;margin:6px 0 10px">🔒 הקובץ מוצג כתמונות בלבד: קישורים, טפסים וקוד שבתוך ה-PDF לא פועלים.${sh.cv?' הקובץ שמור בתיק המועמד.':' הקובץ לא נשמר במערכת.'}</p>`;
+  const head=`<div class="row" style="justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><h3 style="margin:0">${V.img||sh.img?'🖼 תמונה מהלקוח':'📄 '+esc(V.name||'מסמך PDF')}</h3>${sh.back?`<button class="btn sm ghost" data-act="wapdf-back">${sh.cv?"→ חזרה למועמד":"→ חזרה לשיחה"}</button>`:''}</div>
+  <p class="muted" style="font-size:.85rem;margin:6px 0 10px">🔒 ${V.img||sh.img?'התמונה הורדה מוואטסאפ ומוצגת כעותק נקי.':'הקובץ מוצג כתמונות בלבד: קישורים, טפסים וקוד שבתוך ה-PDF לא פועלים.'}${sh.cv?' הקובץ שמור בתיק המועמד.':sh.img?' התמונה לא נשמרת במערכת.':' הקובץ לא נשמר במערכת.'}</p>`;
   if(V.st==='err')return head+`<p class="bad-t">${esc(V.err||'לא הצלחנו לפתוח את הקובץ')}</p>`;
-  const prog=V.st==='load'?'<p class="muted">מוריד את הקובץ…</p>':V.st==='draw'?`<p class="muted">מציג עמודים ${V.pages.length} מתוך ${Math.min(V.n||0,40)}…</p>`:'';
+  const prog=V.st==='load'?`<p class="muted">${sh.img?'מוריד את התמונה…':'מוריד את הקובץ…'}</p>`:V.st==='draw'?`<p class="muted">מציג עמודים ${V.pages.length} מתוך ${Math.min(V.n||0,40)}…</p>`:'';
   const more=V.st==='done'&&V.n>40?`<p class="muted">מוצגים 40 העמודים הראשונים מתוך ${V.n}.</p>`:'';
-  return head+prog+V.pages.map((u,i)=>`<div style="margin:0 0 12px"><img src="${imgSrc(u)}" alt="עמוד ${i+1}" style="width:100%;height:auto;display:block;border:1px solid var(--line);border-radius:6px;background:#fff"><div class="muted" style="text-align:center;font-size:.8rem">עמוד ${i+1}</div></div>`).join('')+more}
+  return head+prog+V.pages.map((u,i)=>`<div style="margin:0 0 12px"><img src="${imgSrc(u)}" alt="${V.img?'תמונה':'עמוד '+(i+1)}" style="width:100%;height:auto;display:block;border:1px solid var(--line);border-radius:6px;background:#fff">${V.img?'':`<div class="muted" style="text-align:center;font-size:.8rem">עמוד ${i+1}</div>`}</div>`).join('')+more}
 function waMsgsSub(id){if(S.waMsgsId===id)return;if(S.waMsgsUn){try{S.waMsgsUn()}catch(_){}}S.waMsgsId=id;S.waMsgs=null;
   S.waMsgsUn=fdb.collection('waChats/'+id+'/msgs').orderBy('at','desc').limit(300).onSnapshot(q=>{S.waMsgs=q.docs.map(d=>({id:d.id,...d.data()})).reverse();render()},e=>{S.waMsgs=[];S.waMsgsErr=errMsg(mapErr(e));render()})}
 const waWide=()=>window.innerWidth>=900;
@@ -3097,7 +3101,7 @@ function waChatBody(id,inPane,embed){const c=(S.waChats||{})[id]||{},L=waLeadOf(
   const M=S.waMsgs,name=c.name||(l&&l.name)||waLocalOf(id);
   const tick=m=>m.status==='queued'?'🕓':m.status==='failed'?'⚠':m.status==='read'?'<b style="color:#34B7F1">✓✓</b>':m.status==='delivered'?'✓✓':'✓';
   let lastDay='';const bubbles=!M?'<p class="muted">טוען…</p>':!M.length?'<p class="muted" style="text-align:center">עוד אין הודעות בשיחה הזו.</p>':M.map(m=>{const d=new Date(m.at||0).toLocaleDateString('en-CA'),sep=d!==lastDay?`<div class="wa-day">${d===todayISO()?'היום':dm(d)+'.'+d.slice(0,4)}</div>`:'';lastDay=d;
-    return sep+`<div class="wa-b ${m.dir==='out'?'out':'in'}">${m.type==='image'&&m.mediaRef?waImgHTML(m.mediaRef):m.type==='image'&&m.galImg?waImgHTML(m.galImg,'waGalImgs'):''}${esc(m.text||'')}${waIsPdf(m)?`<div><button class="btn sm" style="margin-top:6px" data-act="wa-pdf" data-chat="${esc(id)}" data-msg="${esc(m.id)}">📄 פתיחת ה-PDF</button></div>`:''}<small>${m.dir==='out'&&m.byName?esc(m.byName)+' · ':''}${new Date(m.at||0).toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'})}${m.dir==='out'?' '+tick(m):''}</small>${m.status==='failed'?`<div class="bad-t" style="font-size:.8rem">${esc(m.error||'לא נשלח')}</div>`:''}</div>`}).join('');
+    return sep+`<div class="wa-b ${m.dir==='out'?'out':'in'}">${m.type==='image'&&m.mediaRef?waImgHTML(m.mediaRef):m.type==='image'&&m.galImg?waImgHTML(m.galImg,'waGalImgs'):''}${esc(m.text||'')}${waIsPdf(m)?`<div><button class="btn sm" style="margin-top:6px" data-act="wa-pdf" data-chat="${esc(id)}" data-msg="${esc(m.id)}">📄 פתיחת ה-PDF</button></div>`:''}${waIsImg(m)?`<div><button class="btn sm" style="margin-top:6px" data-act="wa-pdf" data-img="1" data-chat="${esc(id)}" data-msg="${esc(m.id)}">🖼 הצגת התמונה</button></div>`:''}<small>${m.dir==='out'&&m.byName?esc(m.byName)+' · ':''}${new Date(m.at||0).toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'})}${m.dir==='out'?' '+tick(m):''}</small>${m.status==='failed'?`<div class="bad-t" style="font-size:.8rem">${esc(m.error||'לא נשלח')}</div>`:''}</div>`}).join('');
   const lq=L?leadQuote(L[0],l):null,q=lq&&lq[1],sign=q&&q.signKey&&!q.signature?appLink().replace(/[^/]*$/,'')+'sign.html?k='+q.signKey+(CFG.chainId&&CFG.chainId!==window.SC_HOME?'&chain='+encodeURIComponent(CFG.chainId):''):'';
   const T=W.templates||[],ti=+dv('wa','tpl',0)||0,t=T[ti];
   const comp=!W.on?'<div class="notice">וואטסאפ עוד לא מחובר למערכת.</div>':open?`<div class="wac-in"><label class="wac-att" title="שליחת תמונה" aria-label="שליחת תמונה">📷<input type="file" accept="image/*" multiple data-waimg="${esc(id)}" hidden></label><button class="wac-att" data-act="wagal-open" data-id="${esc(id)}" title="גלריות מוכנות" aria-label="גלריות מוכנות">🖼️</button><textarea rows="1" data-f="wa.text" placeholder="הודעה" aria-label="הודעה">${esc(dv('wa','text',''))}</textarea><button class="wac-send" data-act="wa-send" aria-label="שליחה">➤</button></div>
@@ -6061,7 +6065,7 @@ const ACT={
     S.drafts.spa={name:c.name||(l&&l.name)||'',phone:(l&&l.phone)||waLocalOf(D.id),notes:l&&l.notes?String(l.notes).slice(0,300):''};S.drafts.spax=null;S.confirm=null;
     S.sheet={type:'spa',id:'sp'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),d:todayISO(),waChat:D.id,leadId:L?L[0]:''};render()},
   'wa-agent':D=>waAgentSet(D.id,''),
-  'wa-pdf':D=>waPdfOpen(D.chat,D.msg),
+  'wa-pdf':D=>waPdfOpen(D.chat,D.msg,!!D.img),
   'cv-open':b=>cvOpen(b.dataset.id),
   'wapdf-back':()=>{S.pdfV=null;S.sheet=S.sheet&&S.sheet.back||null;render()},
   'wagal-open':D=>{galSub();S.confirm=null;S.sheet={type:'wagal',chat:D.id,back:S.sheet&&S.sheet.type==='wachat'?S.sheet:null};render()},

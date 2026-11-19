@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="lang.js?v=41287a1761"></script>
+<script src="lang.js?v=8759f47b48"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -2807,14 +2807,14 @@ function jobsBoardHTML(){const F=S.jobF||(S.jobF={st:'act',h:'all'}),L=Object.en
   const inSt=l=>{const st=l.stage||'new';return F.st==='act'?JOB_OPEN.includes(st):F.st==='hired'?st==='hired':['rejected','junk'].includes(st)};
   const hs=[...new Set(L.map(([,l])=>l.jobHotel||'').filter(Boolean))],cnt=k=>L.filter(([,l])=>{const st=l.stage||'new';return k==='act'?JOB_OPEN.includes(st):k==='hired'?st==='hired':['rejected','junk'].includes(st)}).length;
   const rows=L.filter(([,l])=>inSt(l)&&(F.h==='all'||(l.jobHotel||'')===F.h)),G={};
-  for(const [id,l] of rows){const job=String(l.job||'').trim(),h=l.jobHotel||'',k=job&&h?job+'|'+h:'__none';(G[k]=G[k]||[]).push([id,l])}
+  for(const [id,l] of rows){const job=String(l.job||'').trim(),h=l.jobHotel||'',k=job?job:'__none';(G[k]=G[k]||[]).push([id,l])}
   const keys=Object.keys(G).sort((a,b)=>a==='__none'?1:b==='__none'?-1:a.localeCompare(b,'he'));
   const chips=`<div class="chips" data-nosel style="gap:6px;margin-bottom:10px">${[['act','פעילים'],['hired','התקבלו'],['out','לא התקבלו']].map(([k,n])=>`<button class="dchip ${F.st===k?'':'off'}" data-act="job-f" data-k="st" data-v="${k}">${n} (${cnt(k)})</button>`).join('')}
     <select data-jobh style="width:auto"><option value="all">כל המלונות ▾</option>${hs.map(h=>`<option value="${esc(h)}" ${F.h===h?'selected':''}>${esc(hotelName(h))}</option>`).join('')}</select></div>`;
-  const card=k=>{const list=G[k].sort(([,a],[,b])=>(b.updatedAt||b.createdAt||0)-(a.updatedAt||a.createdAt||0)),[job,h]=k==='__none'?['','']:k.split('|');
-    return `<div class="card"><div class="row" style="justify-content:space-between;align-items:center;margin-bottom:6px"><h3 style="margin:0">${k==='__none'?'ללא משרה':`${esc(job)} · ${esc(hotelName(h))}`} <span class="muted" style="font-weight:400">· ${list.length} מועמדים</span></h3>${k==='__none'?'':`<button class="btn sm" data-act="job-new" data-job="${esc(job)}" data-h="${esc(h)}">+ מועמד</button>`}</div>
-      <div class="plist">${list.map(([id,l])=>`<button class="prow" data-act="lead-open" data-id="${id}" style="width:100%;text-align:start;cursor:pointer;background:none;border:0;border-bottom:1px solid var(--line)"><span class="who"><b>${esc(l.name||'ללא שם')}</b><small>${esc([l.phone,l.jobDept&&DMAP[l.jobDept]?DMAP[l.jobDept].n:'',l.nextAt&&leadOpen(l)?'לחזור '+dm(l.nextAt):''].filter(Boolean).join(' · '))}</small></span>${jobTag(l.stage)}</button>`).join('')}</div></div>`};
-  return chips+(keys.length?keys.map(card).join(''):emptyBox('אין מועמדים כאן','כל מועמד שמגיע מקמפיין גיוס או נרשם ידנית מופיע כאן לפי המשרה והמלון.','<button class="btn pri" data-act="lead-new">+ מועמד חדש</button>'))}
+  const card=k=>{const list=G[k].sort(([,a],[,b])=>(b.updatedAt||b.createdAt||0)-(a.updatedAt||a.createdAt||0)),job=k==='__none'?'':k;
+    return `<div class="card"><div class="row" style="justify-content:space-between;align-items:center;margin-bottom:6px"><h3 style="margin:0">${k==='__none'?'ללא משרה':esc(job)} <span class="muted" style="font-weight:400">· ${list.length} מועמדים</span></h3>${k==='__none'?'':`<button class="btn sm" data-act="job-new" data-job="${esc(job)}">+ מועמד</button>`}</div>
+      <div class="plist">${list.map(([id,l])=>`<button class="prow" data-act="lead-open" data-id="${id}" style="width:100%;text-align:start;cursor:pointer;background:none;border:0;border-bottom:1px solid var(--line)"><span class="who"><b>${esc(l.name||'ללא שם')}</b><small>${esc([l.phone,l.jobHotel?hotelName(l.jobHotel):'',l.jobDept&&DMAP[l.jobDept]?DMAP[l.jobDept].n:'',l.nextAt&&leadOpen(l)?'לחזור '+dm(l.nextAt):''].filter(Boolean).join(' · '))}</small></span>${jobTag(l.stage)}</button>`).join('')}</div></div>`};
+  return chips+(keys.length?keys.map(card).join(''):emptyBox('אין מועמדים כאן','כל מועמד שמגיע מקמפיין גיוס או נרשם ידנית מופיע כאן לפי המשרה.','<button class="btn pri" data-act="lead-new">+ מועמד חדש</button>'))}
 document.addEventListener('change',e=>{const t=e.target;if(!t.matches||!t.matches('[data-jobh]'))return;(S.jobF||(S.jobF={st:'act'})).h=t.value;render()});
 // recruiting agent Ariel's candidate form + CV (owner, Nov 18): owner / hr holders only (rules candidates, candidateCv)
 const CAND_F=[['position','משרה'],['hotelExp','ניסיון במלונאות'],['optima','אופטימה'],['salesExp','ניסיון במכירות'],['hebrew','עברית'],['english','אנגלית'],['availability','זמינות'],['startDate','מתי יכול/ה להתחיל'],['experience','ניסיון'],['languages','שפות נוספות'],['workPermit','אישור עבודה'],['commute','הגעה למלון'],['notes','עוד']];
@@ -2838,7 +2838,7 @@ function sheetLeadJob(id,l,isNew,g){const st=g('stage','new'),own=leadOwners(),j
   <div class="row"><label class="f">שם מלא<input type="text" data-f="lead.name" value="${esc(g('name'))}"></label><label class="f">טלפון<input type="tel" dir="ltr" data-f="lead.phone" value="${esc(g('phone'))}"></label></div>
   <div class="row"><label class="f">אימייל<input type="email" dir="ltr" data-f="lead.email" value="${esc(g('email'))}"></label></div>
   <div class="f"><span>משרה</span><input type="text" data-f="lead.job" value="${esc(job)}" placeholder="למשל חדרנית"><div class="chips" style="gap:6px;margin-top:6px">${JOB_TITLES.map(x=>`<button class="dchip ${job===x?'':'off'}" data-act="job-title" data-v="${esc(x)}">${esc(x)}</button>`).join('')}</div></div>
-  ${l.campaign?`<div class="muted" style="font-size:.85rem;margin:2px 0 6px">📣 קמפיין: ${esc(l.campaign)}${campHotelOf(l.campaign)?' · מכוון ל'+esc(campHotelTxt(campHotelOf(l.campaign))):''}</div>`:''}<div class="row"><label class="f">מלון<select data-f="lead.jobHotel"><option value="">— עוד לא ידוע —</option>${hs.map(h=>`<option value="${esc(h)}" ${g('jobHotel')===h?'selected':''}>${esc(hotelName(h))}</option>`).join('')}</select></label>
+  ${l.campaign?`<div class="muted" style="font-size:.85rem;margin:2px 0 6px">📣 קמפיין: ${esc(l.campaign)}${campHotelOf(l.campaign)?' · מכוון ל'+esc(campHotelTxt(campHotelOf(l.campaign))):''}</div>`:''}<div class="row"><label class="f">מלון (רשות)<select data-f="lead.jobHotel"><option value="">— ללא מלון —</option>${hs.map(h=>`<option value="${esc(h)}" ${g('jobHotel')===h?'selected':''}>${esc(hotelName(h))}</option>`).join('')}</select></label>
     <label class="f">מחלקה<select data-f="lead.jobDept"><option value="">—</option>${DEPTS.map(d=>`<option value="${d.k}" ${g('jobDept')===d.k?'selected':''}>${esc(d.n)}</option>`).join('')}</select></label></div>
   <div class="row"><label class="f">מי מטפל<select data-f="lead.owner"><option value="" ${g('owner')?'':'selected'}>— עוד לא נבחר —</option>${Object.entries(own).map(([u,n])=>`<option value="${u}" ${g('owner')===u?'selected':''}>${esc(n)}</option>`).join('')}</select></label><label class="f">לחזור למועמד בתאריך<input type="date" data-f="lead.nextAt" value="${esc(g('nextAt'))}"></label></div>
   ${isNew?'':candBoxHTML(id)}<label class="f">הערות<textarea rows="2" data-f="lead.notes">${esc(g('notes'))}</textarea></label>
@@ -5991,7 +5991,7 @@ const ACT={
   'lead-view':D=>{S.leadF.view=D.v;render()},
   'lead-catv':D=>{S.leadF.cat=D.v;if(S.leadF.view==='clients'&&D.v!=='events')S.leadF.view='pipe';render()},
   'job-f':D=>{(S.jobF||(S.jobF={st:'act',h:'all'}))[D.k]=D.v;render()},
-  'job-new':D=>{S.drafts.lead={stage:'new',owner:'',cat:'jobs',job:D.job||'',jobHotel:D.h||''};S.confirm=null;S.sheet={type:'lead',id:'l'+Date.now().toString(36)+Math.random().toString(36).slice(2,6)};render()},
+  'job-new':D=>{S.drafts.lead={stage:'new',owner:'',cat:'jobs',job:D.job||'',jobHotel:(()=>{const hs=myScopeHs();return hs.length===1?hs[0]:''})()};S.confirm=null;S.sheet={type:'lead',id:'l'+Date.now().toString(36)+Math.random().toString(36).slice(2,6)};render()},
   'job-title':D=>{(S.drafts.lead||(S.drafts.lead={})).job=D.v;renderSheet()},
   'lead-catset':D=>{if(D.v==='jobs'&&!myJobs())return;S.drafts.lead={...(S.drafts.lead||{}),cat:D.v};render()},
   'wa-open':D=>waOpen(D.id),

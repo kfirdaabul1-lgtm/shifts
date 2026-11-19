@@ -91,8 +91,12 @@ async function routeSweep(dry) {
   }
   return { open: n, moved, dry: !!dry };
 }
+// Phone numbers in Adam's messages (Nov 19, owner): never a staff member's private number — only the events department line.
+const EVENTS_PHONE = '053-3965323';
+const PHONE_OK = new Set(['0533965323', '0733272272']);
+const phoneSafe = (t) => String(t || '').replace(/(?:\+?972[\s-]?|0)(?:[\s-]?\d){8,9}/g, (m) => { let d = m.replace(/\D/g, ''); if (d.startsWith('972')) d = '0' + d.slice(3); return PHONE_OK.has(d) ? m : EVENTS_PHONE; });
 const ROUTE_RULES = `
-HOTELS FOR EVENTS (fixed rule of the chain): The Gutman (La Boheme) is right for events of up to about ${GUTMAN_MAX} guests and does NOT host weddings at all. Weddings and big events are held at hotel 7EVEN on the Sola rooftop (גג הסולה), which does weddings.
+PHONE NUMBERS (owner, Nov 19): NEVER give a staff member's private / mobile number, even if it appears in the knowledge or in earlier messages of the chat. The only number you may give for events is the events department: ${EVENTS_PHONE}. If the customer wants to talk to someone, give that number (or offer that the team calls them).\nHOTELS FOR EVENTS (fixed rule of the chain): The Gutman (La Boheme) is right for events of up to about ${GUTMAN_MAX} guests and does NOT host weddings at all. Weddings and big events are held at hotel 7EVEN on the Sola rooftop (גג הסולה), which does weddings.
 - A customer who asked about the Gutman with a range like "50-100" starts at the Gutman: talk about the Gutman.
 - MORE THAN ${GUTMAN_MAX} GUESTS (owner, Nov 18): the Gutman is not the place. As soon as the customer gives a number above ${GUTMAN_MAX} (also a range whose real number is above it), call save_details with the guest count — the system then moves the lead to 7EVEN so the 7EVEN events team gets it and calls them. Tell the customer warmly that for that size the right place is the Sola rooftop at our hotel 7EVEN (מלון סבן), invite them to a tour there, and continue with them.
 - A wedding, or more than ${GUTMAN_MAX} guests: the right place is the Sola rooftop at 7EVEN. The system moves the lead by itself when you call save_details; if it answers "moved_to_7even", tell the customer warmly and briefly that for this event the right place is the Sola rooftop at 7EVEN and that you continue with them from there (do not say "the system").
@@ -245,7 +249,7 @@ async function replyRun(m, chat, id, morning) {
   if (got.handoff) await cref.set({ aiAgent: { handoff: true, ...got.handoff, at: now } }, { merge: true });
 
   if (text) {
-    if (cfg.mode === 'auto') { await cref.collection('msgs').add({ dir: 'out', type: 'text', text, status: 'queued', by: 'ai', byName: cfg.name || DEFAULTS.name, at: now, src: 'system' }); await cref.set({ lastAt: now, lastText: text.slice(0, 200), lastDir: 'out' }, { merge: true }); }
+    if (cfg.mode === 'auto') { await cref.collection('msgs').add({ dir: 'out', type: 'text', text: phoneSafe(text), status: 'queued', by: 'ai', byName: cfg.name || DEFAULTS.name, at: now, src: 'system' }); await cref.set({ lastAt: now, lastText: phoneSafe(text).slice(0, 200), lastDir: 'out' }, { merge: true }); }
     else await db.doc('waDrafts/' + chat).set({ text, forMsg: id, at: now, status: 'pending', handoff: !!got.handoff, model, details: got.details });
   }
   await C.logRun('reply', { chat, msg: id, mode: cfg.mode, model, usage: out.U, tools: out.used, handoff: !!got.handoff, replied: !!text, route: got.route || null, textLen: text.length, morning: !!morning });
@@ -319,8 +323,8 @@ exports.adamFollow = functions.region(REGION).runWith({ timeoutSeconds: 300, mem
     await d.ref.set({ aiAgent: { fuFor: lastIn, fuAt: now } }, { merge: true });
     if (!text || /^SKIP\b/i.test(text)) { await C.logRun('reply', { chat: d.id, follow: 'skip' }); continue; }
     const t = Date.now();
-    await d.ref.collection('msgs').add({ dir: 'out', type: 'text', text, status: 'queued', by: 'ai', byName: cfg.name || DEFAULTS.name, at: t, src: 'system', followUp: true });
-    await d.ref.set({ lastAt: t, lastText: text.slice(0, 200), lastDir: 'out' }, { merge: true });
+    await d.ref.collection('msgs').add({ dir: 'out', type: 'text', text: phoneSafe(text), status: 'queued', by: 'ai', byName: cfg.name || DEFAULTS.name, at: t, src: 'system', followUp: true });
+    await d.ref.set({ lastAt: t, lastText: phoneSafe(text).slice(0, 200), lastDir: 'out' }, { merge: true });
     sent++; await C.logRun('reply', { chat: d.id, follow: 'sent', textLen: text.length });
   }
   return null;
@@ -357,7 +361,7 @@ async function warmSendTpl(cfg, cref, c, lead, t) {
   const params = Array.from({ length: t.n || 0 }, (_, i) => (i === 0 ? first : i === 1 ? hotel : '') || '-');
   const now = Date.now(), text = tplTxt(t, params);
   await cref.collection('msgs').add({ dir: 'out', type: 'template', tpl: { name: t.name, lang: t.lang, params, ...(t.names && t.names.length ? { names: t.names } : {}) }, text, status: 'queued', by: 'ai', byName: cfg.name || DEFAULTS.name, at: now, src: 'system', warm: true });
-  await cref.set({ lastAt: now, lastText: text.slice(0, 200), lastDir: 'out', aiAgent: { warmAt: now, warmHow: 'template', warmPend: admin.firestore.FieldValue.delete() } }, { merge: true });
+  await cref.set({ lastAt: now, lastText: phoneSafe(text).slice(0, 200), lastDir: 'out', aiAgent: { warmAt: now, warmHow: 'template', warmPend: admin.firestore.FieldValue.delete() } }, { merge: true });
 }
 async function warmRun(opt = {}) {
   const cfg = { ...DEFAULTS, ...(await C.cfg('reply')) }, out = { open: 0, tpl: 0, pend: 0, skip: {}, err: 0 };
@@ -395,8 +399,8 @@ async function warmRun(opt = {}) {
         if (!text || /^SKIP\b/i.test(text)) { skip('model-skip'); await cref.set({ aiAgent: { warmAt: now, warmHow: 'skip' } }, { merge: true }); continue; }
         if (opt.dry) { out.open++; continue; }
         const t = Date.now();
-        await cref.collection('msgs').add({ dir: 'out', type: 'text', text, status: 'queued', by: 'ai', byName: cfg.name || DEFAULTS.name, at: t, src: 'system', warm: true });
-        await cref.set({ lastAt: t, lastText: text.slice(0, 200), lastDir: 'out', aiAgent: { warmAt: t, warmHow: 'text', fuFor: lastIn } }, { merge: true });
+        await cref.collection('msgs').add({ dir: 'out', type: 'text', text: phoneSafe(text), status: 'queued', by: 'ai', byName: cfg.name || DEFAULTS.name, at: t, src: 'system', warm: true });
+        await cref.set({ lastAt: t, lastText: phoneSafe(text).slice(0, 200), lastDir: 'out', aiAgent: { warmAt: t, warmHow: 'text', fuFor: lastIn } }, { merge: true });
         out.open++;
       } else if (tpl) { if (!opt.dry) await warmSendTpl(cfg, cref, c, l, tpl); out.tpl++; }
       else { if (!opt.dry) await cref.set({ aiAgent: { warmPend: now } }, { merge: true }); out.pend++; }
@@ -502,7 +506,7 @@ exports.adamCallbackRun = functions.region(REGION).runWith({ timeoutSeconds: 300
         const kb = await C.loadKB('reply'), scope = (Array.isArray(cfg.scope) ? cfg.scope : DEFAULTS.scope).filter((k) => KINDS.includes(k));
         const j = await C.claude({ model: cfg.model || FAST, max_tokens: 3000, system: systemBlocks(kb, 'auto', C.ilDate(new Date()), leadBrief(lead), scope, cfg.name), messages: msgs });
         const text = (j.content || []).filter((x) => x.type === 'text').map((x) => x.text).join('\n').replace(/\*\*(.+?)\*\*/g, '*$1*').trim().slice(0, 600);
-        if (text) { const t = Date.now(); await cref.collection('msgs').add({ dir: 'out', type: 'text', text, status: 'queued', by: 'ai', byName: cfg.name || DEFAULTS.name, at: t, src: 'system', callback: true }); await cref.set({ lastAt: t, lastText: text.slice(0, 200), lastDir: 'out' }, { merge: true }); }
+        if (text) { const t = Date.now(); await cref.collection('msgs').add({ dir: 'out', type: 'text', text: phoneSafe(text), status: 'queued', by: 'ai', byName: cfg.name || DEFAULTS.name, at: t, src: 'system', callback: true }); await cref.set({ lastAt: t, lastText: phoneSafe(text).slice(0, 200), lastDir: 'out' }, { merge: true }); }
       } catch (e) { console.error('cb adam', e); }
     }
     await C.logRun('reply', { callback: true, chat: b.chat, late: Math.round((now - b.at) / 60e3) });

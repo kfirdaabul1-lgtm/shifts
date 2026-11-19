@@ -180,6 +180,11 @@ const KEYS = ['hotel', 'month', 'date', 'shift', 'name', 'empUid', 'ooo', 'fault
       for (const d of (await db.collection('jobRoles').get()).docs) { const a = (d.data() || {}).apps || {}; if (a.events === true && a.leads !== true) { await d.ref.update({ 'apps.leads': true }); nj++; } }
       await mk.set({ at: Date.now(), roles: nr, jobRoles: nj });
       console.log('::notice title=Backfill::leads app added to ' + nr + ' roles and ' + nj + ' job roles'); } }
+  // owner, Nov 19: no staff private number in the agents' knowledge — the events department line 053-3965323 instead (counts only).
+  { let n = 0; for (const id of ['reply', 'hila']) { const r = db.doc('agentKB/' + id), d = (await r.get()).data() || {}, t = String(d.text || '');
+      const t2 = t.replace(/0?5\d[\s-]?\d{3}[\s-]?\d{4}/g, (m) => { const x = m.replace(/\D/g, ''); return x === '0533965323' ? m : '053-3965323'; });
+      if (t2 !== t) { await r.set({ text: t2, updatedAt: Date.now(), updatedBy: 'phone-scrub' }, { merge: true }); n++; } }
+    if (n) console.log('::notice title=Backfill::private phone numbers replaced in ' + n + ' agent knowledge docs'); }
   // owner, Nov 19 (after the split): take the leads app away from EVERYONE (roles, personal extras, job roles); the owner then gives it
   // to the people who need it from the permissions page. Runs once (marker migrations/leadsOffNov19). Counts only.
   { const mk = db.doc('migrations/leadsOffNov19');

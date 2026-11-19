@@ -43,6 +43,15 @@ const note = (t, m) => console.log(`::notice title=${t}::${String(m).replace(/\n
   }
   if (kind === 'hilaseed' || kind === 'hilaseed-force') { const ref = await db.collection('opsJobs').add({ kind: 'hilaseed', force: kind === 'hilaseed-force', at: Date.now(), by: 'workflow' }); for (let i = 0; i < 40; i++) { await new Promise((x) => setTimeout(x, 6000)); const j = (await ref.get()).data() || {}; if (j.status) { note('Hila seed', j.error || JSON.stringify(j.warm || {})); return; } } note('Hila seed', 'still running (job ' + ref.id + ')'); return; }
   if (kind === 'tplstat') { const c = (await db.doc('wacfg/main').get()).data() || {}; for (const n of ['job_screening_open', 'job_screening_start']) { const r = await fetch('https://graph.facebook.com/v23.0/' + c.wabaId + '/message_templates?name=' + n, { headers: { Authorization: 'Bearer ' + c.token } }); const j = await r.json().catch(() => ({})); note('Template ' + n, (j.data || []).map((t) => t.name + ' ' + t.language + ' ' + t.status + (t.rejected_reason && t.rejected_reason !== 'NONE' ? ' (' + t.rejected_reason + ')' : '')).join(' | ') || (j.error ? 'error ' + String(j.error.message).slice(0, 120) : 'not found')); } return; }
+  if (kind === 'ivcheck') { // hiring leads: where interviews are recorded (counts only)
+    const L = (await db.collection('leads').where('cat', '==', 'jobs').get()).docs.map((d) => d.data() || {});
+    const st = {}; let next = 0, ivWord = 0, actsIv = 0, tasks = 0;
+    for (const l of L) { st[l.stage || '-'] = (st[l.stage || '-'] || 0) + 1; if (l.nextAt) next++; if (/ראיון|interview/i.test(String(l.notes || ''))) ivWord++; if ((l.acts || []).some((a) => /ראיון|interview/i.test(String(a.text || '')))) actsIv++; }
+    const T = (await db.collection('tasks').get()).docs.map((d) => d.data() || {}); const ids = new Set((await db.collection('leads').where('cat', '==', 'jobs').get()).docs.map((d) => d.id));
+    tasks = T.filter((t) => ids.has(t.leadId)).length;
+    const C = (await db.collection('candidates').get()).docs.map((d) => d.data() || {}); const cst = {}; C.forEach((c) => { cst[c.status || '-'] = (cst[c.status || '-'] || 0) + 1; });
+    note('Jobs', `leads=${L.length} stages=${JSON.stringify(st)} nextAt=${next} notesIv=${ivWord} actsIv=${actsIv} tasks=${tasks} candidates=${C.length} cstatus=${JSON.stringify(cst)} candKeys=${[...new Set(C.flatMap((c) => Object.keys(c)))].join(',').slice(0, 300)}`);
+    return; }
   if (kind === 'wainfo') { // phone numbers' status on Meta (booleans/status only)
     const c = (await db.doc('wacfg/main').get()).data() || {};
     for (const [lbl, id] of [['main', c.phoneId], ['agents', c.aliPhoneId]]) { if (!id) { note('Phone ' + lbl, 'none'); continue; }

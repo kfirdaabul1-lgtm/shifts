@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="lang.js?v=9fab8b3c6d"></script>
+<script src="lang.js?v=568db064b6"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -3096,6 +3096,19 @@ function waListHTML(f){waSub();leadCatsLive();const W=S.wapub||{},q=String(S.waQ
   if(!wide)return head+list;
   const pane=sel?`<div class="wa-pane card">${waChatBody(sel,true)}</div>`:`<div class="wa-pane card wa-empty"><div><div style="font-size:2.4rem">💬</div><b>בחירת שיחה</b><p class="muted">בוחרים שיחה מהרשימה כדי לראות את ההודעות ולענות.</p></div></div>`;
   return head+`<div class="wa-inbox">${list}${pane}</div>`}
+// WhatsApp template auto variables (owner, Nov 19): agent_name / customer_name / hotel_name are filled by the system and locked
+const WA_AUTO=['agent_name','customer_name','hotel_name'];
+const waFirst=v=>{const t=String(v||'').trim();if(!t||!/[A-Za-z\u0590-\u05FF\u0600-\u06FF]/.test(t)||/\d{4}/.test(t))return '';return t.split(/\s+/)[0]};
+function waAutoVals(id,c,L){const l=L&&L[1],me=(S.emps&&S.emps[S.uid])||{},h=venueHotel(l&&l.venue);
+  return{agent_name:waFirst(me.name||(S.role&&S.role.name)||S.meName)||'',customer_name:waFirst((c&&c.name)||(l&&l.name))||'שלום',hotel_name:h?hotelName(h):appName()}}
+const waTplAllAuto=t=>!(t.n>0)||(Array.isArray(t.names)&&t.names.length>=t.n&&t.names.slice(0,t.n).every(n=>WA_AUTO.includes(n)));
+function waTplParams(t,id,c,L){const av=waAutoVals(id,c,L);return Array.from({length:t.n||0},(_,i)=>{const nm=t.names&&t.names[i];return nm&&WA_AUTO.includes(nm)?av[nm]:String(dv('wa','p'+(i+1),i===0&&L?L[1].name:'')).trim()})}
+const waTplText=(t,params)=>String(t.body||'').replace(/\{\{(\w+)\}\}/g,(m,k)=>{const i=/^\d+$/.test(k)?+k-1:(t.names||[]).indexOf(k);return i>=0&&params[i]||m});
+async function waTplSend(t){const id=waCur(),c=(S.waChats||{})[id],L=waLeadOf(id,c),params=waTplParams(t,id,c,L);
+  if(params.some(x=>!x)){toast((t.names||[]).includes('agent_name')&&!params[(t.names||[]).indexOf('agent_name')]?'לא נמצא השם שלך בכרטיס העובד':'צריך למלא את כל הערכים בתבנית');return}
+  const text=waTplText(t,params),now=Date.now();if(!confirm('לשלוח?\n\n'+text))return;S.drafts.wa=null;S.waTplOpen=false;S.waAtBottom=true;render();
+  try{if(!c)await fdb.doc('waChats/'+id).set({waId:id,phone:waLocalOf(id),name:L?String(L[1].name||''):'',leadId:L?L[0]:'',createdAt:now,createdBy:S.uid,unread:0,cat:(L&&L[1].cat)||(S.leadF&&S.leadF.cat)||'events',venue:leadVenueNew(L&&L[1]),agent:''});else if(L&&!c.leadId)await fdb.doc('waChats/'+id).update({leadId:L[0]});
+    await fdb.collection('waChats/'+id+'/msgs').add({dir:'out',type:'template',tpl:{name:t.name,lang:t.lang,params,...(t.names&&t.names.length?{names:t.names}:{})},text,status:'queued',by:S.uid,byName:S.meName||'',at:now,src:'system'});toast('התבנית נשלחה')}catch(e){toast(waErrTxt(e))}}
 function sheetWaChat(){return waChatBody(S.sheet.id,false)}
 function waChatBody(id,inPane,embed){const c=(S.waChats||{})[id]||{},L=waLeadOf(id,c),l=L&&L[1],W=S.wapub||{},open=waOpenWin(c);waMsgsSub(id);
   const M=S.waMsgs,name=c.name||(l&&l.name)||waLocalOf(id);
@@ -3108,7 +3121,7 @@ function waChatBody(id,inPane,embed){const c=(S.waChats||{})[id]||{},L=waLeadOf(
     <div class="wac-sub">${sign?`<button class="btn sm ghost" data-act="wa-sign" data-v="${esc(sign)}">➕ לינק לחתימה על הצעה #${esc(q.num||'')}</button>`:''}<small class="muted">אפשר לענות חופשי עוד ${Math.max(1,Math.ceil((864e5-(Date.now()-c.lastInAt))/36e5))} שעות</small></div>`
     :!S.waTplOpen?`<div class="actions" style="align-items:center;gap:8px;flex-wrap:wrap;padding:6px 8px"><small class="muted" style="flex:1;min-width:160px">${c.lastInAt?'עברו 24 שעות מההודעה האחרונה של הלקוח':'הלקוח עוד לא כתב לעסק'} · אפשר לשלוח רק תבנית מאושרת</small><button class="btn sm pri" data-act="wa-tplt">📨 שליחת תבנית</button></div>`
     :`<div class="actions" style="align-items:center;gap:8px;padding:6px 0"><small class="muted" style="flex:1">וואטסאפ מאפשר כאן רק תבנית מאושרת. כשהלקוח יענה, אפשר לכתוב חופשי.</small><button class="btn sm ghost" data-act="wa-tplt">✕ סגירה</button></div>
-    ${T.length?`<label class="f">תבנית<select data-f="wa.tpl">${T.map((x,i)=>`<option value="${i}" ${i===ti?'selected':''}>${esc(x.name)} (${esc(x.lang)})</option>`).join('')}</select></label>${t?`<p class="muted" style="font-size:.85rem;white-space:pre-wrap;margin:4px 0">${esc(t.body)}</p>${Array.from({length:t.n},(_,i)=>`<label class="f">ערך ל-{{${esc((t.names&&t.names[i])||String(i+1))}}}<input type="text" data-f="wa.p${i+1}" value="${esc(dv('wa','p'+(i+1),i===0&&l?l.name:''))}"></label>`).join('')}<div class="actions"><button class="btn pri" data-act="wa-tpl-send">שליחת התבנית</button></div>`:''}`:'<p class="muted">אין עדיין תבניות מאושרות. יוצרים אותן ב-WhatsApp Manager של Meta.</p>'}`;
+    ${T.length?`<div class="chips" data-nosel style="margin:4px 0">${T.map((x,i)=>`<button class="dchip ${i===ti?'':'off'}" data-act="wa-tpl-pick" data-i="${i}" title="${esc(x.body||'')}">${waTplAllAuto(x)?'⚡ ':''}${esc(x.name)}</button>`).join('')}</div><small class="muted">⚡ = נשלחת מיד בלחיצה (שם העובד, הלקוח והמלון מתמלאים לבד)</small>${t?`<p class="muted" style="font-size:.85rem;white-space:pre-wrap;margin:4px 0">${esc(waTplText(t,waTplParams(t,id,c,L)))}</p>${Array.from({length:t.n},(_,i)=>{const nm=(t.names&&t.names[i])||String(i+1),av=waAutoVals(id,c,L);return WA_AUTO.includes(nm)?`<label class="f">{{${esc(nm)}}} · אוטומטי 🔒<input type="text" value="${esc(av[nm])}" readonly disabled></label>`:`<label class="f">ערך ל-{{${esc(nm)}}}<input type="text" data-f="wa.p${i+1}" value="${esc(dv('wa','p'+(i+1),i===0&&l?l.name:''))}"></label>`}).join('')}<div class="actions"><button class="btn pri" data-act="wa-tpl-send">שליחת התבנית</button></div>`:''}`:'<p class="muted">אין עדיין תבניות מאושרות. יוצרים אותן ב-WhatsApp Manager של Meta.</p>'}`;
   setTimeout(()=>{const b=document.querySelector('.wa-msgs');if(b)b.scrollTop=S.waAtBottom!==false?b.scrollHeight:(S.waKeep??b.scrollTop)},0);
   const sub=`<span dir="ltr">${esc(waLocalOf(id))}</span>${c.lastAt?' · הודעה אחרונה '+waTime(c.lastAt):''}`,doneBtn=`<button class="btn sm ${c.status==='done'?'':'ok'}" data-act="wa-done" data-id="${id}">${c.status==='done'?'↺ פתיחה מחדש':'✓ סימון כטופל'}</button>`;
   // lead details from the Meta form (owner, Nov 1): a one-line summary under the header; tapping the name / summary opens all fields
@@ -6034,7 +6047,7 @@ const ACT={
     if(!D.k)lc=lc.includes('jobs')?[]:[];else if(!lc.length&&D.k==='jobs')lc=[...NJ,'jobs'];else{lc=lc.includes(D.k)?lc.filter(x=>x!==D.k):[...lc,D.k];if(!lc.includes('jobs')&&NJ.every(k=>lc.includes(k)))lc=[]}
     const old=r.leadCats;S.roles[D.u]={...r,leadCats:lc};render();
     try{await fdb.doc('roles/'+D.u).update({leadCats:lc});toast('נשמר')}catch(e){S.roles[D.u]={...r,leadCats:old};render();toast('לא נשמר: '+errMsg(mapErr(e)))}},
-  'lbx-wa':()=>{const b=document.querySelector('.lbx-chat');if(!b)return;b.scrollIntoView({behavior:'smooth',block:'start'});const t=b.querySelector('.wac-in textarea,select[data-f="wa.tpl"]');if(t)setTimeout(()=>t.focus({preventScroll:true}),300)},
+  'lbx-wa':()=>{const b=document.querySelector('.lbx-chat');if(!b)return;b.scrollIntoView({behavior:'smooth',block:'start'});const t=b.querySelector('.wac-in textarea,[data-act="wa-tpl-pick"]');if(t)setTimeout(()=>t.focus({preventScroll:true}),300)},
   'lbx-f':D=>{S.leadF.bx=D.v;S.lbxSel='';render()},
   'lbx-stage':D=>{if(D.v==='lost'){const l=(S.leads||{})[D.id];if(!l)return;S.drafts.lead={stage:'lost'};S.sheet={type:'lead',id:D.id};render();return}leadMove(D.id,D.v)},
   'lbx-quote':D=>{S.sheet={type:'lead',id:D.id};ACT['lead-quote']()},
@@ -6095,11 +6108,8 @@ const ACT={
       await fdb.collection('waChats/'+id+'/msgs').add({dir:'out',type:'text',text,status:'queued',by:S.uid,byName:S.meName||'',at:now,src:'system'})}catch(e){S.drafts.wa={text};render();toast(waErrTxt(e))}},
   'fr-tab':D=>{S.frTab=D.v;render()},
   'wa-tplt':()=>{S.waTplOpen=!S.waTplOpen;render()},
-  'wa-tpl-send':async()=>{const id=waCur(),c=(S.waChats||{})[id],T=(S.wapub||{}).templates||[],t=T[+dv('wa','tpl',0)||0];if(!t){toast('צריך לבחור תבנית');return}
-    const L=waLeadOf(id,c),params=Array.from({length:t.n},(_,i)=>String(dv('wa','p'+(i+1),i===0&&L?L[1].name:'')).trim());if(params.some(x=>!x)){toast('צריך למלא את כל הערכים בתבנית');return}
-    const text=t.body.replace(/\{\{(\w+)\}\}/g,(m,k)=>{const i=/^\d+$/.test(k)?+k-1:(t.names||[]).indexOf(k);return i>=0&&params[i]||m}),now=Date.now();S.drafts.wa=null;S.waAtBottom=true;render();
-    try{if(!c)await fdb.doc('waChats/'+id).set({waId:id,phone:waLocalOf(id),name:L?String(L[1].name||''):'',leadId:L?L[0]:'',createdAt:now,createdBy:S.uid,unread:0,cat:(L&&L[1].cat)||(S.leadF&&S.leadF.cat)||'events',venue:leadVenueNew(L&&L[1]),agent:''});else if(L&&!c.leadId)await fdb.doc('waChats/'+id).update({leadId:L[0]});
-      await fdb.collection('waChats/'+id+'/msgs').add({dir:'out',type:'template',tpl:{name:t.name,lang:t.lang,params,...(t.names&&t.names.length?{names:t.names}:{})},text,status:'queued',by:S.uid,byName:S.meName||'',at:now,src:'system'});toast('התבנית נשלחה')}catch(e){toast(waErrTxt(e))}},
+  'wa-tpl-pick':D=>{const T=(S.wapub||{}).templates||[],i=+D.i||0,t=T[i];if(!t)return;S.drafts.wa={...(S.drafts.wa||{}),tpl:i};if(waTplAllAuto(t))return waTplSend(t);render()},
+  'wa-tpl-send':async()=>{const T=(S.wapub||{}).templates||[],t=T[+dv('wa','tpl',0)||0];if(!t){toast('צריך לבחור תבנית');return}return waTplSend(t)},
   'wa-mklead':async()=>{const id=waCur(),c=(S.waChats||{})[id]||{},lid='wa_'+id,now=Date.now();
     const o={cat:c.cat||(S.leadF&&S.leadF.cat)||'events',name:c.name||waLocalOf(id),phone:waLocalOf(id),email:'',company:'',type:'',date:'',guests:0,venue:'',source:'whatsapp',campaign:'',stage:'new',owner:'',ownerName:'',nextAt:todayISO(),value:0,notes:'',acts:[],createdAt:now,createdBy:S.uid,updatedAt:now};if(o.cat==='jobs')o.jobHotel='';
     try{await fdb.doc('leads/'+lid).set(o,{merge:true});S.leads={...S.leads,[lid]:o};if(S.waChats[id])await fdb.doc('waChats/'+id).update({leadId:lid});S.sheet={type:'lead',id:lid};render();toast('נפתח ליד')}catch(e){toast('לא הצלחתי: '+errMsg(mapErr(e)))}},

@@ -1290,6 +1290,37 @@ exports.waWebhook = functions.region(REGION).https.onRequest(async (req, res) =>
   } catch (e) { console.error('waWebhook', e); res.status(200).send('ok'); }
 });
 // a message written in the system (queued) → send it through WhatsApp
+// Template auto variables (owner, Nov 19): agent_name = the SENDER's first name (employees/{by}.name, else roles/{by}.name — never
+// what the client typed), customer_name never '-' (no name → 'שלום'), hotel_name empty → hotel of the chat's/lead's venue, else the chain.
+const waFirstName = (v) => { const t = String(v || '').trim(); if (!t || !/[A-Za-z\u0590-\u05FF\u0600-\u06FF]/.test(t) || /\d{4}/.test(t)) return ''; return t.split(/\s+/)[0]; };
+async function waTplAuto(chat, m, nm) {
+  const params = (m.tpl.params || []).map((x) => String(x == null ? '' : x).trim());
+  if (!nm.some((n) => n === 'agent_name' || n === 'customer_name' || n === 'hotel_name')) return { params };
+  let changed = false;
+  const ai = nm.indexOf('agent_name');
+  if (ai >= 0) {
+    const uidLike = /^[A-Za-z0-9_-]{20,}$/.test(String(m.by || ''));
+    if (uidLike) {
+      const e = (await db.doc('employees/' + m.by).get()).data() || {}; let fn = waFirstName(e.name);
+      if (!fn) fn = waFirstName(((await db.doc('roles/' + m.by).get()).data() || {}).name);
+      if (!fn) return { err: 'לא נמצא שם השולח בכרטיס העובד (agent_name)' };
+      if (params[ai] !== fn) { params[ai] = fn; changed = true; }
+    } else if (!params[ai]) return { err: 'חסר שם השולח (agent_name)' };
+  }
+  const ci = nm.indexOf('customer_name');
+  if (ci >= 0 && (!params[ci] || params[ci] === '-')) { params[ci] = 'שלום'; changed = true; }
+  const hi = nm.indexOf('hotel_name');
+  if (hi >= 0) {
+    let name = '';
+    try { const c = (await db.doc('waChats/' + chat).get()).data() || {}; let v = c.venue || '';
+      if (!v && c.leadId) v = ((await db.doc('leads/' + c.leadId).get()).data() || {}).venue || '';
+      if (v) { const st = await db.collection('settings').where('venues', 'array-contains', v).limit(1).get();
+        if (!st.empty) name = ((await db.doc('hotels/' + st.docs[0].id).get()).data() || {}).name || ''; }
+    } catch (e) { console.error('waTplAuto hotel', e.message); }
+    const hv = name || (params[hi] && params[hi] !== '-' ? params[hi] : '') || (await org()).name || 'Seven Collection'; if (params[hi] !== hv) { params[hi] = hv; changed = true; }
+  }
+  return { params, changed };
+}
 exports.onWaOut = trig('waChats/{chat}/msgs/{id}').onCreate(async (snap, ctx) => {
   const m = snap.data() || {}; if (m.dir !== 'out' || m.status !== 'queued') return;
   const c = await waCfg(), chat = ctx.params.chat;
@@ -1297,7 +1328,11 @@ exports.onWaOut = trig('waChats/{chat}/msgs/{id}').onCreate(async (snap, ctx) =>
   let body;
   if (m.type === 'template' && m.tpl) {
     const nm = Array.isArray(m.tpl.names) ? m.tpl.names : [];
-    const params = (m.tpl.params || []).map((t, i) => ({ type: 'text', ...(nm[i] ? { parameter_name: nm[i] } : {}), text: String(t || '-') }));
+    const fixed = await waTplAuto(chat, m, nm);
+    if (fixed.err) return snap.ref.update({ status: 'failed', error: fixed.err });
+    if (fixed.changed) { try { const w = (await db.doc('wapub/main').get()).data() || {}, tp = (w.templates || []).find((x) => x.name === m.tpl.name && (x.lang || 'he') === (m.tpl.lang || 'he'));
+      if (tp && tp.body) m.text = tplText(tp, fixed.params); await snap.ref.update({ 'tpl.params': fixed.params, ...(tp && tp.body ? { text: m.text } : {}) }); } catch (e) { console.error('waTplAuto text', e.message); } }
+    const params = fixed.params.map((t, i) => ({ type: 'text', ...(nm[i] ? { parameter_name: nm[i] } : {}), text: String(t || '-') }));
     body = { messaging_product: 'whatsapp', to: chat, type: 'template', template: { name: m.tpl.name, language: { code: m.tpl.lang || 'he' }, ...(params.length ? { components: [{ type: 'body', parameters: params }] } : {}) } };
   } else if (m.type === 'image') body = null;
   else body = { messaging_product: 'whatsapp', recipient_type: 'individual', to: chat, type: 'text', text: { body: String(m.text || '').slice(0, 4096), preview_url: true } };

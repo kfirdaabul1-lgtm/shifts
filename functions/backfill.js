@@ -180,4 +180,14 @@ const KEYS = ['hotel', 'month', 'date', 'shift', 'name', 'empUid', 'ooo', 'fault
       for (const d of (await db.collection('jobRoles').get()).docs) { const a = (d.data() || {}).apps || {}; if (a.events === true && a.leads !== true) { await d.ref.update({ 'apps.leads': true }); nj++; } }
       await mk.set({ at: Date.now(), roles: nr, jobRoles: nj });
       console.log('::notice title=Backfill::leads app added to ' + nr + ' roles and ' + nj + ' job roles'); } }
+  // owner, Nov 19 (after the split): take the leads app away from EVERYONE (roles, personal extras, job roles); the owner then gives it
+  // to the people who need it from the permissions page. Runs once (marker migrations/leadsOffNov19). Counts only.
+  { const mk = db.doc('migrations/leadsOffNov19');
+    if (!(await mk.get()).exists) { let nr = 0, nj = 0; const del = admin.firestore.FieldValue.delete();
+      for (const d of (await db.collection('roles').get()).docs) { const r = d.data() || {}, up = {};
+        if ((r.apps || {}).leads) up['apps.leads'] = del; if ((r.extra || {}).leads) up['extra.leads'] = del;
+        if (Object.keys(up).length) { await d.ref.update(up); nr++; } }
+      for (const d of (await db.collection('jobRoles').get()).docs) if (((d.data() || {}).apps || {}).leads) { await d.ref.update({ 'apps.leads': del }); nj++; }
+      await mk.set({ at: Date.now(), roles: nr, jobRoles: nj });
+      console.log('::notice title=Backfill::leads app removed from ' + nr + ' roles and ' + nj + ' job roles'); } }
 })().catch((e) => { console.error(e); console.log('::error title=Backfill failed::' + String(e && e.message || e).slice(0, 300)); process.exit(1); });

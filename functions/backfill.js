@@ -169,4 +169,15 @@ const KEYS = ['hotel', 'month', 'date', 'shift', 'name', 'empUid', 'ooo', 'fault
       if (++bn >= 400) { await b.commit(); b = db.batch(); bn = 0; } }
     if (bn) await b.commit();
     console.log('::notice title=Backfill::leads without cat ' + nc + ' (set to jobs: ' + nj + ') of ' + lq.size); }
+  // leads app split from events (owner, Nov 19): everyone who has apps.events (roles, their personal extras, job roles) also gets apps.leads,
+  // so nobody loses the leads page; the owner then removes it from whoever doesn't need it. Runs once (marker migrations/leadsNov19). Counts only.
+  { const mk = db.doc('migrations/leadsNov19');
+    if (!(await mk.get()).exists) { let nr = 0, nj = 0;
+      for (const d of (await db.collection('roles').get()).docs) { const r = d.data() || {}, a = r.apps || {}, x = r.extra || {}, up = {};
+        if (a.events === true && a.leads !== true) up['apps.leads'] = true;
+        if (x && typeof x === 'object' && x.events === true && x.leads !== true) up['extra.leads'] = true;
+        if (Object.keys(up).length) { await d.ref.update(up); nr++; } }
+      for (const d of (await db.collection('jobRoles').get()).docs) { const a = (d.data() || {}).apps || {}; if (a.events === true && a.leads !== true) { await d.ref.update({ 'apps.leads': true }); nj++; } }
+      await mk.set({ at: Date.now(), roles: nr, jobRoles: nj });
+      console.log('::notice title=Backfill::leads app added to ' + nr + ' roles and ' + nj + ' job roles'); } }
 })().catch((e) => { console.error(e); console.log('::error title=Backfill failed::' + String(e && e.message || e).slice(0, 300)); process.exit(1); });

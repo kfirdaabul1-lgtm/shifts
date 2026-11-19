@@ -189,7 +189,7 @@ async function ivScan({ dry = false } = {}) {
     const lines = ms.filter((m) => m.text).map((m) => '[' + hm(m.at || 0) + '] ' + (m.dir === 'in' ? 'candidate' : (m.by === 'ai' ? 'ariel' : 'staff')) + ': ' + String(m.text).slice(0, 600));
     if (!lines.length) continue; out.chats++;
     try {
-      const r = await C.claude({ model: SMART, max_tokens: 4000, tool_choice: { type: 'tool', name: 'interview' }, tools: [IV_TOOL], system: 'You read a WhatsApp chat between a hotel job candidate and our recruiter (Ariel = AI, staff = a person). Today in Israel is ' + today + '. Decide if a job interview (in person, phone or video) was ACTUALLY agreed by both sides — a concrete day that the candidate accepted. A suggestion with no answer, "we will call you", or the candidate asking is NOT an agreed interview. Resolve relative days ("מחר", "ביום ראשון") from the date of the message where it was agreed. Return the latest agreed interview.', messages: [{ role: 'user', content: lines.join('\n').slice(-40000) }] });
+      const r = await C.claude({ model: SMART, max_tokens: 6000, tools: [IV_TOOL], system: 'You read a WhatsApp chat between a hotel job candidate and our recruiter (Ariel = AI, staff = a person). Today in Israel is ' + today + '. Decide if a job interview (in person, phone or video) was ACTUALLY agreed by both sides — a concrete day that the candidate accepted. A suggestion with no answer, "we will call you", or the candidate asking is NOT an agreed interview. Resolve relative days ("מחר", "ביום ראשון") from the date of the message where it was agreed. Return the latest agreed interview. ALWAYS answer by calling the interview tool once (found=false when none).', messages: [{ role: 'user', content: lines.join('\n').slice(-40000) }] });
       const t = (r.content || []).find((b) => b.type === 'tool_use'); const a = (t && t.input) || {};
       if (!a.found || !/^\d{4}-\d{2}-\d{2}$/.test(a.date || '')) continue;
       out.found++;
@@ -199,7 +199,7 @@ async function ivScan({ dry = false } = {}) {
       const time = /^([01]\d|2[0-3]):[0-5]\d$/.test(a.time || '') ? a.time : '';
       const s = await ivSet({ lead_id: id, date: a.date, time, with: a.with || '' }, 'ariel', 'אריאל (מהשיחה)');
       if (s.saved) out.saved++;
-    } catch (e) { out.errors++; }
+    } catch (e) { out.errors++; out.err = String(e.message || e).slice(0, 200); }
   }
   // summary push to the owner
   if (!dry) {

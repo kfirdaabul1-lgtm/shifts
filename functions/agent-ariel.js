@@ -172,6 +172,46 @@ async function ivSet(a, uid, name) {
   return { saved: true, lead: l.name || '', date, time, stage: up.stage || l.stage || 'new' };
 }
 // every morning 07:30 Israel: today's interviews → push to the owner + whoever set it + the candidate's handler
+
+// Owner, Nov 19: read the hiring WhatsApp chats, find interviews agreed in them and record them (ivSet), then summarise to the owner.
+const IV_TOOL = { name: 'interview', description: 'Report whether a job interview was actually agreed in this chat.', input_schema: { type: 'object', properties: { found: { type: 'boolean' }, date: { type: 'string', description: 'YYYY-MM-DD' }, time: { type: 'string', description: 'HH:MM or empty' }, with: { type: 'string', description: 'who / where, short, or empty' }, confidence: { type: 'number' } }, required: ['found'] } };
+async function ivScan({ dry = false } = {}) {
+  const today = C.ilDate(new Date()), out = { leads: 0, chats: 0, found: 0, saved: 0, had: 0, past: 0, low: 0, errors: 0 };
+  const minD = C.ilDate(new Date(Date.now() - 7 * 864e5));
+  const L = (await jobLeads()).filter(([, l]) => IV_OPEN.includes(l.stage || 'new'));
+  const hm = (t) => { const d = new Date(t); const x = d.toLocaleString('en-GB', { timeZone: 'Asia/Jerusalem', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }); return x.replace(',', ''); };
+  for (const [id, l] of L) {
+    out.leads++;
+    if (l.ivDate) { out.had++; continue; }
+    const wid = R().waIdFrom(l.phone); if (!wid) continue;
+    const ch = db.doc('waChats/' + wid); if (!(await ch.get()).exists) continue;
+    const ms = (await ch.collection('msgs').orderBy('at', 'desc').limit(80).get()).docs.map((d) => d.data() || {}).reverse();
+    const lines = ms.filter((m) => m.text).map((m) => '[' + hm(m.at || 0) + '] ' + (m.dir === 'in' ? 'candidate' : (m.by === 'ai' ? 'ariel' : 'staff')) + ': ' + String(m.text).slice(0, 600));
+    if (!lines.length) continue; out.chats++;
+    try {
+      const r = await C.claude({ model: SMART, max_tokens: 4000, tool_choice: { type: 'tool', name: 'interview' }, tools: [IV_TOOL], system: 'You read a WhatsApp chat between a hotel job candidate and our recruiter (Ariel = AI, staff = a person). Today in Israel is ' + today + '. Decide if a job interview (in person, phone or video) was ACTUALLY agreed by both sides — a concrete day that the candidate accepted. A suggestion with no answer, "we will call you", or the candidate asking is NOT an agreed interview. Resolve relative days ("מחר", "ביום ראשון") from the date of the message where it was agreed. Return the latest agreed interview.', messages: [{ role: 'user', content: lines.join('\n').slice(-40000) }] });
+      const t = (r.content || []).find((b) => b.type === 'tool_use'); const a = (t && t.input) || {};
+      if (!a.found || !/^\d{4}-\d{2}-\d{2}$/.test(a.date || '')) continue;
+      out.found++;
+      if ((a.confidence || 0) < 0.6) { out.low++; continue; }
+      if (a.date < minD) { out.past++; continue; }
+      if (dry) continue;
+      const time = /^([01]\d|2[0-3]):[0-5]\d$/.test(a.time || '') ? a.time : '';
+      const s = await ivSet({ lead_id: id, date: a.date, time, with: a.with || '' }, 'ariel', 'אריאל (מהשיחה)');
+      if (s.saved) out.saved++;
+    } catch (e) { out.errors++; }
+  }
+  // summary push to the owner
+  if (!dry) {
+    const up = (await jobLeads()).filter(([, l]) => l.ivDate && l.ivDate >= today && IV_OPEN.includes(l.stage || 'new')).sort(([, x], [, y]) => (x.ivDate + (x.ivTime || '')).localeCompare(y.ivDate + (y.ivTime || '')));
+    out.upcoming = up.length;
+    const own = (await db.collection('pushTokens').where('owner', '==', true).get()).docs.map((d) => d.id);
+    const body = up.length ? up.map(([, l]) => l.ivDate.split('-').reverse().slice(0, 2).join('/') + ' ' + (l.ivTime || '') + ' ' + (l.name || 'מועמד') + (l.job ? ' · ' + l.job : '')).join('\n').slice(0, 900) : 'לא נמצאו בשיחות ראיונות שנקבעו בפועל.';
+    if (own.length) await require('./agent-ops.js')._t.sendPush(own, { title: '🧑‍💼 אריאל · ראיונות עבודה שנקבעו (' + up.length + ')', body, hash: '#leads', tag: 'iv-scan' });
+  }
+  await C.logRun('ariel-chat', { kind: 'iv-scan', ...out });
+  return out;
+}
 exports.recruitIvMorning = functions.region(REGION).pubsub.schedule('30 7 * * *').timeZone('Asia/Jerusalem').onRun(async () => {
   const today = C.ilDate(new Date()), mark = db.doc('ivRemind/' + today);
   if ((await mark.get()).exists) return null;
@@ -217,4 +257,4 @@ exports.arielChat = functions.region(REGION).runWith({ timeoutSeconds: 300, memo
     res.json({ text: r.text || 'לא הצלחתי לענות על זה. אפשר לנסח אחרת?', tools: [...new Set(r.used || [])] });
   } catch (e) { console.error('arielChat', e); res.status(500).json({ error: 'משהו השתבש. נסו שוב בעוד רגע.' }); }
 });
-exports._t = { arielCore, arielRate, ivList, ivSet };
+exports._t = { arielCore, arielRate, ivList, ivSet, ivScan };

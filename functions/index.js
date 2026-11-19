@@ -2337,6 +2337,7 @@ const rec = require('./agent-recruit.js'); // recruiting agent (Nov 18): off unt
 exports.recruitNewLead = rec.recruitNewLead;
 exports.agentRecruit = rec.agentRecruit;
 exports.recruitSweep = rec.recruitSweep;
+exports.arielChat = require('./agent-ariel.js').arielChat; // trainer chat with Ariel, the recruiting agent (Nov 19)
 exports.hilaChat = require('./agent-hila.js').hilaChat; // Hila, spa + bride sales agent (training only for now, Nov 17)
 // Meta campaign structure for the ads agent (Nov 7, owner): read-only, once a day → metaStruct/{campaignId}
 async function metaStructAll() {

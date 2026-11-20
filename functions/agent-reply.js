@@ -195,7 +195,7 @@ async function replyRun(m, chat, id, morning) {
   // at most maxPerDay answers per chat per day; after that a person must take over
   const rref = db.doc('agentRate/' + chat + '_' + C.ilDate(new Date()));
   const allowed = await db.runTransaction(async (tx) => { const s = await tx.get(rref), n = s.exists ? +s.data().n || 0 : 0; if (n >= cfg.maxPerDay) return false; tx.set(rref, { n: n + 1, at: Date.now() }); return true; });
-  if (!allowed) { await cref.set({ aiAgent: { handoff: true, reason: 'daily limit of agent answers reached', urgency: 'normal', at: Date.now() } }, { merge: true }); return; }
+  if (!allowed) { await cref.set({ aiAgent: { handoff: true, reason: 'daily limit of agent answers reached', urgency: 'normal', at: Date.now() }, needHuman: Date.now(), needHumanBy: 'אדם' }, { merge: true }); return; }
 
   const hist = historyOf(rows);
   if (!hist.length || hist[hist.length - 1].role !== 'user') return;
@@ -246,7 +246,7 @@ async function replyRun(m, chat, id, morning) {
     await db.doc('agentLeadNotes/' + chat).set({ ...got.details, at: now, leadId: chatD.leadId || '' }, { merge: true });
     if (cfg.writeLead === true && chatD.leadId) { try { await applyToLead(chatD.leadId, got.details, cfg.name); } catch (e) { console.error('agentReply lead', e); } }
   }
-  if (got.handoff) await cref.set({ aiAgent: { handoff: true, ...got.handoff, at: now } }, { merge: true });
+  if (got.handoff) await cref.set({ aiAgent: { handoff: true, ...got.handoff, at: now }, needHuman: now, needHumanBy: 'אדם' }, { merge: true });
 
   if (text) {
     if (cfg.mode === 'auto') { await cref.collection('msgs').add({ dir: 'out', type: 'text', text: phoneSafe(text), status: 'queued', by: 'ai', byName: cfg.name || DEFAULTS.name, at: now, src: 'system' }); await cref.set({ lastAt: now, lastText: phoneSafe(text).slice(0, 200), lastDir: 'out' }, { merge: true }); }

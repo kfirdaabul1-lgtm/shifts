@@ -1354,6 +1354,7 @@ exports.onWaOut = trig('waChats/{chat}/msgs/{id}').onCreate(async (snap, ctx) =>
     if (wamid) await db.doc('waIds/' + wamid).set({ chat, msg: snap.id });
     await db.doc('waChats/' + chat).set({ waId: chat, phone: waLocal(chat), lastAt: m.at || Date.now(), lastText: (m.type === 'image' ? '📷 תמונה' + (m.caption ? ': ' + m.caption : '') : String(m.text || '')).slice(0, 200), lastDir: 'out' }, { merge: true });
     await waClaim(chat, m).catch((e) => console.error('waClaim', e.message));
+    if (/^[A-Za-z0-9]{20,40}$/.test(String(m.by || ''))) await db.doc('waChats/' + chat).set({ aiHuman: Date.now() }, { merge: true }); // a person answered: clears the "נדרש נציג" label (owner, Nov 20)
   } catch (e) { await snap.ref.update({ status: 'failed', error: waErr({ code: e.code, message: e.message }) }); }
 });
 // the first employee who writes to a customer takes the chat and the lead (owner, Nov 8): from then on only they (and the owner) see the chat.

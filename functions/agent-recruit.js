@@ -197,7 +197,7 @@ async function recruitRun(m, chat, id, morning) {
   if (rows.some((r) => isHuman(r) && Date.now() - (+r.at || 0) < cfg.humanQuietMin * 60e3)) { await C.logRun('recruit', { chat, skipped: 'a person answered recently' }); return null; }
   const rref = db.doc('agentRate/recruit_' + chat);
   const allowed = await db.runTransaction(async (tx) => { const s = await tx.get(rref), n = s.exists ? +s.data().n || 0 : 0; if (n >= cfg.maxPerCandidate) return false; tx.set(rref, { n: n + 1, at: Date.now() }); return true; });
-  if (!allowed) { await cref.set({ status: 'handoff', handoff: 'too many messages, a person should continue', updatedAt: Date.now() }, { merge: true }); await chref.set({ aiRecruit: { handoff: true, at: Date.now() } }, { merge: true }); return null; }
+  if (!allowed) { await cref.set({ status: 'handoff', handoff: 'too many messages, a person should continue', updatedAt: Date.now() }, { merge: true }); await chref.set({ aiRecruit: { handoff: true, at: Date.now() }, needHuman: Date.now(), needHumanBy: 'אריאל' }, { merge: true }); return null; }
 
   const hist = historyOf(rows); if (!hist.length || hist[hist.length - 1].role !== 'user') return null;
   if (fileNote) { const last = hist[hist.length - 1]; last.content = [...(pdfBuf ? [{ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: pdfBuf.toString('base64') } }] : []), { type: 'text', text: '[' + fileNote + ']\n' + (last.content || '') }]; }
@@ -225,6 +225,7 @@ async function recruitRun(m, chat, id, morning) {
     Object.assign(up, { status: fit === 'low' ? 'not_fit' : 'qualified', fit, score: Number.isFinite(+f.score) ? Math.max(0, Math.min(100, Math.round(+f.score))) : null, position: clip(f.position, 80), summary: clip(f.summary, 800), missing: (Array.isArray(f.missing) ? f.missing : []).slice(0, 8).map((x) => clip(x, 100)), finishedAt: now });
   }
   if (got.handoff) { up.status = 'handoff'; up.handoff = got.handoff; await chref.set({ aiRecruit: { handoff: true, reason: got.handoff, at: now } }, { merge: true }); }
+  if (got.handoff || (got.finish && up.status === 'qualified')) await chref.set({ needHuman: now, needHumanBy: 'אריאל', needHumanWhy: got.handoff ? clip(got.handoff, 200) : 'סיימה סינון · מועמד/ת מתאים/ה' }, { merge: true }); // owner, Nov 20: label "נדרש נציג" in the inbox
   // field paths (answers.x) need update(); the doc exists
   await cref.update(up);
   let text = clip(String(out.text || '').replace(/\*\*(.+?)\*\*/g, '*$1*').trim(), 1200);

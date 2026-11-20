@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="lang.js?v=e8b07ddc67"></script>
+<script src="lang.js?v=a34c27d204"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -443,6 +443,7 @@ body.nx .card,body.nx .kpi,body.nx .prow{background:rgba(10,20,40,.82)}body.nx .
 .fr-tab{font:600 14px inherit;font-family:inherit;padding:10px 12px;border:0;background:transparent;color:var(--muted);border-bottom:2px solid transparent;cursor:pointer;min-height:44px}
 .fr-tab.on{color:var(--ink);border-bottom-color:var(--gold,#B08D57)}
 .fr-repb{margin-inline-start:auto}
+.wa-hum{display:inline-block;background:#E23022;color:#fff;font-weight:700;border-radius:999px;padding:1px 8px;font-size:.78rem;margin-inline-end:4px}
 </style>
 </head>
 <body>
@@ -2641,7 +2642,7 @@ const lbxWide=()=>window.innerWidth>=900;
 function lbxChat(id,l){const C=S.waChats||{};let e=Object.entries(C).find(([,c])=>c.leadId===id);if(e)return e[0];const w=waIdOf(l.phone);return w&&C[w]?w:''}
 function lbxAgo(t){if(!t)return '';const m=Math.round((Date.now()-t)/6e4);if(m<1)return 'עכשיו';if(m<60)return 'לפני '+m+' דק׳';const h=Math.round(m/60);if(h<24)return 'לפני '+h+' שע׳';const d=Math.round(h/24);return d===1?'אתמול':'לפני '+d+' ימים'}
 function lbxGroup(id,l){const ch=lbxChat(id,l),c=ch&&(S.waChats||{})[ch],st=l.stage||'new';
-  if(st==='new'||(c&&(+c.unread>0||waWait(c))))return 'now';if(leadLate(l))return 'today';if(st==='meeting')return 'tour';if(st==='quote')return 'quote';return 'rest'}
+  if(st==='new'||(c&&(+c.unread>0||waWait(c)||waNeedH(c))))return 'now';if(leadLate(l))return 'today';if(st==='meeting')return 'tour';if(st==='quote')return 'quote';return 'rest'}
 const LBX_G=[['now','לענות עכשיו','var(--bad)'],['today','לחזור היום','var(--warn)'],['tour','סיור / פגישה','#6D4BA8'],['quote','הצעה נשלחה · מחכים לתשובה','var(--muted)'],['rest','בקשר','var(--muted)']];
 const LBX_F=[['act','לטפל עכשיו',['now','today']],['wait','מחכים ללקוח',['tour','quote','rest']],['all','כל הפתוחים',['now','today','tour','quote','rest']]];
 function lbxBusy(l){if(!l.date)return null;const Q=S.lquotes||{},out=[];
@@ -2660,7 +2661,7 @@ function leadBoxHTML(all,f){const bx=f.bx||'act',F=LBX_F.find(x=>x[0]===bx)||LBX
   const row=([id,l,g])=>{const ch=lbxChat(id,l),c=ch&&(S.waChats||{})[ch],un=c&&+c.unread>0,late=g==='today',nm=l.name||l.phone||'ללא שם';
     const when=g==='now'?lbxAgo(tAt(id,l,g)):late?(l.nextAt<todayISO()?'באיחור · '+dm(l.nextAt):'היום'):l.tourAt&&g==='tour'?'סיור '+dm(l.tourAt)+(l.tourTime?' '+esc(l.tourTime):''):lbxAgo(l.updatedAt||l.createdAt);
     const sub=[String(l.type||'').replace(/_+/g,' ').trim(),l.guestsTxt?'⁦'+l.guestsTxt+'⁩':+l.guests?String(l.guests):'',l.date?dm(l.date):''].filter(Boolean).join(' · ');
-    const last=(l.acts||[]).slice(-1)[0],line3=un?`<span class="lbx-wa">💬 ${+c.unread} הודעות חדשות</span>`:c&&waWait(c)?'<span class="lbx-wa">💬 מחכה לתשובה</span>':last&&last.text?esc(String(last.text).slice(0,60)):esc(LSRC[l.source]||'');
+    const last=(l.acts||[]).slice(-1)[0],line3=c&&waNeedH(c)?`<span class="wa-hum">🙋 נדרש נציג · ${esc(waNeedBy(c))}</span>`:un?`<span class="lbx-wa">💬 ${+c.unread} הודעות חדשות</span>`:c&&waWait(c)?'<span class="lbx-wa">💬 מחכה לתשובה</span>':last&&last.text?esc(String(last.text).slice(0,60)):esc(LSRC[l.source]||'');
     return `<button class="lbx-row${id===sel?' sel':''}" data-act="${wide?'lbx-sel':'lead-open'}" data-id="${id}"><span class="wa-av" style="background:${waColor(id)}">${esc(waInit(nm))}</span><span class="lbx-rm"><span class="lbx-r1"><b>${esc(nm)}</b><small class="${g==='now'||late?'bad-t':'muted'}">${when}</small></span>${sub?`<small>${esc(sub)}</small>`:''}<small class="muted">${line3}${!l.owner?' · <span class="bad-t">ללא מטפל</span>':''}</small></span></button>`};
   const list=`<aside class="lbx-list card"><div class="lbx-fl">${LBX_F.map(([k,n])=>`<button class="lbx-fc ${bx===k?'on':''}" data-act="lbx-f" data-v="${k}">${n} · ${cnt(k)}</button>`).join('')}</div>
     <div class="lbx-rows">${groups.length?groups.map(([g,n,col,L])=>`<div class="lbx-gh" style="color:${col}">${n} · ${L.length}</div>${L.map(row).join('')}`).join(''):`<p class="muted" style="padding:14px">${bx==='act'?'אין כרגע לידים שמחכים לטיפול. 👏':'אין לידים כאן.'}</p>`}</div></aside>`;
@@ -3072,28 +3073,31 @@ function waCatOf(id,c){const jl=c&&c.leadId&&(S.leads||{})[c.leadId];if(jl&&jl.c
   if(c&&c.cat&&LCAT[c.cat])return c.cat;const L=waLeadOf(id,c||{});if(!L)return '';const l=L[1];if(l.cat&&LCAT[l.cat])return l.cat;
   if(l.source==='whatsapp'&&!campCatOf(l.campaign))return '';return leadCat(l)}
 const waUnreadCat=k=>Object.entries(S.waChats||{}).filter(([id,c])=>+c.unread>0&&!waArch(id,c)&&(waCatOf(id,c)||'events')===k).length;
-const WA_F=[['all','הכול'],['unread','לא נקראו'],['wait','מחכים לתשובה'],['open','פתוחות'],['done','טופלו'],['win','חלון 24 שעות פתוח'],['lead','משויכות לליד'],['nolead','בלי ליד'],['arch','ארכיון']];
+// "נדרש נציג" (owner, Nov 20): an agent (Adam / Ariel / Hila) handed the chat to a person and no person answered since
+const waNeedH=c=>{if(!c||c.status==='done')return 0;const a=c.aiAgent||{},r=c.aiRecruit||{},h=c.aiHila||{};const t=+c.needHuman||(a.handoff&&+a.at)||(r.handoff&&+r.at)||(h.handoff&&+h.at)||0;return t&&t>Math.max(+c.aiHuman||0,+c.doneAt||0)?t:0};
+const waNeedBy=c=>c.needHumanBy||(c.aiRecruit&&c.aiRecruit.handoff?'אריאל':c.aiHila&&c.aiHila.handoff?'הילה':'אדם');
+const WA_F=[['all','הכול'],['human','🙋 נדרש נציג'],['unread','לא נקראו'],['wait','מחכים לתשובה'],['open','פתוחות'],['done','טופלו'],['win','חלון 24 שעות פתוח'],['lead','משויכות לליד'],['nolead','בלי ליד'],['arch','ארכיון']];
 const waInit=n=>{const w=String(n||'').trim().split(/\s+/).filter(Boolean);return w.length>1?(w[0][0]+w[1][0]):(w[0]||'#').slice(0,2)};
 const waColor=id=>{let h=0;for(const ch of String(id))h=(h*31+ch.charCodeAt(0))%360;return `hsl(${h},42%,46%)`};
 function waListTime(t){if(!t)return '';const d=new Date(t),iso=d.toLocaleDateString('en-CA');if(iso===todayISO())return d.toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'});if(iso===addDays(todayISO(),-1))return 'אתמול';return d.toLocaleDateString('en-GB',{day:'2-digit',month:'2-digit',year:'2-digit'})}
 function waStamp(t){if(!t)return '';const d=new Date(t);return d.toLocaleDateString('en-GB',{day:'2-digit',month:'2-digit'})+' '+d.toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'})}
 function waListHTML(f){waSub();leadCatsLive();const W=S.wapub||{},q=String(S.waQ||'').trim().toLowerCase(),qt=leadTel(q),F=S.waF||'all',cat=f.cat||'events';
   const all=Object.entries(S.waChats||{}).filter(([id,c])=>(waCatOf(id,c)||'events')===cat);
-  const pass=([id,c])=>{const L=waLeadOf(id,c);if((F==='arch')!==waArch(id,c))return false;if(F==='wait'&&!waWait(c))return false;if(F==='unread'&&!(+c.unread>0))return false;if(F==='open'&&c.status==='done')return false;if(F==='done'&&c.status!=='done')return false;if(F==='win'&&!waOpenWin(c))return false;if(F==='lead'&&!L)return false;if(F==='nolead'&&L)return false;
+  const pass=([id,c])=>{const L=waLeadOf(id,c);if((F==='arch')!==waArch(id,c))return false;if(F==='wait'&&!waWait(c))return false;if(F==='human'&&!waNeedH(c))return false;if(F==='unread'&&!(+c.unread>0))return false;if(F==='open'&&c.status==='done')return false;if(F==='done'&&c.status!=='done')return false;if(F==='win'&&!waOpenWin(c))return false;if(F==='lead'&&!L)return false;if(F==='nolead'&&L)return false;
     return !q||String(c.name||'').toLowerCase().includes(q)||(L&&String(L[1].name||'').toLowerCase().includes(q))||(qt.length>=4&&leadTel(waLocalOf(id)).includes(qt))||String(c.lastText||'').toLowerCase().includes(q)};
-  const rows=all.filter(pass);
+  const rows=all.filter(pass).map((x,i)=>[x,i]).sort((a,b)=>(!!waNeedH(b[0][1])-!!waNeedH(a[0][1]))||a[1]-b[1]).map(x=>x[0]); // נדרש נציג first
   const head=(S.isOwner&&(S.waCfgOpen||!W.on)?waCfgHTML()+arsCfgHTML():'')+(!W.on?`<div class="notice">${S.isOwner?'וואטסאפ עוד לא מחובר. ממלאים את "חיבור וואטסאפ" למעלה.':'וואטסאפ עוד לא חובר למערכת. הבעלים מחבר אותו מהעמוד הזה.'}</div>`:'');
   if(S.waErr)return head+`<div class="notice bad">לא הצלחתי לטעון שיחות: ${esc(S.waErr)}</div>`;
   if(!S.waReady)return head+'<p class="muted">טוען שיחות…</p>';
   const wide=waWide(),sel=wide?S.waSel:'';
-  const cnt=k=>k==='arch'?all.filter(([id,c])=>waArch(id,c)).length:all.filter(([id,c])=>{if(waArch(id,c))return false;if(k==='all')return true;if(k==='wait')return waWait(c);const L=waLeadOf(id,c);return k==='unread'?+c.unread>0:k==='open'?c.status!=='done':k==='done'?c.status==='done':k==='win'?waOpenWin(c):k==='lead'?!!L:!L}).length;
+  const cnt=k=>k==='arch'?all.filter(([id,c])=>waArch(id,c)).length:all.filter(([id,c])=>{if(waArch(id,c))return false;if(k==='all')return true;if(k==='wait')return waWait(c);if(k==='human')return !!waNeedH(c);const L=waLeadOf(id,c);return k==='unread'?+c.unread>0:k==='open'?c.status!=='done':k==='done'?c.status==='done':k==='win'?waOpenWin(c):k==='lead'?!!L:!L}).length;
   // WhatsApp-Business-like rows (owner, Nov 2): avatar, name + time, last message + unread badge, a thin line of lead info
   const row=([id,c])=>{const L=waLeadOf(id,c),l=L&&L[1],nm=c.name||(l&&l.name)||waLocalOf(id),un=+c.unread>0;
     const meta=[waCatOf(id,c)?'':'❔ לא משויך',l?(LSTG[l.stage]||'ליד'):'בלי ליד',l&&l.venue&&EV_VENUE[l.venue]?'📍 '+EV_VENUE[l.venue]:'',c.status==='done'?'✓ טופל':'',c.agent?(c.agent===S.uid?'🔒 אצלי':'🔒 '+(c.agentName||'עובד')):(l&&l.ownerName?'👤 '+l.ownerName:'')].filter(Boolean).join(' · ');
     return `<button class="wa-row${id===sel?' sel':''}${un?' un':''}" data-act="wa-open" data-id="${id}"><span class="wa-av" style="background:${waColor(id)}">${esc(waInit(nm))}</span>
       <span class="wa-mid"><span class="wa-r1"><b>${esc(nm)}</b><small class="wa-when">${waListTime(c.lastAt)}</small></span>
       <span class="wa-r2"><span class="wa-prev">${c.lastDir==='out'?'<span class="wa-tk">✓✓</span> ':''}${esc(c.lastText||'')}</span>${un?`<span class="wa-u">${+c.unread}</span>`:waWait(c)?'<span class="wa-wait" title="מחכה לתשובה"></span>':''}</span>
-      <span class="wa-r3">${esc(meta)}</span></span></button>`};
+      <span class="wa-r3">${waNeedH(c)?`<span class="wa-hum" title="${esc(c.needHumanWhy||(c.aiAgent&&c.aiAgent.reason)||(c.aiRecruit&&c.aiRecruit.reason)||'')}">🙋 נדרש נציג · ${esc(waNeedBy(c))}</span> `:''}${esc(meta)}</span></span></button>`};
   const list=`<div class="wa-list card"><div class="wa-lh"><div class="wa-hd"><h3>צ׳אטים · ${LCAT[cat]} <small>${rows.length}${rows.length!==all.length?' מתוך '+all.length:''}</small></h3><span class="wa-hdi">${S.isOwner?`<button class="wac-ic" data-act="wa-cfgt" title="חיבור וואטסאפ" aria-label="חיבור וואטסאפ">⚙</button>`:''}<button class="wac-ic" data-act="wa-newt" title="שיחה חדשה" aria-label="שיחה חדשה">✎</button></span></div>
       <input type="search" class="wa-search" data-waq value="${esc(S.waQ||'')}" placeholder="🔍 חיפוש" aria-label="חיפוש בשיחות">
       <div class="wa-fl">${WA_F.map(([k,n])=>`<button class="wa-fc ${F===k?'on':''}" data-act="wa-f" data-v="${k}">${n}${k==='unread'||k==='open'||k==='wait'||k==='arch'?` ${cnt(k)}`:''}</button>`).join('')}</div>

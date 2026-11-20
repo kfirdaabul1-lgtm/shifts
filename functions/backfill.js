@@ -185,6 +185,17 @@ const KEYS = ['hotel', 'month', 'date', 'shift', 'name', 'empUid', 'ooo', 'fault
       const t2 = t.replace(/0?5\d[\s-]?\d{3}[\s-]?\d{4}/g, (m) => { const x = m.replace(/\D/g, ''); return x === '0533965323' ? m : '053-3965323'; });
       if (t2 !== t) { await r.set({ text: t2, updatedAt: Date.now(), updatedBy: 'phone-scrub' }, { merge: true }); n++; } }
     if (n) console.log('::notice title=Backfill::private phone numbers replaced in ' + n + ' agent knowledge docs'); }
+  // Owner, Nov 20: "נדרש נציג" label — candidates Ariel already finished as qualified, with no person answering since, get needHuman. Once. Counts only.
+  { const mk = db.doc('migrations/needHumanNov20');
+    if (!(await mk.get()).exists) { let n = 0;
+      const cs = await db.collection('candidates').where('status', '==', 'qualified').get();
+      for (const d of cs.docs) { const c = d.data() || {}, t = +c.finishedAt || 0; if (!t || !c.chat) continue;
+        const ch = db.doc('waChats/' + c.chat), cx = await ch.get(); if (!cx.exists || (cx.data() || {}).needHuman) continue;
+        const ms = await ch.collection('msgs').where('at', '>', t).get();
+        if (ms.docs.some((m) => { const x = m.data() || {}; return x.dir === 'out' && /^[A-Za-z0-9]{20,40}$/.test(String(x.by || '')); })) continue;
+        await ch.set({ needHuman: t, needHumanBy: 'אריאל', needHumanWhy: 'סיימה סינון · מועמד/ת מתאים/ה' }, { merge: true }); n++; }
+      await mk.set({ at: Date.now(), n }); console.log('::notice::needHuman backfill ' + n); } }
+
   // owner, Nov 19 (after the split): take the leads app away from EVERYONE (roles, personal extras, job roles); the owner then gives it
   // to the people who need it from the permissions page. Runs once (marker migrations/leadsOffNov19). Counts only.
   { const mk = db.doc('migrations/leadsOffNov19');

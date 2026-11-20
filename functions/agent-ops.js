@@ -37,7 +37,7 @@ const DEFAULTS = {
   maxDirections: 0, agents: ['ads', 'reply', 'yield'], // owner, Nov 12: the other agents are still learning → supervise only, no directions until he says so
 };
 const DEPT = { ops: 'תפעול / מנהל תורן', reception: 'קבלה', housekeeping: 'משק', public: 'שטחים ציבוריים', maintenance: 'אחזקה', kitchen: 'מטבח', dining: 'חדר אוכל', bar: 'בר', dishwash: 'שוטף כלים', laundry: 'מכבסה' };
-const AGENT_HE = { ads: 'עדי (קמפיינים)', reply: 'אדם (מענה ללידים)', yield: 'גיא (תשואה)' };
+const AGENT_HE = { ads: 'עדי (קמפיינים)', reply: 'אדם (מענה ללידים)', yield: 'גיא (תשואה)', recruit: 'אריאל (גיוס עובדים)', hila: 'הילה (ספא וכלות)' };
 const DOW = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];
 const clip = (s, n) => String(s == null ? '' : s).slice(0, n);
 const dowOf = (iso) => new Date(iso + 'T12:00:00Z').getUTCDay();
@@ -317,12 +317,12 @@ async function writeWithModel(model, system, content, tools, fallback) {
 }
 
 // ---------- agents supervision (chain) ----------
-async function agentsHealth(cfg) {
+async function agentsHealth(cfg, all) {
   const since = Date.now() - 3 * 864e5, L = await q('agentLog', ['at', '>', since]), out = [];
-  for (const a of cfg.agents) {
+  for (const a of all ? [...new Set([...(cfg.agents || []), 'ads', 'reply', 'yield', 'recruit', 'hila'])] : cfg.agents) {
     const c = (await docData('agentcfg/' + a)) || {}, mine = L.filter((x) => x.agent === a).sort((x, y) => y.at - x.at);
     const errs = mine.filter((x) => x.error), last = mine[0];
-    const row = { agent: a, name: AGENT_HE[a] || a, enabled: c.enabled === true, meaning: a === 'reply' ? (c.enabled === true ? 'עונה ללקוחות (' + (c.mode || 'draft') + ')' : 'לא עונה ללקוחות; האימון בצ׳אט עובד') : (c.enabled === true ? 'דוחות אוטומטיים פעילים' : 'הדוחות האוטומטיים כבויים') + (c.chat === false ? '; הצ׳אט כבוי' : '; הצ׳אט איתו/איתה עובד'), runs3d: mine.length, errors3d: errs.length, lastAt: last ? last.at : 0, lastError: errs[0] ? clip(errs[0].error, 120) : '' };
+    const row = { agent: a, name: AGENT_HE[a] || a, enabled: c.enabled === true, meaning: a === 'reply' ? (c.enabled === true ? 'עונה ללקוחות (' + (c.mode || 'draft') + ')' : 'לא עונה ללקוחות; האימון בצ׳אט עובד') : a === 'recruit' ? (c.enabled === true ? 'עונה למועמדים לעבודה ושולחת להם הודעת פתיחה' : 'לא עונה למועמדים; האימון בצ׳אט עובד') : a === 'hila' ? (c.enabled === true ? 'מסומנת כפעילה (מענה ללקוחות ספא/כלות עוד לא נבנה)' : 'באימון בלבד; לא עונה ללקוחות') : (c.enabled === true ? 'דוחות אוטומטיים פעילים' : 'הדוחות האוטומטיים כבויים') + (c.chat === false ? '; הצ׳אט כבוי' : '; הצ׳אט איתו/איתה עובד'), runs3d: mine.length, errors3d: errs.length, lastAt: last ? last.at : 0, lastError: errs[0] ? clip(errs[0].error, 120) : '' };
     if (row.enabled && !mine.length && a !== 'reply') row.problem = 'מופעל אבל לא רץ ב-3 הימים האחרונים';
     else if (errs.length && errs.length >= Math.max(2, mine.length / 2)) row.problem = 'רוב הריצות האחרונות נכשלו: ' + row.lastError;
     if (a === 'reply' && row.enabled) {
@@ -803,7 +803,9 @@ async function opsRate(uid) {
 }
 const opsOk = (c) => !!(c && !c.denied && c.owner);
 const OPS_NO = 'רק בעל המערכת יכול לדבר עם אליאנה, מנהלת האופרציה (כרגע).';
+const AG_MAP = { adam: { cfg: 'reply', kb: 'reply', he: 'אדם' }, ariel: { cfg: 'recruit', kb: 'recruit', he: 'אריאל' }, hila: { cfg: 'hila', kb: 'hila', he: 'הילה' }, adi: { cfg: 'ads', he: 'עדי' }, guy: { cfg: 'yield', he: 'גיא' } };
 function chatTools(cfg, c) {
+  const t0 = Date.now();
   const pickHotel = async (x) => { const hs = await loadHotels(), t = String(x || '').trim(); return hs.find((h) => h.id === t || String(h.name).trim() === t) || hs.find((h) => t && String(h.name).includes(t)) || null; };
   return [
     { name: 'list_hotels', description: 'The hotels of the chain (id + name).', input_schema: { type: 'object', properties: {} }, run: async () => ({ hotels: await loadHotels() }) },
@@ -820,7 +822,7 @@ function chatTools(cfg, c) {
     { name: 'staffing_draft', description: 'The staffing DRAFT for next week of a hotel (from the 10days numbers): suggested vs opened shifts per department and day, changes, missing 10days.',
       input_schema: { type: 'object', properties: { hotel: { type: 'string' } }, required: ['hotel'] },
       run: async (a) => { const h = await pickHotel(a.hotel); if (!h) return { error: 'unknown hotel' }; const nw = C.addDays(C.weekOf(C.ilDate(new Date())), 7), d = await docData('opsDrafts/' + h.id + '_' + nw); return d ? { week: nw, headline: d.headline, changes: (d.changes || []).slice(0, 60), missingTenDays: d.missingTenDays, ratiosSet: d.ratiosSet, hkTarget: d.hkTarget } : { week: nw, note: 'no draft yet (it is written on Sunday 08:00)' }; } },
-    { name: 'agents_health', description: 'Health of the other agents (Adi campaigns, Adam events replies, Guy yield) in the last 3 days: runs, errors, problems, last headline.', input_schema: { type: 'object', properties: {} }, run: async () => ({ agents: await agentsHealth(cfg) }) },
+    { name: 'agents_health', description: 'Health of the other agents (Adi campaigns, Adam events replies, Guy yield, Ariel hiring, Hila spa/bride) incl. whether each is switched on, in the last 3 days: runs, errors, problems, last headline.', input_schema: { type: 'object', properties: {} }, run: async () => ({ agents: await agentsHealth(cfg, true) }) },
     { name: 'booking_comments', description: 'Guest comments of PMS bookings (reservation system) staying in a hotel in a date range (default today + tomorrow): booking number, arrival/departure, people, channel, assigned rooms and the guest comment. The comments are for you to read and decide whether something needs attention (special requests, accessibility, celebrations, late arrival, complaints from before) — they are NOT shown to housekeeping.',
       input_schema: { type: 'object', properties: { hotel: { type: 'string' }, from: { type: 'string', description: 'YYYY-MM-DD, default today' }, days: { type: 'number', description: 'default 2, max 14' } }, required: ['hotel'] },
       run: async (a) => { const h = await pickHotel(a.hotel); if (!h) return { error: 'unknown hotel' }; const f = /^\d{4}-\d{2}-\d{2}$/.test(a.from || '') ? a.from : C.ilDate(new Date()), to = C.addDays(f, Math.min(14, Math.max(1, +a.days || 2)) - 1);
@@ -836,12 +838,48 @@ function chatTools(cfg, c) {
         L.sort((x, y) => ms(y.createdAt) - ms(x.createdAt));
         return { count: L.length, leads: L.slice(0, 25).map((l) => ({ id: l.id, name: l.name, phone: l.phone ? '…' + String(l.phone).replace(/\D/g, '').slice(-4) : '', stage: l.stage, kind: l.cat || '', place: l.venue || '', source: l.source, campaign: l.campaign || '', meta: l.metaConnName || (l.id.startsWith('meta_') ? 'Meta form' : ''), adRef: l.adRef ? { headline: l.adRef.headline, type: l.adRef.type } : null, type: l.type, date: l.date, guests: l.guestsTxt || l.guests, value: l.value || 0, wonValue: l.wonValue || 0, lostReason: l.lostReason || '', owner: l.ownerName || '', created: ms(l.createdAt) ? new Date(ms(l.createdAt)).toISOString().slice(0, 16) : '', notes: clip(l.notes, 300), acts: (l.acts || []).slice(-6).map((x) => ({ at: ms(x.at) ? new Date(ms(x.at)).toISOString().slice(0, 16) : '', by: x.byName, kind: x.kind, text: clip(x.text, 200) })) })) };
       } },
-    { name: 'ask_agent', description: 'Ask another agent a question and get its answer (it works with its own tools and data). agent: "adi" campaigns/ads (Meta + Google), "guy" yield/prices/price comparison, "adam" events sales knowledge (trainer mode; he cannot change his knowledge from your question), "hila" spa + bride-preparation sales knowledge (in training, not answering customers yet; same trainer mode), "sharon" the managers\' app assistant (shifts, rooms, faults, stock, spa, tours, reports, complaints). Use it to coordinate: collect what each one sees, compare, then tell the owner. One focused question per call, in Hebrew, with the context they need.',
-      input_schema: { type: 'object', properties: { agent: { type: 'string', enum: ['adi', 'guy', 'adam', 'hila', 'sharon'] }, question: { type: 'string' }, hotel: { type: 'string', description: 'hotel id/name for adi/guy; empty = chain' } }, required: ['agent', 'question'] },
+    { name: 'ask_agent', description: 'Ask another agent a question and get its answer (it works with its own tools and data). agent: "adi" campaigns/ads (Meta + Google), "guy" yield/prices/price comparison, "adam" events sales knowledge (trainer mode; he cannot change his knowledge from your question), "ariel" hiring / job candidates (her screening knowledge, candidates, interviews; trainer mode), "hila" spa + bride-preparation sales knowledge (in training, not answering customers yet; same trainer mode), "sharon" the managers\' app assistant (shifts, rooms, faults, stock, spa, tours, reports, complaints). Use it to coordinate: collect what each one sees, compare, then tell the owner. One focused question per call, in Hebrew, with the context they need.',
+      input_schema: { type: 'object', properties: { agent: { type: 'string', enum: ['adi', 'guy', 'adam', 'ariel', 'hila', 'sharon'] }, question: { type: 'string' }, hotel: { type: 'string', description: 'hotel id/name for adi/guy; empty = chain' } }, required: ['agent', 'question'] },
       run: async (a) => askAgent(c, a, pickHotel) },
     { name: 'direct_agent', description: 'Give a standing direction to Adi (campaigns: saved as a note she reads in every report and chat; the owner sees/deletes it in the "דוח קידום" card) or Guy (yield: read in every report and chat for 7 days). Only when the owner asked for it or agreed in this conversation. Short and concrete.',
       input_schema: { type: 'object', properties: { agent: { type: 'string', enum: ['adi', 'guy'] }, text: { type: 'string' }, hotel: { type: 'string', description: 'hotel id/name; empty = chain' } }, required: ['agent', 'text'] },
       run: async (a) => { const h = a.hotel ? await pickHotel(a.hotel) : null; if (a.hotel && !h) return { error: 'unknown hotel' }; const r = await writeDirection({ agent: a.agent === 'adi' ? 'ads' : 'yield', text: a.text, hotel: h ? h.id : '' }, await loadHotels(), C.ilDate(new Date()), Date.now().toString(36)); return r.saved ? { saved: true, to: a.agent === 'adi' ? 'עדי' : 'גיא', hotel: h ? h.name : 'כל הרשת' } : r; } },
+    { name: 'prepare_agent_action', description: 'Managing the agents is your job (owner, Nov 20). Prepare ONE change to another agent, then show the owner exactly what will change and ask "לאשר?". action: "on" / "off" switches the agent (adam = answering event leads on WhatsApp, ariel = answering job candidates + opening messages, adi = automatic campaign reports, guy = automatic yield reports; hila cannot be switched on yet — her customer replies are not built); "direct" = a standing direction (adi/guy: a note they read in every report/chat; adam/ariel/hila: a dated line added to their knowledge that they use with customers/candidates). Only when the owner asked for it in this conversation.',
+      input_schema: { type: 'object', properties: { agent: { type: 'string', enum: ['adam', 'ariel', 'hila', 'adi', 'guy'] }, action: { type: 'string', enum: ['on', 'off', 'direct'] }, text: { type: 'string', description: 'the direction (action direct), short and concrete, Hebrew' }, hotel: { type: 'string', description: 'adi/guy only: hotel id/name; empty = chain' } }, required: ['agent', 'action'] },
+      run: async (a) => {
+        const ag = AG_MAP[a.agent]; if (!ag) return { error: 'agent' };
+        if (a.action === 'on' && a.agent === 'hila') return { error: 'Hila cannot answer customers yet (not built); she can only be trained in the chat' };
+        const text = clip(String(a.text || '').trim(), 400); if (a.action === 'direct' && !text) return { error: 'empty direction' };
+        let hotel = ''; if (a.hotel && (a.agent === 'adi' || a.agent === 'guy')) { const h = await pickHotel(a.hotel); if (!h) return { error: 'unknown hotel' }; hotel = h.id; }
+        const cur = (await docData('agentcfg/' + ag.cfg)) || {};
+        await db.doc('agentOpsDrafts/' + c.uid).set({ agent: a.agent, action: a.action, text, hotel, at: Date.now(), by: c.uid, applied: false });
+        return { prepared: true, agent: ag.he, action: a.action, now: cur.enabled === true ? 'on' : 'off', text, hotel, next: 'show the owner what will change and ask "לאשר?"; call confirm_agent_action only in a LATER message after a clear yes' };
+      } },
+    { name: 'confirm_agent_action', description: 'Apply the change prepared with prepare_agent_action — ONLY after the owner clearly said yes in a message AFTER you asked (not in the same message).', input_schema: { type: 'object', properties: {} },
+      run: async () => {
+        if (c.viaOps) return { error: 'not allowed' };
+        const ref = db.doc('agentOpsDrafts/' + c.uid), d = await docData('agentOpsDrafts/' + c.uid);
+        if (!d || d.applied || d.by !== c.uid || Date.now() - (+d.at || 0) > 30 * 60e3) return { error: 'nothing prepared (or older than 30 minutes): prepare again' };
+        if (!(+d.at < t0)) return { error: 'the owner has not confirmed yet: ask and wait for the answer' };
+        const ag = AG_MAP[d.agent], who = c.name || 'הבעלים', now = Date.now(); let res;
+        if (d.action === 'on' || d.action === 'off') {
+          if (d.action === 'on' && d.agent === 'hila') return { error: 'hila' };
+          await db.doc('agentcfg/' + ag.cfg).set({ enabled: d.action === 'on', toggledBy: 'אליאנה (באישור ' + who + ')', toggledAt: now }, { merge: true });
+          res = { done: true, agent: ag.he, enabled: d.action === 'on' };
+        } else if (d.agent === 'adi' || d.agent === 'guy') {
+          const r = await writeDirection({ agent: d.agent === 'adi' ? 'ads' : 'yield', text: d.text, hotel: d.hotel }, await loadHotels(), C.ilDate(new Date()), now.toString(36));
+          if (!r.saved) return { error: r.error || 'failed' }; res = { done: true, agent: ag.he, direction: d.text };
+        } else {
+          const kref = db.doc('agentKB/' + ag.kb), k = (await kref.get()).data() || {}, old = String(k.text || '');
+          if (old) await kref.collection('versions').doc(String(now)).set({ text: old, at: now, by: c.uid, via: 'ops' });
+          const dm = C.ilDate(new Date()).slice(5).split('-').reverse().join('/');
+          await kref.set({ text: (old ? old.trimEnd() + '\n' : '') + '(' + dm + ') הנחיה מאליאנה (באישור ' + who + '): ' + d.text, updatedAt: now, updatedBy: c.uid, via: 'ops' }, { merge: true });
+          res = { done: true, agent: ag.he, direction: d.text, savedIn: 'knowledge' };
+        }
+        await ref.set({ applied: true, appliedAt: now }, { merge: true });
+        await C.logRun('ops', { kind: 'manage', agent: d.agent, action: d.action });
+        return res;
+      } },
     { name: 'guest_requests_learning', description: 'How well you sort Arsona guest requests: your suggestions vs what reception / the owner actually did (fault/hk/pub/lead/general), match rate per kind, recent mismatches and the owner\'s corrections. Mode (agentcfg/ops.greq): learn = you only suggest; auto = you open calls/leads yourself when sure.',
       input_schema: { type: 'object', properties: { days: { type: 'number', description: 'default 30' } } },
       run: async (a) => {
@@ -864,6 +902,7 @@ async function askAgent(c, a, pickHotel) {
     if (a.agent === 'adi') { const ads = require('./agent-ads.js')._t; r = await ads.chatCore({ ...ads.DEFAULTS, ...(await C.cfg('ads')) }, cc, h ? h.id : '', hist, note); }
     else if (a.agent === 'guy') { r = await require('./agent-yield.js')._t.guyCore(cc, hist, h ? h.id : '', note); }
     else if (a.agent === 'adam') { const R = require('./agent-reply.js'); r = await R._t.adamCore({ ...R._t.DEFAULTS, ...(await C.cfg('reply')) }, cc, hist, note + ' You cannot change your knowledge in this conversation; if something should change, say what.'); }
+    else if (a.agent === 'ariel') { const Rr = require('./agent-recruit.js')._t; r = await require('./agent-ariel.js')._t.arielCore({ ...Rr.DEFAULTS, ...(await C.cfg('recruit')) }, cc, hist, note + ' You cannot change your knowledge or record interviews from this question; if something should change, say what.'); }
     else if (a.agent === 'hila') { const Hm = require('./agent-hila.js')._t; r = await Hm.hilaCore({ ...Hm.DEFAULTS, ...(await C.cfg('hila')) }, cc, hist, note + ' You cannot change your knowledge in this conversation; if something should change, say what.'); }
     else if (a.agent === 'sharon') { r = await require('./assistant.js')._t.sharonCore(cc, hist, { readOnly: true, via: 'ops', extra: note }); }
     else return { error: 'agent' };
@@ -876,7 +915,7 @@ async function opsCore(c, hist, extra) {
   const sys = `Your name is Aliana (אליאנה, a woman). You are the operations manager agent of the Seven Collection hotels (Israel). You are chatting with ${c.name || 'the owner'}, the owner of the chain. Today is ${today} (${DOW[dowOf(today)]}), Israel time.
 ${OPS_KNOW}
 WHAT YOU DO: every morning at 07:15 you check every hotel (staffing, 10days, housekeeping, maintenance, tours, spa, groups, events, back office) and write reports; at 14:00 you check what is not ready for check-in; every 5 minutes you watch calls and faults; on Sunday you prepare a staffing draft for next week. Notifications to managers are ${cfg.push ? 'ON' : 'OFF (reports only) until the owner turns them on'}. Arsona guest requests that nobody took for 10 minutes: you nag reception every 10 minutes — the reception desk, the reception employees on shift now (push; from the 3rd nag also WhatsApp from the agents' number) and from 30 minutes the hotel manager until someone takes it (greqNag; agentcfg/ops.greqNag false turns it off). Every Arsona guest request (guestReqs) is sorted by you: maintenance call / housekeeping call / public areas call / lead in ROOM bookings / general question. While you learn (agentcfg/ops.greq 'learn') you only suggest to the owner and learn from what reception actually does; guest_requests_learning shows how often you were right. You also supervise the other agents: Adi (campaigns), Guy (yield), Adam (events sales replies) and Hila (הילה, spa + bride-preparation sales, still in training: she does not answer customers until the owner turns her on). In agents_health "enabled:false" for Adi/Guy means only their AUTOMATIC REPORTS are off — chatting with them still works (see "meaning"); never say an agent is "off" because of it. Sharon (שרון) is the managers' assistant INSIDE the app (✦ button): she answers managers/employees from the app's data and explains how to use the app; you don't supervise her and have no log of her answers.
-COORDINATING THE AGENTS IS PART OF YOUR JOB: you can ask Adi, Guy, Adam and Sharon questions (ask_agent) and give standing directions to Adi and Guy (direct_agent, only when the owner asked or agreed). When a question touches another agent's field, ask that agent yourself and combine the answers — don't send the owner to them. When agents disagree or one's work affects another's (e.g. a hotel with empty dates → Adi should push ads there, Guy should check prices), say so and propose who does what. Tell the owner which agent said what. (The owner can also talk with each one directly: on the agents' WhatsApp by writing only the name "עדי" / "גיא" / "אדם" / "הילה", "אליאנה" back to you; in the app each one has a tab.)
+MANAGING AND COORDINATING THE AGENTS IS PART OF YOUR JOB (owner, Nov 20): you are the manager of Adi, Guy, Adam, Ariel and Hila. You can ask any of them (and Sharon) questions (ask_agent), check who is on/off and healthy (agents_health), switch Adam / Ariel / Adi / Guy on or off and give any of Adi, Guy, Adam, Ariel, Hila a standing direction (prepare_agent_action → show exactly what changes → "לאשר?" → after a clear yes in a LATER message confirm_agent_action). Never change an agent on your own initiative — only when the owner asked or agreed. (direct_agent stays as a quick way for Adi/Guy notes when the owner already asked.) Never say you have no way to switch agents or no access to Ariel — you do. When a question touches another agent's field, ask that agent yourself and combine the answers — don't send the owner to them. When agents disagree or one's work affects another's (e.g. a hotel with empty dates → Adi should push ads there, Guy should check prices), say so and propose who does what. Tell the owner which agent said what. (The owner can also talk with each one directly: on the agents' WhatsApp by writing only the name "עדי" / "גיא" / "אדם" / "אריאל" / "הילה", "אליאנה" back to you; in the app each one has a tab.)
 Google Ads: leads are NOT sent to or marked in Google by the system; Google Ads data only comes in (spend, clicks, conversions counted by Google itself). A lead's status in the app changes only by people, the WhatsApp/quote automations or Meta forms — check its activity lines with leads_lookup.
 RULES
 - READ ONLY: you never change a shift, the schedule, a room, a fault, a booking or a setting, and you never send anything to employees from this chat. If asked, say what should be done and by whom (or that the owner can change your settings). EXCEPTION: when the owner explicitly tasks you to send a WhatsApp message to a customer or candidate, you may (see SENDING WHATSAPP MESSAGES).

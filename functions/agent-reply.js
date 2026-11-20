@@ -700,7 +700,14 @@ async function adamCore(cfg, c, hist, extra) {
         return fit({ chats: out }, 'chats');
       } },
   );
-  const out = await C.runLoop({ model: cfg.chatModel || SMART, system: [{ type: 'text', text: trainerPrompt(cfg, kb, c.name, !!c.owner, VS ? 'the events of their hotels (' + [...VS].join(', ') + ')' : '') + C.WEB_RULES + (extra ? '\n' + extra : ''), cache_control: { type: 'ephemeral' } }], tools, messages: hist, maxTurns: 14, maxTokens: 8000, mustAnswer: true, server: cfg.web === false ? [] : C.WEB_TOOLS });
+  const SEND = require('./agent-send.js');
+  tools.push(...SEND.sendTools({ agent: 'adam', name: cfg.name || 'אדם', c, scope: async (id, ch, lead) => {
+    if (ch.recruit || ch.cat === 'jobs' || (lead && lead.cat === 'jobs')) return 'this is a hiring chat (Ariel handles it)';
+    if (ch.cat && ch.cat !== 'events') return 'this chat is not an events chat';
+    if (!vOk((lead && lead.venue) || ch.venue || '')) return 'this chat belongs to a hotel you do not handle';
+    return '';
+  } }));
+  const out = await C.runLoop({ model: cfg.chatModel || SMART, system: [{ type: 'text', text: trainerPrompt(cfg, kb, c.name, !!c.owner, VS ? 'the events of their hotels (' + [...VS].join(', ') + ')' : '') + SEND.RULE('customer') + C.WEB_RULES + (extra ? '\n' + extra : ''), cache_control: { type: 'ephemeral' } }], tools, messages: hist, maxTurns: 14, maxTokens: 8000, mustAnswer: true, server: cfg.web === false ? [] : C.WEB_TOOLS });
   return { text: String(out.text || '').trim(), used: out.used || used, usage: out.U, stop: out.stop };
 }
 exports.adamChat = functions.region(REGION).runWith({ timeoutSeconds: 300, memory: '1GB' }).https.onRequest(async (req, res) => {

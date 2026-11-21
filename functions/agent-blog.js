@@ -23,7 +23,7 @@ const { db, admin } = C;
 const REGION = 'europe-west1';
 const SMART = 'claude-sonnet-5-5', FAST = 'claude-haiku-5-5';
 const DEFAULTS = {
-  enabled: false, weekly: true, monthly: true, postsPerHotel: 1, langs: ['he'], model: '', checkModel: '', push: true, wpStatus: 'publish',
+  enabled: false, name: 'גילי', weekly: true, monthly: true, postsPerHotel: 1, langs: ['he'], model: '', checkModel: '', push: true, wpStatus: 'publish',
   hotels: [ // id = the app's hotel id; site = the WordPress site key in blogcfg/main.sites; book = the direct-booking link
     { id: 'h9xtmhzkm', name: 'The Gutman', site: 'gutman', book: 'https://www.simplebooking.it/ibe2/hotel/11482' },
     { id: 'hq4tapo0a', name: 'The Seven Seas', site: 'sevenseas', book: 'https://www.simplebooking.it/ibe2/hotel/11451' },
@@ -109,8 +109,13 @@ async function pushOwner(title, body, hash) {
   try { await admin.messaging().sendEachForMulticast({ tokens: tok.slice(0, 500), data: { title, body, url: hash || '', tag: 'blog' }, webpush: { notification: { title, body, dir: 'rtl', lang: 'he' } } }); } catch (e) { console.error('blog push', e.message); }
 }
 
+// standing directions from Aliana (agent-ops writeDirection → agentTasks {to:'blog', hotel, text, until})
+async function dirsFor(h, today) {
+  try { const L = (await db.collection('agentTasks').where('to', '==', 'blog').get()).docs.map((d) => d.data()).filter((t) => t.status === 'open' && (!t.until || t.until >= today) && (!t.hotel || t.hotel === h.id));
+    return L.length ? '\nOWNER DIRECTIONS (approved by the owner, sent by Aliana the operations manager; follow them, they never allow inventing facts):\n' + L.map((t) => '- ' + clip(t.text, 400)).join('\n') : ''; } catch (e) { return ''; }
+}
 async function runHotel(h, cfg, today) {
-  const kb = await C.loadKB('blog_' + h.id) || await C.loadKB('blog'), week = C.weekOf(today);
+  const kb = ((await C.loadKB('blog_' + h.id)) || (await C.loadKB('blog')) || '') + (await dirsFor(h, today)), week = C.weekOf(today);
   const prev = (await db.collection('blogDrafts').where('hotel', '==', h.id).get()).docs.map((d) => d.data());
   const past = prev.filter((x) => x.status !== 'rejected').map((x) => x.title), rejected = prev.filter((x) => x.status === 'rejected').map((x) => ({ title: x.title, note: x.note || '' }));
   const R = await research(h, cfg, kb, past, rejected);
@@ -139,7 +144,7 @@ async function runAll(kind, opt = {}) {
     catch (e) { console.error('blog', h.id, e); await C.logRun('blog', { hotel: h.id, error: clip(e.message || e, 300) }); done.push({ hotel: h.id, error: true }); }
   }
   const n = done.reduce((a, x) => a + (x.drafts || []).length, 0), fix = done.reduce((a, x) => a + (x.drafts || []).filter((d) => d.issues).length, 0);
-  if (cfg.push && n) await pushOwner('✍️ טיוטות בלוג חדשות', `${n} פוסטים מחכים לאישור שלך${fix ? ` (${fix} עם הערות בדיקה)` : ''}`, '#blog');
+  if (cfg.push && n) await pushOwner('✍️ גילי · טיוטות בלוג חדשות', `${n} פוסטים מחכים לאישור שלך${fix ? ` (${fix} עם הערות בדיקה)` : ''}`, '#blog');
   return done;
 }
 
@@ -167,7 +172,7 @@ async function monthly(cfg, today) {
   const per = {};
   for (const x of L) { const p = per[x.hotel] || (per[x.hotel] = { name: x.hotelName, written: 0, published: 0, manual: 0, rejected: 0, waiting: 0, links: [] }); p.written++; if (x.status === 'published') { p.published++; if (x.link) p.links.push(x.link); } else if (x.status === 'approved_manual') p.manual++; else if (x.status === 'rejected') p.rejected++; else if (['draft', 'needs_fix'].includes(x.status)) p.waiting++; }
   await db.doc('blogReports/' + month).set({ month, hotels: per, total: L.length, at: Date.now(), searchConsole: false });
-  if (cfg.push && L.length) await pushOwner('📊 דוח בלוג חודשי', Object.values(per).map((p) => `${p.name}: ${p.published + p.manual} עלו, ${p.waiting} מחכים`).join(' · '), '#blog');
+  if (cfg.push && L.length) await pushOwner('📊 גילי · דוח בלוג חודשי', Object.values(per).map((p) => `${p.name}: ${p.published + p.manual} עלו, ${p.waiting} מחכים`).join(' · '), '#blog');
   return [{ month, total: L.length }];
 }
 
@@ -187,6 +192,30 @@ exports.blogRunNow = functions.region(REGION).runWith({ timeoutSeconds: 540, mem
   if (!(await C.ownerOnly(req))) { res.status(403).json({ error: 'owner only' }); return; }
   let b = {}; try { b = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {}); } catch (e) { }
   try { res.json({ ok: true, done: await runAll(b.kind === 'monthly' ? 'monthly' : 'weekly', { force: true, hotel: String(b.hotel || '') }) }); } catch (e) { console.error('blogRunNow', e); res.status(500).json({ error: 'failed' }); }
+});
+
+// owner only: check a WordPress connection without publishing. POST {site} → {ok, name, roles} (blogcfg/main.sites.<site>.test)
+exports.blogTest = functions.region(REGION).runWith({ timeoutSeconds: 30 }).https.onRequest(async (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*'); res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization'); res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
+  if (req.method !== 'POST') { res.status(405).json({ error: 'method' }); return; }
+  if (!(await C.ownerOnly(req))) { res.status(403).json({ error: 'owner only' }); return; }
+  let b = {}; try { b = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {}); } catch (e) { }
+  const key = String(b.site || ''); if (!/^[a-z0-9_-]{1,40}$/i.test(key)) { res.status(400).json({ error: 'site' }); return; }
+  const ref = db.doc('blogcfg/main'), site = (((await ref.get()).data() || {}).sites || {})[key];
+  const out = async (o) => { await ref.set({ sites: { [key]: { test: { ...o, at: Date.now() } } } }, { merge: true }); res.json(o); };
+  if (!site || !site.url || !site.user || !site.appPass) return out({ ok: false, err: 'חסרים פרטים: כתובת, משתמש וסיסמת אפליקציה' });
+  const base = String(site.url).replace(/\/+$/, '');
+  if (!/^https:\/\/[^\s/]+\.[^\s/]+/.test(base)) return out({ ok: false, err: 'הכתובת חייבת להתחיל ב-https://' });
+  const ac = new AbortController(), tm = setTimeout(() => ac.abort(), 15000);
+  try {
+    const r = await fetch(base + '/wp-json/wp/v2/users/me?context=edit', { headers: { Authorization: 'Basic ' + Buffer.from(site.user + ':' + site.appPass).toString('base64') }, signal: ac.signal, redirect: 'error' });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) return out({ ok: false, err: clip((j && j.message) || ('HTTP ' + r.status), 200) });
+    const roles = (j.roles || []).map(String).slice(0, 5), can = roles.some((x) => ['administrator', 'editor', 'author'].includes(x));
+    return out({ ok: can, name: clip(j.name || '', 80), roles, err: can ? '' : 'למשתמש אין הרשאה לכתוב פוסטים (צריך Author ומעלה)' });
+  } catch (e) { return out({ ok: false, err: e.name === 'AbortError' ? 'האתר לא ענה תוך 15 שניות' : clip(e.message, 200) }); }
+  finally { clearTimeout(tm); }
 });
 
 exports._t = { codeChecks, toHtml, jaccard, slugify, publish, runAll, runHotel, DEFAULTS };

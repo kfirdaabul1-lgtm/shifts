@@ -583,7 +583,7 @@ service cloud.firestore {
     // blog / SEO agent (Nov 21): drafts the owner approves / edits / rejects; topics + reports server only; WordPress keys owner only
     match /blogDrafts/{id} {
       allow read: if isOwner();
-      allow update: if isOwner()
+      allow update: if isOwner() && resource.data.status != 'published'
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'note', 'title', 'meta', 'html', 'slug', 'post', 'editedAt'])
         && request.resource.data.status in ['draft', 'needs_fix', 'approved', 'rejected'];
       allow create, delete: if false;

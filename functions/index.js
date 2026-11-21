@@ -2543,3 +2543,4 @@ exports.blogWeekly = blogAgent.blogWeekly;
 exports.blogMonthly = blogAgent.blogMonthly;
 exports.blogPublish = blogAgent.blogPublish;
 exports.blogRunNow = blogAgent.blogRunNow;
+exports.blogTest = blogAgent.blogTest;

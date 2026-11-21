@@ -30,6 +30,7 @@ const KEYS = ['hotel', 'month', 'date', 'shift', 'name', 'empUid', 'ooo', 'fault
       { id: 'h9xtmhzkm', name: 'The Gutman', site: 'gutman', book: 'https://www.simplebooking.it/ibe2/hotel/11482' },
       { id: 'hq4tapo0a', name: 'The Seven Seas', site: 'sevenseas', book: 'https://www.simplebooking.it/ibe2/hotel/11451' },
       { id: 'hezj3h4cj', name: '7EVEN', site: '7even', book: '' }], createdAt: Date.now(), createdBy: 'setup' }); console.log('::notice title=Blog::agentcfg/blog created (off)'); }
+    { const bd = await blr.get(); if (bd.exists && !bd.data().nameNov21) { await blr.set({ name: 'גילי', nameNov21: true }, { merge: true }); console.log('::notice title=Blog::agent named Gili'); } }
     const hr = db.doc('agentcfg/hila'); // Hila, spa + bride sales agent: created OFF (training only) — owner, Nov 17
     if (!(await hr.get()).exists) { await hr.set({ enabled: false, name: 'הילה', mode: 'draft', scope: ['spa', 'bride'], createdAt: Date.now(), createdBy: 'setup' }); console.log('::notice title=Hila::agentcfg/hila created (off)'); }
     const cr = db.doc('agentcfg/reply');

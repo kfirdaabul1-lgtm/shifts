@@ -580,6 +580,17 @@ service cloud.firestore {
     // the agent's switch (agentcfg/ads {enabled}) and its business context (agentKB/ads {text}): owner only; its run log: owner reads, server writes
     match /agentcfg/{id} { allow read, write: if isOwner(); }
     match /agentKB/{id}  { allow read, write: if isOwner(); }
+    // blog / SEO agent (Nov 21): drafts the owner approves / edits / rejects; topics + reports server only; WordPress keys owner only
+    match /blogDrafts/{id} {
+      allow read: if isOwner();
+      allow update: if isOwner()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'note', 'title', 'meta', 'html', 'slug', 'post', 'editedAt'])
+        && request.resource.data.status in ['draft', 'needs_fix', 'approved', 'rejected'];
+      allow create, delete: if false;
+    }
+    match /blogTopics/{id}  { allow read: if isOwner(); allow write: if false; }
+    match /blogReports/{id} { allow read: if isOwner(); allow write: if false; }
+    match /blogcfg/{id}     { allow read, write: if isOwner(); }
     match /agentLog/{id} { allow read: if isOwner(); allow write: if false; }
 
     // ---------- הוצאות ----------

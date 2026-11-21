@@ -25,6 +25,11 @@ const KEYS = ['hotel', 'month', 'date', 'shift', 'name', 'empUid', 'ooo', 'fault
     }
     const rc = db.doc('agentcfg/recruit'); // recruiting agent: created OFF (owner, Nov 18)
     if (!(await rc.get()).exists) { await rc.set({ enabled: false, name: '', openTemplate: { tpl: 'job_screening_start', lang: 'he' }, match: { forms: [], campaigns: [], words: '' }, notify: false, createdAt: Date.now(), createdBy: 'setup' }); console.log('::notice title=Recruit::agentcfg/recruit created (off)'); }
+    const blr = db.doc('agentcfg/blog'); // blog / SEO agent: created OFF with the real hotel ids — owner, Nov 21
+    if (!(await blr.get()).exists) { await blr.set({ enabled: false, postsPerHotel: 1, langs: ['he'], wpStatus: 'publish', hotels: [
+      { id: 'h9xtmhzkm', name: 'The Gutman', site: 'gutman', book: 'https://www.simplebooking.it/ibe2/hotel/11482' },
+      { id: 'hq4tapo0a', name: 'The Seven Seas', site: 'sevenseas', book: 'https://www.simplebooking.it/ibe2/hotel/11451' },
+      { id: 'hezj3h4cj', name: '7EVEN', site: '7even', book: '' }], createdAt: Date.now(), createdBy: 'setup' }); console.log('::notice title=Blog::agentcfg/blog created (off)'); }
     const hr = db.doc('agentcfg/hila'); // Hila, spa + bride sales agent: created OFF (training only) — owner, Nov 17
     if (!(await hr.get()).exists) { await hr.set({ enabled: false, name: 'הילה', mode: 'draft', scope: ['spa', 'bride'], createdAt: Date.now(), createdBy: 'setup' }); console.log('::notice title=Hila::agentcfg/hila created (off)'); }
     const cr = db.doc('agentcfg/reply');

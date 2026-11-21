@@ -2537,3 +2537,9 @@ exports.waDoc = functions.region(REGION).runWith({ timeoutSeconds: 60, memory: '
     res.json({ ok: true, name: nm.slice(0, 120) || 'מסמך.pdf', size: buf.length, data: buf.toString('base64') });
   } catch (e) { console.error('waDoc', e.message); res.status(500).json({ error: 'שגיאה בפתיחת הקובץ' }); }
 });
+// Blog / SEO agent (Nov 21): weekly drafts → owner approval → WordPress. Off until agentcfg/blog.enabled === true.
+const blogAgent = require('./agent-blog.js');
+exports.blogWeekly = blogAgent.blogWeekly;
+exports.blogMonthly = blogAgent.blogMonthly;
+exports.blogPublish = blogAgent.blogPublish;
+exports.blogRunNow = blogAgent.blogRunNow;

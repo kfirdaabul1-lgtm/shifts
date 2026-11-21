@@ -2544,3 +2544,4 @@ exports.blogMonthly = blogAgent.blogMonthly;
 exports.blogPublish = blogAgent.blogPublish;
 exports.blogRunNow = blogAgent.blogRunNow;
 exports.blogTest = blogAgent.blogTest;
+exports.giliChat = require('./agent-gili.js').giliChat; // Gili's own chat (Nov 21)

@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="lang.js?v=2d7a8f654f"></script>
+<script src="lang.js?v=4d18850b74"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -4985,6 +4985,7 @@ function aiCardHTML(u,e){const a=e.ai||{};return `<div class="sep"></div><h3>�
   <label class="check"><input type="checkbox" data-empai="aliana" data-u="${esc(u)}" ${a.aliana?'checked':''}> 📣 עדי · קמפיינים (פרסום ממומן של ${e.hotel===CHAIN?'כל הרשת':'המלון של העובד'})</label>
   <label class="check"><input type="checkbox" data-empai="adam" data-u="${esc(u)}" ${a.adam?'checked':''}> 🤵 אדם · אימון סוכן מכירת האירועים (ללמד אותו ולבדוק מה היה עונה ללקוחות)</label>
   <label class="check"><input type="checkbox" data-empai="hila" data-u="${esc(u)}" ${a.hila?'checked':''}> 💆 הילה · אימון סוכנת המכירות של הספא והתארגנות כלה (ללמד אותה ולבדוק מה הייתה עונה ללקוחות)</label>
+  <label class="check"><input type="checkbox" data-empai="gili" data-u="${esc(u)}" ${a.gili?'checked':''}> ✍️ גילי · סוכנת הבלוג וה-SEO (ללמד אותה עובדות על המלונות ולשאול על הטיוטות)</label>
   <label class="check"><input type="checkbox" data-empai="ariel" data-u="${esc(u)}" ${a.ariel?'checked':''}> 🧑‍💼 אריאל · אימון סוכנת הגיוס (ללמד אותה על המשרות ולבדוק מה הייתה עונה למועמדים)</label>
   <label class="check"><input type="checkbox" data-empai="guy" data-u="${esc(u)}" ${a.guy?'checked':''}> 📈 גיא · סוכן תשואה (שאלות על המחירים והפריטי; צריך גם הרשאה לעמוד השוואת מחירים)</label>`}
 document.addEventListener('change',e=>{const t=e.target;if(!t.matches||!t.matches('[data-empai]'))return;if(!S.can.hr){toast('רק בעלי הרשאת עובדים');return}
@@ -6995,6 +6996,6 @@ async function start(u){
   window.addEventListener('focus',()=>setTimeout(tick,300));
 })();
 </script>
-<script src="assistant-ui.js?v=21" defer></script>
+<script src="assistant-ui.js?v=22" defer></script>
 </body>
 </html>

@@ -24,10 +24,10 @@ const REGION = 'europe-west1';
 const SMART = 'claude-sonnet-5-5', FAST = 'claude-haiku-5-5';
 const DEFAULTS = {
   enabled: false, name: 'גילי', weekly: true, monthly: true, postsPerHotel: 1, langs: ['he'], model: '', checkModel: '', push: true, wpStatus: 'publish',
-  hotels: [ // id = the app's hotel id; site = the WordPress site key in blogcfg/main.sites; book = the direct-booking link
-    { id: 'h9xtmhzkm', name: 'The Gutman', site: 'gutman', book: 'https://www.simplebooking.it/ibe2/hotel/11482' },
-    { id: 'hq4tapo0a', name: 'The Seven Seas', site: 'sevenseas', book: 'https://www.simplebooking.it/ibe2/hotel/11451' },
-    { id: 'hezj3h4cj', name: '7EVEN', site: '7even', book: '' },
+  hotels: [ // id = the app's hotel id; site = the WordPress site key in blogcfg/main.sites ('chain' = ONE chain site for every hotel, owner Nov 21); book = the direct-booking link
+    { id: 'h9xtmhzkm', name: 'The Gutman', site: 'chain', book: 'https://www.simplebooking.it/ibe2/hotel/11482' },
+    { id: 'hq4tapo0a', name: 'The Seven Seas', site: 'chain', book: 'https://www.simplebooking.it/ibe2/hotel/11451' },
+    { id: 'hezj3h4cj', name: '7EVEN', site: 'chain', book: '' },
   ],
   minWords: 600, maxWords: 1600, dupLimit: 0.6,
 };
@@ -43,6 +43,7 @@ const safeHtml = (s) => esc(s).replace(/\n{2,}/g, '</p><p>').replace(/\n/g, '<br
 function hotelText(kb, h) { return `HOTEL: ${h.name} (id ${h.id}). Direct booking link: ${h.book || '(none yet: link to the hotel site home page)'}.\nFACTS THE OWNER APPROVED (the ONLY facts you may state about the hotel):\n${kb || '(none yet: write only general, true things about the area and keep hotel claims to the name and the neighbourhood)'}`; }
 const RULES = `You write SEO blog posts for the Seven Collection boutique hotels in Tel Aviv, for the hotel's own WordPress site. The goal: be found on Google for what guests search, and lead them to book DIRECTLY on the hotel site.
 RULES
+- You never act on the WordPress site yourself: you only write drafts; after the owner approves, the system creates ONE new post. Never ask for, suggest or plan any other action on the site (editing or deleting posts, pages, plugins, users, settings, media).
 - Facts about the hotel: ONLY from the owner's facts below. Never invent prices, opening hours, room features, distances, awards, ratings, reviews or quotes. If a detail is missing, write around it.
 - Facts about Tel Aviv / the area: only general and well known, or from your web research with the source kept in sources[]. No made-up events or dates.
 - Never mention Booking, Expedia or any other site's prices, never compare our price with theirs in numbers, and never criticise competitors by name. The call to action is the direct-booking link with the owner's approved wording (if none: "להזמנה ישירה באתר המלון").
@@ -149,21 +150,53 @@ async function runAll(kind, opt = {}) {
 }
 
 // ---------- publishing an approved post to WordPress ----------
+// HARD LIMIT (owner, Nov 21): on the WordPress site the agents may ONLY create a new blog post, nothing else, whatever the reason,
+// unless the owner says otherwise. Every call to the site goes through wpCall, which allows exactly two requests:
+// create a post (POST /wp/v2/posts) and read who the connected user is (GET /wp/v2/users/me). No edit/delete, pages, media,
+// users, comments, plugins, settings. The connected user must be an Author (not Editor/Administrator) unless the owner set
+// agentcfg/blog.wpAllow === true (agentcfg is owner-only in the rules; Aliana's agent actions only touch `enabled`).
+const WP_OK = [['POST', /^\/wp-json\/wp\/v2\/posts$/], ['GET', /^\/wp-json\/wp\/v2\/users\/me\?context=edit$/]];
+const WP_HIGH = ['administrator', 'editor'];
+async function wpCall(site, method, path, body) {
+  if (!WP_OK.some(([m, re]) => m === method && re.test(path))) throw new Error('פעולה אסורה באתר (מותר רק ליצור פוסט): ' + method + ' ' + path.split('?')[0]);
+  const base = String(site.url || '').replace(/\/+$/, '');
+  if (!/^https:\/\/[^\s/]+\.[^\s/]+$/.test(base)) throw new Error('כתובת האתר חייבת להתחיל ב-https:// (בלי נתיב)');
+  const ac = new AbortController(), tm = setTimeout(() => ac.abort(), 20000);
+  try {
+    const r = await fetch(base + path, { method, redirect: 'error', signal: ac.signal, headers: { ...(body ? { 'Content-Type': 'application/json' } : {}), Authorization: 'Basic ' + Buffer.from(site.user + ':' + site.appPass).toString('base64') }, ...(body ? { body: JSON.stringify(body) } : {}) });
+    const j = await r.json().catch(() => ({}));
+    return { ok: r.ok, status: r.status, j };
+  } catch (e) { throw new Error(e.name === 'AbortError' ? 'האתר לא ענה תוך 20 שניות' : e.message); }
+  finally { clearTimeout(tm); }
+}
+// roles check: Author only (Contributor can't publish), higher roles refused unless wpAllow
+function wpRoleCheck(roles, cfg) {
+  const R = (roles || []).map(String);
+  if (R.some((x) => WP_HIGH.includes(x)) && cfg.wpAllow !== true) return 'למשתמש של הסוכנת יש יותר מדי הרשאות (' + R.join(', ') + '). צריך משתמש בתפקיד Author בלבד';
+  if (!R.some((x) => ['author', ...(cfg.wpAllow === true ? WP_HIGH : [])].includes(x))) return 'המשתמש צריך להיות בתפקיד Author כדי לפרסם פוסטים';
+  return '';
+}
+
 async function publish(id, d) {
   const cfgDoc = (await db.doc('blogcfg/main').get()).data() || {}, site = ((cfgDoc.sites || {})[d.site]) || null, cfg = { ...DEFAULTS, ...(await C.cfg('blog')) };
   const ref = db.doc('blogDrafts/' + id);
   if (!site || !site.url || !site.user || !site.appPass) { await ref.set({ status: 'approved_manual', pubNote: 'אין עדיין חיבור לאתר הוורדפרס: מעתיקים ידנית', pubAt: Date.now() }, { merge: true }); return { manual: true }; }
-  const base = String(site.url).replace(/\/+$/, '');
-  if (!/^https:\/\//.test(base)) { await ref.set({ status: 'failed', pubError: 'כתובת האתר חייבת להתחיל ב-https://' }, { merge: true }); return { error: 'url' }; }
-  const body = { title: d.title, content: d.html, excerpt: d.meta, slug: d.slug, status: cfg.wpStatus === 'draft' ? 'draft' : 'publish', ...(site.category ? { categories: [+site.category] } : {}) };
+  const fail = async (msg) => { await ref.set({ status: 'failed', pubError: clip(msg, 300), pubAt: Date.now() }, { merge: true }); await C.logRun('blog', { step: 'publish', id, error: clip(msg, 300) }); return { error: msg }; };
+  if (d.wpId) return fail('הפוסט כבר נוצר באתר פעם אחת · לא יוצרים שוב');
   try {
-    const r = await fetch(base + '/wp-json/wp/v2/posts', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Basic ' + Buffer.from(site.user + ':' + site.appPass).toString('base64') }, body: JSON.stringify(body) });
-    const j = await r.json().catch(() => ({}));
-    if (!r.ok) throw new Error((j && j.message) || 'HTTP ' + r.status);
-    await ref.set({ status: 'published', wpId: j.id || null, link: j.link || '', pubAt: Date.now(), pubError: admin.firestore.FieldValue.delete() }, { merge: true });
+    const me = await wpCall(site, 'GET', '/wp-json/wp/v2/users/me?context=edit');
+    if (!me.ok) return fail((me.j && me.j.message) || 'HTTP ' + me.status);
+    const bad = wpRoleCheck(me.j.roles, cfg); if (bad) return fail(bad);
+    const cat = +(((site.cats || {})[d.hotel]) || site.category || 0);
+    // only these fields: no author/sticky/meta/template/password; a NEW post every time
+    const body = { title: String(d.title || ''), content: String(d.html || ''), excerpt: String(d.meta || ''), slug: String(d.slug || ''), status: cfg.wpStatus === 'draft' ? 'draft' : 'publish', ...(cat > 0 && cat < 1e9 ? { categories: [Math.floor(cat)] } : {}) };
+    const r = await wpCall(site, 'POST', '/wp-json/wp/v2/posts', body);
+    if (!r.ok) return fail((r.j && r.j.message) || 'HTTP ' + r.status);
+    const j = r.j || {};
+    await ref.set({ status: 'published', wpId: j.id || null, link: /^https:\/\//.test(j.link || '') ? j.link : '', pubAt: Date.now(), pubError: admin.firestore.FieldValue.delete() }, { merge: true });
     await C.logRun('blog', { step: 'publish', id, wpId: j.id || null });
     return { published: j.link || true };
-  } catch (e) { await ref.set({ status: 'failed', pubError: clip(e.message, 300), pubAt: Date.now() }, { merge: true }); await C.logRun('blog', { step: 'publish', id, error: clip(e.message, 300) }); return { error: e.message }; }
+  } catch (e) { return fail(e.message); }
 }
 
 async function monthly(cfg, today) {
@@ -205,17 +238,13 @@ exports.blogTest = functions.region(REGION).runWith({ timeoutSeconds: 30 }).http
   const ref = db.doc('blogcfg/main'), site = (((await ref.get()).data() || {}).sites || {})[key];
   const out = async (o) => { await ref.set({ sites: { [key]: { test: { ...o, at: Date.now() } } } }, { merge: true }); res.json(o); };
   if (!site || !site.url || !site.user || !site.appPass) return out({ ok: false, err: 'חסרים פרטים: כתובת, משתמש וסיסמת אפליקציה' });
-  const base = String(site.url).replace(/\/+$/, '');
-  if (!/^https:\/\/[^\s/]+\.[^\s/]+/.test(base)) return out({ ok: false, err: 'הכתובת חייבת להתחיל ב-https://' });
-  const ac = new AbortController(), tm = setTimeout(() => ac.abort(), 15000);
   try {
-    const r = await fetch(base + '/wp-json/wp/v2/users/me?context=edit', { headers: { Authorization: 'Basic ' + Buffer.from(site.user + ':' + site.appPass).toString('base64') }, signal: ac.signal, redirect: 'error' });
-    const j = await r.json().catch(() => ({}));
-    if (!r.ok) return out({ ok: false, err: clip((j && j.message) || ('HTTP ' + r.status), 200) });
-    const roles = (j.roles || []).map(String).slice(0, 5), can = roles.some((x) => ['administrator', 'editor', 'author'].includes(x));
-    return out({ ok: can, name: clip(j.name || '', 80), roles, err: can ? '' : 'למשתמש אין הרשאה לכתוב פוסטים (צריך Author ומעלה)' });
-  } catch (e) { return out({ ok: false, err: e.name === 'AbortError' ? 'האתר לא ענה תוך 15 שניות' : clip(e.message, 200) }); }
-  finally { clearTimeout(tm); }
+    const cfg = { ...DEFAULTS, ...(await C.cfg('blog')) };
+    const r = await wpCall(site, 'GET', '/wp-json/wp/v2/users/me?context=edit');
+    if (!r.ok) return out({ ok: false, err: clip((r.j && r.j.message) || ('HTTP ' + r.status), 200) });
+    const roles = (r.j.roles || []).map(String).slice(0, 5), bad = wpRoleCheck(roles, cfg);
+    return out({ ok: !bad, name: clip(r.j.name || '', 80), roles, err: bad });
+  } catch (e) { return out({ ok: false, err: clip(e.message, 200) }); }
 });
 
-exports._t = { codeChecks, toHtml, jaccard, slugify, publish, runAll, runHotel, DEFAULTS };
+exports._t = { wpCall, wpRoleCheck, WP_OK, codeChecks, toHtml, jaccard, slugify, publish, runAll, runHotel, DEFAULTS };

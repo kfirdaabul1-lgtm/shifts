@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="lang.js?v=4d18850b74"></script>
+<script src="lang.js?v=3c57da7a72"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -5166,14 +5166,17 @@ function blogHTML(){blogLoad();const A=S.blogA,F=S.blogF||(S.blogF={h:'all',st:'
   const sc=`<div class="chips" data-nosel style="margin-top:6px">${BLOG_F.map(([k,n,fn])=>`<button class="dchip ${F.st===k?'':'off'}" data-act="blog-f" data-k="st" data-v="${k}">${n} (${all.filter(inH).filter(([,d])=>fn(d.status)).length})</button>`).join('')}</div>`;
   const rows=list.length?list.map(([id,d])=>`<div class="prow" style="cursor:pointer" data-act="blog-open" data-id="${esc(id)}"><div style="flex:1;min-width:0"><b>${esc(d.title||'')}</b><div class="muted" style="font-size:.82rem">${esc(d.hotelName||'')} · ${d.lang==='en'?'אנגלית':'עברית'} · ${(+d.words||0).toLocaleString('he-IL')} מילים · שבוע ${esc(d.week?fmtDM(d.week):'')}</div></div><div>${blogPill(d.status)}${d.status==='needs_fix'?` <span class="muted" style="font-size:.8rem">${(d.issues||[]).length}</span>`:''}</div></div>`).join(''):emptyBox(F.st==='wait'?'אין טיוטות שמחכות לך':'אין פוסטים כאן','טיוטות חדשות מגיעות כל יום שני בבוקר.');
   return head+`<div class="card">${hc}${sc}<div style="margin-top:8px">${rows}</div></div>`+foldCard(blogWpHTML(),'blogwp')}
-function blogWpHTML(){const C=S.blogC||{},sites=C.sites||{},dr=S.drafts.bwp||(S.drafts.bwp={});
-  return `<div class="card"><h3>🔌 חיבור וורדפרס לכל אתר</h3><p class="muted">בוורדפרס: Users ← Profile ← Application Passwords, יוצרים סיסמה בשם "Seven blog agent" ומדביקים כאן. משתמש בתפקיד Author מספיק. הסיסמה לא מוצגת שוב אחרי השמירה.</p>
-  ${blogHotels().map(h=>{const k=h.site||h.id,x=sites[k]||{},t=x.test||{},ok=!!(x.url&&x.user&&x.appPass),d=dr[k]||{};
-    return `<div class="prow" style="display:block"><div class="head-t" style="align-items:center"><b>${esc(h.name)}</b><span class="pill" style="background:${t.ok?'#EAF3DE':ok?'#FAEEDA':'#F1EFE8'};color:${t.ok?'#27500A':ok?'#633806':'#444441'}">${t.ok?'מחובר ✓':ok?'נשמר · לא נבדק':'לא מחובר'}</span></div>
-      ${ok?`<div class="muted" style="font-size:.85rem">${esc(x.url)} · משתמש: ${esc(x.user)}${t.at?` · נבדק ${new Date(t.at).toLocaleString('he-IL',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}${t.ok?` (${esc(t.name||'')})`:` · <span style="color:#A32D2D">${esc(t.err||'')}</span>`}`:''}</div>`:''}
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:6px;margin-top:6px"><input id="bwp_u_${esc(k)}" type="url" placeholder="https://www.example.co.il" value="${esc(d.url!=null?d.url:x.url||'')}"><input id="bwp_n_${esc(k)}" placeholder="שם משתמש" value="${esc(d.user!=null?d.user:x.user||'')}" autocomplete="off"></div>
+function blogWpHTML(){const C=S.blogC||{},sites=C.sites||{},dr=S.drafts.bwp||(S.drafts.bwp={}),HS=blogHotels(),keys=[...new Set(HS.map(h=>h.site||h.id))];
+  return `<div class="card"><h3>🔌 חיבור לאתר הוורדפרס</h3><p class="muted">בוורדפרס: Users ← Profile ← Application Passwords, יוצרים סיסמה בשם "Seven blog agent" ומדביקים כאן. הסיסמה לא מוצגת שוב אחרי השמירה.</p>
+  <div class="notice" style="background:#F1EFE8;color:#444441;border-color:#D3D1C7">🔒 <b>הגבלה קבועה:</b> הסוכנים יכולים רק ליצור פוסט חדש אחרי שאישרת אותו. הם לא עורכים, לא מוחקים ולא נוגעים בדפים, תוספים, משתמשים או הגדרות של האתר. המשתמש בוורדפרס חייב להיות בתפקיד <b>Author</b>: משתמש Editor או Administrator נחסם.</div>
+  ${keys.map(k=>{const hs=HS.filter(h=>(h.site||h.id)===k),x=sites[k]||{},t=x.test||{},ok=!!(x.url&&x.user&&x.appPass),d=dr[k]||{},cats=x.cats||{},dc=d.cats||{};
+    const title=k==='chain'?'אתר הרשת (כל המלונות)':hs.map(h=>h.name).join(' · ');
+    return `<div class="prow" style="display:block"><div class="head-t" style="align-items:center"><b>${esc(title)}</b><span class="pill" style="background:${t.ok?'#EAF3DE':ok?'#FAEEDA':'#F1EFE8'};color:${t.ok?'#27500A':ok?'#633806':'#444441'}">${t.ok?'מחובר ✓':ok?'נשמר · לא נבדק':'לא מחובר'}</span></div>
+      ${ok?`<div class="muted" style="font-size:.85rem">${esc(x.url)} · משתמש: ${esc(x.user)}${t.at?` · נבדק ${new Date(t.at).toLocaleString('he-IL',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}${t.ok?` (${esc(t.name||'')}${(t.roles||[]).length?' · '+esc(t.roles.join(', ')):''})`:` · <span style="color:#A32D2D">${esc(t.err||'')}</span>`}`:''}</div>`:''}
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:6px;margin-top:6px"><input id="bwp_u_${esc(k)}" type="url" placeholder="https://www.example.co.il" value="${esc(d.url!=null?d.url:x.url||'')}"><input id="bwp_n_${esc(k)}" placeholder="שם משתמש (תפקיד Author)" value="${esc(d.user!=null?d.user:x.user||'')}" autocomplete="off"></div>
       <input id="bwp_p_${esc(k)}" type="password" placeholder="${x.appPass?'Application Password שמורה · להחלפה מקלידים חדשה':'Application Password'}" autocomplete="new-password" style="margin-top:6px">
-      <input id="bwp_c_${esc(k)}" inputmode="numeric" placeholder="מספר קטגוריה בוורדפרס (רשות)" value="${esc(String(d.category!=null?d.category:x.category||''))}" style="margin-top:6px">
+      ${hs.length>1?`<div class="muted" style="font-size:.85rem;margin-top:8px">קטגוריה בוורדפרס לכל מלון (רשות, מספר הקטגוריה)</div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:6px;margin-top:4px">${hs.map(h=>`<label style="margin:0">${esc(h.name)}<input id="bwp_c_${esc(k)}_${esc(h.id)}" inputmode="numeric" placeholder="מספר" value="${esc(String(dc[h.id]!=null?dc[h.id]:cats[h.id]||''))}"></label>`).join('')}</div>`
+        :`<input id="bwp_c_${esc(k)}" inputmode="numeric" placeholder="מספר קטגוריה בוורדפרס (רשות)" value="${esc(String(d.category!=null?d.category:x.category||''))}" style="margin-top:6px">`}
       <div class="actions"><button class="btn sm pri" data-act="blog-wpsave" data-s="${esc(k)}">שמירה</button>${ok?`<button class="btn sm" data-act="blog-wptest" data-s="${esc(k)}">${S.blogTesting===k?'בודק…':'בדיקת חיבור'}</button>`:''}</div></div>`}).join('')}</div>`}
 const blogSec=(t)=>esc(t||'').split(/\n{2,}/).map(p=>`<p>${p.replace(/\n/g,'<br>')}</p>`).join('');
 function blogToHtml(p,h){const e=esc,sh=t=>e(t||'').replace(/\n{2,}/g,'</p><p>').replace(/\n/g,'<br>');
@@ -5733,10 +5736,11 @@ const ACT={
     try{await fdb.doc('blogDrafts/'+id).update({title:title.slice(0,120),meta:meta.slice(0,200),post:p,html:blogToHtml(p,h),editedAt:Date.now()});S.sheet.edit=false;toast('התיקונים נשמרו');render()}catch(e){toast('לא נשמר: '+errMsg(e))}},
   'blog-copy':async()=>{const d=(S.blogs||{})[S.sheet.id];if(!d)return;try{await navigator.clipboard.writeText(d.html||'');toast('התוכן הועתק · מדביקים בעורך הקוד של וורדפרס')}catch(_){toast('ההעתקה לא הצליחה')}},
   'blog-wpsave':async D=>{const k=D.s,v=x=>(($('#bwp_'+x+'_'+k)||{}).value||'').trim(),url=v('u').replace(/\/+$/,''),user=v('n'),pass=v('p').replace(/\s+/g,' '),cat=v('c');
-    if(!/^https:\/\/[^\s/]+\.[^\s]+$/.test(url)){toast('הכתובת צריכה להתחיל ב-https://');return}if(!user){toast('חסר שם משתמש');return}
+    if(!/^https:\/\/[^\s/]+\.[^\s/]+$/.test(url)){toast('כתובת האתר צריכה להתחיל ב-https:// (בלי נתיב אחרי שם האתר)');return}if(!user){toast('חסר שם משתמש');return}
     const old=((S.blogC||{}).sites||{})[k]||{};if(!pass&&!old.appPass){toast('חסרה Application Password');return}if(cat&&!/^\d{1,9}$/.test(cat)){toast('מספר קטגוריה: ספרות בלבד');return}
-    const site={url,user,appPass:pass||old.appPass,category:cat?+cat:firebase.firestore.FieldValue.delete(),test:firebase.firestore.FieldValue.delete()};
-    try{await fdb.doc('blogcfg/main').set({sites:{[k]:site}},{merge:true});delete S.drafts.bwp[k];toast('נשמר · עכשיו אפשר לבדוק את החיבור')}catch(e){toast('לא נשמר: '+errMsg(e))}},
+    const hs=blogHotels().filter(h=>(h.site||h.id)===k),cats={};if(hs.length>1)for(const h of hs){const c=(($('#bwp_c_'+k+'_'+h.id)||{}).value||'').trim();if(c&&!/^\d{1,9}$/.test(c)){toast('מספר קטגוריה: ספרות בלבד');return}if(c)cats[h.id]=+c}
+    const site={url,user,appPass:pass||old.appPass,...(cat&&hs.length<2?{category:+cat}:{}),...(hs.length>1?{cats}:{})};
+    try{await fdb.doc('blogcfg/main').set({sites:{[k]:site}},{mergeFields:[new firebase.firestore.FieldPath('sites',k)]});delete S.drafts.bwp[k];toast('נשמר · עכשיו אפשר לבדוק את החיבור')}catch(e){toast('לא נשמר: '+errMsg(e))}},
   'blog-wptest':async D=>{if(S.blogTesting)return;S.blogTesting=D.s;render();
     try{const r=await fetch(`https://europe-west1-${(CFG.firebase&&CFG.firebase.projectId)||'hotel-shifts'}.cloudfunctions.net/blogTest`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+await fauth.currentUser.getIdToken()},body:JSON.stringify({site:D.s})});
       const j=await r.json().catch(()=>({}));toast(j.ok?'החיבור עובד ✓ '+(j.name||''):'החיבור לא עובד: '+(j.err||j.error||r.status))}catch(e){toast('הבדיקה נכשלה')}

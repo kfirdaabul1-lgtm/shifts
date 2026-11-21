@@ -30,6 +30,12 @@ const KEYS = ['hotel', 'month', 'date', 'shift', 'name', 'empUid', 'ooo', 'fault
       { id: 'h9xtmhzkm', name: 'The Gutman', site: 'gutman', book: 'https://www.simplebooking.it/ibe2/hotel/11482' },
       { id: 'hq4tapo0a', name: 'The Seven Seas', site: 'sevenseas', book: 'https://www.simplebooking.it/ibe2/hotel/11451' },
       { id: 'hezj3h4cj', name: '7EVEN', site: '7even', book: '' }], createdAt: Date.now(), createdBy: 'setup' }); console.log('::notice title=Blog::agentcfg/blog created (off)'); }
+    // Nov 21 (owner): ONE chain WordPress site for every hotel → every blog hotel uses site key 'chain' (an earlier per-hotel site config is copied once)
+    { const bd = await blr.get(); if (bd.exists && !bd.data().siteNov21) { const hs = (bd.data().hotels || []).map((h) => ({ ...h, site: 'chain' }));
+        await blr.set({ hotels: hs, siteNov21: true }, { merge: true });
+        const bc = db.doc('blogcfg/main'), bs = ((await bc.get()).data() || {}).sites || {};
+        if (!bs.chain) { const k = Object.keys(bs).find((x) => bs[x] && bs[x].url); if (k) await bc.set({ sites: { chain: { ...bs[k], test: admin.firestore.FieldValue.delete() } } }, { merge: true }); }
+        console.log('::notice title=Blog::hotels moved to the chain site (' + hs.length + ')'); } }
     { const bd = await blr.get(); if (bd.exists && !bd.data().nameNov21) { await blr.set({ name: 'גילי', nameNov21: true }, { merge: true }); console.log('::notice title=Blog::agent named Gili'); } }
     const hr = db.doc('agentcfg/hila'); // Hila, spa + bride sales agent: created OFF (training only) — owner, Nov 17
     if (!(await hr.get()).exists) { await hr.set({ enabled: false, name: 'הילה', mode: 'draft', scope: ['spa', 'bride'], createdAt: Date.now(), createdBy: 'setup' }); console.log('::notice title=Hila::agentcfg/hila created (off)'); }

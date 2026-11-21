@@ -185,6 +185,7 @@ async function recruitRun(m, chat, id, morning) {
     } else fileNote = pdfLike ? 'NOTE: the candidate sent a PDF but it could not be read / downloaded. Ask them kindly to send it again.' : 'NOTE: the candidate sent ' + (m.type === 'image' ? 'a picture' : 'a file that is not a PDF') + '. Thank them and ask for the CV as a PDF file (Word / Google Docs → save or share as PDF).';
   }
   // outside 08:00–20:00 (owner, Nov 19): a CV is already saved above; the answer waits for the morning
+  if (!morning && C.shabbat(cfg)) await C.shabbatReply(chref, 'recruit', cfg.name || 'אריאל', 'recruit'); // owner, Nov 21
   if (!morning && !C.inHours(cfg)) { await chref.set({ aiNight: { recruit: { msg: id, at: +m.at || Date.now() } }, aiNightAt: Date.now() }, { merge: true }); await C.logRun('recruit', { chat, skipped: 'outside answer hours, queued for the morning' }); return null; }
   if (['qualified', 'not_fit', 'handoff', 'done'].includes(cand.status) || cand.finishedAt) { // finished: a person continues from the inbox; just thank for a CV
     if (pdfBuf || (cand.cv && isFile)) { const now = Date.now(), t = 'תודה רבה, קיבלנו את קורות החיים 🙏'; await chref.collection('msgs').add({ dir: 'out', type: 'text', text: t, status: 'queued', by: 'ai', byName: cfg.name || 'אריאל', at: now, src: 'recruit' }); await chref.set({ lastAt: now, lastText: t, lastDir: 'out' }, { merge: true }); }

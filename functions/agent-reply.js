@@ -183,6 +183,7 @@ async function replyRun(m, chat, id, morning) {
   if (chatD.recruit || chatD.cat === 'jobs') return; // job candidates: the recruiting agent's chats                       // hotel group guides: never
   if (chatD.aiAgent && (chatD.aiAgent.off || chatD.aiAgent.skip)) return; // a person switched it off, or an earlier message showed it is not about events
   if (chatD.agent) return; // a staff member took this chat (waClaim): the person handles it from now on (owner, Nov 17)
+  if (!morning && C.shabbat(cfg) && cfg.mode === 'auto') await C.shabbatReply(cref, 'reply', cfg.name || DEFAULTS.name, 'system'); // owner, Nov 21
   if (!morning && !C.inHours(cfg)) { await cref.set({ aiNight: { reply: { msg: id, at: +m.at || Date.now() } }, aiNightAt: Date.now() }, { merge: true }); await C.logRun('reply', { chat, msg: id, skipped: 'outside answer hours, queued for the morning' }); return; }
 
   if (!morning) await C.sleep(cfg.debounceSec * 1000);         // customers send several short messages: answer once, to the last one

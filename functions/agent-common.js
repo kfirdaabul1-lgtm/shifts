@@ -132,5 +132,20 @@ WEB ACCESS (web_search, web_fetch) — use it for real research on PUBLIC inform
 - Name the sources (site + date when known) of every web finding you use, and say when something could not be verified.`;
 // customer-facing agents answer only 08:00–20:00 Israel time (owner, Nov 19); agentcfg/<x>.hoursFrom / hoursTo override
 const ilHourF = (d) => { const p = new Intl.DateTimeFormat('en-GB', { hour: 'numeric', minute: 'numeric', hourCycle: 'h23', timeZone: 'Asia/Jerusalem' }).formatToParts(d || new Date()); const g = (t) => +((p.find((x) => x.type === t) || {}).value || 0); return g('hour') + g('minute') / 60; };
-const inHours = (c, d) => { const h = ilHourF(d), f = c && Number.isFinite(+c.hoursFrom) ? +c.hoursFrom : 8, t = c && Number.isFinite(+c.hoursTo) ? +c.hoursTo : 20; return h >= f && h < t; };
-module.exports = { ilHourF, inHours, WEB_TOOLS, WEB_RULES, db, admin, PLATFORM, ilDate, addDays, weekOf, isoOk, sleep, cfg, loadKB, claude, runLoop, ownerOnly, logRun };
+// SHABBAT (owner, Nov 21): agents don't talk to customers from Friday 16:00 through all of Saturday; a customer who writes then gets
+// ONE short reply (per chat per Shabbat) that we'll get back on Sunday, and the message is answered at 08:00 on Sunday (aiMorning).
+// cfg.shabbat === false turns it off for that agent; cfg.shabbatFrom = Friday hour (default 16).
+const ilDow = (d) => ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(new Intl.DateTimeFormat('en-US', { weekday: 'short', timeZone: 'Asia/Jerusalem' }).format(d || new Date()));
+const shabbat = (c, d) => { if (c && c.shabbat === false) return false; const w = ilDow(d), h = ilHourF(d), f = c && Number.isFinite(+c.shabbatFrom) ? +c.shabbatFrom : 16; return (w === 5 && h >= f) || w === 6; };
+const SHABBAT_MSG = 'שבת שלום! קיבלנו את ההודעה שלך 🙏 ניצור איתך קשר ביום ראשון.';
+async function shabbatReply(cref, agent, name, src) {
+  const key = weekOf(ilDate(new Date()));
+  try { await db.doc('agentClaims/shabbat_' + cref.id + '_' + key).create({ at: Date.now(), agent }); } catch (e) { return false; } // once per chat per Shabbat (any agent)
+  const now = Date.now();
+  await cref.collection('msgs').add({ dir: 'out', type: 'text', text: SHABBAT_MSG, status: 'queued', by: 'ai', byName: name || '', at: now, src: src || 'system', shabbat: true });
+  await cref.set({ lastAt: now, lastText: SHABBAT_MSG, lastDir: 'out', aiShabbat: key }, { merge: true });
+  await logRun(agent, { chat: cref.id, kind: 'shabbat-reply' });
+  return true;
+}
+const inHours = (c, d) => { if (shabbat(c, d)) return false; const h = ilHourF(d), f = c && Number.isFinite(+c.hoursFrom) ? +c.hoursFrom : 8, t = c && Number.isFinite(+c.hoursTo) ? +c.hoursTo : 20; return h >= f && h < t; };
+module.exports = { ilHourF, inHours, shabbat, shabbatReply, SHABBAT_MSG, WEB_TOOLS, WEB_RULES, db, admin, PLATFORM, ilDate, addDays, weekOf, isoOk, sleep, cfg, loadKB, claude, runLoop, ownerOnly, logRun };

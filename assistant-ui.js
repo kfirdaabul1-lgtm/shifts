@@ -65,6 +65,9 @@
   #asst textarea{flex:1;resize:none;border:1px solid #ddd;border-radius:10px;padding:8px 10px;font:inherit;height:42px;max-height:120px}
   #asst form button{border:0;background:#14213D;color:#fff;border-radius:10px;padding:0 14px;font:inherit;cursor:pointer}
   #asst form button:disabled{opacity:.5}
+  #asst form button.scr{background:none;color:inherit;border:1px solid #ddd;width:38px;padding:0;font-size:18px}
+  #asst form button.scr[hidden]{display:none}
+  #asst .fchip img{height:44px;border-radius:6px;border:1px solid #ddd}
   #asst form label.att{display:flex;align-items:center;justify-content:center;width:38px;border:1px solid #ddd;border-radius:10px;cursor:pointer;font-size:18px}
   #asst .fchip{display:flex;gap:8px;align-items:center;margin:0 10px;padding:6px 10px;border:1px dashed #B08D57;border-radius:10px;font-size:13px}
   #asst .fchip button{border:0;background:none;cursor:pointer;font-size:15px;color:inherit;margin-inline-start:auto}
@@ -89,7 +92,7 @@
       <div class="ag" hidden><button type="button" data-ag="gen">✦ שרון · עוזרת כללית</button><button type="button" data-ag="ads">📣 עדי · קמפיינים</button><button type="button" data-ag="adam" hidden>🤵 אדם · אירועים</button><button type="button" data-ag="hila" hidden>💆 הילה · ספא וכלות</button><button type="button" data-ag="ariel" hidden>🧑‍💼 אריאל · גיוס</button><button type="button" data-ag="gili" hidden>✍️ גילי · בלוג</button><button type="button" data-ag="guy" hidden>📈 גיא · תשואה</button><button type="button" data-ag="ops" hidden>🗂 אליאנה · אופרציה</button><select aria-label="איזה מלון" data-agh></select></div>
       <div class="log" aria-live="polite"></div>
       <div class="fchip" hidden></div>
-      <form><label class="att" hidden title="צירוף קובץ וורד, PDF, תמונה או ייצוא צ׳אט מוואטסאפ">📎<input type="file" accept=".docx,.pdf,.txt,.zip,image/*" hidden></label><textarea rows="1" placeholder="לשאול על משמרות, חדרים, תקלות, מלאי…" maxlength="1500"></textarea><button type="submit">שליחה</button></form>`;
+      <form><button type="button" class="scr" hidden title="שרון תראה את המסך שלך (רק את העמוד באפליקציה)">📸</button><label class="att" hidden title="צירוף קובץ וורד, PDF, תמונה או ייצוא צ׳אט מוואטסאפ">📎<input type="file" accept=".docx,.pdf,.txt,.zip,image/*" hidden></label><textarea rows="1" placeholder="לשאול על משמרות, חדרים, תקלות, מלאי…" maxlength="1500"></textarea><button type="submit">שליחה</button></form>`;
     document.body.append(b, w);
     b.onclick = () => { w.hidden = false; b.hidden = true; document.documentElement.classList.add('asst-open'); draw(); if (!matchMedia('(max-width:720px)').matches) w.querySelector('textarea').focus(); };
     const vv = window.visualViewport;
@@ -100,13 +103,15 @@
     w.querySelector('[data-agh]').onchange = (e) => { if (agent === 'guy') { guyH = e.target.value; hist = H.guy = []; } else { adsH = e.target.value; hist = H.ads = []; } save(); draw(); };
     const ta = w.querySelector('textarea');
     ta.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); w.querySelector('form').requestSubmit(); } });
-    w.querySelector('form').onsubmit = (e) => { e.preventDefault(); const t = ta.value.trim(); if (t || pend) { ta.value = ''; ask(t || 'מה יש בקובץ, ומה כדאי להוסיף לידע שלך?'); } };
+    w.querySelector('form').onsubmit = (e) => { e.preventDefault(); const t = ta.value.trim(); if (t || pend) { ta.value = ''; ask(t || (pend && pend.screen ? 'מה אני רואה במסך, ומה כדאי לעשות כאן?' : 'מה יש בקובץ, ומה כדאי להוסיף לידע שלך?')); } };
     // a file for Adam (owner, Nov 9): Word / PDF / text as is (up to 6MB), pictures shrunk to JPEG ≤1600px
     w.querySelector('.att input').onchange = async (e) => {
       const f = e.target.files && e.target.files[0]; e.target.value = ''; if (!f) return;
       try { pend = /^image\//.test(f.type) ? await shrink(f) : await asB64(f); } catch (er) { pend = null; draw(er.message || 'לא הצלחתי לקרוא את הקובץ.'); return; }
       draw();
     };
+    // Sharon sees the screen (owner, Nov 22): a picture of the app page behind the panel, sent with the next question only
+    w.querySelector('.scr').onclick = async () => { if (busy) return; try { pend = await snap(); draw(); ta.focus(); } catch (er) { pend = null; draw(er.message || 'לא הצלחתי לצלם את המסך.'); } };
     w.querySelector('.fchip').onclick = (e) => { if (e.target.closest('button')) { pend = null; draw(); } };
     root = w; return b;
   }
@@ -142,6 +147,16 @@
     }
     throw bad();
   }
+  async function snap() {
+    if (!window.html2canvas) await new Promise((ok, no) => { const s = document.createElement('script'); s.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js'; s.onload = ok; s.onerror = () => no(new Error('לא הצלחתי לטעון את רכיב הצילום. בדקו את החיבור.')); document.head.appendChild(s); });
+    const W = innerWidth, Hh = innerHeight, k = Math.min(1.5, 1600 / Math.max(W, Hh), devicePixelRatio || 1);
+    root.style.visibility = 'hidden';
+    try {
+      const c = await html2canvas(document.body, { x: scrollX, y: scrollY, width: W, height: Hh, windowWidth: document.documentElement.clientWidth, windowHeight: Hh, scale: k, useCORS: true, logging: false, backgroundColor: getComputedStyle(document.body).backgroundColor || '#ffffff',
+        ignoreElements: (el) => /^asst/.test(el.id || '') || el.classList.contains('lang-toggle') || (el.tagName === 'INPUT' && el.type === 'password') });
+      return { name: 'צילום המסך', mime: 'image/jpeg', data: c.toDataURL('image/jpeg', 0.8).split(',')[1], screen: true };
+    } finally { root.style.visibility = ''; }
+  }
   function shrink(f) {
     return new Promise((ok, no) => {
       const u = URL.createObjectURL(f), im = new Image();
@@ -175,8 +190,8 @@
       : adam ? `<div class="hint">כאן מדברים עם אדם ומלמדים אותו. ספר לו עובדות על האירועים והוא יציע איך לכתוב אותן בידע שלו, וישמור רק אחרי שתאשר. כתוב "לקוח שואל: …" כדי לראות מה הוא היה עונה. שום דבר לא נשלח ללקוחות מכאן.${adamSt ? `<br><b>${esc(adamSt)}</b>` : ''}</div><div class="chips">${SUGG_ADAM.map((s) => `<button type="button">${esc(s)}</button>`).join('')}</div>`
       : guy ? `<div class="hint">גיא בודק את המחירים של <b>${esc((guyScopes.find((x) => x.id === guyH) || {}).name || '')}</b>. הוא עובר על עמוד השוואת המחירים, על פערים בין האתר ל-Booking ועל מה שמנהל התשואה שינה. הוא רק קורא נתונים ולא משנה מחירים.</div><div class="chips">${SUGG_GUY.map((s) => `<button type="button">${esc(s)}</button>`).join('')}</div>`
       : ads ? `<div class="hint">עדי עונה על הקמפיינים, הקהלים והמודעות של ${esc((adsScopes.find((x) => x.id === adsH) || {}).name || '')}. היא רק קוראת, לא משנה קמפיינים.</div><div class="chips">${SUGG_ADS.map((s) => `<button type="button">${esc(s)}</button>`).join('')}</div>`
-      : helpOnly ? `<div class="hint">אפשר לשאול את שרון איך עושים דברים באפליקציה. היא מסבירה בשלבים ויכולה להראות לך על המסך על מה ללחוץ. את הלחיצות עושים בעצמך.</div><div class="chips">${SUGG_HELP.map((s) => `<button type="button">${esc(s)}</button>`).join('')}</div>`
-      : `<div class="hint">אפשר לשאול את שרון איך עושים דברים באפליקציה (היא תראה לך על המסך), על הנתונים של המלונות שבהרשאה שלך, לבקש סיכום, או לבקש שתשלח הודעה לעובדים. לפני כל שליחה היא מראה לך את ההודעה ומחכה לאישור.</div><div class="chips">${SUGG.map((s) => `<button type="button">${esc(s)}</button>`).join('')}</div>`;
+      : helpOnly ? `<div class="hint">אפשר לשאול את שרון איך עושים דברים באפליקציה. היא מסבירה בשלבים ויכולה להראות לך על המסך על מה ללחוץ. את הלחיצות עושים בעצמך. נתקעת? לחצו 📸 ושרון תראה את המסך.</div><div class="chips">${SUGG_HELP.map((s) => `<button type="button">${esc(s)}</button>`).join('')}</div>`
+      : `<div class="hint">אפשר לשאול את שרון איך עושים דברים באפליקציה (היא תראה לך על המסך), על הנתונים של המלונות שבהרשאה שלך, לבקש סיכום, או לבקש שתשלח הודעה לעובדים. לפני כל שליחה היא מראה לך את ההודעה ומחכה לאישור. נתקעת? לחצו 📸 ושרון תראה את המסך.</div><div class="chips">${SUGG.map((s) => `<button type="button">${esc(s)}</button>`).join('')}</div>`;
     if (busy) h += '<div class="m a">…</div>';
     if (err) h += `<div class="e">${esc(err)}</div>`;
     log.innerHTML = h; log.scrollTop = log.scrollHeight;
@@ -184,17 +199,18 @@
     log.querySelectorAll('[data-show]').forEach((x) => { x.onclick = () => tour((hist[+x.dataset.show] || {}).show, true); });
     log.querySelectorAll('[data-open]').forEach((x) => { x.onclick = () => tour((hist[+x.dataset.open] || {}).show, false); });
     root.querySelector('form button').disabled = busy;
-    root.querySelector('.att').hidden = !(adam || ops || hila || ariel || gili); if (!(adam || ops || hila || ariel || gili)) pend = null;
-    const fc = root.querySelector('.fchip'); fc.hidden = !pend; fc.innerHTML = pend ? `📎 <span>${esc(pend.name)}</span><button type="button" title="הסרה">✕</button>` : '';
+    root.querySelector('.att').hidden = !(adam || ops || hila || ariel || gili); if (!(adam || ops || hila || ariel || gili) && !(agent === 'gen' && pend && pend.screen)) pend = null;
+    root.querySelector('.scr').hidden = agent !== 'gen'; if (agent === 'gen' && pend && !pend.screen) pend = null;
+    const fc = root.querySelector('.fchip'); fc.hidden = !pend; fc.innerHTML = pend ? (pend.screen ? `<img alt="" src="data:image/jpeg;base64,${pend.data}"><span>שרון תראה את צילום המסך הזה עם ההודעה הבאה</span>` : `📎 <span>${esc(pend.name)}</span>`) + `<button type="button" title="הסרה">✕</button>` : '';
   }
   async function ask(text) {
     if (busy) return;
     const u = window.firebase && firebase.auth().currentUser; if (!u) { draw('צריך להתחבר קודם.'); return; }
-    const file = agent === 'adam' || agent === 'ops' || agent === 'hila' || agent === 'ariel' || agent === 'gili' ? pend : null; pend = null;
-    hist.push({ role: 'user', text: file ? '📎 ' + file.name + '\n' + text : text }); busy = true; save(); draw();
+    const file = agent === 'adam' || agent === 'ops' || agent === 'hila' || agent === 'ariel' || agent === 'gili' || (agent === 'gen' && pend && pend.screen) ? pend : null; pend = null;
+    hist.push({ role: 'user', text: file ? (file.screen ? '📸 צילום המסך\n' : '📎 ' + file.name + '\n') + text : text }); busy = true; save(); draw();
     let err = '';
     try {
-      const r = await fetch(URL_(), { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + (await u.getIdToken()) }, body: JSON.stringify(agent === 'ads' ? { messages: hist.slice(-8).map(({ role, text }) => ({ role, text })), hotel: adsH || '' } : agent === 'guy' ? { messages: hist.slice(-12).map(({ role, text }) => ({ role, text })), hotel: guyH || '' } : { messages: hist.slice(agent === 'adam' || agent === 'hila' || agent === 'ariel' || agent === 'gili' ? -40 : agent === 'ops' ? -20 : -8).map(({ role, text }) => ({ role, text })), ...(file ? { file } : {}) }) });
+      const r = await fetch(URL_(), { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + (await u.getIdToken()) }, body: JSON.stringify(agent === 'ads' ? { messages: hist.slice(-8).map(({ role, text }) => ({ role, text })), hotel: adsH || '' } : agent === 'guy' ? { messages: hist.slice(-12).map(({ role, text }) => ({ role, text })), hotel: guyH || '' } : { messages: hist.slice(agent === 'adam' || agent === 'hila' || agent === 'ariel' || agent === 'gili' ? -40 : agent === 'ops' ? -20 : -8).map(({ role, text }) => ({ role, text })), ...(file ? (file.screen ? { screen: { mime: file.mime, data: file.data, page: location.hash || '', path: location.pathname.split('/').pop() || '' } } : { file }) : {}) }) });
       const j = await r.json().catch(() => ({}));
       if (!r.ok) err = j.error && j.error.length > 8 ? j.error : (agent === 'ops' ? 'אליאנה לא זמינה' : agent === 'ads' ? 'עדי לא זמינה' : agent === 'adam' ? 'אדם לא זמין' : agent === 'hila' ? 'הילה לא זמינה' : agent === 'ariel' ? 'אריאל לא זמינה' : agent === 'gili' ? 'גילי לא זמינה' : agent === 'guy' ? 'גיא לא זמין' : 'שרון לא זמינה') + ' כרגע (' + r.status + ').';
       else hist.push({ role: 'assistant', text: String(j.text || ''), ...(j.show && j.show.page && Array.isArray(j.show.steps) ? { show: j.show } : {}) });

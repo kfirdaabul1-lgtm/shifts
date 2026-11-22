@@ -5,9 +5,9 @@ const admin=require('firebase-admin');admin.initializeApp();const db=admin.fires
   const s=await db.doc('waChats/'+id).get();
   console.log('chat exists='+s.exists);
   if(s.exists){const c=s.data()||{};const ag=c.agent;
-    console.log('keys='+Object.keys(c).sort().join(','));
+    console.log('catAuto='+(c.catAuto||'')+' adRef='+(c.adRef?'yes':'no')+' catBy='+(c.catBy?'set':'')+' catAt='+(c.catAt?new Date(c.catAt).toISOString():'')+' aiAgent='+JSON.stringify(Object.keys(c.aiAgent||{})));console.log('keys='+Object.keys(c).sort().join(','));
     console.log('agent='+(ag===undefined?'MISSING':ag===''?'empty':'set')+' venue='+JSON.stringify(c.venue===undefined?'MISSING':c.venue)+' leadId='+(c.leadId?'yes':'no')+' cat='+(c.cat||'')+' recruit='+!!c.recruit+' aiAgent='+(c.aiAgent?'yes':'no')+' createdBy='+(c.createdBy?(String(c.createdBy).length>20?'uid':c.createdBy):'none'));
-    if(c.leadId){const l=await db.doc('leads/'+c.leadId).get();console.log('lead exists='+l.exists+(l.exists?' leadVenue='+JSON.stringify(l.data().venue||'')+' cat='+(l.data().cat||''):''))}
+    if(c.leadId){const l=await db.doc('leads/'+c.leadId).get();console.log('lead exists='+l.exists+(l.exists?' leadVenue='+JSON.stringify(l.data().venue||'')+' cat='+(l.data().cat||'')+' src='+(l.data().source||'')+' camp='+(l.data().campaign?'yes':'no')+' type='+(l.data().type?'yes':'no'):''))}
     const m=await db.collection('waChats/'+id+'/msgs').get();const st={};m.forEach(d=>{const x=d.data();const k=(x.dir||'')+'/'+(x.status||'')+'/'+(x.type||'');st[k]=(st[k]||0)+1});console.log('msgs='+m.size+' '+JSON.stringify(st));
   }
   const all=await db.collection('waChats').get();let miss=0,noVen=0;all.forEach(d=>{const x=d.data();if(x.agent===undefined)miss++;if(x.venue===undefined)noVen++});

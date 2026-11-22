@@ -71,7 +71,10 @@ const note = (t, m) => console.log(`::notice title=${t}::${String(m).replace(/\n
       const why = {}; for (const d of Ch) { const c = d.data() || {}; if (c.lastDir !== 'in') { why.answered = (why.answered || 0) + 1; continue; }
         const cd = (await db.doc('candidates/' + String(c.leadId || '')).get()).data() || null; const lim = (await db.doc('agentRate/recruit_' + d.id).get()).data() || {};
         const k = [!c.recruit ? 'noRecruitFlag' : '', c.aiRecruit && c.aiRecruit.off ? 'off' : '', c.agent ? 'staffAgent' : '', !cd ? 'noCand:' + (c.leadId ? 'lead' : 'noLead') : 'st:' + (cd.status || '-'), lim.n ? 'n' + lim.n : '', c.aiNight && c.aiNight.recruit ? 'night' : '', 'min' + Math.round((Date.now() - (+c.lastAt || 0)) / 6e4)].filter(Boolean).join('|');
-        why[k] = (why[k] || 0) + 1; }
+        why[k] = (why[k] || 0) + 1;
+        if (cd && ['contacted', 'screening', 'new'].includes(cd.status)) { const ms = (await d.ref.collection('msgs').orderBy('at', 'desc').limit(5).get()).docs.map((x) => x.data() || {});
+          const lgc = (await db.collection('agentLog').where('chat', '==', d.id).get()).docs.map((x) => x.data() || {}).sort((x, y) => y.at - x.at).slice(0, 4);
+          note('Ariel chat ' + d.id.slice(-4), JSON.stringify({ msgs: ms.map((x) => [x.dir, x.type, /^[A-Za-z0-9]{20,}$/.test(x.by || '') ? 'uid' : (x.by || ''), x.src || '', x.status || '', Math.round((Date.now() - (+x.at || 0)) / 6e4)].join(',')), log: lgc.map((x) => [x.agent, Math.round((Date.now() - x.at) / 6e4), x.skipped || x.err || x.stop || Object.keys(x).join('/')].join(',')) })); } }
       note('Ariel unanswered 12h', JSON.stringify({ chats: Ch.length, why })); }
     const lg = (await db.collection('agentLog').orderBy('at', 'desc').limit(300).get()).docs.map((d) => d.data()).filter((x) => /recruit|ariel/.test(x.agent || '')).slice(0, 12);
     note('Ariel log', lg.map((x) => new Date(x.at).toISOString().slice(5, 16) + ' ' + (x.agent || '') + '/' + (x.kind || '') + ' ' + (x.err ? 'ERR ' + String(x.err).slice(0, 60) : (x.skipped ? 'SKIP ' + String(x.skipped).slice(0, 40) : (x.stop || '')))).join(' | ') || 'none');

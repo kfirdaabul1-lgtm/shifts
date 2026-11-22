@@ -37,12 +37,6 @@ const note = (t, m) => console.log(`::notice title=${t}::${String(m).replace(/\n
       rows.push([il(l.createdAt) === today ? 'T' : 'Y', l.cat || '-', l.venue || '-', l.stage, l.source || '-', c ? 'chat' : 'nochat', c ? (c.lastInAt ? Math.round((now - c.lastInAt) / 36e5) + 'h' : 'noin') : '-', c ? c.lastDir : '-', c && c.agent ? 'agent' : '', hum, ai, ins.length, lastInType, l.waAutoAt ? 'auto' : '', 'map=' + (cc[l.campaign] || '-'), 'spaword=' + /ספא|spa|עיסוי|טיפול/i.test(String(l.campaign || '') + ' ' + String(l.type || ''))].join(' '));
     }
     console.log('LEADS', ls.length); rows.forEach((r) => console.log('ROW', r));
-    { const since = Date.now() - 12 * 36e5; const Ch = (await db.collection('waChats').where('lastAt', '>', since).get()).docs.filter((d) => { const c = d.data() || {}; return c.recruit || c.cat === 'jobs'; });
-      const why = {}; for (const d of Ch) { const c = d.data() || {}; if (c.lastDir !== 'in') { why.answered = (why.answered || 0) + 1; continue; }
-        const cd = (await db.doc('candidates/' + String(c.leadId || '')).get()).data() || null; const lim = (await db.doc('agentRate/recruit_' + d.id).get()).data() || {};
-        const k = [!c.recruit ? 'noRecruitFlag' : '', c.aiRecruit && c.aiRecruit.off ? 'off' : '', c.agent ? 'staffAgent' : '', !cd ? 'noCand:' + (c.leadId ? 'lead' : 'noLead') : 'st:' + (cd.status || '-'), lim.n ? 'n' + lim.n : '', c.aiNight && c.aiNight.recruit ? 'night' : '', 'min' + Math.round((Date.now() - (+c.lastAt || 0)) / 6e4)].filter(Boolean).join('|');
-        why[k] = (why[k] || 0) + 1; }
-      note('Ariel unanswered 12h', JSON.stringify({ chats: Ch.length, why })); }
     const lg = (await db.collection('agentLog').where('agent', '==', 'reply').get()).docs.map((d) => d.data()).filter((d) => d.at > now - 864e5);
     console.log('REPLY LOG 24h', lg.length, JSON.stringify(lg.slice(0, 30).map((d) => [new Date(d.at).toISOString().slice(11, 16), d.skipped || d.follow || (d.replied ? 'replied' : '') || (d.error ? 'err' : '') || (d.route ? 'route' : '')])));
     return;
@@ -73,6 +67,12 @@ const note = (t, m) => console.log(`::notice title=${t}::${String(m).replace(/\n
     { const C = (await db.collection('candidates').get()).docs.map((d) => d.data() || {}); const st = {}, wt = {}; C.forEach((c) => { st[c.status || '-'] = (st[c.status || '-'] || 0) + 1; if (c.status === 'waiting_template') wt[String(c.note || '').slice(0, 50)] = (wt[String(c.note || '').slice(0, 50)] || 0) + 1; });
       const L = (await db.collection('leads').where('cat', '==', 'jobs').get()).docs.map((d) => d.data() || {}); const day = Date.now() - 3 * 864e5; const recent = L.filter((l) => (l.createdAt || 0) > day);
       note('Ariel candidates', JSON.stringify({ cands: C.length, status: st, waiting: wt, jobLeads: L.length, last3d: recent.length, last3dNoCand: recent.filter((l) => !C.some((c) => c.leadId === l.id)).length, last3dPhone: recent.filter((l) => l.phone).length })); }
+    { const since = Date.now() - 12 * 36e5; const Ch = (await db.collection('waChats').where('lastAt', '>', since).get()).docs.filter((d) => { const c = d.data() || {}; return c.recruit || c.cat === 'jobs'; });
+      const why = {}; for (const d of Ch) { const c = d.data() || {}; if (c.lastDir !== 'in') { why.answered = (why.answered || 0) + 1; continue; }
+        const cd = (await db.doc('candidates/' + String(c.leadId || '')).get()).data() || null; const lim = (await db.doc('agentRate/recruit_' + d.id).get()).data() || {};
+        const k = [!c.recruit ? 'noRecruitFlag' : '', c.aiRecruit && c.aiRecruit.off ? 'off' : '', c.agent ? 'staffAgent' : '', !cd ? 'noCand:' + (c.leadId ? 'lead' : 'noLead') : 'st:' + (cd.status || '-'), lim.n ? 'n' + lim.n : '', c.aiNight && c.aiNight.recruit ? 'night' : '', 'min' + Math.round((Date.now() - (+c.lastAt || 0)) / 6e4)].filter(Boolean).join('|');
+        why[k] = (why[k] || 0) + 1; }
+      note('Ariel unanswered 12h', JSON.stringify({ chats: Ch.length, why })); }
     const lg = (await db.collection('agentLog').orderBy('at', 'desc').limit(300).get()).docs.map((d) => d.data()).filter((x) => /recruit|ariel/.test(x.agent || '')).slice(0, 12);
     note('Ariel log', lg.map((x) => new Date(x.at).toISOString().slice(5, 16) + ' ' + (x.agent || '') + '/' + (x.kind || '') + ' ' + (x.err ? 'ERR ' + String(x.err).slice(0, 60) : (x.skipped ? 'SKIP ' + String(x.skipped).slice(0, 40) : (x.stop || '')))).join(' | ') || 'none');
     return; }

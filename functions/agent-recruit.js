@@ -28,7 +28,7 @@ const FAST = 'claude-haiku-5-5', SMART = 'claude-sonnet-5-5';
 const DEFAULTS = { enabled: false, name: 'אריאל', openTemplate: { tpl: 'job_screening_open', lang: 'he' }, match: { forms: [], campaigns: [], words: '' }, maxPerCandidate: 16, humanQuietMin: 30, debounceSec: 6, maxAgeMin: 15, noReplyHours: 48, notify: false, model: '' };
 const JOB_WORDS = /גיוס|דרוש|דרושים|דרושות|משרה|משרות|עבודה|לעבוד|קריירה|מועמד|hiring|recruit|career|jobs?\b|staff|vacanc|apply/i;
 const UID = /^[A-Za-z0-9]{20,40}$/;
-const isHuman = (r) => r.dir === 'out' && (r.src === 'app' || UID.test(String(r.by || '')));
+const isHuman = (r) => r.dir === 'out' && r.type !== 'template' && (r.src === 'app' || UID.test(String(r.by || ''))); // a template sent by hand (e.g. the opening) is not a conversation (Nov 22)
 const clip = (s, n) => String(s == null ? '' : s).slice(0, n);
 const waIdFrom = (p) => { let d = String(p || '').replace(/\D/g, ''); if (d.startsWith('00')) d = d.slice(2); if (d.startsWith('0')) d = '972' + d.slice(1); else if (d.length === 9 && d[0] === '5') d = '972' + d; return d.length >= 11 && d.length <= 15 ? d : ''; };
 const waLocal = (id) => { const d = String(id || '').replace(/\D/g, ''); return d.startsWith('972') ? '0' + d.slice(3) : d; };
@@ -282,4 +282,22 @@ async function sendAll(o) {
   await C.logRun('recruit', { kind: 'sendAll', ...out });
   return out;
 }
+// Catch-up (Nov 22, owner: "she stopped answering again"): a candidate's last message that got no answer — skipped because a person
+// had sent something a few minutes earlier, or the run failed — is answered here (every 10 min, inside the answer hours only).
+exports.recruitCatchup = functions.region(REGION).runWith({ timeoutSeconds: 300, memory: '512MB' }).pubsub.schedule('every 10 minutes').timeZone('Asia/Jerusalem').onRun(async () => {
+  const cfg = { ...DEFAULTS, ...(await C.cfg('recruit')) };
+  if (cfg.enabled !== true || cfg.catchup === false || !C.inHours(cfg)) return null;
+  const now = Date.now(), q = await db.collection('waChats').where('lastAt', '>', now - 6 * 36e5).get(); let n = 0;
+  for (const d of q.docs) {
+    const c = d.data() || {};
+    if (!c.recruit || c.guide || c.lastDir !== 'in' || (c.aiRecruit && c.aiRecruit.off) || now - (+c.lastAt || 0) < 4 * 60e3) continue;
+    const last = (await d.ref.collection('msgs').orderBy('at', 'desc').limit(1).get()).docs[0]; if (!last) continue;
+    const m = last.data() || {}; if (m.dir !== 'in') continue;
+    try { await db.doc('agentClaims/recruitCu_' + d.id + '_' + last.id).create({ at: now }); } catch (e) { continue; }
+    try { await recruitRun(m, d.id, last.id, true); n++; } catch (e) { console.error('recruitCatchup', d.id, e); }
+    if (n >= 8) break;
+  }
+  if (n) await C.logRun('recruit', { kind: 'catchup', n });
+  return null;
+});
 exports._t = { recruitRun, isJobLead, openCandidate, sendAll, systemBlocks, historyOf, waIdFrom, FIELDS, DEFAULTS };

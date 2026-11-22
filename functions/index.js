@@ -2376,6 +2376,7 @@ const rec = require('./agent-recruit.js'); // recruiting agent (Nov 18): off unt
 exports.recruitNewLead = rec.recruitNewLead;
 exports.agentRecruit = rec.agentRecruit;
 exports.recruitSweep = rec.recruitSweep;
+exports.recruitCatchup = rec.recruitCatchup; // answers candidates' messages that were left without a reply (Nov 22)
 exports.arielChat = require('./agent-ariel.js').arielChat;
 exports.recruitIvMorning = require('./agent-ariel.js').recruitIvMorning; // 07:30 job interviews of the day (Nov 19) // trainer chat with Ariel, the recruiting agent (Nov 19)
 exports.hilaChat = require('./agent-hila.js').hilaChat; // Hila, spa + bride sales agent (training only for now, Nov 17)

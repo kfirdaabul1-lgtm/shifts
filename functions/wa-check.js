@@ -1,7 +1,8 @@
 // WhatsApp chat diagnosis (Nov 22): prints booleans/counts/venue ids only (public Actions logs).
 const admin=require('firebase-admin');admin.initializeApp();const db=admin.firestore();
 (async()=>{
-  const id=process.env.CHAT||'972545241110';
+  let id=process.env.CHAT||'972545241110';
+  if(id.startsWith('name:')){const q=id.slice(5).toLowerCase();const all0=await db.collection('waChats').get();const f=all0.docs.find(d=>String((d.data()||{}).name||'').toLowerCase().includes(q));id=f?f.id:'none';console.log('found by name='+(f?'yes':'no'))}
   const s=await db.doc('waChats/'+id).get();
   console.log('chat exists='+s.exists);
   if(s.exists){const c=s.data()||{};const ag=c.agent;

@@ -1,0 +1,23 @@
+name: WhatsApp chat check
+on:
+  workflow_dispatch:
+    inputs:
+      chat: { description: "chat id", required: false, default: "972545241110" }
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: cd functions && npm install --omit=dev
+      - env:
+          KEY: ${{ secrets.FIREBASE_DEPLOY_KEY }}
+          CHAT: ${{ inputs.chat }}
+          
+        run: |
+          echo "$KEY" > "$RUNNER_TEMP/key.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/key.json"
+          cd functions && node wa-check.js
+          rm -f "$RUNNER_TEMP/key.json"

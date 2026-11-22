@@ -187,6 +187,10 @@ async function replyRun(m, chat, id, morning) {
   if (!morning && !C.inHours(cfg)) { await cref.set({ aiNight: { reply: { msg: id, at: +m.at || Date.now() } }, aiNightAt: Date.now() }, { merge: true }); await C.logRun('reply', { chat, msg: id, skipped: 'outside answer hours, queued for the morning' }); return; }
 
   if (!morning) await C.sleep(cfg.debounceSec * 1000);         // customers send several short messages: answer once, to the last one
+  // the inbox kind of a NEW chat is set by waIncoming a moment after the message (an ad needs a Graph call): read the chat again and re-check (owner, Nov 22: Adam answered a bride-ad chat)
+  if (!morning) { try { for (let i = 0; i < 6; i++) { const s2 = await cref.get(); if (s2.exists) Object.assign(chatD, s2.data() || {}); if (!m.ref || chatD.cat || chatD.catTried) break; await C.sleep(2500); } } catch (e) { }
+    if (chatD.agent || chatD.recruit || chatD.cat === 'jobs' || (chatD.aiAgent && (chatD.aiAgent.off || chatD.aiAgent.skip))) return;
+    if (chatD.cat && KINDS.includes(chatD.cat) && !(Array.isArray(cfg.scope) ? cfg.scope : DEFAULTS.scope).includes(chatD.cat)) { await C.logRun('reply', { chat, msg: id, skipped: 'chat kind ' + chatD.cat + ' is outside the scope (after wait)' }); return; } }
   const recent = await cref.collection('msgs').orderBy('at', 'desc').limit(14).get();
   const rows = recent.docs.map((d) => ({ id: d.id, ...d.data() }));
   const latestIn = rows.find((r) => r.dir === 'in'); if (!latestIn || latestIn.id !== id) return;

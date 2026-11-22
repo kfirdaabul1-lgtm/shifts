@@ -1199,7 +1199,7 @@ async function waIncoming(m, name, push) {
   const cref = db.doc('waChats/' + chat), cs = await cref.get(), c = cs.exists ? cs.data() : {};
   const up = { lastAt: at, lastText: text.slice(0, 200), lastDir: 'in', lastInAt: at, unread: admin.firestore.FieldValue.increment(1), status: 'open' };
   if (name && !c.name) up.name = name;
-  if (!(await waSave(chat, m.id, { dir: 'in', type: m.type, text, at, src: 'customer', media: (m[m.type] && m[m.type].id) || '', mime: (m[m.type] && m[m.type].mime_type) || '', replyTo: (m.context && m.context.id) || '' }, up))) return;
+  if (!(await waSave(chat, m.id, { dir: 'in', type: m.type, text, at, src: 'customer', media: (m[m.type] && m[m.type].id) || '', mime: (m[m.type] && m[m.type].mime_type) || '', replyTo: (m.context && m.context.id) || '', ...(m.referral ? { ref: true } : {}) }, up))) return;
   if (c.guide && c.groupId) { await guideReply(c, text, at); return; }
   let leadId = c.leadId, owner = '', venue = '', ld = null;
   if (!leadId) { try { const L = await waLead(chat, name || c.name); leadId = L.id; owner = L.owner; venue = L.venue || ''; await cref.set({ leadId }, { merge: true }); } catch (e) { console.warn('wa lead', e.message); } }
@@ -1208,7 +1208,8 @@ async function waIncoming(m, name, push) {
   let autoCat = '';
   if (!c.cat && (!cs.exists || m.referral)) {
     try {
-      const g = await waGuessCat(m, text);
+      const g = await waGuessCat(m, text).catch(() => ({}));
+      if (!g.cat) await cref.set({ catTried: Date.now() }, { merge: true }).catch(() => { }); // agentReply waits for this on ad messages
       if (g.cat || g.ref) {
         autoCat = g.cat || '';
         await cref.set({ ...(g.cat ? { cat: g.cat, catAuto: g.ref ? 'ad' : 'text' } : {}), ...(g.ref ? { adRef: g.ref } : {}) }, { merge: true });

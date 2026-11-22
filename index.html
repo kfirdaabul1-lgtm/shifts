@@ -3023,9 +3023,9 @@ function adamCardHTML(){adamCfgSub();const A=S.adamCfg;if(A===undefined)return '
 // the agent card follows the lead kind of the automations view (owner, Nov 18: hiring showed Adam instead of Ariel)
 function agentCardFor(cat){return cat==='jobs'?arielCardHTML():(cat==='spa'||cat==='bride')?hilaCardHTML():cat==='rooms'?'':adamCardHTML()}
 function arielCfgSub(){if(S.live.arielcfg)return;S.live.arielcfg=true;S.db.doc('agentcfg/recruit').onSnapshot(d=>{S.arielCfg=d.exists?d.data():{};render()},()=>{S.arielCfg={}})}
-function arielCardHTML(){arielCfgSub();const A=S.arielCfg;if(A===undefined)return '';const on=A.enabled===true,nm=A.name||'אריאל',tn=A.openTemplate||'',W=S.wapub||{};
+function arielCardHTML(){arielCfgSub();const A=S.arielCfg;if(A===undefined)return '';const on=A.enabled===true,nm=A.name||'אריאל',OT=A.openTemplate,tn=(OT&&typeof OT==='object'?OT.tpl:OT)||'',W=S.wapub||{};
   const tok=!tn?null:((W.templates||[]).some(t=>t.name===tn));
-  const tl=!tn?'<span class="pill bad">לא נבחרה תבנית פתיחה</span>':tok?`<span class="pill ok">תבנית הפתיחה מאושרת</span>`:`<span class="pill warn">תבנית הפתיחה עוד מחכה לאישור של Meta</span>`;
+  const tl=!tn?'<span class="pill bad">לא נבחרה תבנית פתיחה</span>':tok?`<span class="pill ok">תבנית הפתיחה מאושרת · ${esc(tn)}</span>`:`<span class="pill warn">תבנית הפתיחה עוד מחכה לאישור של Meta</span>`;
   return `<div class="card"><div class="row" style="justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><div><b>🧑‍💼 ${esc(nm)} מסנן מועמדים לעבודה</b> <span class="pill ${on?'ok':''}">${on?'פעיל':'כבוי'}</span></div>
   <button class="btn ${on?'':'primary'}" data-act="ariel-on" data-v="${on?0:1}">${on?'⏸ עצירת '+esc(nm):'▶ הפעלת '+esc(nm)}</button></div>
   <div class="muted" style="margin-top:6px">כשמגיע ליד של גיוס עובדים, ${esc(nm)} שולח למועמד הודעת פתיחה בוואטסאפ, שואל כמה שאלות קצרות וממלא את טופס המועמד. אחר כך הוא מעביר את המועמד לצוות. מועמד שלא עונה 48 שעות מסומן כ"לא ענה". כשאיש צוות כותב למועמד, ${esc(nm)} מפסיק לכתוב בשיחה הזו.</div>

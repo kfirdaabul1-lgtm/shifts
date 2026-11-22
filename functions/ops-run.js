@@ -37,6 +37,9 @@ const note = (t, m) => console.log(`::notice title=${t}::${String(m).replace(/\n
       rows.push([il(l.createdAt) === today ? 'T' : 'Y', l.cat || '-', l.venue || '-', l.stage, l.source || '-', c ? 'chat' : 'nochat', c ? (c.lastInAt ? Math.round((now - c.lastInAt) / 36e5) + 'h' : 'noin') : '-', c ? c.lastDir : '-', c && c.agent ? 'agent' : '', hum, ai, ins.length, lastInType, l.waAutoAt ? 'auto' : '', 'map=' + (cc[l.campaign] || '-'), 'spaword=' + /ספא|spa|עיסוי|טיפול/i.test(String(l.campaign || '') + ' ' + String(l.type || ''))].join(' '));
     }
     console.log('LEADS', ls.length); rows.forEach((r) => console.log('ROW', r));
+    { const C = (await db.collection('candidates').get()).docs.map((d) => d.data() || {}); const st = {}, wt = {}; C.forEach((c) => { st[c.status || '-'] = (st[c.status || '-'] || 0) + 1; if (c.status === 'waiting_template') wt[String(c.note || '').slice(0, 50)] = (wt[String(c.note || '').slice(0, 50)] || 0) + 1; });
+      const L = (await db.collection('leads').where('cat', '==', 'jobs').get()).docs.map((d) => d.data() || {}); const day = Date.now() - 3 * 864e5; const recent = L.filter((l) => (l.createdAt || 0) > day);
+      note('Ariel candidates', JSON.stringify({ cands: C.length, status: st, waiting: wt, jobLeads: L.length, last3d: recent.length, last3dNoCand: recent.filter((l) => !C.some((c) => c.leadId === l.id)).length, last3dPhone: recent.filter((l) => l.phone).length })); }
     const lg = (await db.collection('agentLog').where('agent', '==', 'reply').get()).docs.map((d) => d.data()).filter((d) => d.at > now - 864e5);
     console.log('REPLY LOG 24h', lg.length, JSON.stringify(lg.slice(0, 30).map((d) => [new Date(d.at).toISOString().slice(11, 16), d.skipped || d.follow || (d.replied ? 'replied' : '') || (d.error ? 'err' : '') || (d.route ? 'route' : '')])));
     return;

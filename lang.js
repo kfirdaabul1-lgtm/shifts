@@ -22,7 +22,7 @@
     var g=null;for(var k in LANGS){var o=document.createElement('option');o.value=k;o.textContent=LANGS[k]+(BASE[k]?'':' ⬇');if(k===lang)o.selected=true;if(BASE[k])b.appendChild(o);else{if(!g){g=document.createElement('optgroup');g.label='⬇ More languages · שפות נוספות';b.appendChild(g)}g.appendChild(o)}}
     b.addEventListener('change',function(){window.setAppLang(b.value)});document.body.appendChild(b)});
   if(lang==='he')return;
-  var LV={"en":"4a0d64e4e4","ru":"b62d392799","si":"2a9533e8d6","hi":"95172a5dc9","ar":"91d5dbd634","fr":"a90e1935f1","es":"f1e9bed587"};
+  var LV={"en":"2cb4472516","ru":"501b14b218","si":"98a08d2fce","hi":"f323e1d329","ar":"f3694e8149","fr":"12a3f18e81","es":"c59f36d9a5"};
   window.__i18nGo=function(){if(window.__i18nDone||!window.__I18N||!window.__I18N[lang])return;window.__i18nDone=1;go()};
   if(!LV[lang])return;
   var LSRC=(function(){var s=document.currentScript&&document.currentScript.src||"";return s.replace(/lang\.js(\?.*)?$/,"")})()+"lang/"+lang+".js?v="+LV[lang];

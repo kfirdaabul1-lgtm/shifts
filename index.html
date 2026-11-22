@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="lang.js?v=cadcaf4edc"></script>
+<script src="lang.js?v=6bd90a6081"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -2733,7 +2733,7 @@ function vLeads(){leadsSub();tasksSub();waSub();leadCatsLive();leadsSync();const
   const openS=open.slice().sort(([,a],[,b])=>(b.createdAt||0)-(a.createdAt||0)),openMore=!!S.leadOpenAll;
   const today=openS.length?`<div class="card"><h3>לידים פתוחים · ${openS.length}</h3><div class="lead-row">${openS.slice(0,openMore?400:12).map(([id,l])=>leadCard(id,l)).join('')}</div>${openS.length>12?`<div class="actions" style="margin-top:8px"><button class="btn sm ghost" data-act="lead-openall">${openMore?'הצגת פחות':'הצגת כל הלידים הפתוחים ('+openS.length+')'}</button></div>`:''}</div>`:'';
   if(f.view==='wa')return wrap(head+waListHTML(f));
-  if(f.view==='auto'){waSub();const W=S.wapub||{};return wrap(head+(S.isOwner?agentCardFor(f.cat):'')+(!S.isOwner?'<div class="notice">את האוטומציות מגדיר בעל המערכת.</div>':!W.on?'<div class="notice">קודם מחברים את וואטסאפ (בלשונית "💬 וואטסאפ"), ואז אפשר להגדיר כאן הודעות אוטומטיות.</div>':f.cat==='jobs'?'':waAutoHTML()))}
+  if(f.view==='auto'){waSub();const W=S.wapub||{};return wrap(head+(S.isOwner?agentCardFor(f.cat):'')+(!S.isOwner?'<div class="notice">את האוטומציות מגדיר בעל המערכת.</div>':!W.on?'<div class="notice">קודם מחברים את וואטסאפ (בלשונית "💬 וואטסאפ"), ואז אפשר להגדיר כאן הודעות אוטומטיות.</div>':f.cat==='jobs'?arielAutoHTML():waAutoHTML()))}
   if(!Object.keys(S.leads||{}).length)return wrap(head+k+emptyBox('עוד אין לידים','כל פנייה של לקוח לאירוע נרשמת כאן כליד: מאיפה הגיע, מי מטפל ומתי לחזור אליו. כשנשלחת לו הצעה ונסגרת, הליד מתעדכן לבד.','<button class="btn pri" data-act="lead-new">+ ליד ראשון</button>'));
   let body;
   if(f.view==='clients')return wrap(head+clientsHTML(f));
@@ -3028,8 +3028,13 @@ function arielCardHTML(){arielCfgSub();const A=S.arielCfg;if(A===undefined)retur
   const tl=!tn?'<span class="pill bad">לא נבחרה תבנית פתיחה</span>':tok?`<span class="pill ok">תבנית הפתיחה מאושרת · ${esc(tn)}</span>`:`<span class="pill warn">תבנית הפתיחה עוד מחכה לאישור של Meta</span>`;
   return `<div class="card"><div class="row" style="justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><div><b>🧑‍💼 ${esc(nm)} מסנן מועמדים לעבודה</b> <span class="pill ${on?'ok':''}">${on?'פעיל':'כבוי'}</span></div>
   <button class="btn ${on?'':'primary'}" data-act="ariel-on" data-v="${on?0:1}">${on?'⏸ עצירת '+esc(nm):'▶ הפעלת '+esc(nm)}</button></div>
-  <div class="muted" style="margin-top:6px">כשמגיע ליד של גיוס עובדים, ${esc(nm)} שולח למועמד הודעת פתיחה בוואטסאפ, שואל כמה שאלות קצרות וממלא את טופס המועמד. אחר כך הוא מעביר את המועמד לצוות. מועמד שלא עונה 48 שעות מסומן כ"לא ענה". כשאיש צוות כותב למועמד, ${esc(nm)} מפסיק לכתוב בשיחה הזו.</div>
+  <div class="muted" style="margin-top:6px">כשמגיע ליד של גיוס עובדים, ${esc(nm)} שולחת למועמד הודעת פתיחה בוואטסאפ, שואלת כמה שאלות קצרות וממלאת את טופס המועמד. אחר כך היא מעבירה את המועמד לצוות. מועמד שלא עונה 48 שעות מסומן כ"לא ענה". כשאיש צוות כותב למועמד, ${esc(nm)} מפסיקה לכתוב בשיחה הזו.</div>
   <div style="margin-top:6px">${tl}</div></div>`}
+// the jobs tab has no per-place template rules: Ariel herself is the automatic message (owner, Nov 22: "looks like Ariel has no automation")
+function arielAutoHTML(){const A=S.arielCfg;if(A===undefined)return '';const on=A.enabled===true,nm=A.name||'אריאל',OT=A.openTemplate,tn=(OT&&typeof OT==='object'?OT.tpl:OT)||'',ok=!!tn&&((S.wapub||{}).templates||[]).some(t=>t.name===tn);
+  const st=on&&ok?'<span class="pill ok">פעיל</span>':on?'<span class="pill warn">מחכה לתבנית מאושרת</span>':'<span class="pill">כבוי</span>';
+  return `<div class="card"><b>הודעה אוטומטית לכל ליד חדש · ${LCAT.jobs}</b> ${st}
+  <p class="muted" style="font-size:.85rem;margin:6px 0 0">${on&&ok?`כל מועמד חדש עם טלפון מקבל מיד בוואטסאפ את תבנית הפתיחה <b>${esc(tn)}</b>, ו${esc(nm)} ממשיכה איתו את השיחה. אין צורך לבחור כאן תבנית לפי מקום.`:on?`${esc(nm)} פעילה, אבל תבנית הפתיחה עוד לא אושרה ב-Meta, אז הודעות הפתיחה מחכות.`:`ההודעה האוטומטית למועמדים נשלחת על ידי ${esc(nm)}. כדי שתישלח, מפעילים אותה בכפתור למעלה.`}${on?' מועמד שנכנס בלילה או בשבת מקבל את ההודעה בבוקר (08:00).':''}</p></div>`}
 function hilaCfgSub(){if(S.live.hilacfg)return;S.live.hilacfg=true;S.db.doc('agentcfg/hila').onSnapshot(d=>{S.hilaCfg=d.exists?d.data():{};render()},()=>{S.hilaCfg={}})}
 function hilaCardHTML(){hilaCfgSub();const A=S.hilaCfg;if(A===undefined)return '';
   return `<div class="card"><b>💆 ${esc(A.name||'הילה')} · ספא והתארגנות כלה</b> <span class="pill">באימון · עוד לא עונה ללקוחות</span>

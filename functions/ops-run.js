@@ -60,6 +60,12 @@ const note = (t, m) => console.log(`::notice title=${t}::${String(m).replace(/\n
     const C = (await db.collection('candidates').get()).docs.map((d) => d.data() || {}); const cst = {}; C.forEach((c) => { cst[c.status || '-'] = (cst[c.status || '-'] || 0) + 1; });
     note('Jobs', `leads=${L.length} stages=${JSON.stringify(st)} nextAt=${next} notesIv=${ivWord} actsIv=${actsIv} tasks=${tasks} candidates=${C.length} cstatus=${JSON.stringify(cst)} candKeys=${[...new Set(C.flatMap((c) => Object.keys(c)))].join(',').slice(0, 300)}`);
     return; }
+  if (kind === 'blog') { // Gili's readiness: booleans/counts only
+    const a = (await db.doc('agentcfg/blog').get()).data() || {}, b = (await db.doc('blogcfg/main').get()).data() || {}, st = (b.sites || {}).chain || {};
+    const kb = {}; for (const h of Object.keys(a.hotels || {}).concat([''])) { const d = (await db.doc('agentKB/blog' + (h ? '_' + h : '')).get()).data() || {}; kb[h || 'general'] = String(d.text || '').length; }
+    const dr = (await db.collection('blogDrafts').get()).docs.map((d) => (d.data() || {}).status || '-'); const by = {}; dr.forEach((x) => { by[x] = (by[x] || 0) + 1; });
+    note('Gili', JSON.stringify({ enabled: a.enabled, hotels: Object.keys(a.hotels || {}), kbChars: kb, site: { url: !!st.url, user: !!st.user, pass: !!st.appPass, test: st.test ? { ok: st.test.ok, roles: st.test.roles } : null }, drafts: by, wpAllow: a.wpAllow === true }));
+    return; }
   if (kind === 'ariel') { // Ariel's on/off history and template (booleans/names/times only)
     const r = (await db.doc('agentcfg/recruit').get()).data() || {}; const T = ((await db.doc('wapub/main').get()).data() || {}).templates || [];
     const ot = r.openTemplate && typeof r.openTemplate === 'object' ? r.openTemplate.tpl : r.openTemplate;

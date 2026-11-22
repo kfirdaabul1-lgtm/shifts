@@ -106,6 +106,7 @@ const KEYS = ['hotel', 'month', 'date', 'shift', 'name', 'empUid', 'ooo', 'fault
     } catch (e) { console.log('::notice title=recruit template v2::error ' + String(e.message).slice(0, 120)); }
     // Nov 18 (owner): the recruiting agent is called Ariel — once
     { const r = db.doc('agentcfg/recruit'), d = (await r.get()).data() || {}; if (!d.nameNov18) await r.set({ name: 'אריאל', nameNov18: Date.now() }, { merge: true }); }
+    { const r = db.doc('agentcfg/recruit'), d = (await r.get()).data() || {}; if (!d.openTemplate) await r.set({ openTemplate: { tpl: 'job_screening_open', lang: 'he' }, otRestored: Date.now() }, { merge: true }); } // Nov 22: the field had disappeared from the doc → no opening messages
     { const r = db.doc('agentcfg/recruit'), d = (await r.get()).data() || {}; if (!d.onNov18) await r.set({ enabled: true, onNov18: Date.now() }, { merge: true }); } // owner Nov 18: Ariel starts answering job leads
     // Guy, the yield agent (Nov 12, owner asked to turn it on): create agentcfg/yield enabled, ONLY when missing
     const yr = db.doc('agentcfg/yield');

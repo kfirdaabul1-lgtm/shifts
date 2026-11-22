@@ -3023,7 +3023,7 @@ function adamCardHTML(){adamCfgSub();const A=S.adamCfg;if(A===undefined)return '
 // the agent card follows the lead kind of the automations view (owner, Nov 18: hiring showed Adam instead of Ariel)
 function agentCardFor(cat){return cat==='jobs'?arielCardHTML():(cat==='spa'||cat==='bride')?hilaCardHTML():cat==='rooms'?'':adamCardHTML()}
 function arielCfgSub(){if(S.live.arielcfg)return;S.live.arielcfg=true;S.db.doc('agentcfg/recruit').onSnapshot(d=>{S.arielCfg=d.exists?d.data():{};render()},()=>{S.arielCfg={}})}
-function arielCardHTML(){arielCfgSub();const A=S.arielCfg;if(A===undefined)return '';const on=A.enabled===true,nm=A.name||'אריאל',OT=A.openTemplate,tn=(OT&&typeof OT==='object'?OT.tpl:OT)||'',W=S.wapub||{};
+function arielCardHTML(){arielCfgSub();const A=S.arielCfg;if(A===undefined)return '';const on=A.enabled===true,nm=A.name||'אריאל',OT=A.openTemplate,tn=(OT&&typeof OT==='object'?OT.tpl:OT)||'job_screening_open',W=S.wapub||{};
   const tok=!tn?null:((W.templates||[]).some(t=>t.name===tn));
   const tl=!tn?'<span class="pill bad">לא נבחרה תבנית פתיחה</span>':tok?`<span class="pill ok">תבנית הפתיחה מאושרת · ${esc(tn)}</span>`:`<span class="pill warn">תבנית הפתיחה עוד מחכה לאישור של Meta</span>`;
   return `<div class="card"><div class="row" style="justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><div><b>🧑‍💼 ${esc(nm)} מסנן מועמדים לעבודה</b> <span class="pill ${on?'ok':''}">${on?'פעיל':'כבוי'}</span></div>
@@ -3031,7 +3031,7 @@ function arielCardHTML(){arielCfgSub();const A=S.arielCfg;if(A===undefined)retur
   <div class="muted" style="margin-top:6px">כשמגיע ליד של גיוס עובדים, ${esc(nm)} שולחת למועמד הודעת פתיחה בוואטסאפ, שואלת כמה שאלות קצרות וממלאת את טופס המועמד. אחר כך היא מעבירה את המועמד לצוות. מועמד שלא עונה 48 שעות מסומן כ"לא ענה". כשאיש צוות כותב למועמד, ${esc(nm)} מפסיקה לכתוב בשיחה הזו.</div>
   <div style="margin-top:6px">${tl}</div></div>`}
 // the jobs tab has no per-place template rules: Ariel herself is the automatic message (owner, Nov 22: "looks like Ariel has no automation")
-function arielAutoHTML(){const A=S.arielCfg;if(A===undefined)return '';const on=A.enabled===true,nm=A.name||'אריאל',OT=A.openTemplate,tn=(OT&&typeof OT==='object'?OT.tpl:OT)||'',ok=!!tn&&((S.wapub||{}).templates||[]).some(t=>t.name===tn);
+function arielAutoHTML(){const A=S.arielCfg;if(A===undefined)return '';const on=A.enabled===true,nm=A.name||'אריאל',OT=A.openTemplate,tn=(OT&&typeof OT==='object'?OT.tpl:OT)||'job_screening_open',ok=!!tn&&((S.wapub||{}).templates||[]).some(t=>t.name===tn);
   const st=on&&ok?'<span class="pill ok">פעיל</span>':on?'<span class="pill warn">מחכה לתבנית מאושרת</span>':'<span class="pill">כבוי</span>';
   return `<div class="card"><b>הודעה אוטומטית לכל ליד חדש · ${LCAT.jobs}</b> ${st}
   <p class="muted" style="font-size:.85rem;margin:6px 0 0">${on&&ok?`כל מועמד חדש עם טלפון מקבל מיד בוואטסאפ את תבנית הפתיחה <b>${esc(tn)}</b>, ו${esc(nm)} ממשיכה איתו את השיחה. אין צורך לבחור כאן תבנית לפי מקום.`:on?`${esc(nm)} פעילה, אבל תבנית הפתיחה עוד לא אושרה ב-Meta, אז הודעות הפתיחה מחכות.`:`ההודעה האוטומטית למועמדים נשלחת על ידי ${esc(nm)}. כדי שתישלח, מפעילים אותה בכפתור למעלה.`}${on?' מועמד שנכנס בלילה או בשבת מקבל את ההודעה בבוקר (08:00).':''}</p></div>`}

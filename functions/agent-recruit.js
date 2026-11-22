@@ -25,7 +25,7 @@ const C = require('./agent-common');
 const { db, admin } = C;
 const REGION = 'europe-west1';
 const FAST = 'claude-haiku-5-5', SMART = 'claude-sonnet-5-5';
-const DEFAULTS = { enabled: false, name: 'אריאל', openTemplate: null, match: { forms: [], campaigns: [], words: '' }, maxPerCandidate: 16, humanQuietMin: 30, debounceSec: 6, maxAgeMin: 15, noReplyHours: 48, notify: false, model: '' };
+const DEFAULTS = { enabled: false, name: 'אריאל', openTemplate: { tpl: 'job_screening_open', lang: 'he' }, match: { forms: [], campaigns: [], words: '' }, maxPerCandidate: 16, humanQuietMin: 30, debounceSec: 6, maxAgeMin: 15, noReplyHours: 48, notify: false, model: '' };
 const JOB_WORDS = /גיוס|דרוש|דרושים|דרושות|משרה|משרות|עבודה|לעבוד|קריירה|מועמד|hiring|recruit|career|jobs?\b|staff|vacanc|apply/i;
 const UID = /^[A-Za-z0-9]{20,40}$/;
 const isHuman = (r) => r.dir === 'out' && (r.src === 'app' || UID.test(String(r.by || '')));

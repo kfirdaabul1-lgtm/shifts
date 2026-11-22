@@ -2293,6 +2293,8 @@ exports.waChatVenue = trig('waChats/{id}').onWrite(async (ch) => {
     await sendTo(to, { title: (ha.urgency === 'urgent' ? '🔴 ' : '') + '🤵 אדם מבקש נציג בוואטסאפ', body: [(lead && lead.name) || a.name || ('+' + ch.after.id), ha.reason].filter(Boolean).join(' · '), hash: '#leads?wa=' + ch.after.id, tag: 'wa-' + ch.after.id }); } catch (e) { console.error('handoff push', e); } }
   // every chat carries `agent` ('' = nobody took it yet), so employees can query agent in ['', me] (Nov 8)
   if (a.agent === undefined) await ch.after.ref.set({ agent: '' }, { merge: true });
+  // the owner's inbox lists chats ordered by lastAt — a chat opened before any message (e.g. by Ariel/Adam) must have it (Nov 22)
+  if (!a.lastAt) await ch.after.ref.set({ lastAt: a.createdAt || Date.now() }, { merge: true });
   if (ch.before.exists && a.leadId === b.leadId && a.venue !== undefined) return;
   const v = await leadVenue(a.leadId);
   if (v === null) { if (a.venue === undefined) await ch.after.ref.set({ venue: '' }, { merge: true }); return; }

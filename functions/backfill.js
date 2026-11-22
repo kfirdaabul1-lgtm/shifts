@@ -151,6 +151,7 @@ const KEYS = ['hotel', 'month', 'date', 'shift', 'name', 'empUid', 'ooo', 'fault
   // WhatsApp chat ownership (Nov 8): every chat needs an agent field ('' = free)
   const wcs = await db.collection('waChats').get(); let an = 0;
   for (const d of wcs.docs) if ((d.data() || {}).agent === undefined) { await d.ref.update({ agent: '' }); an++; }
+  { let ln = 0; for (const d of wcs.docs) { const x = d.data() || {}; if (!x.lastAt) { await d.ref.update({ lastAt: x.createdAt || Date.now() }); ln++; } } if (ln) console.log('::notice title=Backfill::lastAt added to ' + ln + ' WhatsApp chats'); }
   console.log('::notice title=Backfill::waChats ' + wcs.size + ', agent set on ' + an);
   // social media spend per hotel: hotelAuto on every campaign report (idempotent)
   const CH = require('./camphotel.js'), CX = await CH.campCtx(db), cps = await db.collection('campaigns').get(); let cn = 0, cu = 0;

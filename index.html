@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Seven">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="lang.js?v=3c57da7a72"></script>
+<script src="lang.js?v=e4440cbf02"></script>
 <title>Seven Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -708,7 +708,7 @@ document.addEventListener('change',async e=>{const t=e.target;if(!t.matches||!t.
     for(const f of fs){const u=await compressImage(f),ref=fdb.collection('waMedia').doc(),now=Date.now();
       await ref.set({data:u,by:S.uid,chat:id,at:now,mime:'image/jpeg'});(S.waImg=S.waImg||{})[ref.id]=u;
       await fdb.collection('waChats/'+id+'/msgs').add({dir:'out',type:'image',mediaRef:ref.id,caption:cap,text:'📷 תמונה'+(cap?': '+cap:''),status:'queued',by:S.uid,byName:S.meName||'',at:now,src:'system'});cap=''}
-    render()}catch(err){toast(waErrTxt(err))}});
+    render()}catch(err){toast(waErrTxt(err,(S.waChats||{})[waCur()]))}});
 document.addEventListener('change',e=>{if(e.target.id!=='sr_cimg')return;const f=e.target.files&&e.target.files[0];if(!f)return;compressImage(f).then(u=>{S.srCleanImg=u;render()},()=>toast('לא הצלחתי לקרוא את התמונה'))});
 document.addEventListener('change',e=>{if(e.target.id!=='sr_inv')return;const f=e.target.files&&e.target.files[0];if(!f)return;compressImage(f).then(u=>{S.srInv=u;render()},()=>toast('לא הצלחתי לקרוא את התמונה'))});
 document.addEventListener('change',e=>{const t=e.target;if(!t.matches||!t.matches('[data-spatid]')||!S.sheet||S.sheet.type!=='spa')return;const b=(S.spaBk||{})[S.sheet.id]||{},d=S.drafts.spa||(S.drafts.spa={}),ti=[...dv('spa','tid',b.tid||[])];ti[+t.dataset.spatid]=t.value;d.tid=ti;const th=[...dv('spa','ther',b.ther||[])],x=spaThers().find(y=>y.id===t.value);if(x)th[+t.dataset.spatid]=x.g;d.ther=th;t.blur();render()});
@@ -2985,7 +2985,15 @@ function sheetWaPdf(){const V=S.pdfV||{},sh=S.sheet;
 function waMsgsSub(id){if(S.waMsgsId===id)return;if(S.waMsgsUn){try{S.waMsgsUn()}catch(_){}}S.waMsgsId=id;S.waMsgs=null;
   S.waMsgsUn=fdb.collection('waChats/'+id+'/msgs').orderBy('at','desc').limit(300).onSnapshot(q=>{S.waMsgs=q.docs.map(d=>({id:d.id,...d.data()})).reverse();render()},e=>{S.waMsgs=[];S.waMsgsErr=errMsg(mapErr(e));render()})}
 const waWide=()=>window.innerWidth>=900;
-const waErrTxt=e=>e&&(e.code==='permission-denied'||/permission/i.test(String(e.message||'')))?'לא נשלח: השיחה עם המספר הזה נמצאת אצל עובד אחר':'לא נשלח: '+errMsg(mapErr(e));
+// Nov 22: 'with another employee' only when the chat really has another agent; any other refusal says so with its code
+const waErrTxt=(e,c)=>{const den=e&&(e.code==='permission-denied'||/permission/i.test(String(e.message||'')));if(!den)return 'לא נשלח: '+errMsg(mapErr(e));
+  if(c&&c.agent&&c.agent!==S.uid)return 'לא נשלח: השיחה עם המספר הזה נמצאת אצל '+(c.agentName||'עובד אחר');return 'לא נשלח: אין הרשאה לשלוח מהשיחה הזו ('+(e.code||'permission-denied')+')'};
+// the chat doc may exist although it is not in S.waChats (e.g. opened by an agent, not yet listed): read it before creating
+async function waChatReady(id,L){let c=(S.waChats||{})[id];if(c)return c;
+  let s=null;try{s=await fdb.doc('waChats/'+id).get()}catch(e){throw e}
+  if(s.exists){c=s.data()||{};if(L&&!c.leadId){try{await fdb.doc('waChats/'+id).update({leadId:L[0]})}catch(_){}}return c}
+  const now=Date.now();c={waId:id,phone:waLocalOf(id),name:L?String(L[1].name||''):'',leadId:L?L[0]:'',createdAt:now,createdBy:S.uid,unread:0,cat:(L&&L[1].cat)||(S.leadF&&S.leadF.cat)||'events',venue:leadVenueNew(L&&L[1]),agent:''};
+  await fdb.doc('waChats/'+id).set(c);return c}
 // owner transfers a chat (and its lead) to someone, or the owner / the agent releases it to everyone
 async function waAgentSet(id,u){const c=(S.waChats||{})[id]||{},nm=u?(leadOwners()[u]||''):'';
   try{await fdb.doc('waChats/'+id).update({agent:u,agentName:nm,agentAt:Date.now()});
@@ -3119,8 +3127,8 @@ const waTplText=(t,params)=>String(t.body||'').replace(/\{\{(\w+)\}\}/g,(m,k)=>{
 async function waTplSend(t){const id=waCur(),c=(S.waChats||{})[id],L=waLeadOf(id,c),params=waTplParams(t,id,c,L);
   if(params.some(x=>!x)){toast((t.names||[]).includes('agent_name')&&!params[(t.names||[]).indexOf('agent_name')]?'לא נמצא השם שלך בכרטיס העובד':'צריך למלא את כל הערכים בתבנית');return}
   const text=waTplText(t,params),now=Date.now();if(!confirm('לשלוח?\n\n'+text))return;S.drafts.wa=null;S.waTplOpen=false;S.waAtBottom=true;render();
-  try{if(!c)await fdb.doc('waChats/'+id).set({waId:id,phone:waLocalOf(id),name:L?String(L[1].name||''):'',leadId:L?L[0]:'',createdAt:now,createdBy:S.uid,unread:0,cat:(L&&L[1].cat)||(S.leadF&&S.leadF.cat)||'events',venue:leadVenueNew(L&&L[1]),agent:''});else if(L&&!c.leadId)await fdb.doc('waChats/'+id).update({leadId:L[0]});
-    await fdb.collection('waChats/'+id+'/msgs').add({dir:'out',type:'template',tpl:{name:t.name,lang:t.lang,params,...(t.names&&t.names.length?{names:t.names}:{})},text,status:'queued',by:S.uid,byName:S.meName||'',at:now,src:'system'});toast('התבנית נשלחה')}catch(e){toast(waErrTxt(e))}}
+  let cc=c;try{if(!c)cc=await waChatReady(id,L);else if(L&&!c.leadId)await fdb.doc('waChats/'+id).update({leadId:L[0]});
+    await fdb.collection('waChats/'+id+'/msgs').add({dir:'out',type:'template',tpl:{name:t.name,lang:t.lang,params,...(t.names&&t.names.length?{names:t.names}:{})},text,status:'queued',by:S.uid,byName:S.meName||'',at:now,src:'system'});toast('התבנית נשלחה')}catch(e){toast(waErrTxt(e,cc))}}
 function sheetWaChat(){return waChatBody(S.sheet.id,false)}
 function waChatBody(id,inPane,embed){const c=(S.waChats||{})[id]||{},L=waLeadOf(id,c),l=L&&L[1],W=S.wapub||{},open=waOpenWin(c);waMsgsSub(id);
   const M=S.waMsgs,name=c.name||(l&&l.name)||waLocalOf(id);
@@ -6197,12 +6205,12 @@ const ACT={
     const L=waLeadOf(id,c);try{if(L&&c&&!c.leadId)await fdb.doc('waChats/'+id).update({leadId:L[0]});
       let i=0;for(const r of g.imgs){const now=Date.now()+i,cap=i===0?g.caption||'':'';
         await fdb.collection('waChats/'+id+'/msgs').add({dir:'out',type:'image',galImg:r,gallery:D.id,caption:cap,text:'📷 '+(g.name||'תמונה')+(cap?': '+cap:''),status:'queued',by:S.uid,byName:S.meName||'',at:now,src:'system'});i++}
-      toast('נשלחו '+g.imgs.length+' תמונות מ"'+(g.name||'')+'"');S.waAtBottom=true;S.sheet=sh.back||null;render()}catch(e){toast(waErrTxt(e))}},
+      toast('נשלחו '+g.imgs.length+' תמונות מ"'+(g.name||'')+'"');S.waAtBottom=true;S.sheet=sh.back||null;render()}catch(e){toast(waErrTxt(e,(S.waChats||{})[waCur()]))}},
   'wa-send':async()=>{const id=waCur(),c=(S.waChats||{})[id],text=String(dv('wa','text','')).trim();if(!text){toast('צריך לכתוב הודעה');return}
     if(!waOpenWin(c)){toast('עברו 24 שעות. צריך לשלוח תבנית');return}
     const now=Date.now(),L=waLeadOf(id,c);S.drafts.wa=null;S.waAtBottom=true;render();
     try{if(L&&!c.leadId)await fdb.doc('waChats/'+id).update({leadId:L[0]});
-      await fdb.collection('waChats/'+id+'/msgs').add({dir:'out',type:'text',text,status:'queued',by:S.uid,byName:S.meName||'',at:now,src:'system'})}catch(e){S.drafts.wa={text};render();toast(waErrTxt(e))}},
+      await fdb.collection('waChats/'+id+'/msgs').add({dir:'out',type:'text',text,status:'queued',by:S.uid,byName:S.meName||'',at:now,src:'system'})}catch(e){S.drafts.wa={text};render();toast(waErrTxt(e,(S.waChats||{})[waCur()]))}},
   'fr-tab':D=>{S.frTab=D.v;render()},
   'wa-tplt':()=>{S.waTplOpen=!S.waTplOpen;render()},
   'wa-tpl-pick':D=>{const T=(S.wapub||{}).templates||[],i=+D.i||0,t=T[i];if(!t)return;S.drafts.wa={...(S.drafts.wa||{}),tpl:i};if(waTplAllAuto(t))return waTplSend(t);render()},

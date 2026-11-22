@@ -60,6 +60,13 @@ const note = (t, m) => console.log(`::notice title=${t}::${String(m).replace(/\n
     const C = (await db.collection('candidates').get()).docs.map((d) => d.data() || {}); const cst = {}; C.forEach((c) => { cst[c.status || '-'] = (cst[c.status || '-'] || 0) + 1; });
     note('Jobs', `leads=${L.length} stages=${JSON.stringify(st)} nextAt=${next} notesIv=${ivWord} actsIv=${actsIv} tasks=${tasks} candidates=${C.length} cstatus=${JSON.stringify(cst)} candKeys=${[...new Set(C.flatMap((c) => Object.keys(c)))].join(',').slice(0, 300)}`);
     return; }
+  if (kind === 'ariel') { // Ariel's on/off history and template (booleans/names/times only)
+    const r = (await db.doc('agentcfg/recruit').get()).data() || {}; const T = ((await db.doc('wapub/main').get()).data() || {}).templates || [];
+    const ot = r.openTemplate && typeof r.openTemplate === 'object' ? r.openTemplate.tpl : r.openTemplate;
+    note('Ariel cfg', JSON.stringify({ enabled: r.enabled, mode: r.mode, ot, otApproved: T.some((t) => t.name === ot), toggledBy: r.toggledBy || '', toggledAt: r.toggledAt ? new Date(r.toggledAt).toISOString() : '', updatedAt: r.updatedAt || '', keys: Object.keys(r) }));
+    const lg = (await db.collection('agentLog').orderBy('at', 'desc').limit(300).get()).docs.map((d) => d.data()).filter((x) => /recruit|ariel/.test(x.agent || '')).slice(0, 12);
+    note('Ariel log', lg.map((x) => new Date(x.at).toISOString().slice(5, 16) + ' ' + (x.agent || '') + '/' + (x.kind || '') + ' ' + (x.err ? 'ERR ' + String(x.err).slice(0, 60) : (x.stop || ''))).join(' | ') || 'none');
+    return; }
   if (kind === 'wainfo') { // phone numbers' status on Meta (booleans/status only)
     const c = (await db.doc('wacfg/main').get()).data() || {};
     for (const [lbl, id] of [['main', c.phoneId], ['agents', c.aliPhoneId]]) { if (!id) { note('Phone ' + lbl, 'none'); continue; }

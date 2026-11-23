@@ -1225,6 +1225,12 @@ async function waIncoming(m, name, push) {
     } catch (e) { console.warn('wa cat', e.message); }
   }
   const kc = c.cat || autoCat || (ld ? await leadKind(ld) : 'events'); // the chat's inbox kind (unsorted chats live in the events inbox)
+  // hiring chats (owner, Nov 23): no push for every candidate message — only while the chat waits for a person (needHuman: Ariel handed off /
+  // finished a qualified candidate / interview to arrange; the push itself comes from waChatVenue), or to the staff member who took the chat
+  const jobs = !!c.recruit || kc === 'jobs' || (ld && ld.cat === 'jobs');
+  if (jobs) { const need = c.needHuman && c.needHuman > (c.aiHuman || 0) && !(c.doneAt > c.needHuman);
+    if (push && (need || c.agent)) await sendTo(c.agent ? [c.agent] : await leadsPeople('', ld || true, 'jobs'), { title: (need ? '🙋 ' : '💬 ') + (name || c.name || waLocal(chat)), body: text.slice(0, 140), hash: '#leads?wa=' + chat, tag: 'wa-' + chat });
+    return; }
   if (push) await sendTo(owner ? [owner] : await leadsPeople(venue, true, kc), { title: '💬 ' + (name || c.name || waLocal(chat)), body: text.slice(0, 140), hash: '#leads?wa=' + chat, tag: 'wa-' + chat });
 }
 async function waOutgoing(chat, m, src) {
@@ -2296,6 +2302,10 @@ exports.waChatVenue = trig('waChats/{id}').onWrite(async (ch) => {
   if (ha.handoff && ha.at && ha.at !== hb.at && !hb.handoff) { try { let lead = null; if (a.leadId) { const s = await db.doc('leads/' + a.leadId).get(); lead = s.exists ? s.data() : null; }
     const to = a.agent ? [a.agent] : await leadsPeople(lead ? lead.venue || '' : (a.venue || ''), lead || true, 'events');
     await sendTo(to, { title: (ha.urgency === 'urgent' ? '🔴 ' : '') + '🤵 אדם מבקש נציג בוואטסאפ', body: [(lead && lead.name) || a.name || ('+' + ch.after.id), ha.reason].filter(Boolean).join(' · '), hash: '#leads?wa=' + ch.after.id, tag: 'wa-' + ch.after.id }); } catch (e) { console.error('handoff push', e); } }
+  // hiring chat now needs a person (Ariel handoff / qualified candidate → interview to arrange, owner Nov 23) → push the hiring people (or the chat's staff agent)
+  if ((a.recruit || a.cat === 'jobs') && a.needHuman && a.needHuman !== b.needHuman) { try { let lead = null; if (a.leadId) { const s = await db.doc('leads/' + a.leadId).get(); lead = s.exists ? s.data() : null; }
+    const to = a.agent ? [a.agent] : await leadsPeople('', lead || true, 'jobs');
+    await sendTo(to, { title: '🙋 נדרש נציג · ' + (a.needHumanBy || 'אריאל'), body: [(lead && lead.name) || a.name || ('+' + ch.after.id), lead && lead.job, a.needHumanWhy].filter(Boolean).join(' · '), hash: lead ? '#leads?lead=' + a.leadId : '#leads?wa=' + ch.after.id, tag: 'wa-' + ch.after.id }); } catch (e) { console.error('recruit handoff push', e); } }
   // every chat carries `agent` ('' = nobody took it yet), so employees can query agent in ['', me] (Nov 8)
   if (a.agent === undefined) await ch.after.ref.set({ agent: '' }, { merge: true });
   // the owner's inbox lists chats ordered by lastAt — a chat opened before any message (e.g. by Ariel/Adam) must have it (Nov 22)

@@ -114,6 +114,7 @@ function systemBlocks(kb, cfg, today, cand) {
   const name = cfg.name ? `Your name is ${cfg.name}; ` : '';
   const rules = `You are the virtual recruiting assistant of the Seven Collection hotels in Tel Aviv (Israel). ${name}You talk on WhatsApp with people who left their details in a job ad. Today is ${today}.
 YOU ARE FEMALE (Ariel is a woman, owner Nov 18): in Hebrew always speak about yourself in the feminine ("אני שמחה", "הבנתי", "אשמח לשאול", "אני העוזרת", never masculine forms).
+EVERYTHING YOU WRITE IS SENT AS-IS TO THE CANDIDATE ON WHATSAPP. Never write notes to the team, never mention tools (finish/save/handoff), fields, the form, mistakes or anything internal — if something went wrong, just continue the conversation naturally. Calling finish is only for when the screening is really complete.
 Your goal: a short, friendly screening chat that fills in the candidate form, so the hiring manager can decide quickly. You do not decide anything yourself.
 
 HOW
@@ -230,7 +231,7 @@ async function recruitRun(m, chat, id, morning) {
   if (got.handoff || (got.finish && up.status === 'qualified')) await chref.set({ needHuman: now, needHumanBy: 'אריאל', needHumanWhy: got.handoff ? clip(got.handoff, 200) : 'סיימה סינון · מועמד/ת מתאים/ה' }, { merge: true }); // owner, Nov 20: label "נדרש נציג" in the inbox
   // field paths (answers.x) need update(); the doc exists
   await cref.update(up);
-  let text = clip(String(out.text || '').replace(/\*\*(.+?)\*\*/g, '*$1*').trim(), 1200);
+  let text = clip(C.custSafe(String(out.text || '').replace(/\*\*(.+?)\*\*/g, '*$1*')).trim(), 1200);
   if (!text && got.handoff) text = 'תודה! העברתי את הפנייה לצוות, ומישהו יחזור אליך בהקדם.';
   if (!text && got.finish) text = 'תודה רבה על הזמן! העברתי את הפרטים לצוות הגיוס, ואם תהיה התאמה נחזור אליך.';
   if (text) { await chref.collection('msgs').add({ dir: 'out', type: 'text', text, status: 'queued', by: 'ai', byName: cfg.name || 'אריאל', at: now, src: 'recruit' }); await chref.set({ lastAt: now, lastText: clip(text, 200), lastDir: 'out' }, { merge: true }); }

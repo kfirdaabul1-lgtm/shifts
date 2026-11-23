@@ -94,7 +94,7 @@ async function routeSweep(dry) {
 // Phone numbers in Adam's messages (Nov 19, owner): never a staff member's private number — only the events department line.
 const EVENTS_PHONE = '053-3965323';
 const PHONE_OK = new Set(['0533965323', '0733272272']);
-const phoneSafe = (t) => String(t || '').replace(/(?:\+?972[\s-]?|0)(?:[\s-]?\d){8,9}/g, (m) => { let d = m.replace(/\D/g, ''); if (d.startsWith('972')) d = '0' + d.slice(3); return PHONE_OK.has(d) ? m : EVENTS_PHONE; });
+const phoneSafe = (t) => C.custSafe(String(t || '')).replace(/(?:\+?972[\s-]?|0)(?:[\s-]?\d){8,9}/g, (m) => { let d = m.replace(/\D/g, ''); if (d.startsWith('972')) d = '0' + d.slice(3); return PHONE_OK.has(d) ? m : EVENTS_PHONE; });
 const ROUTE_RULES = `
 PHONE NUMBERS (owner, Nov 19): NEVER give a staff member's private / mobile number, even if it appears in the knowledge or in earlier messages of the chat. The only number you may give for events is the events department: ${EVENTS_PHONE}. If the customer wants to talk to someone, give that number (or offer that the team calls them).\nHOTELS FOR EVENTS (fixed rule of the chain): The Gutman (La Boheme) is right for events of up to about ${GUTMAN_MAX} guests and does NOT host weddings at all. Weddings and big events are held at hotel 7EVEN on the Sola rooftop (גג הסולה), which does weddings.
 - A customer who asked about the Gutman with a range like "50-100" starts at the Gutman: talk about the Gutman.

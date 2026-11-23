@@ -148,4 +148,13 @@ async function shabbatReply(cref, agent, name, src) {
   return true;
 }
 const inHours = (c, d) => { if (shabbat(c, d)) return false; const h = ilHourF(d), f = c && Number.isFinite(+c.hoursFrom) ? +c.hoursFrom : 8, t = c && Number.isFinite(+c.hoursTo) ? +c.hoursTo : 20; return h >= f && h < t; };
-module.exports = { ilHourF, inHours, shabbat, shabbatReply, SHABBAT_MSG, WEB_TOOLS, WEB_RULES, db, admin, PLATFORM, ilDate, addDays, weekOf, isoOk, sleep, cfg, loadKB, claude, runLoop, ownerOnly, logRun };
+// Customer-facing text guard (Nov 23, owner: Ariel sent a candidate "*הערה לצוות (לא לשלוח למועמד): קראתי ל-finish בטעות…"):
+// drop any paragraph / line that is an internal note, mentions tools or talks about the form/fields.
+const TEAM_RE = /(הערה\s*(ל|פנימית)|הערה לצוות|לא לשלוח|לצוות בלבד|note\s+(to|for)\s+(the\s+)?(team|staff)|internal note|\b(finish|handoff|save_answers|save_details|schedule_callback|propose_change|tool_use|tool call)\b|\b(fit|summary|score)\s*[,)]|קראתי ל-?\s*[a-z_]+|השדות הנדרשים|בטעות בלי)/i;
+function custSafe(t) {
+  const parts = String(t || '').split(/\n/); const keep = []; let cut = false;
+  for (const p of parts) { if (cut) continue; if (TEAM_RE.test(p)) { cut = true; continue; } keep.push(p); }
+  return keep.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+
+module.exports = { custSafe, ilHourF, inHours, shabbat, shabbatReply, SHABBAT_MSG, WEB_TOOLS, WEB_RULES, db, admin, PLATFORM, ilDate, addDays, weekOf, isoOk, sleep, cfg, loadKB, claude, runLoop, ownerOnly, logRun };

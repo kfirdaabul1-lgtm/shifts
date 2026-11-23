@@ -153,9 +153,30 @@
     root.style.visibility = 'hidden';
     try {
       const c = await html2canvas(document.body, { x: scrollX, y: scrollY, width: W, height: Hh, windowWidth: document.documentElement.clientWidth, windowHeight: Hh, scale: k, useCORS: true, logging: false, backgroundColor: getComputedStyle(document.body).backgroundColor || '#ffffff',
+        onclone: (doc) => fixColors(doc),
         ignoreElements: (el) => /^asst/.test(el.id || '') || el.classList.contains('lang-toggle') || (el.tagName === 'INPUT' && el.type === 'password') });
       return { name: 'צילום המסך', mime: 'image/jpeg', data: c.toDataURL('image/jpeg', 0.8).split(',')[1], screen: true };
     } finally { root.style.visibility = ''; }
+  }
+  // html2canvas 1.4 can't parse modern colours (color-mix → "color(srgb …)", oklch, lab) and fails with
+  // "Attempting to parse an unsupported color function" (owner, Nov 23). Turn them into rgba() on the cloned page only.
+  const MODERN = /\b(?:color|oklch|oklab|lab|lch)\([^()]*\)/g;
+  const CPROPS = ['color', 'background-color', 'background-image', 'border-top-color', 'border-right-color', 'border-bottom-color', 'border-left-color', 'outline-color', 'text-decoration-color', 'box-shadow', 'text-shadow', 'caret-color', 'column-rule-color', 'fill', 'stroke'];
+  function fixColors(doc) {
+    const cv = document.createElement('canvas'); cv.width = cv.height = 1; const cx = cv.getContext('2d', { willReadFrequently: true }), memo = {};
+    const rgba = (t) => { if (t in memo) return memo[t]; let out = 'rgba(0,0,0,0)';
+      try { cx.clearRect(0, 0, 1, 1); cx.fillStyle = '#000'; cx.fillStyle = t; cx.fillRect(0, 0, 1, 1); const d = cx.getImageData(0, 0, 1, 1).data; out = 'rgba(' + d[0] + ',' + d[1] + ',' + d[2] + ',' + (d[3] / 255).toFixed(3) + ')'; } catch (e) { }
+      return (memo[t] = out); };
+    const fix = (v) => v && /(?:color|oklch|oklab|lab|lch)\(/.test(v) ? v.replace(MODERN, rgba) : null;
+    const win = doc.defaultView || window, rules = []; let n = 0;
+    doc.querySelectorAll('*').forEach((el) => {
+      const cs = win.getComputedStyle(el);
+      for (const p of CPROPS) { const f = fix(cs.getPropertyValue(p)); if (f) el.style.setProperty(p, f, 'important'); }
+      for (const ps of ['::before', '::after']) { const pc = win.getComputedStyle(el, ps); if (!pc || pc.content === 'none' || pc.content === 'normal') continue;
+        const decl = []; for (const p of CPROPS) { const f = fix(pc.getPropertyValue(p)); if (f) decl.push(p + ':' + f + ' !important'); }
+        if (decl.length) { if (!el.dataset.h2c) el.dataset.h2c = String(++n); rules.push('[data-h2c="' + el.dataset.h2c + '"]' + ps + '{' + decl.join(';') + '}'); } }
+    });
+    if (rules.length) { const st = doc.createElement('style'); st.textContent = rules.join('\n'); doc.head.appendChild(st); }
   }
   function shrink(f) {
     return new Promise((ok, no) => {

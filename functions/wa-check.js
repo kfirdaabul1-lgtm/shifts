@@ -2,6 +2,12 @@
 const admin=require('firebase-admin');admin.initializeApp();const db=admin.firestore();
 (async()=>{
   let id=process.env.CHAT||'972545241110';
+  if(id==='owner'){ // Nov 23: which name sources exist for the owner (booleans only) + failed agent_name messages
+    const o=(await db.doc('orgcfg/main').get()).data()||{},em=String(o.ownerEmail||'kfirdaabul1@gmail.com').toLowerCase();
+    const u=await admin.auth().getUserByEmail(em).catch(()=>null);console.log('owner auth='+!!u+' verified='+!!(u&&u.emailVerified)+' displayName='+!!(u&&u.displayName));
+    if(u){const e=await db.doc('employees/'+u.uid).get(),r=await db.doc('roles/'+u.uid).get();console.log('employee doc='+e.exists+' emp name='+!!(e.exists&&e.data().name)+' role doc='+r.exists+' role name='+!!(r.exists&&r.data().name)+' orgcfg ownerName='+!!o.ownerName)}
+    const ch=await db.collection('waChats').orderBy('lastAt','desc').limit(80).get();let f=0;for(const d of ch.docs){const m=await d.ref.collection('msgs').where('status','==','failed').get();m.forEach(x=>{if(/agent_name/.test(String(x.data().error||'')))f++})}
+    console.log('failed agent_name msgs (last 80 chats)='+f);process.exit(0)}
   if(id.startsWith('name:')){const q=id.slice(5).toLowerCase();const all0=await db.collection('waChats').get();const f=all0.docs.find(d=>String((d.data()||{}).name||'').toLowerCase().includes(q));id=f?f.id:'none';console.log('found by name='+(f?'yes':'no'))}
   const s=await db.doc('waChats/'+id).get();
   console.log('chat exists='+s.exists);

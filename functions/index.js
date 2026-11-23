@@ -1304,7 +1304,11 @@ async function waTplAuto(chat, m, nm) {
     if (uidLike) {
       const e = (await db.doc('employees/' + m.by).get()).data() || {}; let fn = waFirstName(e.name);
       if (!fn) fn = waFirstName(((await db.doc('roles/' + m.by).get()).data() || {}).name);
-      if (!fn) return { err: 'לא נמצא שם השולח בכרטיס העובד (agent_name)' };
+      // Nov 23 (owner has no employee card): Auth displayName, then orgcfg/main.ownerName for the chain owner
+      let au = null; if (!fn) { try { au = await admin.auth().getUser(m.by); fn = waFirstName(au.displayName); } catch (e) { } }
+      if (!fn) { try { const o = (await db.doc('orgcfg/main').get()).data() || {}, em = String((au && au.email) || '').toLowerCase();
+        if (o.ownerName && em && au.emailVerified && em === String(o.ownerEmail || 'kfirdaabul1@gmail.com').toLowerCase()) fn = waFirstName(o.ownerName); } catch (e) { } }
+      if (!fn) return { err: 'לא נמצא שם השולח (agent_name): אין שם בכרטיס העובד, בהרשאות או בחשבון' };
       if (params[ai] !== fn) { params[ai] = fn; changed = true; }
     } else if (!params[ai]) return { err: 'חסר שם השולח (agent_name)' };
   }

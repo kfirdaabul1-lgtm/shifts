@@ -285,24 +285,30 @@ async function sendAll(o) {
 }
 // Catch-up (Nov 22, owner: "she stopped answering again"): a candidate's last message that got no answer — skipped because a person
 // had sent something a few minutes earlier, or the run failed — is answered here (every 10 min, inside the answer hours only).
-exports.recruitCatchup = functions.region(REGION).runWith({ timeoutSeconds: 300, memory: '512MB' }).pubsub.schedule('every 10 minutes').timeZone('Asia/Jerusalem').onRun(async () => {
-  const cfg = { ...DEFAULTS, ...(await C.cfg('recruit')) };
-  if (cfg.enabled !== true || cfg.catchup === false || !C.inHours(cfg)) return null;
-  const now = Date.now(), q = await db.collection('waChats').where('lastAt', '>', now - 6 * 36e5).get(); let n = 0;
+async function catchupRun() {
+  const cfg = { ...DEFAULTS, ...(await C.cfg('recruit')) }, st = { n: 0, skip: {} }, sk = (k) => { st.skip[k] = (st.skip[k] || 0) + 1; };
+  if (cfg.enabled !== true || cfg.catchup === false || !C.inHours(cfg)) { st.off = true; return st; }
+  const now = Date.now(), q = await db.collection('waChats').where('lastAt', '>', now - 6 * 36e5).get();
   for (const d of q.docs) {
-    const c = d.data() || {};
-    if (!c.recruit || c.guide || c.lastDir !== 'in' || (c.aiRecruit && c.aiRecruit.off) || now - (+c.lastAt || 0) < 4 * 60e3) continue;
-    const rs = (await d.ref.collection('msgs').orderBy('at', 'desc').limit(20).get()).docs; const last = rs.find((x) => (x.data() || {}).type !== 'reaction'); if (!last) continue;
-    const m = last.data() || {}; if (m.dir !== 'in') continue;
-    // a person wrote in the last humanQuietMin: wait, and try again on a later run (no claim yet — Nov 23, a skipped message was never retried)
-    if (rs.some((x) => isHuman(x.data() || {}) && now - (+(x.data() || {}).at || 0) < cfg.humanQuietMin * 60e3)) continue;
-    try { await db.doc('agentClaims/recruitCu_' + d.id + '_' + last.id).create({ at: now }); } catch (e) { continue; }
-    try { await recruitRun(m, d.id, last.id, true); n++; } catch (e) { console.error('recruitCatchup', d.id, e); }
-    if (n >= 8) break;
+    try {
+      const c = d.data() || {};
+      if (!c.recruit || c.guide) continue;
+      if (c.lastDir !== 'in') { sk('answered'); continue; }
+      if (c.aiRecruit && c.aiRecruit.off) { sk('off'); continue; }
+      if (now - (+c.lastAt || 0) < 4 * 60e3) { sk('fresh'); continue; }
+      const rs = (await d.ref.collection('msgs').orderBy('at', 'desc').limit(20).get()).docs; const last = rs.find((x) => (x.data() || {}).type !== 'reaction'); if (!last) { sk('noMsg'); continue; }
+      const m = last.data() || {}; if (m.dir !== 'in') { sk('lastOut'); continue; }
+      // a person wrote in the last humanQuietMin: wait, and try again on a later run (no claim yet — Nov 23, a skipped message was never retried)
+      if (rs.some((x) => isHuman(x.data() || {}) && now - (+(x.data() || {}).at || 0) < cfg.humanQuietMin * 60e3)) { sk('human'); continue; }
+      try { await db.doc('agentClaims/recruitCu_' + d.id + '_' + last.id).create({ at: now }); } catch (e) { sk('claimed'); continue; }
+      const r = await recruitRun(m, d.id, last.id, true); st.n++; sk(r ? 'ran' : 'ranNull');
+    } catch (e) { sk('err:' + String(e && e.message || e).slice(0, 60)); console.error('recruitCatchup', d.id, e); }
+    if (st.n >= 8) break;
   }
-  if (n) await C.logRun('recruit', { kind: 'catchup', n });
-  return null;
-});
+  if (st.n) await C.logRun('recruit', { kind: 'catchup', n: st.n });
+  return st;
+}
+exports.recruitCatchup = functions.region(REGION).runWith({ timeoutSeconds: 300, memory: '512MB' }).pubsub.schedule('every 10 minutes').timeZone('Asia/Jerusalem').onRun(async () => { await catchupRun(); return null; });
 // Resume candidates Ariel handed off without a real reason (Nov 23, owner: she handed off a candidate who said her hotel experience was in the restaurant).
 async function resumeHandoffs({ dry, hours = 36 } = {}) {
   const now = Date.now(), out = { checked: 0, resumed: 0, skipped: {} }, sk = (k) => { out.skipped[k] = (out.skipped[k] || 0) + 1; };
@@ -326,4 +332,4 @@ async function resumeHandoffs({ dry, hours = 36 } = {}) {
   }
   return out;
 }
-exports._t = { recruitRun, resumeHandoffs, isJobLead, openCandidate, sendAll, systemBlocks, historyOf, waIdFrom, FIELDS, DEFAULTS };
+exports._t = { recruitRun, catchupRun, resumeHandoffs, isJobLead, openCandidate, sendAll, systemBlocks, historyOf, waIdFrom, FIELDS, DEFAULTS };

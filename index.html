@@ -3101,7 +3101,7 @@ function waListHTML(f){waSub();leadCatsLive();const W=S.wapub||{},q=String(S.waQ
   const all=Object.entries(S.waChats||{}).filter(([id,c])=>(waCatOf(id,c)||'events')===cat);
   const pass=([id,c])=>{const L=waLeadOf(id,c);if((F==='arch')!==waArch(id,c))return false;if(F==='wait'&&!waWait(c))return false;if(F==='human'&&!waNeedH(c))return false;if(F==='unread'&&!(+c.unread>0))return false;if(F==='open'&&c.status==='done')return false;if(F==='done'&&c.status!=='done')return false;if(F==='win'&&!waOpenWin(c))return false;if(F==='lead'&&!L)return false;if(F==='nolead'&&L)return false;
     return !q||String(c.name||'').toLowerCase().includes(q)||(L&&String(L[1].name||'').toLowerCase().includes(q))||(qt.length>=4&&leadTel(waLocalOf(id)).includes(qt))||String(c.lastText||'').toLowerCase().includes(q)};
-  const rows=all.filter(pass).map((x,i)=>[x,i]).sort((a,b)=>(!!waNeedH(b[0][1])-!!waNeedH(a[0][1]))||a[1]-b[1]).map(x=>x[0]); // נדרש נציג first
+  const rows=all.filter(pass).sort((a,b)=>(+b[1].lastAt||0)-(+a[1].lastAt||0)); // newest last message first (owner, Nov 23)
   const head=(S.isOwner&&(S.waCfgOpen||!W.on)?waCfgHTML()+arsCfgHTML():'')+(!W.on?`<div class="notice">${S.isOwner?'וואטסאפ עוד לא מחובר. ממלאים את "חיבור וואטסאפ" למעלה.':'וואטסאפ עוד לא חובר למערכת. הבעלים מחבר אותו מהעמוד הזה.'}</div>`:'');
   if(S.waErr)return head+`<div class="notice bad">לא הצלחתי לטעון שיחות: ${esc(S.waErr)}</div>`;
   if(!S.waReady)return head+'<p class="muted">טוען שיחות…</p>';

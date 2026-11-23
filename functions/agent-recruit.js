@@ -320,7 +320,7 @@ async function resumeHandoffs({ dry, hours = 36 } = {}) {
     const last = rows.find((r) => r.dir === 'in' && r.type !== 'reaction'); if (!last) { sk('noMsg'); continue; }
     if (dry) { out.resumed++; continue; }
     const del = admin.firestore.FieldValue.delete();
-    await d.ref.set({ status: 'screening', handoff: del, resumedAt: now }, { merge: true });
+    await d.ref.set({ status: 'screening', handoff: del, finishedAt: del, resumedAt: now }, { merge: true });
     await chref.set({ aiRecruit: { handoff: del }, needHuman: del, needHumanBy: del, needHumanWhy: del }, { merge: true });
     await recruitRun(last, c.chat, last.id, true); out.resumed++;
   }

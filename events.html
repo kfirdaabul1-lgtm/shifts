@@ -1711,7 +1711,7 @@ async function waQuoteTpl(d){
   if(cur.signature){toast('ההצעה כבר נחתמה');return}
   const link=buildSignLink(cur);if(!link){toast('לא הצלחתי ליצור קישור להצעה. שמור שוב ונסה.');return}
   let pub={},auto={};try{const [p,a]=await Promise.all([db.doc('wapub/main').get(),db.doc('waauto/main').get()]);pub=p.exists?p.data():{};auto=a.exists?a.data():{}}catch(_){}
-  const pick=auto.quote||{},want=pick.tpl||'quote_ready',t=(pub.templates||[]).find(x=>x.name===want&&(!pick.lang||x.lang===pick.lang));
+  const pick=auto.quote||{},want=pick.tpl||'quote_ready',T=pub.templates||[],t=T.find(x=>x.name===want&&(!pick.lang||x.lang===pick.lang))||(pick.tpl?null:T.find(x=>/^quote_ready/.test(x.name)));
   if(!pub.on||!t){if(confirm(`הלקוח לא כתב לעסק בוואטסאפ ב-24 השעות האחרונות, ולכן אפשר לשלוח לו רק תבנית מאושרת. התבנית ${want} לא נמצאה ברשימת התבניות המאושרות.\n\nלפתוח את השיחה בעמוד הלידים כדי לשלוח תבנית אחרת?`))window.open('index.html#leads?wa='+d,'_blank');return}
   const first=String(cur.client.name||'').trim().split(/\s+/)[0]||'-',hotel=venueOf(cur.event.venue).name||'-';
   const val=k=>/link|url|quote/i.test(k)?link:/hotel|venue|place|biz/i.test(k)?hotel:first;

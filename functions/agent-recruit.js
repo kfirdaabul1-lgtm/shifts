@@ -114,6 +114,7 @@ function systemBlocks(kb, cfg, today, cand) {
   const name = cfg.name ? `Your name is ${cfg.name}; ` : '';
   const rules = `You are the virtual recruiting assistant of the Seven Collection hotels in Tel Aviv (Israel). ${name}You talk on WhatsApp with people who left their details in a job ad. Today is ${today}.
 YOU ARE FEMALE (Ariel is a woman, owner Nov 18): in Hebrew always speak about yourself in the feminine ("אני שמחה", "הבנתי", "אשמח לשאול", "אני העוזרת", never masculine forms).
+Lines marked [הודעה של איש צוות: …] were written by a person from the hiring team, not by you. What the team said wins: never contradict it, never offer a different position or terms than the team offered, and if a team member is handling the candidate, keep to what they said.
 EVERYTHING YOU WRITE IS SENT AS-IS TO THE CANDIDATE ON WHATSAPP. Never write notes to the team, never mention tools (finish/save/handoff), fields, the form, mistakes or anything internal — if something went wrong, just continue the conversation naturally. Calling finish is only for when the screening is really complete.
 Your goal: a short, friendly screening chat that fills in the candidate form, so the hiring manager can decide quickly. You do not decide anything yourself.
 
@@ -159,7 +160,8 @@ function historyOf(rows) {
   for (const r of rows.slice().reverse()) {
     const t = clip(String(r.text || '').trim(), 1500); if (!t || r.type === 'reaction') continue;
     const role = r.dir === 'in' ? 'user' : 'assistant';
-    if (out.length && out[out.length - 1].role === role) out[out.length - 1].content += '\n' + t; else out.push({ role, content: t });
+    const t2 = isHuman(r) ? '[הודעה של איש צוות: ' + t + ']' : t; // staff wrote it, not Ariel — she must follow it, never contradict it (Nov 23)
+    if (out.length && out[out.length - 1].role === role) out[out.length - 1].content += '\n' + t2; else out.push({ role, content: t2 });
   }
   while (out.length && out[0].role !== 'user') out.shift();
   return out;
@@ -198,6 +200,8 @@ async function recruitRun(m, chat, id, morning) {
   const rows = (await chref.collection('msgs').orderBy('at', 'desc').limit(20).get()).docs.map((d) => ({ id: d.id, ...d.data() }));
   const latestIn = rows.find((r) => r.dir === 'in' && r.type !== 'reaction'); if (!latestIn || latestIn.id !== id) return null; // a ❤️ reaction is not a new message (Nov 23)
   if (rows.some((r) => isHuman(r) && Date.now() - (+r.at || 0) < cfg.humanQuietMin * 60e3)) { await C.logRun('recruit', { chat, skipped: 'a person answered recently' }); return null; }
+  // a team member leads the chat (Nov 23, owner: Ariel contradicted the reception offer he made): the last message from our side was written by a person → Ariel stays out
+  { const lastOut = rows.find((r) => r.dir === 'out' && r.type !== 'reaction'); if (lastOut && isHuman(lastOut) && cfg.staffLead !== false) { await C.logRun('recruit', { chat, skipped: 'a team member leads this chat' }); return null; } }
   const rref = db.doc('agentRate/recruit_' + chat);
   const allowed = await db.runTransaction(async (tx) => { const s = await tx.get(rref), n = s.exists ? +s.data().n || 0 : 0; if (n >= cfg.maxPerCandidate) return false; tx.set(rref, { n: n + 1, at: Date.now() }); return true; });
   if (!allowed) { await cref.set({ status: 'handoff', handoff: 'too many messages, a person should continue', updatedAt: Date.now() }, { merge: true }); await chref.set({ aiRecruit: { handoff: true, at: Date.now() }, needHuman: Date.now(), needHumanBy: 'אריאל' }, { merge: true }); return null; }

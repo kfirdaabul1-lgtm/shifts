@@ -1,5 +1,13 @@
 <!doctype html><html lang="he" dir="rtl"><head><meta name="theme-color" content="#14213D"><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}.vatpick{background:var(--soft,rgba(176,141,87,.12));border-radius:6px;padding:8px 10px;margin-bottom:8px}
-</style><script src="lang.js?v=5d5bad172a"></script></head><body>
+
+/* payments: actions folded until opened (owner, Nov 23) */
+.pfold{border:1px solid var(--line);border-radius:var(--r,6px);margin:8px 0;padding:0 12px}
+.pfold>summary{cursor:pointer;padding:10px 0;font-weight:600;list-style:none}
+.pfold>summary::-webkit-details-marker{display:none}
+.pfold>summary::after{content:' ▾';color:var(--muted)}
+.pfold[open]>summary::after{content:' ▴'}
+.pfold[open]{padding-bottom:12px}
+</style><script src="lang.js?v=24c826ac18"></script></head><body>
 <style>
 .evtop{background:var(--surface);border-bottom:1px solid var(--line)}
 .evtop-in{max-width:1240px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:10px;padding-block:6px;padding-left:max(10px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
@@ -431,6 +439,7 @@ table.ctable{border-collapse:collapse;width:100%;min-width:620px;font-size:14px;
 
       <div class="sec"><div class="sec-t">תשלומים מהמזמין</div>
         <div id="payList"></div>
+        <details class="pfold"><summary>➕ רישום תשלום שהתקבל</summary>
         <div class="row">
           <label class="f">סכום ששולם (₪)<input id="payAmt" type="number" min="0" step="1" inputmode="decimal" placeholder="לדוגמה: 5000"></label>
           <label class="f">תאריך<input id="payDate" type="date"></label>
@@ -441,8 +450,11 @@ table.ctable{border-collapse:collapse;width:100%;min-width:620px;font-size:14px;
         </div>
         <label class="f">הערה<input id="payNote" placeholder="לא חובה"></label>
         <div><button class="btn" id="payAdd">הוספת תשלום</button></div>
+        </details>
         <div style="margin-top:14px;padding-top:12px;border-top:1px dashed var(--line)">
           <div class="sec-t" style="font-size:15px">דרישת תשלום</div>
+          <div id="prList"></div>
+          <details class="pfold"><summary>📨 דרישת תשלום חדשה ושליחה ללקוח</summary>
           <div class="row">
             <label class="f">סכום הדרישה<select id="prMode"><option value="all">כל היתרה</option><option value="part">סכום חלקי</option></select></label>
             <label class="f" id="prAmtL" hidden>סכום (₪)<input id="prAmt" type="number" min="0" step="1" inputmode="decimal" placeholder="לדוגמה: 5000"></label>
@@ -451,7 +463,7 @@ table.ctable{border-collapse:collapse;width:100%;min-width:620px;font-size:14px;
           <label class="f">הערה בדרישה<input id="prNote" placeholder="לדוגמה: מקדמה לשריון התאריך"></label>
           <div class="meta" id="prSum" style="font-size:13px;color:var(--muted);margin:2px 0 8px"></div>
           <div class="actions"><button class="btn" id="prPdf">PDF דרישת תשלום</button><button class="btn" id="prWaSys" type="button" hidden style="background:#25D366;color:#fff;border-color:#25D366">📲 וואטסאפ מהמערכת</button><a class="btn" id="prWa" href="#" target="_blank" rel="noopener">שליחה בוואטסאפ</a><a class="btn" id="prOl" href="#" target="_blank" rel="noopener">שליחה ב-Outlook</a><a class="btn" id="prGm" href="#" target="_blank" rel="noopener">שליחה ב-Gmail</a><button class="btn ghost" id="prCopy">העתק נוסח</button></div>
-          <div id="prList"></div>
+          </details>
         </div>
         <div style="position:absolute;left:-20000px;top:0;width:794px" aria-hidden="true"><div class="paperwrap"><div class="doc" id="payDoc"></div></div></div>
       </div>

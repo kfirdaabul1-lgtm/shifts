@@ -292,8 +292,10 @@ exports.recruitCatchup = functions.region(REGION).runWith({ timeoutSeconds: 300,
   for (const d of q.docs) {
     const c = d.data() || {};
     if (!c.recruit || c.guide || c.lastDir !== 'in' || (c.aiRecruit && c.aiRecruit.off) || now - (+c.lastAt || 0) < 4 * 60e3) continue;
-    const last = (await d.ref.collection('msgs').orderBy('at', 'desc').limit(1).get()).docs[0]; if (!last) continue;
+    const rs = (await d.ref.collection('msgs').orderBy('at', 'desc').limit(20).get()).docs; const last = rs.find((x) => (x.data() || {}).type !== 'reaction'); if (!last) continue;
     const m = last.data() || {}; if (m.dir !== 'in') continue;
+    // a person wrote in the last humanQuietMin: wait, and try again on a later run (no claim yet — Nov 23, a skipped message was never retried)
+    if (rs.some((x) => isHuman(x.data() || {}) && now - (+(x.data() || {}).at || 0) < cfg.humanQuietMin * 60e3)) continue;
     try { await db.doc('agentClaims/recruitCu_' + d.id + '_' + last.id).create({ at: now }); } catch (e) { continue; }
     try { await recruitRun(m, d.id, last.id, true); n++; } catch (e) { console.error('recruitCatchup', d.id, e); }
     if (n >= 8) break;

@@ -67,9 +67,12 @@ const note = (t, m) => console.log(`::notice title=${t}::${String(m).replace(/\n
     note('Gili', JSON.stringify({ enabled: a.enabled, hotels: Object.keys(a.hotels || {}), kbChars: kb, site: { url: !!st.url, user: !!st.user, pass: !!st.appPass, test: st.test ? { ok: st.test.ok, roles: st.test.roles } : null }, drafts: by, wpAllow: a.wpAllow === true }));
     return; }
   if (kind === 'arielunclaim') { // free catch-up claims of recruit chats whose last message is still unanswered (Nov 23)
-    const q = await db.collection('agentClaims').where(admin.firestore.FieldPath.documentId(), '>=', 'recruitCu_').where(admin.firestore.FieldPath.documentId(), '<', 'recruitCu`').get(); let n = 0;
-    for (const d of q.docs) { const chat = d.id.slice(10).replace(/_[^_]+$/, ''); const c = (await db.doc('waChats/' + chat).get()).data() || {}; if (c.lastDir === 'in' && Date.now() - (+c.lastAt || 0) < 6 * 36e5) { await d.ref.delete(); n++; } }
-    note('Ariel unclaim', 'claims ' + q.size + ' freed ' + n); return;
+    const Ch = (await db.collection('waChats').where('lastAt', '>', Date.now() - 6 * 36e5).get()).docs.filter((d) => { const c = d.data() || {}; return c.recruit && c.lastDir === 'in'; }); const out = [];
+    for (const d of Ch) { const rs = (await d.ref.collection('msgs').orderBy('at', 'desc').limit(3).get()).docs; const l = rs.find((x) => (x.data() || {}).type !== 'reaction'); if (!l) continue; const m = l.data() || {};
+      const cr = db.doc('agentClaims/recruitCu_' + d.id + '_' + l.id), ex = (await cr.get()).exists; if (ex) await cr.delete();
+      const c2 = (await db.doc('agentClaims/recruit_' + d.id + '_' + l.id).get()).exists;
+      out.push([m.dir, m.type, m.src || '', String(m.text || '').trim().length, ex ? 'cu' : '', c2 ? 'rt' : '', Math.round((Date.now() - (+m.at || 0)) / 6e4)].join(',')); }
+    note('Ariel unclaim', JSON.stringify(out)); return;
   }
   if (kind === 'ariel') { // Ariel's on/off history and template (booleans/names/times only)
     const r = (await db.doc('agentcfg/recruit').get()).data() || {}; const T = ((await db.doc('wapub/main').get()).data() || {}).templates || [];

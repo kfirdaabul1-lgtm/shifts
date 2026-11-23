@@ -67,7 +67,7 @@ const note = (t, m) => console.log(`::notice title=${t}::${String(m).replace(/\n
     note('Gili', JSON.stringify({ enabled: a.enabled, hotels: Object.keys(a.hotels || {}), kbChars: kb, site: { url: !!st.url, user: !!st.user, pass: !!st.appPass, test: st.test ? { ok: st.test.ok, roles: st.test.roles } : null }, drafts: by, wpAllow: a.wpAllow === true }));
     return; }
   if (kind === 'arielunclaim') { // free catch-up claims of recruit chats whose last message is still unanswered (Nov 23)
-    { const q = await db.collection('candidates').where('status', '==', 'screening').get(); let f = 0; for (const d of q.docs) { const c = d.data() || {}; if (c.finishedAt && c.resumedAt) { await d.ref.update({ finishedAt: admin.firestore.FieldValue.delete() }); f++; } } note('Ariel resumed fix', 'finishedAt cleared ' + f); }
+    { const q = await db.collection('candidates').where('status', '==', 'screening').get(); let f = 0; for (const d of q.docs) { const c = d.data() || {}; if (c.finishedAt) { await d.ref.update({ finishedAt: admin.firestore.FieldValue.delete() }); f++; } } note('Ariel resumed fix', 'finishedAt cleared ' + f); }
     const Ch = (await db.collection('waChats').where('lastAt', '>', Date.now() - 6 * 36e5).get()).docs.filter((d) => { const c = d.data() || {}; return c.recruit && c.lastDir === 'in'; }); const out = [];
     for (const d of Ch) { const rs = (await d.ref.collection('msgs').orderBy('at', 'desc').limit(3).get()).docs; const l = rs.find((x) => (x.data() || {}).type !== 'reaction'); if (!l) continue; const m = l.data() || {};
       const cr = db.doc('agentClaims/recruitCu_' + d.id + '_' + l.id), ex = (await cr.get()).exists; if (ex) await cr.delete();

@@ -188,7 +188,7 @@ async function recruitRun(m, chat, id, morning) {
   // outside 08:00–20:00 (owner, Nov 19): a CV is already saved above; the answer waits for the morning
   if (!morning && C.shabbat(cfg)) await C.shabbatReply(chref, 'recruit', cfg.name || 'אריאל', 'recruit'); // owner, Nov 21
   if (!morning && !C.inHours(cfg)) { await chref.set({ aiNight: { recruit: { msg: id, at: +m.at || Date.now() } }, aiNightAt: Date.now() }, { merge: true }); await C.logRun('recruit', { chat, skipped: 'outside answer hours, queued for the morning' }); return null; }
-  if (['qualified', 'not_fit', 'handoff', 'done'].includes(cand.status) || cand.finishedAt) { // finished: a person continues from the inbox; just thank for a CV
+  if (['qualified', 'not_fit', 'handoff', 'done'].includes(cand.status)) { // status only: a resumed candidate (screening) may still carry finishedAt (Nov 23) // finished: a person continues from the inbox; just thank for a CV
     if (pdfBuf || (cand.cv && isFile)) { const now = Date.now(), t = 'תודה רבה, קיבלנו את קורות החיים 🙏'; await chref.collection('msgs').add({ dir: 'out', type: 'text', text: t, status: 'queued', by: 'ai', byName: cfg.name || 'אריאל', at: now, src: 'recruit' }); await chref.set({ lastAt: now, lastText: t, lastDir: 'out' }, { merge: true }); }
     return null;
   }

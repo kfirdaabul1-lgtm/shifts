@@ -117,10 +117,8 @@ exports.onPurchaseReq = trig('purchaseReqs/{id}').onCreate(async (snap) => {
 // ---------- new fault → maintenance + hotel managers ----------
 // reception desk accounts (roles with station: true) of a hotel
 // Arsona guest-request alerts go ONLY to the reception clerks on shift now + the hotel's physical reception desks (owner, Nov 17); unknown hotel → every hotel's
-async function greqDesk(hotel) {
-  const ops = require('./agent-ops.js')._t, hs = hotel ? [hotel] : (await db.collection('hotels').get()).docs.map((d) => d.id), out = [];
-  for (const h of hs) { out.push(...(await stationsOf(h))); try { out.push(...(await ops.recNow(h))); } catch (e) { console.error('greqDesk', h, e.message); } }
-  return [...new Set(out)];
+async function greqDesk(hotel) { // owner (Nov 23): same targets as Aliana's nag — clerks on shift in that hotel, else its gm; no hotel → owner
+  try { return (await require('./agent-ops.js')._t.greqTargets(hotel || '', 0)).to; } catch (e) { console.error('greqDesk', e.message); return []; }
 }
 async function stationsOf(hotel) {
   const rs = await db.collection('roles').where('station', '==', true).get();

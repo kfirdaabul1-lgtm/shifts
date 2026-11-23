@@ -450,15 +450,35 @@ function handoffDue(at, cfg) {
 // reception employees on shift right now at the hotel (published or not; overnight shifts from yesterday too)
 const DEF_HH = { m: ['07:00', '15:00'], e: ['15:00', '23:00'], n: ['23:00', '07:00'], d: ['09:00', '17:00'], s1: ['07:00', '15:00'], s2: ['15:00', '23:00'] };
 async function recNow(h) {
+  // owner (Nov 23): only people placed in a RECEPTION shift of THIS hotel in the PUBLISHED schedule, whose employee card is of this hotel
+  // (no chain staff / all-hotel roles, no reception desks), on a shift covering now (from 15 min before the start)
   const now = Date.now(), today = C.ilDate(new Date(now)), yest = C.addDays(today, -1), out = new Set();
   const at = (d, hm) => { const [H, M] = String(hm).split(':').map(Number); return ilEpoch(d, H || 0) + (M || 0) * 60e3; };
   for (const s of await staffing(h, [yest, today])) {
-    if (s.dept !== 'reception' || !s.who.length) continue;
+    if (s.dept !== 'reception' || !s.published || !s.who.length) continue;
     const st = s.start || (DEF_HH[s.kind] || [])[0], en = s.end || (DEF_HH[s.kind] || [])[1]; if (!st || !en) continue;
     const a = at(s.date, st); let b = at(s.date, en); if (b <= a) b = at(C.addDays(s.date, 1), en);
     if (now >= a - 15 * 60e3 && now <= b) s.who.forEach((u) => out.add(u));
   }
-  return [...out];
+  const ok = [];
+  for (const u of out) { const e = (await docData('employees/' + u)) || null; if (e && e.hotel === h && e.active !== false) ok.push(u); }
+  return ok;
+}
+// owner devices (pushTokens owner:true, checked against the verified account e-mail = orgcfg/main.ownerEmail)
+async function ownerUids() {
+  const q0 = await db.collection('pushTokens').where('owner', '==', true).get(), oe = String((((await docData('orgcfg/main')) || {}).ownerEmail) || 'kfirdaabul1@gmail.com').toLowerCase(), out = [];
+  for (const d of q0.docs) { try { const u = await admin.auth().getUser(d.id); if (u.emailVerified && String(u.email || '').toLowerCase() === oe) out.push(d.id); } catch (e) { } }
+  return out;
+}
+// managers of THIS hotel only (gm role whose hotels list names the hotel; all-hotel roles excluded)
+async function hotelGms(h) { const out = []; (await db.collection('roles').get()).forEach((d) => { const r = d.data() || {}; if (!r.station && r.apps && r.apps.gm && (r.hotels || []).includes(h)) out.push(d.id); }); return out; }
+// who gets an Arsona guest-request alert (owner, Nov 23): reception clerks on shift now in the request's hotel;
+// none on shift → that hotel's manager; from 30 min also the manager; no hotel → the owner only
+async function greqTargets(hotel, mins) {
+  if (!hotel) return { to: await ownerUids(), crew: [] };
+  const crew = await recNow(hotel); let to = [...crew];
+  if (!crew.length || (+mins || 0) >= 30) to.push(...(await hotelGms(hotel)));
+  return { to: [...new Set(to)], crew };
 }
 // WhatsApp to each person: free text inside the 24 h window (they wrote to the agents' number), else the approved template
 // waauto/main.greqTpl {tpl, lang} (values in order / by name: employee first name, hotel, minutes, guest, request); none → skipped
@@ -492,10 +512,9 @@ async function greqNag(cfg) {
   for (const r of L) {
     const mins = Math.floor((now - (+r.at || now)) / 60e3), step = Math.floor((mins - first) / every);
     if ((sent[r.id] ?? -1) >= step) continue;
-    let to = [], hn = '', crew = [];
-    // owner (Nov 17): ONLY the reception clerks on shift now + the physical reception desks (stations); hotel unknown → every hotel's
-    if (r.hotel) { const p = await pp(r.hotel); crew = await recNow(r.hotel); to = [...p.stations, ...crew]; hn = names[r.hotel] || (names[r.hotel] = (((await docData('hotels/' + r.hotel)) || {}).name) || ''); }
-    else { for (const ht of await loadHotels()) { const p = await pp(ht.id), c = await recNow(ht.id); to.push(...p.stations, ...c); crew.push(...c); } crew = [...new Set(crew)]; }
+    // owner (Nov 23): only the reception clerks on shift now in THIS hotel (no desks, no all-hotel roles); none → the hotel's gm; 30+ min → also gm; no hotel → owner
+    const { to, crew } = await greqTargets(r.hotel || '', mins);
+    const hn = r.hotel ? (names[r.hotel] || (names[r.hotel] = (((await docData('hotels/' + r.hotel)) || {}).name) || '')) : '';
     const who = [r.guest, r.room && 'חדר ' + r.room].filter(Boolean).join(' · ') || 'אורח', what = clip(r.summary || r.reason || r.kind || '', 160);
     await sendPush(to, { title: `🗂 אליאנה · פנייה מארסונה מחכה ${mins} דק׳`, body: clip(`${hn ? hn + ': ' : ''}${who} — ${what}. מישהו בקבלה צריך לקחת את הפנייה ולענות ללקוח עכשיו.`, 300), hash: '#greq?r=' + r.id, tag: 'opsg-' + r.id });
     // WhatsApp from the agents' number to the reception employees on shift now (owner, Nov 17): only after 2 unanswered app nags, at most 6 per request
@@ -569,6 +588,11 @@ exports.opsJob = functions.region(REGION).runWith({ timeoutSeconds: 540, memory:
   if (j0.kind === 'adamroute') { try { const r = await require('./agent-reply.js')._t.routeSweep(!!j0.dry); await snap.ref.set({ status: 'done', warm: r, doneAt: Date.now() }, { merge: true }); } catch (e) { await snap.ref.set({ status: 'error', error: clip(e.message || e, 300) }, { merge: true }); } return; }
   if (j0.kind === 'adamcb') { try { const n = await require('./agent-reply.js')._t.cbBackfill(); await snap.ref.set({ status: 'done', warm: { callbacks: n }, doneAt: Date.now() }, { merge: true }); } catch (e) { await snap.ref.set({ status: 'error', error: clip(e.message || e, 300) }, { merge: true }); } return null; }
   if (j0.kind === 'ivscan') { try { const r = await require('./agent-ariel.js')._t.ivScan({ dry: j0.dry === true }); await snap.ref.set({ status: 'done', iv: r, doneAt: Date.now() }, { merge: true }); } catch (e) { await snap.ref.set({ status: 'error', error: clip(e.message || e, 300) }, { merge: true }); } return null; }
+  if (j0.kind === 'greqwho') { try { // who would get an Arsona alert now, per hotel (counts + whether the probe person is included; no names)
+    const pr = []; (await db.collection('employees').get()).forEach((d) => { if (new RegExp(j0.probe || '^\\s*(גוני|goni)', 'i').test(String((d.data() || {}).name || ''))) pr.push(d.id); });
+    const out = { probe: pr.length }; for (const h of await loadHotels()) { const t0 = await greqTargets(h.id, 0), t30 = await greqTargets(h.id, 31); out[(h.name || h.id).slice(0, 12)] = { crew: t0.crew.length, to: t0.to.length, to30: t30.to.length, probe: pr.some((u) => t0.to.includes(u)) }; }
+    const nh = await greqTargets('', 0); out.noHotel = nh.to.length;
+    await snap.ref.set({ status: 'done', warm: out, doneAt: Date.now() }, { merge: true }); } catch (e) { await snap.ref.set({ status: 'error', error: clip(e.message || e, 300) }, { merge: true }); } return null; }
   if (j0.kind === 'recruitcatchup') { try { const r = await require('./agent-recruit.js')._t.catchupRun(); await snap.ref.set({ status: 'done', warm: r, doneAt: Date.now() }, { merge: true }); } catch (e) { await snap.ref.set({ status: 'error', error: String(e.message || e).slice(0, 300), doneAt: Date.now() }, { merge: true }); } return null; }
   if (j0.kind === 'recruitresume') { try { const r = await require('./agent-recruit.js')._t.resumeHandoffs({ dry: j0.dry === true }); await snap.ref.set({ status: 'done', warm: r, doneAt: Date.now() }, { merge: true }); } catch (e) { await snap.ref.set({ status: 'error', error: clip(e.message || e, 300) }, { merge: true }); } return null; }
   if (j0.kind === 'recruitall') { try { const r = await require('./agent-recruit.js')._t.sendAll({ dry: j0.dry === true }); await snap.ref.set({ status: 'done', warm: r, doneAt: Date.now() }, { merge: true }); } catch (e) { await snap.ref.set({ status: 'error', error: clip(e.message || e, 300) }, { merge: true }); } return null; }
@@ -954,4 +978,4 @@ exports.opsChat = functions.region(REGION).runWith({ timeoutSeconds: 300, memory
   } catch (e) { console.error('opsChat', e); res.status(500).json({ error: 'משהו השתבש. נסו שוב בעוד רגע.' }); }
 });
 
-exports._t = { sendPush, recNow, hkPlanBuild, hkPlanRun, opsOk, opsCore, opsRate, OPS_NO, handoffDue, ilEpoch, runWatch, staffing, tenDays, people, route, hotelChecks, notify, suggest, codeReport, agentsHealth, writeDirection, runAll, DEFAULTS };
+exports._t = { sendPush, recNow, greqTargets, ownerUids, hkPlanBuild, hkPlanRun, opsOk, opsCore, opsRate, OPS_NO, handoffDue, ilEpoch, runWatch, staffing, tenDays, people, route, hotelChecks, notify, suggest, codeReport, agentsHealth, writeDirection, runAll, DEFAULTS };

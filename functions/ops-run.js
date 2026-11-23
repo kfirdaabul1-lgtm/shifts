@@ -66,6 +66,11 @@ const note = (t, m) => console.log(`::notice title=${t}::${String(m).replace(/\n
     const dr = (await db.collection('blogDrafts').get()).docs.map((d) => (d.data() || {}).status || '-'); const by = {}; dr.forEach((x) => { by[x] = (by[x] || 0) + 1; });
     note('Gili', JSON.stringify({ enabled: a.enabled, hotels: Object.keys(a.hotels || {}), kbChars: kb, site: { url: !!st.url, user: !!st.user, pass: !!st.appPass, test: st.test ? { ok: st.test.ok, roles: st.test.roles } : null }, drafts: by, wpAllow: a.wpAllow === true }));
     return; }
+  if (kind === 'arielunclaim') { // free catch-up claims of recruit chats whose last message is still unanswered (Nov 23)
+    const q = await db.collection('agentClaims').where(admin.firestore.FieldPath.documentId(), '>=', 'recruitCu_').where(admin.firestore.FieldPath.documentId(), '<', 'recruitCu`').get(); let n = 0;
+    for (const d of q.docs) { const chat = d.id.slice(10).replace(/_[^_]+$/, ''); const c = (await db.doc('waChats/' + chat).get()).data() || {}; if (c.lastDir === 'in' && Date.now() - (+c.lastAt || 0) < 6 * 36e5) { await d.ref.delete(); n++; } }
+    note('Ariel unclaim', 'claims ' + q.size + ' freed ' + n); return;
+  }
   if (kind === 'ariel') { // Ariel's on/off history and template (booleans/names/times only)
     const r = (await db.doc('agentcfg/recruit').get()).data() || {}; const T = ((await db.doc('wapub/main').get()).data() || {}).templates || [];
     const ot = r.openTemplate && typeof r.openTemplate === 'object' ? r.openTemplate.tpl : r.openTemplate;

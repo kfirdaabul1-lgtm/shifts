@@ -21,7 +21,8 @@ const note = (t, m) => console.log(`::notice title=${t}::${String(m).replace(/\n
     const j = await r.json().catch(() => ({})); note('AI probe ' + m, r.ok ? 'OK' : (r.status + ' ' + (j.error && j.error.message || '')));
     if (r.ok) break;
   }
-  // design agent backgrounds (Nov 24): Imagen in us-central1 — only checks the model exists (no image is generated)
-  { const im = 'imagen-4.0-generate-001', r = await fetch(`https://us-central1-aiplatform.googleapis.com/v1beta1/publishers/google/models/${im}`, { headers: H });
-    const j = await r.json().catch(() => ({})); note('Imagen ' + im, r.ok ? 'available (' + (j.versionId || j.name || 'ok') + ')' : r.status + ' ' + ((j.error && j.error.message) || '')); }
+  // design agent backgrounds (Nov 24): which Imagen models this project can call (lists only; no image is generated)
+  { const r = await fetch(`https://us-central1-aiplatform.googleapis.com/v1beta1/publishers/google/models?pageSize=300`, { headers: { ...H, 'x-goog-user-project': P } });
+    const j = await r.json().catch(() => ({})), ims = (j.publisherModels || []).map((m) => String(m.name || '').split('/').pop()).filter((n) => /imagen/i.test(n));
+    note('Imagen models', r.ok ? (ims.join(', ') || 'none listed') : r.status + ' ' + ((j.error && j.error.message) || '')); }
 })().catch((e) => note('AI setup error', e.message));

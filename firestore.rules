@@ -578,6 +578,17 @@ service cloud.firestore {
       allow delete: if isOwner() || (signedIn() && resource.data.by == request.auth.uid);
     }
     // the agent's switch (agentcfg/ads {enabled}) and its business context (agentKB/ads {text}): owner only; its run log: owner reads, server writes
+    // ---------- סוכנת העיצוב (Nov 24): בעלים + שיווק. השרת כותב את הקבצים והטיוטות ----------
+    match /designJobs/{id} {
+      allow read: if canMkt();
+      allow create: if canMkt() && request.resource.data.by == request.auth.uid && request.resource.data.status == 'queued';
+      allow update: if canMkt() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'changes', 'approvedAt', 'approvedBy', 'approvedByName'])
+        && request.resource.data.status in ['approved', 'changes'] && resource.data.status in ['draft', 'approved'];
+      allow delete: if isOwner();
+      match /html/{size} { allow read: if canMkt(); allow write: if false; }
+    }
+    match /designPhotos/{id} { allow read, write: if canMkt(); }
+    match /designcfg/{id}    { allow read, write: if canMkt(); }
     match /agentcfg/{id} { allow read, write: if isOwner(); }
     match /agentKB/{id}  { allow read, write: if isOwner(); }
     // blog / SEO agent (Nov 21): drafts the owner approves / edits / rejects; topics + reports server only; WordPress keys owner only

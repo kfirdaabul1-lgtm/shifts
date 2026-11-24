@@ -28,3 +28,23 @@ r = requests.patch(f"{api}/{release}", headers=headers, json={"release": {"name"
 if not r.ok:
     sys.exit(f"Could not publish:\n{r.text}")
 print("Published", ruleset)
+
+# 3. Storage rules (Nov 24, design agent). A missing bucket or a failure here only prints a notice.
+try:
+    if os.path.exists("storage.rules"):
+        bucket = re.search(r'storageBucket:\s*"([^"]+)"', open("config.js", encoding="utf-8").read()).group(1)
+        b = requests.get(f"https://storage.googleapis.com/storage/v1/b/{bucket}", headers=headers)
+        print("Storage bucket", bucket, "status", b.status_code)
+        r = requests.post(f"{api}/projects/{project}/rulesets", headers=headers, json={
+            "source": {"files": [{"name": "storage.rules", "content": open("storage.rules", encoding="utf-8").read()}]}})
+        if not r.ok:
+            print("::warning::Storage rules rejected: " + r.text[:500])
+        else:
+            rs = r.json()["name"]
+            rel = f"projects/{project}/releases/firebase.storage/{bucket}"
+            r = requests.patch(f"{api}/{rel}", headers=headers, json={"release": {"name": rel, "rulesetName": rs}})
+            if r.status_code == 404:
+                r = requests.post(f"{api}/projects/{project}/releases", headers=headers, json={"name": rel, "rulesetName": rs})
+            print("Storage rules published " + rs if r.ok else "::warning::Storage rules not published: " + r.text[:300])
+except Exception as e:
+    print("::warning::Storage rules step failed: " + str(e))

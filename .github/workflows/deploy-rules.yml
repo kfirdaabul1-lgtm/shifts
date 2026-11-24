@@ -2,7 +2,7 @@ name: Publish security rules
 on:
   push:
     branches: [main]
-    paths: ['firestore.rules']
+    paths: ['firestore.rules', 'storage.rules']
   workflow_dispatch:
 jobs:
   publish:

@@ -2561,3 +2561,9 @@ exports.blogPublish = blogAgent.blogPublish;
 exports.blogRunNow = blogAgent.blogRunNow;
 exports.blogTest = blogAgent.blogTest;
 exports.giliChat = require('./agent-gili.js').giliChat; // Gili's own chat (Nov 21)
+// Design agent (Nov 24): graphics → Storage designs/ → draft. OFF until agentcfg/design.enabled === true.
+const designAgent = require('./agent-design.js');
+exports.designJob = designAgent.designJob;
+exports.designPhotoTag = designAgent.designPhotoTag;
+exports.designChat = designAgent.designChat;
+exports.designWeekly = designAgent.designWeekly;

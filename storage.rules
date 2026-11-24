@@ -1,0 +1,28 @@
+rules_version = '2';
+// Firebase Storage rules (Nov 24, design agent). The server (admin SDK) writes the finished designs; files are opened by their
+// download-token links. Everything else is closed.
+service firebase.storage {
+  match /b/{bucket}/o {
+    function owner() {
+      return request.auth != null && request.auth.token.email_verified == true
+        && request.auth.token.email == firestore.get(/databases/(default)/documents/orgcfg/main).data.ownerEmail;
+    }
+    function mkt() {
+      return request.auth != null
+        && firestore.get(/databases/(default)/documents/roles/$(request.auth.uid)).data.get('apps', {}).get('mkt', false) == true;
+    }
+    // finished designs: read by the owner + marketing; written only by the server
+    match /designs/{all=**} {
+      allow read: if owner() || mkt();
+      allow write: if false;
+    }
+    // photo library: owner + marketing upload images up to 15MB
+    match /designPhotos/{all=**} {
+      allow read: if owner() || mkt();
+      allow create, update: if (owner() || mkt()) && request.resource.size < 15 * 1024 * 1024
+        && request.resource.contentType.matches('image/(jpeg|png|webp)');
+      allow delete: if owner() || mkt();
+    }
+    match /{all=**} { allow read, write: if false; }
+  }
+}

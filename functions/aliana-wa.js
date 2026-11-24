@@ -155,7 +155,9 @@ exports.onAliIn = functions.region(REGION).runWith({ timeoutSeconds: 300, memory
     const arielOk = !!(who && !who.denied && (who.owner || (who.ai && who.ai.ariel)));
     // Gili (blog / SEO agent) chat (owner, Nov 21): "גילי" switches to her
     const giliOk = require('./agent-gili.js')._t.giliOk(who);
-    if (!allowed.length && !adamOk && !guyOk && !hilaOk && !arielOk && !giliOk) {
+    // Gal (design agent; owner + marketing, Nov 24): "גל" / "עיצוב" switches to her
+    const Ds = require('./agent-design.js'), desOk = await Ds.designOk(who);
+    if (!allowed.length && !adamOk && !guyOk && !hilaOk && !arielOk && !giliOk && !desOk) {
       const ref = db.doc('aliWa/' + from), s = await ref.get(), day = C.ilDate(new Date());
       if (!s.exists || s.data().strangerDay !== day) {
         await ref.set({ strangerDay: day, name: m.name || '' }, { merge: true });
@@ -167,6 +169,15 @@ exports.onAliIn = functions.region(REGION).runWith({ timeoutSeconds: 300, memory
     const tx0 = m.type === 'text' ? String(m.text || '').trim() : '';
     const toAdam = /^(אדם|עם אדם|לאדם|adam)[.!]?$/i.test(tx0), toAli = /^(עדי|עם עדי|לעדי|adi)[.!]?$/i.test(tx0), toOps = /^(אליאנה|עם אליאנה|לאליאנה|aliana)[.!]?$/i.test(tx0), toGuy = /^(גיא|עם גיא|לגיא|guy)[.!]?$/i.test(tx0), toHila = /^(הילה|עם הילה|להילה|hila)[.!]?$/i.test(tx0), toAriel = /^(אריאל|עם אריאל|לאריאל|ariel)[.!]?$/i.test(tx0), toGili = /^(גילי|עם גילי|לגילי|gili)[.!]?$/i.test(tx0);
     const O = require('./agent-ops.js')._t, opsOk = O.opsOk(who);
+    const toDes = /^(גל|עם גל|לגל|gal|עיצוב|לעיצוב|design)[.!]?$/i.test(tx0);
+    if (toDes) {
+      if (!desOk) { await say(c, from, 'רק הבעלים ואנשי השיווק יכולים לבקש עיצובים.'); return; }
+      await ref0.set({ agent: 'design' }, { merge: true });
+      await say(c, from, '🎨 היי, כאן גל, סוכנת העיצוב. אני מכינה פוסטים, סטוריז, מודעות, תמונות לבלוג ודברים להדפסה. כתבו מה צריך (מלון, למה, הטקסט/המבצע), ותוך כמה דקות הטיוטה תגיע לכאן. תמונה ששולחים לי נכנסת לספריית התמונות (שם המלון בכיתוב). "מאשר" מאשר טיוטה. כדי לחזור לעדי כתבו "עדי".');
+      return;
+    }
+    // design mode (or design is the person's only agent) — before the other agents' fallbacks, unless they asked for another agent by name
+    if (desOk && !(toAdam || toAli || toOps || toGuy || toHila || toAriel || toGili) && (st0.agent === 'design' || (!allowed.length && !adamOk && !guyOk && !hilaOk && !arielOk && !giliOk))) { await Ds.designWa(c, who, m, st0); return; }
     if (toOps) {
       if (!opsOk) { await say(c, from, O.OPS_NO); return; }
       await ref0.set({ agent: 'ops' }, { merge: true });

@@ -1554,7 +1554,10 @@ exports.onBroadcast = trig('broadcasts/{id}').onCreate(async (snap) => {
 const SPA_RATE_H = 6; // max bookings per IP per hour
 const hmMin = (s) => { const [h, m] = String(s || '0:0').split(':').map(Number); return (h || 0) * 60 + (m || 0); };
 const minHm = (m) => String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
-async function spaOnlineCfg() { const d = await db.doc('spacfg/main').get(); const c = d.exists ? d.data() : {}; return { c, o: c.online || {} }; }
+// online hours (owner, Nov 25): the spa's general opening hours (spacfg/main.hours) unless the online card has "other hours for online" (online.customHours)
+async function spaOnlineCfg() { const d = await db.doc('spacfg/main').get(); const c = d.exists ? d.data() : {}, o0 = c.online || {};
+  const gh = c.hours && Object.keys(c.hours).length ? c.hours : null;
+  return { c, o: o0.customHours || !gh ? o0 : { ...o0, hours: gh } }; }
 // therapists (owner, Nov 2): the guest asks per person for 'any' | 'm' | 'f'; a slot is offered only when enough therapists of that kind are on shift that day
 // (spaShifts/{date}.ther {tid:{o,c}}) for the whole treatment and not busy with another treatment (assigned tid, or an unassigned person counted by kind).
 // When no therapists are defined at all (spacfg.ther empty) the therapist check is skipped and only rooms count.

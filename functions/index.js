@@ -1864,6 +1864,8 @@ function guideMealKeys(g) {
 // dinner on d (HB/FB), breakfast the next morning (BB/HB/FB), lunch the next day (FB). No board but meal times set → those meals on every relevant day.
 function guideDays(g) {
   if (!g.ci) return [];
+  const SG = require('./grpsegs.js').grpSegs(g);
+  if (SG.length > 1) { const out = []; for (const sg of SG) out.push(...guideDays({ ...g, segs: [], ci: sg.ci, co: sg.co })); return out.slice(0, 62); }
   const co = g.co && g.co > g.ci ? g.co : addDaysIso(g.ci, 1), DB = {}, M = g.meals || {}, out = [];
   (g.dayBoards || []).forEach((x) => { if (x && x.d && x.b) DB[x.d] = x.b; });
   const anyB = !!g.board || Object.keys(DB).length, B = (d) => DB[d] || g.board || '';
@@ -1952,6 +1954,7 @@ exports.grpGuide = functions.region(REGION).https.onRequest(async (req, res) => 
     let D = {}; try { const d = await db.doc('hk/' + h + '__' + day).get(); if (d.exists) D = d.data() || {}; } catch (e) { }
     let blk = {}; try { const b = await db.collection('hkBlocks').where('hotel', '==', h).get(); b.docs.forEach((x) => { const v = x.data(); if (v && v.room != null && (!v.from || v.from <= day) && (!v.until || v.until >= day)) blk[String(v.room)] = 1; }); } catch (e) { }
     const m = (f, r) => (D[f] || {})[r];
+    const GS = require('./grpsegs.js'), SG = GS.grpSegs(g), sNow = GS.segOn(g, day), ciDay = !!g.ci && (!sNow || day <= sNow.ci); // series group: check-in day / days between segments = list only
     const rooms = roomsParse(g.guideRooms).map((r) => {
       const c = m('clean', r) || '';
       let st = 'wait';
@@ -1961,8 +1964,8 @@ exports.grpGuide = functions.region(REGION).https.onRequest(async (req, res) => 
       else if (m('done', r) || m('chk', r) || m('trtDone', r) || c === 'oc' || c === 'vc') st = 'clean';
       else if (m('start', r)) st = 'busy';
       else if (c === 'vi') st = 'ready';
-      const at = st === 'dnd' ? (m('dnd', r) || 0) : (g.ci && day <= g.ci) ? 0 : (m('done', r) || m('chkAt', r) || m('start', r) || 0); // check-in day: no cleaning time (owner, Nov 5)
-      if (g.ci && day <= g.ci) st = 'list'; // check-in day: only the list of rooms, no cleaning status (owner, Nov 5)
+      const at = st === 'dnd' ? (m('dnd', r) || 0) : ciDay ? 0 : (m('done', r) || m('chkAt', r) || m('start', r) || 0); // check-in day: no cleaning time (owner, Nov 5)
+      if (ciDay) st = 'list'; // check-in day: only the list of rooms, no cleaning status (owner, Nov 5)
       const nm = ((g.guideNames || {})[r] || []).map((x) => String(x || '').slice(0, 60));
       return { r, st, at: typeof at === 'number' ? at : 0, pax: +((g.roomPax || {})[r]) || 0, cat: ['il', 'fo'].includes((g.roomCat || {})[r]) ? g.roomCat[r] : '', names: nm };
     });
@@ -1974,7 +1977,7 @@ exports.grpGuide = functions.region(REGION).https.onRequest(async (req, res) => 
     const meals = ['bf', 'ln', 'dn'].map((k) => { const x = (g.meals || {})[k] || {}; return x.f || x.t ? { k, f: String(x.f || '').slice(0, 5), t: String(x.t || '').slice(0, 5), place: String(x.place || '').slice(0, 60) } : null; }).filter(Boolean);
     // until the arrival day the pre-arrival form is also offered on the stay page (link sent late, owner Nov 9)
     const pre = g.ci && today <= g.ci ? { days: guideDays(g), pref: g.guidePref || {}, note: String(g.guidePrefNote || '').slice(0, 500), prefAt: g.guidePrefAt || 0, guide: String(g.guideName || '').slice(0, 60) } : null;
-    res.json({ name: g.name || '', hotel: await hotelName(h), chain: o.name, ci: g.ci || '', co: g.co || '', day, rooms, halls, msgs, meals, pre, now: Date.now() });
+    res.json({ name: g.name || '', hotel: await hotelName(h), chain: o.name, ci: g.ci || '', co: g.co || '', segs: SG.length > 1 ? SG : [], segCi: sNow ? sNow.ci : day, day, rooms, halls, msgs, meals, pre, now: Date.now() });
   } catch (e) { res.status(500).json({ error: 'server' }); }
 });
 
@@ -2091,18 +2094,20 @@ const OCC_ORDER = ['co', 'res', 'empty'];
 function occAdd(v, k) { const l = String(v || '').split(',').filter((x) => x && x !== 'empty'); if (!l.includes(k)) l.push(k); return OCC_ORDER.filter((x) => l.includes(x)).join(','); }
 function occDel(v, k) { const l = String(v || '').split(',').filter((x) => x && x !== k); return OCC_ORDER.filter((x) => l.includes(x)).join(','); }
 async function grpHkMark(h, day, g, oldG) {
-  const live = (x) => x && !x.coAt && ['confirmed', 'option'].includes(x.status || 'offer') && x.ci && x.ci <= day && (x.co || x.ci) >= day;
+  const GS = require('./grpsegs.js'), segOf = (x) => (x ? GS.segOn(x, day) : null);
+  const live = (x) => { const sg = segOf(x); return !!(x && sg && !GS.segCo(x, sg) && ['confirmed', 'option'].includes(x.status || 'offer')); };
+  const sN = segOf(g), sO = segOf(oldG);
   const nowR = live(g) ? roomsParse(g.guideRooms) : [], oldR = oldG && live(oldG) ? roomsParse(oldG.guideRooms) : [];
   if (!nowR.length && !oldR.length) return 0;
   const ref = db.doc('hk/' + h + '__' + day), cur = (await ref.get()).data() || {}, occ = cur.occ || {}, now = Date.now(), del = admin.firestore.FieldValue.delete();
   const o = { hotel: h, date: day, updatedAt: now, lastBy: 'grp', grp: {}, pax: {}, occ: {}, occBy: {}, occAt: {} }; let n = 0;
   for (const r of oldR) if (!nowR.includes(r)) {
     o.grp[r] = del; const op = +((oldG.roomPax || {})[r] || 0); if (op && +((cur.pax || {})[r] || 0) === op) o.pax[r] = del;
-    let v = occ[r] || ''; if (day === oldG.ci) v = occDel(v, 'res'); if (day === oldG.co) v = occDel(v, 'co'); if (v !== (occ[r] || '')) o.occ[r] = v || del; n++;
+    let v = occ[r] || ''; if (sO && day === sO.ci) v = occDel(v, 'res'); if (sO && day === sO.co) v = occDel(v, 'co'); if (v !== (occ[r] || '')) o.occ[r] = v || del; n++;
   }
   for (const r of nowR) {
     o.grp[r] = true; const p = +((g.roomPax || {})[r] || 0); if (p) o.pax[r] = p;
-    let v = occ[r] || ''; if (day === g.ci && !g.ciAt) v = occAdd(v, 'res'); if (day === g.co && g.co !== g.ci) v = occAdd(v, 'co');
+    let v = occ[r] || ''; if (day === sN.ci && !GS.segCi(g, sN)) v = occAdd(v, 'res'); if (day === sN.co && sN.co !== sN.ci) v = occAdd(v, 'co');
     if (v !== (occ[r] || '')) { o.occ[r] = v; o.occBy[r] = 'קבוצה · ' + (g.name || ''); o.occAt[r] = now; } n++;
   }
   for (const k of ['pax', 'occ', 'occBy', 'occAt']) if (!Object.keys(o[k]).length) delete o[k];
@@ -2223,14 +2228,17 @@ async function tenDaysOne(h, hotelName, today) {
   const gq = await db.collection('groups').where('hotel', '==', h).get();
   gq.forEach((x) => {
     const g = x.data() || {}; if (!['confirmed', 'option'].includes(g.status) || !g.ci) return;
-    const co = g.co || isoAdd(g.ci, 1), rooms = +g.rooms || 0, pax = +g.pax || 0, DB = {};
+    const rooms = +g.rooms || 0, pax = +g.pax || 0, DB = {};
     (g.dayBoards || []).forEach((y) => { if (y && y.d) DB[y.d] = tdBoard(y.b); });
     const bOf = (night) => DB[night] || tdBoard(g.board);
-    add(g.ci, 'ci', rooms); add(co, 'co', rooms);
-    for (const d of days) {
-      const y = isoAdd(d, -1);
-      if (stays(g.ci, co, y) && ['bb', 'hb', 'fb'].includes(bOf(y))) add(d, 'bf', pax);
-      if (stays(g.ci, co, d) && ['hb', 'fb'].includes(bOf(d))) add(d, 'dn', pax);
+    for (const sg of require('./grpsegs.js').grpSegs(g)) { // each date segment of a series group counts on its own (owner, Nov 25)
+      const ci = sg.ci, co = sg.co > sg.ci ? sg.co : isoAdd(sg.ci, 1);
+      add(ci, 'ci', rooms); add(co, 'co', rooms);
+      for (const d of days) {
+        const y = isoAdd(d, -1);
+        if (stays(ci, co, y) && ['bb', 'hb', 'fb'].includes(bOf(y))) add(d, 'bf', pax);
+        if (stays(ci, co, d) && ['hb', 'fb'].includes(bOf(d))) add(d, 'dn', pax);
+      }
     }
   });
   const byWeek = {}; days.forEach((d) => { (byWeek[weekOfISO(d)] = byWeek[weekOfISO(d)] || []).push(d); });
@@ -2258,7 +2266,7 @@ async function tenDaysAll() {
 exports.tenDaysAuto = functions.region(REGION).pubsub.schedule('every 15 minutes').timeZone('Asia/Jerusalem').onRun(async () => { await tenDaysAll(); return null; });
 exports.onGroupRooms = trig('groups/{id}').onUpdate(async (ch) => {
   const a = ch.after.data() || {}, b = ch.before.data() || {};
-  const same = (a.guideRooms || '') === (b.guideRooms || '') && JSON.stringify(a.roomPax || {}) === JSON.stringify(b.roomPax || {}) && a.ci === b.ci && a.co === b.co && a.status === b.status && a.hotel === b.hotel && !!a.ciAt === !!b.ciAt;
+  const same = (a.guideRooms || '') === (b.guideRooms || '') && JSON.stringify(a.roomPax || {}) === JSON.stringify(b.roomPax || {}) && a.ci === b.ci && a.co === b.co && JSON.stringify(a.segs || []) === JSON.stringify(b.segs || []) && a.status === b.status && a.hotel === b.hotel && (a.ciAt || 0) === (b.ciAt || 0) && (a.coAt || 0) === (b.coAt || 0);
   if (same) return;
   const h = a.hotel || ''; if (!h) return;
   let day = ilDate(new Date()); try { const hd = await db.doc('hkday/' + h).get(); if (hd.exists && hd.data().date) day = hd.data().date; } catch (e) {}

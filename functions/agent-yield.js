@@ -66,8 +66,9 @@ async function loadGroups(hotel, today, cfg) {
   const to = C.addDays(today, cfg.groupDays), s = await db.collection('groups').get(), out = {};
   for (const d of s.docs) {
     const g = d.data() || {}; if (g.hotel !== hotel || !['confirmed', 'option'].includes(g.status || '') || !g.ci) continue;
-    const co = g.co && g.co > g.ci ? g.co : C.addDays(g.ci, 1), rooms = +g.rooms || Math.ceil((+g.pax || 0) / (+g.ppr || 2));
-    for (let x = g.ci < today ? today : g.ci; x < co && x <= to; x = C.addDays(x, 1)) { const o = out[x] || (out[x] = { rooms: 0, groups: [] }); o.rooms += rooms; o.groups.push(clip(g.name, 40) + (g.status === 'option' ? ' (אופציה)' : '')); }
+    const rooms = +g.rooms || Math.ceil((+g.pax || 0) / (+g.ppr || 2));
+    for (const sg of require('./grpsegs.js').grpSegs(g)) { const co = sg.co > sg.ci ? sg.co : C.addDays(sg.ci, 1);
+    for (let x = sg.ci < today ? today : sg.ci; x < co && x <= to; x = C.addDays(x, 1)) { const o = out[x] || (out[x] = { rooms: 0, groups: [] }); o.rooms += rooms; o.groups.push(clip(g.name, 40) + (g.status === 'option' ? ' (אופציה)' : '')); } }
   }
   return Object.entries(out).sort().map(([date, v]) => ({ date, dow: DOW_HE[dowOf(date)], rooms: v.rooms, groups: v.groups.slice(0, 4) }));
 }

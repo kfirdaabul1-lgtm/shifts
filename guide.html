@@ -89,8 +89,8 @@ function draw(){
   if(D.mode==='pre'){drawPre(m);return}
   document.title=(D.name||t('title'))+' · '+(D.hotel||'');
   document.getElementById('t').textContent=D.name||t('title');
-  document.getElementById('st').textContent=[D.hotel,D.ci&&D.co?t('stay')+': '+fD(D.ci,{day:'numeric',month:'short'})+' – '+fD(D.co,{day:'numeric',month:'short'}):''].filter(Boolean).join(' · ');
-  const R=D.rooms||[],n=s=>R.filter(x=>x.st===s).length,ciDay=!!D.ci&&D.day<=D.ci;
+  document.getElementById('st').textContent=[D.hotel,(D.segs&&D.segs.length>1?t('stay')+': '+D.segs.map(z=>fD(z.ci,{day:'numeric',month:'short'})+' – '+fD(z.co,{day:'numeric',month:'short'})).join(' · '):D.ci&&D.co?t('stay')+': '+fD(D.ci,{day:'numeric',month:'short'})+' – '+fD(D.co,{day:'numeric',month:'short'}):'')].filter(Boolean).join(' · ');
+  const R=D.rooms||[],n=s=>R.filter(x=>x.st===s).length,ciDay=!!D.ci&&D.day<=(D.segCi||D.ci);
   const rooms=`<section class="card" aria-labelledby="hr"><h2 id="hr">${esc(t('rooms'))}<small>${esc(t('today'))} · ${esc(fD(D.day))}</small></h2>
     ${R.length&&!ciDay?`<div class="kpis"><div class="kpi"><b>${n('clean')}</b><span>${esc(t('cleaned'))}</span></div><div class="kpi"><b>${n('busy')}</b><span>${esc(t('busy'))}</span></div><div class="kpi"><b>${n('wait')}</b><span>${esc(t('wait'))}</span></div>${n('dnd')?`<div class="kpi"><b>${n('dnd')}</b><span>🚫 ${esc(t('dndn'))}</span></div>`:''}<div class="kpi"><b>${R.length}</b><span>${esc(t('total'))}</span></div></div>`:''}${R.length?`
     <div class="rooms">${R.map(x=>{const nm=(x.names||[]).filter(Boolean);return `<div class="room s-${ciDay?'list':x.st}"><button class="rplus" data-ge="${esc(x.r)}" aria-label="${esc(t(nm.length?'edit':'addn'))} ${esc(x.r)}">${nm.length?'✎':'+'}</button><b>${esc(x.r)}</b>${x.cat||x.pax?`<em>${x.cat?`<b class="cat">${esc(t('c_'+x.cat))}</b> `:''}${x.pax?`👤 ${x.pax}`:''}</em>`:''}${ciDay||x.st==='list'?'':`<span>${esc(t('st_'+x.st))}</span>`}${!ciDay&&x.at&&(x.st==='clean'||x.st==='busy')?`<small>${esc(t('at'))}${esc(fT(x.at))}</small>`:x.at&&x.st==='dnd'?`<small>🚫 ${esc(t('since'))}${esc(fT(x.at))}</small>`:''}${nm.length?`<i dir="auto">${nm.map(esc).join(', ')}</i>`:''}${OK===x.r?`<small>✓ ${esc(t('saved'))}</small>`:''}</div>`}).join('')}</div><p style="margin:12px 0 0"><button class="ref wa" id="wash">💬 ${esc(t('wash'))}</button></p>`:`<p class="muted">${esc(t('norooms'))}</p>`}</section>`;
@@ -149,7 +149,7 @@ function preBind(m,P){const DY=P.days||[];
 function drawPre(m){
   document.title=(D.name||t('pre_t'))+' · '+(D.hotel||'');
   document.getElementById('t').textContent=D.name||t('pre_t');
-  document.getElementById('st').textContent=[D.hotel,D.ci&&D.co?t('stay')+': '+fD(D.ci,{day:'numeric',month:'short'})+' – '+fD(D.co,{day:'numeric',month:'short'}):''].filter(Boolean).join(' · ');
+  document.getElementById('st').textContent=[D.hotel,(D.segs&&D.segs.length>1?t('stay')+': '+D.segs.map(z=>fD(z.ci,{day:'numeric',month:'short'})+' – '+fD(z.co,{day:'numeric',month:'short'})).join(' · '):D.ci&&D.co?t('stay')+': '+fD(D.ci,{day:'numeric',month:'short'})+' – '+fD(D.co,{day:'numeric',month:'short'}):'')].filter(Boolean).join(' · ');
   if(PF===null)PF=!D.prefAt;
   m.innerHTML=preCard(D,false)+`<p class="foot">${esc(D.chain||'')}</p>`;preBind(m,D);
 }

@@ -187,11 +187,11 @@ async function checkHk(h, today, cfg, out, hkStaff, kind) {
   return { ...info, arrivalsList: arrivals, openCalls: calls.length };
 }
 async function checkGroups(h, today, out) {
-  const G = (await q('groups', ['hotel', '==', h])).filter((g) => ['confirmed', 'option'].includes(g.status) && g.ci && g.ci <= C.addDays(today, 1) && (g.co || g.ci) >= today);
+  const G = (await q('groups', ['hotel', '==', h])).filter((g) => ['confirmed', 'option'].includes(g.status) && require('./grpsegs.js').grpSegs(g).some((z) => z.ci <= C.addDays(today, 1) && z.co >= today));
   const info = [];
   for (const g of G) {
-    const arr = g.ci >= today, when = dayName(g.ci, today), M = g.meals || {}, board = String(g.board || '');
-    info.push({ name: clip(g.name, 40), ci: g.ci, co: g.co || '', pax: +g.pax || 0, rooms: +g.rooms || 0, arriving: arr });
+    const sg0 = require('./grpsegs.js').grpSegs(g).find((z) => z.co >= today) || { ci: g.ci, co: g.co }, arr = sg0.ci >= today, when = dayName(sg0.ci, today), M = g.meals || {}, board = String(g.board || '');
+    info.push({ name: clip(g.name, 40), ci: sg0.ci, co: sg0.co || '', pax: +g.pax || 0, rooms: +g.rooms || 0, arriving: arr });
     if (!arr) continue;
     if (!g.guideRooms) out.push({ key: 'grp_rooms_' + g.id, area: 'groups', sev: 'high', to: ['reception', 'gm'], text: `קבוצת ${clip(g.name, 30)} מגיעה ${when} ועוד לא שובצו לה חדרים (הם לא יופיעו בלוח המשק)` });
     if (['hb', 'fb'].includes(board) && !((M.dn || {}).f || (M.dn || {}).t)) out.push({ key: 'grp_meals_' + g.id, area: 'groups', sev: 'medium', to: ['reception', 'dept:kitchen', 'dept:dining'], text: `לקבוצת ${clip(g.name, 30)} (${board.toUpperCase()}) שמגיעה ${when} אין שעת ארוחת ערב` });
@@ -412,9 +412,9 @@ async function runWeekly(cfg, today, only) {
       const h = hotel.id, TD = await tenDays(h, nw, 7), st = await staffing(h, dates), ratio = (cfg.ratios || {})[h] || (cfg.ratios || {}).default || null;
       const days = {}, changes = [], missing = dates.filter((d) => !TD[d]);
       const ev = await q('quotes', ['event.date', 'in', dates]), venues = (((await docData('settings/' + h)) || {}).venues) || [];
-      const G = (await q('groups', ['hotel', '==', h])).filter((g) => ['confirmed', 'option'].includes(g.status) && dates.includes(g.ci));
+      const G = (await q('groups', ['hotel', '==', h])).filter((g) => ['confirmed', 'option'].includes(g.status) && require('./grpsegs.js').grpSegs(g).some((z) => dates.includes(z.ci)));
       for (const d of dates) {
-        const gd = G.filter((g) => g.ci === d), grp = { n: gd.length, rooms: gd.reduce((a, g) => a + (+g.rooms || Math.ceil((+g.pax || 0) / (+g.ppr || 2))), 0) };
+        const gd = G.filter((g) => require('./grpsegs.js').grpSegs(g).some((z) => z.ci === d)), grp = { n: gd.length, rooms: gd.reduce((a, g) => a + (+g.rooms || Math.ceil((+g.pax || 0) / (+g.ppr || 2))), 0) };
         const s = suggest(TD[d], ratio, cfg, grp), opened = {};
         for (const x of st.filter((y) => y.date === d)) opened[x.dept] = PER_SHIFT.includes(x.dept) ? Math.max(opened[x.dept] || 0, x.need) : (opened[x.dept] || 0) + x.need;
         const evG = ev.filter((x) => (x.status === 'approved' || x.kind === 'group') && venues.includes((x.event || {}).venue) && x.event.date === d).reduce((a, x) => a + (+x.event.guests || 0), 0);
@@ -643,8 +643,9 @@ async function hkPlanBuild(h, day, opt = {}) {
     }
   }
   for (const g of await q('groups', ['hotel', '==', h])) {
-    if (!['confirmed', 'option'].includes(g.status) || g.coAt || !g.ci || g.ci > day || (g.co || g.ci) < day) continue;
-    for (const r of roomsSpec(g.guideRooms)) put(r, g.ci === day ? 'arr' : g.co === day ? 'co' : 'so');
+    const GS = require('./grpsegs.js'), sg = GS.segOn(g, day); // series groups: only the current date segment (owner, Nov 25)
+    if (!['confirmed', 'option'].includes(g.status) || !sg || GS.segCo(g, sg)) continue;
+    for (const r of roomsSpec(g.guideRooms)) put(r, sg.ci === day ? 'arr' : sg.co === day ? 'co' : 'so');
   }
   for (const [r, c] of Object.entries(clean)) if (c === 'vd' && !R[r]) put(r, 'vd');
   for (const r of Object.keys(D.bk || {}).concat(Object.keys(D.vip || {}))) if (R[r] && R[r].k !== 'co') { pri.add(r); why[r] = why[r] || ((D.vip || {})[r] ? 'VIP' : 'Booking'); }
@@ -725,7 +726,7 @@ async function hkPlanMorning() {
     }
     if (hm >= askAt && !p.askedAt) {
       const bs = (await q('bookings', ['hotel', '==', ht.id])).filter((b) => b.status !== 'cancelled' && b.ci === today);
-      const gs = (await q('groups', ['hotel', '==', ht.id])).filter((g) => ['confirmed', 'option'].includes(g.status) && g.ci === today && !g.coAt);
+      const gs = (await q('groups', ['hotel', '==', ht.id])).filter((g) => ['confirmed', 'option'].includes(g.status) && require('./grpsegs.js').grpSegs(g).some((z) => z.ci === today) && !require('./grpsegs.js').segCo(g, require('./grpsegs.js').segOn(g, today)));
       if (!bs.length && !gs.length) { await pref.set({ hotel: ht.id, date: today, askedAt: now, nothing: true }, { merge: true }); continue; }
       const miss = bs.reduce((n, b) => n + (b.rooms || []).filter((l) => !l.room).length, 0), gmiss = gs.filter((g) => !roomsSpec(g.guideRooms).length).length;
       const P = await people(ht.id), crew = await recNow(ht.id);

@@ -75,6 +75,16 @@ const note = (t, m) => console.log(`::notice title=${t}::${String(m).replace(/\n
       out.push([m.dir, m.type, m.src || '', String(m.text || '').trim().length, ex ? 'cu' : '', c2 ? 'rt' : '', Math.round((Date.now() - (+m.at || 0)) / 6e4)].join(',')); }
     note('Ariel unclaim', JSON.stringify(out)); return;
   }
+  if (kind === 'arielho') { // why Ariel hands off (buckets/counts only, Nov 26)
+    const since = Date.now() - 10 * 864e5, cs = (await db.collection('candidates').get()).docs.map((d) => ({ id: d.id, ...d.data() })).filter((c) => (+c.updatedAt || 0) > since);
+    const st = {}; cs.forEach((c) => { st[c.status || '?'] = (st[c.status || '?'] || 0) + 1; }); note('Statuses (10 days)', JSON.stringify(st));
+    const bk = (r) => { r = String(r || '').toLowerCase(); return /too many/.test(r) ? 'too-many-msgs' : /staff/.test(r) ? 'staff-chat' : /person|human|נציג|אדם|representative|agent/.test(r) ? 'asked-person' : /salary|pay|שכר|תנאים/.test(r) ? 'salary' : /not (a )?job|guest|supplier|customer|לקוח|אורח/.test(r) ? 'not-job-seeker' : /sure|unclear|unknown|לא בטוח|question|שאלה/.test(r) ? 'unsure/question' : 'other'; };
+    const b = {}; cs.filter((c) => c.status === 'handoff').forEach((c) => { const k = bk(c.handoff); b[k] = (b[k] || 0) + 1; }); note('Handoff reasons', JSON.stringify(b));
+    const q = cs.filter((c) => c.status === 'qualified' || c.status === 'not_fit'); const miss = q.filter((c) => (c.missing || []).length).length, nocv = q.filter((c) => !c.cv).length;
+    const ans = q.map((c) => Object.keys(c.answers || {}).length); note('Finished', 'n=' + q.length + ' withMissing=' + miss + ' noCV=' + nocv + ' answersPerCand=' + JSON.stringify(ans));
+    const rates = []; for (const c of cs) { if (!c.chat) continue; const r = await db.doc('agentRate/recruit_' + c.chat).get(); if (r.exists) rates.push(+r.data().n || 0); } note('Ariel replies per chat', JSON.stringify(rates.sort((x, y) => y - x)));
+    const logs = (await db.collection('agentLog').where('agent', '==', 'recruit').get()).docs.map((d) => d.data()).filter((d) => d.at > since); const sk = {}; logs.forEach((l) => { const k = l.skipped ? String(l.skipped).slice(0, 40) : l.error ? 'error' : 'run'; sk[k] = (sk[k] || 0) + 1; }); note('Recruit log', JSON.stringify(sk));
+    return; }
   if (kind === 'ariel') { // Ariel's on/off history and template (booleans/names/times only)
     const r = (await db.doc('agentcfg/recruit').get()).data() || {}; const T = ((await db.doc('wapub/main').get()).data() || {}).templates || [];
     const ot = r.openTemplate && typeof r.openTemplate === 'object' ? r.openTemplate.tpl : r.openTemplate;

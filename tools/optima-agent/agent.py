@@ -228,7 +228,8 @@ def run(cfg, once):
                     flush(cfg, h, log)
                 except Exception as e:                    # one hotel failing never stops the others
                     errs += 1; log('%s: error %s: %s' % (h, type(e).__name__, str(e)[:200]))
-            try: post(cfg['ingest_url'], key_for(HOTELS[0]), {'op': 'heartbeat', 'agent': VERSION, 'errors': errs, 'at': int(time.time() * 1000)})
+            hk = next((key_for(h) for h in HOTELS if key_for(h)), '')   # any installed hotel key
+            try: post(cfg['ingest_url'], hk, {'op': 'heartbeat', 'agent': VERSION, 'errors': errs, 'at': int(time.time() * 1000)})
             except Exception: pass
             if once: break
             time.sleep(cfg['interval_sec'])

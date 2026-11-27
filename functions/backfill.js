@@ -220,4 +220,10 @@ const KEYS = ['hotel', 'month', 'date', 'shift', 'name', 'empUid', 'ooo', 'fault
       for (const d of (await db.collection('jobRoles').get()).docs) if (((d.data() || {}).apps || {}).leads) { await d.ref.update({ 'apps.leads': del }); nj++; }
       await mk.set({ at: Date.now(), roles: nr, jobRoles: nj });
       console.log('::notice title=Backfill::leads app removed from ' + nr + ' roles and ' + nj + ' job roles'); } }
+
+  // Optima Agent (Nov 27, owner): one random key per hotel, created ONCE when missing (never printed: the repo and its logs are public).
+  // The owner copies a hotel's key from Firebase Console → Firestore → optimacfg → main into the agent's keys folder.
+  { const ref = db.doc('optimacfg/main'), cs = await ref.get(), keys = { ...((cs.exists && cs.data().keys) || {}) }; let n = 0;
+    for (const h of ['sola', 'boheme', 'sevenseas', 'hostel']) if (!(String(keys[h] || '').length >= 24)) { keys[h] = require('crypto').randomBytes(24).toString('hex'); n++; }
+    if (n || !cs.exists) { await ref.set({ ...(cs.exists ? {} : { on: true, createdAt: Date.now() }), keys }, { merge: true }); console.log('::notice title=Optima::' + n + ' hotel keys created'); } }
 })().catch((e) => { console.error(e); console.log('::error title=Backfill failed::' + String(e && e.message || e).slice(0, 300)); process.exit(1); });

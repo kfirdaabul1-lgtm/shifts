@@ -1135,6 +1135,11 @@ exports.bookingsIngest = functions.region(REGION).runWith({ timeoutSeconds: 120 
     const mt = Date.parse(String(b.date || '')) || now, cd = cur.exists ? cur.data() : {};
     const chan = bkChan(p.channel);
     const cmt = String(p.comment || '').replace(/\s+/g, ' ').trim().slice(0, 600); // guest comments (owner, Nov 17)
+    // a booking the Optima Agent manages (src 'optima', Nov 27): Optima is the source of rooms / dates / status; the mail adds only channel + guest comments
+    if (cd.src === 'optima' && act !== 'cancel') {
+      await ref.set({ updatedAt: now, ...(chan ? { channel: chan } : {}), ...(cmt ? { comment: cmt } : {}), hist: admin.firestore.FieldValue.arrayUnion({ at: now, mt, action: act, src: 'mail-optima' }) }, { merge: true });
+      await mref.set({ full: true, v: 2 }, { merge: true }); res.json({ ok: true, id: ref.id, action: act, by, optima: true }); return;
+    }
     const up = { hotel, conf, updatedAt: now, by, ...(chan ? { channel: chan } : {}), ...(cmt ? { comment: cmt } : {}), hist: admin.firestore.FieldValue.arrayUnion({ at: now, mt, action: act }) };
     if (act === 'cancel') { up.status = 'cancelled'; up.cancelMt = Math.max(mt, +cd.cancelMt || 0); }
     else {
@@ -2140,13 +2145,13 @@ function bkMarks(b, day) {
   const out = {}; if (!b || b.status === 'cancelled' || !b.ci) return out;
   const co = b.co || b.ci; if (day < b.ci || day > co) return out;
   const stay = !b.co || day < b.co || b.co === b.ci, cm = String(b.comment || '').trim(), rs = b.rooms || [];
-  const grp = BK_GRP.test(cm + ' ' + (b.guest || '')) || rs.filter((l) => l.room).length >= 5;
+  const grp = BK_GRP.test(cm + ' ' + (b.guest || '')) || !!b.group || rs.filter((l) => l.room).length >= 5; // b.group = Optima group name (Nov 27)
   rs.forEach((l) => {
     const r = String(l.room || '').trim(); if (!/^[\w-]{1,10}$/.test(r)) return;
     const m = { occ: [], stay };
     if (day === b.ci) m.occ.push('res'); if (b.co && day === b.co && b.co !== b.ci) m.occ.push('co');
     if (stay) {
-      if (bkIsCom(b)) m.bk = true; if (grp) m.grp = true; if (BK_TWIN.test(cm)) m.twin = true; if (BK_COT.test(cm)) m.cot = true; if (BK_VIP.test(cm)) m.vip = true;
+      if (bkIsCom(b)) m.bk = true; if (grp) m.grp = true; if (BK_TWIN.test(cm)) m.twin = true; if (BK_COT.test(cm)) m.cot = true; if (BK_VIP.test(cm) || l.vip) m.vip = true;
       const p = +l.people || 0; if (p > 0 && p < 30) m.pax = p;
     }
     out[r] = m;
@@ -2192,7 +2197,7 @@ async function bkHkAll(h, day) {
 }
 exports.onBookingHk = trig('bookings/{id}').onWrite(async (ch, ctx) => {
   const a = ch.after.exists ? ch.after.data() : null, b = ch.before.exists ? ch.before.data() : null;
-  const sig = (x) => x ? JSON.stringify([x.status, x.ci, x.co, x.channel, x.comment || '', x.guest || '', (x.rooms || []).map((r) => [r.room || '', +r.people || 0])]) : '';
+  const sig = (x) => x ? JSON.stringify([x.status, x.ci, x.co, x.channel, x.comment || '', x.guest || '', x.group || '', (x.rooms || []).map((r) => [r.room || '', +r.people || 0, !!r.vip])]) : '';
   if (sig(a) === sig(b)) return;
   const h = (a && a.hotel) || (b && b.hotel); if (!h) return;
   let day = ilDate(new Date()); try { const hd = await db.doc('hkday/' + h).get(); if (hd.exists && hd.data().date) day = hd.data().date; } catch (e) {}
@@ -2505,6 +2510,8 @@ exports.ratesIngest = functions.region(REGION).https.onRequest(async (req, res) 
 });
 
 // Google Ads campaign numbers (owner, Nov 11): read only, every 3 hours → campaigns/google_* (see gads.js)
+// Optima Agent (Nov 27, owner): the Windows agent on the Optima server sends each hotel's bookings (rooms by reservation id, check-in/out) → optima.js
+exports.optimaIngest = require('./optima.js')({ functions, admin, db, REGION, sendTo, hotelName, ilDate }).optimaIngest;
 const gads = require('./gads.js');
 exports.gadsPoll = gads.gadsPoll;
 exports.onGadsCfg = gads.onGadsCfg;

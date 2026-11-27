@@ -58,5 +58,10 @@ async function grant(fn = 'driveBackup') {
   const biProbe = () => fetch(BI).then(async (x) => ({ s: x.status, b: (await x.text()).slice(0, 40) })).catch((e) => ({ s: 0, b: e.message }));
   let bi = await biProbe(); note('Bookings probe', 'status ' + bi.s);
   if (bi.s !== 405 || bi.b.trim() !== 'method') { note('Bookings invoker', await grant('bookingsIngest').catch((e) => 'grant failed: ' + e.message)); await new Promise((x) => setTimeout(x, 20000)); bi = await biProbe(); note('Bookings probe 2', 'status ' + bi.s); }
+  // Optima Agent endpoint must be public too (the Windows agent calls it with a per-hotel key); GET answers our own 405 {"error":"method"}
+  const OI = 'https://europe-west1-hotel-shifts.cloudfunctions.net/optimaIngest';
+  const oiProbe = () => fetch(OI).then(async (x) => ({ s: x.status, b: (await x.text()).slice(0, 40) })).catch((e) => ({ s: 0, b: e.message }));
+  let oi = await oiProbe(); note('Optima probe', 'status ' + oi.s);
+  if (oi.s !== 405 || !/method/.test(oi.b)) { note('Optima invoker', await grant('optimaIngest').catch((e) => 'grant failed: ' + e.message)); await new Promise((x) => setTimeout(x, 20000)); oi = await oiProbe(); note('Optima probe 2', 'status ' + oi.s); }
   // no real call here: a real call would update lastAt and hide a broken Apps Script schedule
 })().catch((e) => { note('Backup check error', e.message); });

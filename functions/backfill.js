@@ -226,4 +226,7 @@ const KEYS = ['hotel', 'month', 'date', 'shift', 'name', 'empUid', 'ooo', 'fault
   { const ref = db.doc('optimacfg/main'), cs = await ref.get(), keys = { ...((cs.exists && cs.data().keys) || {}) }; let n = 0;
     for (const h of ['sola', 'boheme', 'sevenseas', 'hostel']) if (!(String(keys[h] || '').length >= 24)) { keys[h] = require('crypto').randomBytes(24).toString('hex'); n++; }
     if (n || !cs.exists) { await ref.set({ ...(cs.exists ? {} : { on: true, createdAt: Date.now() }), keys }, { merge: true }); console.log('::notice title=Optima::' + n + ' hotel keys created'); } }
+  // Optima housekeeping sync for the hostel (Nov 28, owner): switched on ONCE (marker hkSyncNov28), so a later manual 'off' stays off.
+  { const ref = db.doc('optimacfg/main'), d = (await ref.get()).data() || {};
+    if (!d.hkSyncNov28) { await ref.set({ hkSync: { hostel: true }, hkSyncNov28: Date.now() }, { merge: true }); console.log('::notice title=Optima::hkSync hostel on (on=' + (d.on === true) + ')'); } }
 })().catch((e) => { console.error(e); console.log('::error title=Backfill failed::' + String(e && e.message || e).slice(0, 300)); process.exit(1); });

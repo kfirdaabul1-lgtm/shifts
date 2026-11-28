@@ -16,4 +16,11 @@ const note = (t, m) => console.log(`::notice title=${t}::${String(m).slice(0, 90
   note('Hostel bookings', JSON.stringify(c));
   const bad = await db.collection('bookings').where('hotel', '==', 'hostel').get();
   note('Docs under wrong id "hostel"', String(bad.size));
+  // housekeeping sync queue (room numbers + status only)
+  const cfg = (await db.doc('optimacfg/main').get()).data() || {};
+  note('hkSync', JSON.stringify({ on: cfg.on === true, hkSync: cfg.hkSync || {} }));
+  const hq = await db.collection('optimaHkQueue').orderBy('at', 'desc').limit(25).get();
+  const t = (v) => v ? new Date(v).toLocaleTimeString('he-IL', { timeZone: 'Asia/Jerusalem' }) : '';
+  note('HK queue (newest 25)', hq.docs.map((d) => { const x = d.data(); return [x.hotel, x.room, x.status, t(x.at), t(x.doneAt), x.reason || ''].join(' '); }).join(' | ') || 'empty');
+  for (const h of ['sola', 'boheme', 'sevenseas']) { const s2 = (await db.doc('optimaState/' + h).get()).data() || {}; note('State ' + h, JSON.stringify({ lastItems: s2.lastItems, lastSaved: s2.lastSaved, at: s2.at ? new Date(s2.at).toISOString() : '' })); }
 })().catch((e) => { console.log('::error title=check::' + e.message); process.exit(1); });

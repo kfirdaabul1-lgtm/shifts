@@ -2512,6 +2512,7 @@ exports.ratesIngest = functions.region(REGION).https.onRequest(async (req, res) 
 // Google Ads campaign numbers (owner, Nov 11): read only, every 3 hours → campaigns/google_* (see gads.js)
 // Optima Agent (Nov 27, owner): the Windows agent on the Optima server sends each hotel's bookings (rooms by reservation id, check-in/out) → optima.js
 exports.optimaIngest = require('./optima.js')({ functions, admin, db, REGION, sendTo, hotelName, ilDate }).optimaIngest;
+exports.onHkToOptima = require('./optima.js')({ functions, admin, db, REGION, sendTo, hotelName, ilDate }).onHkToOptima;
 const gads = require('./gads.js');
 exports.gadsPoll = gads.gadsPoll;
 exports.onGadsCfg = gads.onGadsCfg;

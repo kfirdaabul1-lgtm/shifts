@@ -817,6 +817,8 @@ service cloud.firestore {
     // הזמנות מה-PMS: נכתבות רק בשרת (bookingsIngest); bkcfg מחזיק את המפתח של הסקריפט
     match /bkcfg/{id} { allow read, write: if isOwner(); }
     match /bkMails/{id} { allow read: if isOwner(); }
+    // Optima housekeeping queue (app VC → Optima Room Status; written only by the server, Nov 28)
+    match /optimaHkQueue/{id} { allow read: if isOwner(); allow write: if false; }
     match /bookings/{id} {
       allow read: if bkIn(resource.data.hotel) || frontIn(resource.data.hotel) || manages(resource.data.hotel);
       // reception assigns room numbers (Nov 17): only rooms + who/when, same number of room lines

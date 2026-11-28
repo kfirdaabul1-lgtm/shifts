@@ -1,13 +1,15 @@
 // Optima Agent → bookings (owner, Nov 20). The Windows agent on Hotels.Terminal reads each hotel's Optima export and POSTs the CHANGED
 // bookings here (all of them once a day). Same docs as the PMS mails: bookings/{hotel}__{Optima Master ID}, so nothing is duplicated.
-// optimacfg/main (owner only) {on, keys:{sola, boheme, sevenseas, hostel}, hotelIds?} — a key can write ONLY its own hotel.
+// optimacfg/main (owner only) {on, keys:{sola, boheme, sevenseas, hostel}, hotelIds?, hkSync?:{hostel:true}} — a key can write ONLY its own hotel.
 // The agent names the hotels by short name; bookings use the real hotel ids (HOTEL_ID; optimacfg.hotelIds may override).
 // Rules of the merge (claude/optima-agent-plan.md):
 //  - rooms are matched by Optima's reservation id (rid), never by their position in the list
 //  - a room number from Optima wins; an empty one never erases a room assigned in the app
 //  - an older export never overwrites a newer one (optSnap); a booking missing from an export is NEVER cancelled
 //  - status stays booked | cancelled (what the board, 10days and the agents read); arrival state goes to `stay` res | in | out
-//  - a room checked out in Optima → push to the housekeeping worker assigned to it ("the room is free, you can clean")
+//  - a room checked out in Optima → checked out in the app's housekeeping day too (OD/OC → VD), and its worker gets a push (Nov 28)
+// Housekeeping, app → Optima (Nov 28, claude/optima-hk-sync-patch.md): a room that became VC in the app is queued (optimaHkQueue);
+//  the agent takes the queue (op hkqueue), sets VC in Optima's Room Status screen and reports (op hkdone). Off unless optimacfg/main.hkSync[hotel].
 module.exports = ({ functions, admin, db, REGION, sendTo, hotelName, ilDate }) => {
   const crypto = require('crypto');
   const HOTELS = ['sola', 'boheme', 'sevenseas', 'hostel'], STAYS = ['res', 'in', 'out', 'cancelled'];
@@ -53,20 +55,71 @@ module.exports = ({ functions, admin, db, REGION, sendTo, hotelName, ilDate }) =
     };
     if (it.guest) up.guest = it.guest; if (it.comment) up.comment = it.comment; if (it.channel) up.channel = it.channel; if (it.group) up.group = it.group;
     const keys = Object.keys(up), same = keys.every((k) => JSON.stringify(cd[k] === undefined ? (Array.isArray(up[k]) ? [] : '') : cd[k]) === JSON.stringify(up[k]));
-    // rooms that went from in-house to checked out in this export (for the housekeeping push)
+    // rooms that went from in-house to checked out in this export (for the housekeeping day and the push)
     const was = {}; old.forEach((r) => { if (r && r.rid) was[r.rid] = r.stay; });
-    // dorm beds: one guest leaving does not free the room (other beds may still be taken) → no push for dorms (hostel, Nov 27)
-    const out = lines.filter((r) => r.stay === 'out' && was[r.rid] === 'in' && r.room && !/dorm/i.test(r.type)).map((r) => r.room);
+    // dorm beds are included (owner, Nov 28): in Optima every bed is a room of its own (1011 = dorm 101, bed 1), the same id as the app's bed unit
+    const out = lines.filter((r) => r.stay === 'out' && was[r.rid] === 'in' && r.room).map((r) => r.room);
     return { up, same, gone, out, firstTime };
   }
 
+  // Optima checkout → the app's housekeeping day (owner, Nov 28): same as the "ביצוע צ׳ק אאוט" button: an OD/OC room becomes VD.
   async function checkoutPush(h, rooms) {
     if (!rooms.length) return;
     const dd = await db.doc('hkday/' + h).get(), day = (dd.exists && dd.data().date) || ilDate(new Date());
-    const D = (await db.doc('hk/' + h + '__' + day).get()).data() || {}, asg = D.asg || {}, per = {};
-    rooms.forEach((r) => { if (asg[r]) (per[asg[r]] = per[asg[r]] || []).push(r); });
+    const ref = db.doc('hk/' + h + '__' + day), D = (await ref.get()).data() || {}, cl = D.clean || {}, asg = D.asg || {}, now = Date.now();
+    const set = rooms.filter((r) => cl[r] === 'od' || cl[r] === 'oc');          // only rooms the app has as occupied
+    if (set.length) await ref.set({ hotel: h, date: day, updatedAt: now, lastBy: 'optima',
+      clean: Object.fromEntries(set.map((r) => [r, 'vd'])), cleanBy: Object.fromEntries(set.map((r) => [r, 'Optima'])), cleanAt: Object.fromEntries(set.map((r) => [r, now])) }, { merge: true });
+    // the worker of a room that was OD/OC gets the push from onHkVacant (OD/OC → VD); the others (the app did not have it as occupied) get it here
+    const per = {};
+    rooms.filter((r) => !set.includes(r)).forEach((r) => { if (asg[r]) (per[asg[r]] = per[asg[r]] || []).push(r); });
     const hn = await hotelName(h);
     await Promise.all(Object.entries(per).map(([u, rs]) => sendTo([u], { title: rs.length > 1 ? 'חדרים התפנו (צ׳ק אאוט)' : 'החדר התפנה (צ׳ק אאוט)', body: `${hn ? hn + ': ' : ''}חדר ${rs.join(', ')} עשה צ׳ק אאוט, אפשר לנקות`, hash: '#hk', tag: 'optco-' + u + '-' + rs.join('-') })));
+    return { set };
+  }
+
+  // ---------- housekeeping, app → Optima ----------
+  const HK_TO = ['vc'], HK_TTL = 6 * 36e5;   // owner, Nov 28: only the final VC goes to Optima (the VI step stays in the app)
+  const optUnit = (room) => { // app unit → Optima room number: the same number (a dorm bed is 1011 in both). A "101-3" style id would become 1013.
+    const r = String(room || '').trim(), m = r.match(/^(\d{3})\D+(\d)$/);
+    return (m ? m[1] + m[2] : r).replace(/[^\w]/g, '').slice(0, 10);
+  };
+  const hkQueueJobs = (b, a) => { // pure: which rooms changed in the app → { add: [{room,to}], void: [room] }
+    const bc = b.clean || {}, ac = a.clean || {}, add = [], vo = [];
+    for (const [room, v] of Object.entries(ac)) if (bc[room] !== v) (HK_TO.includes(v) ? add : vo).push(HK_TO.includes(v) ? { room, to: v } : room);
+    return { add, void: vo };
+  };
+  const onHkToOptima = functions.region(REGION).firestore.document('hk/{id}').onWrite(async (ch) => {
+    if (!ch.after.exists) return;
+    const a = ch.after.data() || {}, b = ch.before.exists ? ch.before.data() || {} : {};
+    if (!a.hotel || !a.date || a.lastBy === 'optima') return;              // never echo a change that came from Optima
+    const cs = await db.doc('optimacfg/main').get(), cfg = cs.exists ? cs.data() || {} : {};
+    if (!cfg.on || !cfg.hkSync) return;
+    const short = HOTELS.find((h) => String(((cfg.hotelIds || {})[h]) || HOTEL_ID[h]) === a.hotel);
+    if (!short || !cfg.hkSync[short]) return;
+    const dd = await db.doc('hkday/' + a.hotel).get(), day = (dd.exists && dd.data().date) || ilDate(new Date());
+    if (a.date !== day) return;                                            // today's housekeeping day only
+    const j = hkQueueJobs(b, a), now = Date.now(), id = (r) => 'optimaHkQueue/' + short + '__' + a.date + '__' + String(r).replace(/[^\w-]/g, '');
+    await Promise.all([
+      ...j.add.map((x) => db.doc(id(x.room)).set({ hotel: short, hid: a.hotel, date: a.date, room: String(x.room), unit: optUnit(x.room), to: x.to, at: now, status: 'pending', by: String(a.lastBy || '').slice(0, 40) })),
+      ...j.void.map(async (r) => { const d = await db.doc(id(r)).get(); if (d.exists && d.data().status === 'pending') await d.ref.set({ status: 'void', doneAt: now }, { merge: true }); }),
+    ]);
+  });
+  async function hkOps(b, hotel, now, res) {
+    if (b.op === 'hkqueue') { // one equality filter only (no composite index needed); the hotel is filtered here
+      const q = await db.collection('optimaHkQueue').where('status', '==', 'pending').limit(200).get();
+      const items = q.docs.map((d) => ({ id: d.id, ...d.data() })).filter((x) => x.hotel === hotel && x.at > now - HK_TTL && x.unit && HK_TO.includes(x.to)).slice(0, 40).map((x) => ({ id: x.id, room: x.unit, to: x.to }));
+      res.json({ ok: true, items }); return;
+    }
+    const RES = ['done', 'skipped', 'failed']; let n = 0;
+    for (const x of (Array.isArray(b.items) ? b.items : []).slice(0, 60)) {
+      const id = String(x.id || ''); if (!id.startsWith(hotel + '__') || !RES.includes(x.result)) continue;
+      const ref = db.doc('optimaHkQueue/' + id.replace(/[^\w-]/g, '')), d = await ref.get();
+      if (!d.exists || d.data().hotel !== hotel || d.data().status !== 'pending') continue;
+      await ref.set({ status: x.result, doneAt: now, reason: s(x.reason, 60) }, { merge: true }); n++;
+    }
+    await db.doc('optimaState/' + hotel).set({ hkAt: now, hkLastN: n }, { merge: true });
+    res.json({ ok: true, updated: n });
   }
 
   const optimaIngest = functions.region(REGION).runWith({ timeoutSeconds: 120 }).https.onRequest(async (req, res) => {
@@ -78,6 +131,7 @@ module.exports = ({ functions, admin, db, REGION, sendTo, hotelName, ilDate }) =
       const b = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : req.body || {}, now = Date.now();
       if (b.op === 'heartbeat') { await db.doc('optimaState/agent').set({ at: now, agent: s(b.agent, 10), errors: int(b.errors) }, { merge: true }); res.json({ ok: true }); return; }
       if (b.hotel !== hotel) { res.status(403).json({ error: 'hotel' }); return; } // the key belongs to another hotel
+      if (b.op === 'hkqueue' || b.op === 'hkdone') { await hkOps(b, hotel, now, res); return; }
       const hid = String(((cfg.hotelIds || {})[hotel]) || HOTEL_ID[hotel]);
       const snap = +b.snapshotAt || 0;
       if (!(snap > now - 7 * 864e5 && snap < now + 6e5)) { res.status(400).json({ error: 'snapshotAt' }); return; }
@@ -110,5 +164,5 @@ module.exports = ({ functions, admin, db, REGION, sendTo, hotelName, ilDate }) =
     } catch (e) { console.error('optimaIngest', e); res.status(500).json({ error: 'server' }); }
   });
 
-  return { optimaIngest, _t: { merge, cleanItem } };
+  return { optimaIngest, onHkToOptima, _t: { merge, cleanItem, hkQueueJobs, optUnit } };
 };

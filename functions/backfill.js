@@ -229,4 +229,7 @@ const KEYS = ['hotel', 'month', 'date', 'shift', 'name', 'empUid', 'ooo', 'fault
   // Optima housekeeping sync for the hostel (Nov 28, owner): switched on ONCE (marker hkSyncNov28), so a later manual 'off' stays off.
   { const ref = db.doc('optimacfg/main'), d = (await ref.get()).data() || {};
     if (!d.hkSyncNov28) { await ref.set({ hkSync: { hostel: true }, hkSyncNov28: Date.now() }, { merge: true }); console.log('::notice title=Optima::hkSync hostel on (on=' + (d.on === true) + ')'); } }
+  // Optima housekeeping sync for the other 3 hotels (Nov 28, owner): sola, boheme, sevenseas switched on ONCE (marker hkSyncAllNov28).
+  { const ref = db.doc('optimacfg/main'), d = (await ref.get()).data() || {};
+    if (!d.hkSyncAllNov28) { await ref.set({ hkSync: { sola: true, boheme: true, sevenseas: true }, hkSyncAllNov28: Date.now() }, { merge: true }); console.log('::notice title=Optima::hkSync sola/boheme/sevenseas on'); } }
 })().catch((e) => { console.error(e); console.log('::error title=Backfill failed::' + String(e && e.message || e).slice(0, 300)); process.exit(1); });
